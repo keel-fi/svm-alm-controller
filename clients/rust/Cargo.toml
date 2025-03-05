@@ -1,0 +1,13 @@
+[package]
+name = "svm-alm-controller-client"
+description = "Generated client for myproject"
+version = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+name = "svm_alm_controller_client"
+path = "src/lib.rs"
+
+[dependencies]
+borsh = { workspace = true }
+solana-program = { workspace = true }

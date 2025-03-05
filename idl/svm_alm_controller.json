@@ -1,0 +1,73 @@
+{
+  "version": "0.1.0",
+  "name": "svm_alm_controller",
+  "instructions": [
+    {
+      "name": "Initialize",
+      "accounts": [],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Account",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "somePubkey",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Controller",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Permission",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "2NCpU9nsgLfhqKX5CDVz24FfsZ8aRwjgUWtFbPsVZVu2"
+  }
+}
