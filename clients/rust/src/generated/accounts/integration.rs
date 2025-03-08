@@ -11,16 +11,22 @@ use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Account {
+pub struct Integration {
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub some_pubkey: Pubkey,
+    pub controller: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub program: Pubkey,
+    pub status: u8,
 }
 
-impl Account {
-    pub const LEN: usize = 32;
+impl Integration {
+    pub const LEN: usize = 65;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
@@ -29,7 +35,7 @@ impl Account {
     }
 }
 
-impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Account {
+impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Integration {
     type Error = std::io::Error;
 
     fn try_from(
@@ -41,30 +47,30 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Account {
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_account(
+pub fn fetch_integration(
     rpc: &solana_client::rpc_client::RpcClient,
     address: &Pubkey,
-) -> Result<crate::shared::DecodedAccount<Account>, std::io::Error> {
-    let accounts = fetch_all_account(rpc, &[*address])?;
+) -> Result<crate::shared::DecodedAccount<Integration>, std::io::Error> {
+    let accounts = fetch_all_integration(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_account(
+pub fn fetch_all_integration(
     rpc: &solana_client::rpc_client::RpcClient,
     addresses: &[Pubkey],
-) -> Result<Vec<crate::shared::DecodedAccount<Account>>, std::io::Error> {
+) -> Result<Vec<crate::shared::DecodedAccount<Integration>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Account>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Integration>> = Vec::new();
     for i in 0..addresses.len() {
         let address = addresses[i];
         let account = accounts[i].as_ref().ok_or(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("Account not found: {}", address),
         ))?;
-        let data = Account::from_bytes(&account.data)?;
+        let data = Integration::from_bytes(&account.data)?;
         decoded_accounts.push(crate::shared::DecodedAccount {
             address,
             account: account.clone(),
@@ -75,27 +81,27 @@ pub fn fetch_all_account(
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_maybe_account(
+pub fn fetch_maybe_integration(
     rpc: &solana_client::rpc_client::RpcClient,
     address: &Pubkey,
-) -> Result<crate::shared::MaybeAccount<Account>, std::io::Error> {
-    let accounts = fetch_all_maybe_account(rpc, &[*address])?;
+) -> Result<crate::shared::MaybeAccount<Integration>, std::io::Error> {
+    let accounts = fetch_all_maybe_integration(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_maybe_account(
+pub fn fetch_all_maybe_integration(
     rpc: &solana_client::rpc_client::RpcClient,
     addresses: &[Pubkey],
-) -> Result<Vec<crate::shared::MaybeAccount<Account>>, std::io::Error> {
+) -> Result<Vec<crate::shared::MaybeAccount<Integration>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Account>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Integration>> = Vec::new();
     for i in 0..addresses.len() {
         let address = addresses[i];
         if let Some(account) = accounts[i].as_ref() {
-            let data = Account::from_bytes(&account.data)?;
+            let data = Integration::from_bytes(&account.data)?;
             decoded_accounts.push(crate::shared::MaybeAccount::Exists(
                 crate::shared::DecodedAccount {
                     address,
@@ -111,26 +117,26 @@ pub fn fetch_all_maybe_account(
 }
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::AccountDeserialize for Account {
+impl anchor_lang::AccountDeserialize for Integration {
     fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
     }
 }
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::AccountSerialize for Account {}
+impl anchor_lang::AccountSerialize for Integration {}
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::Owner for Account {
+impl anchor_lang::Owner for Integration {
     fn owner() -> Pubkey {
         crate::SVM_ALM_CONTROLLER_ID
     }
 }
 
 #[cfg(feature = "anchor-idl-build")]
-impl anchor_lang::IdlBuild for Account {}
+impl anchor_lang::IdlBuild for Integration {}
 
 #[cfg(feature = "anchor-idl-build")]
-impl anchor_lang::Discriminator for Account {
+impl anchor_lang::Discriminator for Integration {
     const DISCRIMINATOR: [u8; 8] = [0; 8];
 }

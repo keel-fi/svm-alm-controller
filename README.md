@@ -51,3 +51,9 @@ Integration tests are written using [LiteSvm](https://github.com/LiteSVM/litesvm
 ```
 cargo test
 ```
+
+### If running into issues with openssl
+Add environment variables manually to point to a particular version of openssl@3
+```
+OPENSSL_DIR="/usr/local/opt/openssl@3" OPENSSL_INCLUDE_DIR="/usr/local/opt/openssl@3/include" OPENSSL_LIB_DIR="/usr/local/opt/openssl@3/lib" OPENSSL_NO_VENDOR="1" cargo test
+```

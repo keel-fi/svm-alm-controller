@@ -3,28 +3,101 @@
   "name": "svm_alm_controller",
   "instructions": [
     {
-      "name": "Initialize",
-      "accounts": [],
-      "args": [],
+      "name": "InitializeController",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "controller",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "permission",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeControllerArgs",
+          "type": {
+            "defined": "InitializeControllerArgs"
+          }
+        }
+      ],
       "discriminant": {
         "type": "u8",
         "value": 0
       }
+    },
+    {
+      "name": "ManagePermission",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "controller",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "superAuthority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "superPermission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "permission",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "managePermissionArgs",
+          "type": {
+            "defined": "ManagePermissionArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
     }
   ],
   "accounts": [
-    {
-      "name": "Account",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "somePubkey",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
     {
       "name": "Controller",
       "type": {
@@ -37,6 +110,28 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "ControllerStatus"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Integration",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "program",
+            "type": "publicKey"
           },
           {
             "name": "status",
@@ -60,7 +155,119 @@
           },
           {
             "name": "status",
-            "type": "u8"
+            "type": {
+              "defined": "PermissionStatus"
+            }
+          },
+          {
+            "name": "canManagePermissions",
+            "type": "bool"
+          },
+          {
+            "name": "canInvokeExternalTransfer",
+            "type": "bool"
+          },
+          {
+            "name": "canExecuteSwap",
+            "type": "bool"
+          },
+          {
+            "name": "canReallocate",
+            "type": "bool"
+          },
+          {
+            "name": "canFreeze",
+            "type": "bool"
+          },
+          {
+            "name": "canUnfreeze",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "InitializeControllerArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "ControllerStatus"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ManagePermissionArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "status",
+            "type": {
+              "defined": "PermissionStatus"
+            }
+          },
+          {
+            "name": "canManagePermissions",
+            "type": "bool"
+          },
+          {
+            "name": "canInvokeExternalTransfer",
+            "type": "bool"
+          },
+          {
+            "name": "canExecuteSwap",
+            "type": "bool"
+          },
+          {
+            "name": "canReallocate",
+            "type": "bool"
+          },
+          {
+            "name": "canFreeze",
+            "type": "bool"
+          },
+          {
+            "name": "canUnfreeze",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ControllerStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Suspended"
+          },
+          {
+            "name": "Active"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PermissionStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Suspended"
+          },
+          {
+            "name": "Active"
           }
         ]
       }

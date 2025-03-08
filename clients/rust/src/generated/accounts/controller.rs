@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::types::ControllerStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
@@ -13,7 +14,7 @@ use borsh::BorshSerialize;
 pub struct Controller {
     pub id: u16,
     pub bump: u8,
-    pub status: u8,
+    pub status: ControllerStatus,
 }
 
 impl Controller {

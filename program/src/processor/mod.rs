@@ -1,7 +1,7 @@
-pub mod initialize;
 pub mod initialize_controller;
+pub mod manage_permission;
 
-pub use initialize::*;
 pub use initialize_controller::*;
+pub use manage_permission::*;
 
 pub mod shared;

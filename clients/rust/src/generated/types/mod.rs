@@ -5,10 +5,8 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-pub(crate) mod r#controller;
-pub(crate) mod r#integration;
-pub(crate) mod r#permission;
+pub(crate) mod r#controller_status;
+pub(crate) mod r#permission_status;
 
-pub use self::r#controller::*;
-pub use self::r#integration::*;
-pub use self::r#permission::*;
+pub use self::r#controller_status::*;
+pub use self::r#permission_status::*;

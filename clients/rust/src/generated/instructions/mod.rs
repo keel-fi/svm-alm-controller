@@ -5,6 +5,8 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-pub(crate) mod r#initialize;
+pub(crate) mod r#initialize_controller;
+pub(crate) mod r#manage_permission;
 
-pub use self::r#initialize::*;
+pub use self::r#initialize_controller::*;
+pub use self::r#manage_permission::*;

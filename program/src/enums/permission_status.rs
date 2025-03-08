@@ -1,7 +1,11 @@
+use borsh::{BorshDeserialize, BorshSerialize};
+use shank::ShankType;
+
+#[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 #[repr(u8)]
 pub enum PermissionStatus {
-    Suspended = 0,
-    Active = 1,
+    Suspended,
+    Active,
 }
 
 

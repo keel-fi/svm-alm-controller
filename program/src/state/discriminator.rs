@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+
 pub trait Discriminator {
     const DISCRIMINATOR: u8;
 }
@@ -19,7 +20,6 @@ pub trait AccountSerialize: Discriminator {
         let mut data = Vec::new();
         // Discriminator
         data.push(Self::DISCRIMINATOR);
-
         data.extend(self.to_bytes_inner());
 
         data
