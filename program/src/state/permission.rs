@@ -23,6 +23,7 @@ pub struct Permission {
     pub can_reallocate: bool,
     pub can_freeze: bool,
     pub can_unfreeze: bool,
+    pub can_manage_integrations: bool,
 }
 
 impl Discriminator for Permission {
@@ -31,7 +32,7 @@ impl Discriminator for Permission {
 
 impl Permission {
 
-    pub const LEN: usize = 65 +6;
+    pub const LEN: usize = 65 +7;
 
     pub fn verify_pda(
         &self,
@@ -144,6 +145,7 @@ impl Permission {
         can_reallocate: bool,
         can_freeze: bool,
         can_unfreeze: bool,
+        can_manage_integrations: bool,
     ) -> Result<Self, ProgramError> {
         
         // Derive the PDA
@@ -163,6 +165,7 @@ impl Permission {
             can_reallocate,
             can_freeze,
             can_unfreeze,
+            can_manage_integrations,
         };
 
         // Account creation PDA
@@ -199,6 +202,7 @@ impl Permission {
         can_reallocate: Option<bool>,
         can_freeze: Option<bool>,
         can_unfreeze: Option<bool>,
+        can_manage_integrations: Option<bool>,
     ) -> Result<(), ProgramError> {
         
         if let Some(status) = status {
@@ -222,6 +226,9 @@ impl Permission {
         if let Some(can_unfreeze) = can_unfreeze {
             self.can_unfreeze = can_unfreeze;
         }
+        if let Some(can_manage_integrations) = can_manage_integrations {
+            self.can_manage_integrations = can_manage_integrations;
+        }
         // Commit the account on-chain
         self.save(account_info)?;
 
@@ -231,5 +238,15 @@ impl Permission {
     pub fn can_manage_permissions(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_manage_permissions
     }
+
+    pub fn can_manage_integrations(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_manage_integrations
+    }
+
+    pub fn can_reallocate(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_reallocate
+    }
+    
+    
 }
 

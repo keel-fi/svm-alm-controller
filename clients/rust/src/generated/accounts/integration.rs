@@ -5,6 +5,9 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::types::IntegrationConfig;
+use crate::types::IntegrationState;
+use crate::types::IntegrationStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
@@ -17,16 +20,20 @@ pub struct Integration {
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
     pub controller: Pubkey,
+    pub description: [u8; 32],
+    pub hash: [u8; 32],
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub program: Pubkey,
-    pub status: u8,
+    pub lookup_table: Pubkey,
+    pub status: IntegrationStatus,
+    pub config: IntegrationConfig,
+    pub state: IntegrationState,
 }
 
 impl Integration {
-    pub const LEN: usize = 65;
+    pub const LEN: usize = 355;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

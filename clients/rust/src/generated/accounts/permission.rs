@@ -30,10 +30,11 @@ pub struct Permission {
     pub can_reallocate: bool,
     pub can_freeze: bool,
     pub can_unfreeze: bool,
+    pub can_manage_integrations: bool,
 }
 
 impl Permission {
-    pub const LEN: usize = 71;
+    pub const LEN: usize = 72;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

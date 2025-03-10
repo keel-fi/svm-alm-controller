@@ -1,19 +1,25 @@
 use helpers::lite_svm_with_programs;
-use svm_alm_controller_client::instructions::{InitializeControllerBuilder, ManagePermissionBuilder};
+use svm_alm_controller_client::instructions::{InitializeControllerBuilder, ManagePermissionBuilder, InializeIntegrationBuilder};
 use solana_sdk::{signature::Keypair, signer::Signer, transaction::Transaction};
 use solana_sdk::pubkey::Pubkey;
 use svm_alm_controller_client::programs::SVM_ALM_CONTROLLER_ID;
 use solana_sdk::system_program;
-
+use solana_keccak_hasher::hash;
 use borsh::BorshDeserialize;
-use svm_alm_controller_client::{accounts::{Controller, Permission}, types::{ControllerStatus,PermissionStatus}};
-
+use svm_alm_controller_client::{accounts::{Controller, Permission, Integration}, types::{ControllerStatus,PermissionStatus, IntegrationConfig, IntegrationStatus}};
+use pinocchio_token::state::token; 
 mod helpers;
+use helpers::print_inner_instructions;
 
 #[cfg(test)]
 mod tests {
 
 
+
+    use solana_sdk::{feature_set::spl_token_v2_multisig_fix, instruction::AccountMeta, program_pack::Pack, rent::Rent};
+    use svm_alm_controller_client::{instructions::SyncBuilder, types::{IntegrationState, IntegrationType, SplTokenVaultConfig, SplTokenVaultState}};
+
+    use crate::helpers::print_inner_instructions;
 
     use super::*;
 
@@ -43,8 +49,6 @@ mod tests {
             &Pubkey::from(SVM_ALM_CONTROLLER_ID),
         );
     
-    
-        // Create initialization instruction with status 1 (Active)
         let ix = InitializeControllerBuilder::new()
             .id(id) 
             .status(status) 
@@ -58,18 +62,17 @@ mod tests {
         let transaction = Transaction::new_signed_with_payer(
             &[ix],
             Some(&authority.pubkey()),
-            &[&authority],  // Both payer and authority need to sign
+            &[&authority], 
             svm.latest_blockhash(),
         );
 
         let tx_res = svm.send_transaction(transaction).unwrap();
+        // println!("{:#?}", tx_res);
+        // print_inner_instructions(&tx_res);
+
 
         let controller_info = svm.get_account(&controller_pda).unwrap();
         let permission_info = svm.get_account(&permission_pda).unwrap();
-
-    
-        println!("{:?}", controller_info.data);
-        println!("{:?}", permission_info.data);
 
         let controller = Controller::try_from_slice(&controller_info.data[1..]).unwrap(); // TODO: Fix Discriminator
         let permission = Permission::try_from_slice(&permission_info.data[1..]).unwrap(); // TODO: Fix Discriminator
@@ -79,7 +82,8 @@ mod tests {
         assert_eq!(permission.authority, authority.pubkey());
         assert_eq!(permission.controller, controller_pda);
 
-    
+
+
         // MANAGE_PERMISSION - create a new authority
 
   
@@ -95,8 +99,6 @@ mod tests {
             &Pubkey::from(SVM_ALM_CONTROLLER_ID),
         );
     
-    
-        // Create initialization instruction with status 1 (Active)
         let ix = ManagePermissionBuilder::new()
             .status(PermissionStatus::Active) 
             .can_execute_swap(true)
@@ -105,6 +107,7 @@ mod tests {
             .can_reallocate(true)
             .can_freeze(true)
             .can_unfreeze(true)
+            .can_manage_integrations(true)
             .payer(authority.pubkey())
             .controller(controller_pda)
             .super_authority(authority.pubkey())
@@ -122,6 +125,7 @@ mod tests {
         );
 
         let tx_res = svm.send_transaction(transaction).unwrap();
+        
 
         let controller_info = svm.get_account(&controller_pda).unwrap();
         let new_permission_info = svm.get_account(&new_permission_pda).unwrap();
@@ -133,9 +137,9 @@ mod tests {
         let new_permission = Permission::try_from_slice(&new_permission_info.data[1..]).unwrap(); // TODO: Fix Discriminator
 
 
-        println!("{:?}", controller);
-        println!("{:?}", new_permission);
-        println!("{:?}", permission);
+        // println!("{:?}", controller);
+        // println!("{:?}", new_permission);
+        // println!("{:?}", permission);
 
         assert_eq!(new_permission.authority, new_authority.pubkey());
         assert_eq!(new_permission.controller, controller_pda);
@@ -143,6 +147,7 @@ mod tests {
         assert_eq!(new_permission.can_execute_swap, true);
         assert_eq!(new_permission.can_freeze, true);
         assert_eq!(new_permission.can_manage_permissions, true);
+        assert_eq!(new_permission.can_manage_integrations, true);
         assert_eq!(new_permission.can_reallocate, true);
         assert_eq!(new_permission.can_invoke_external_transfer, true);
         assert_eq!(new_permission.can_unfreeze, true);
@@ -151,11 +156,12 @@ mod tests {
         // MANAGE_PERMISSION - update existing (own) permissions
 
 
-        // Create initialization instruction with status 1 (Active)
+    
         let ix = ManagePermissionBuilder::new()
             .status(PermissionStatus::Active) 
             .can_execute_swap(true)
             .can_manage_permissions(true)
+            .can_manage_integrations(true)
             .can_invoke_external_transfer(true)
             .can_reallocate(true)
             .can_freeze(true)
@@ -186,19 +192,227 @@ mod tests {
         let controller = Controller::try_from_slice(&controller_info.data[1..]).unwrap(); // TODO: Fix Discriminator
         let permission = Permission::try_from_slice(&permission_info.data[1..]).unwrap(); // TODO: Fix Discriminator
 
-
-        println!("{:?}", controller);
-        println!("{:?}", permission);
-
         assert_eq!(permission.authority, authority.pubkey());
         assert_eq!(permission.controller, controller_pda);
         assert_eq!(permission.status, PermissionStatus::Active);
         assert_eq!(permission.can_execute_swap, true);
         assert_eq!(permission.can_freeze, true);
         assert_eq!(permission.can_manage_permissions, true);
+        assert_eq!(permission.can_manage_integrations, true);
         assert_eq!(permission.can_reallocate, true);
         assert_eq!(permission.can_invoke_external_transfer, true);
         assert_eq!(permission.can_unfreeze, true);
+
+
+        // CREATE A MINT FOR TESTING 
+
+        let mint_kp = Keypair::new();
+        let mint_pk = mint_kp.pubkey();
+        let mint_len = spl_token::state::Mint::LEN;
+
+        let create_acc_ins = solana_system_interface::instruction::create_account(
+            &authority.pubkey(),
+            &mint_pk,
+            svm.minimum_balance_for_rent_exemption(mint_len),
+            mint_len as u64,
+            &spl_token::id(),
+        );
+
+        let init_mint_ins = spl_token::instruction::initialize_mint2(
+            &spl_token::id(), 
+            &mint_pk, 
+            &authority.pubkey(),
+            None, 
+            6
+        ).unwrap();
+        let tx_result = svm.send_transaction(
+            Transaction::new_signed_with_payer(
+                &[create_acc_ins, init_mint_ins],
+                Some(&authority.pubkey()),
+                &[&authority, &mint_kp],
+                svm.latest_blockhash(),
+            )
+        );
+        assert!(tx_result.is_ok());
+       
+        let mint_acc = svm.get_account(&mint_kp.pubkey());
+        let mint = spl_token::state::Mint::unpack(&mint_acc.unwrap().data).unwrap();
+
+        assert_eq!(mint.decimals, 6);
+        assert_eq!(mint.mint_authority, Some(authority.pubkey()).into());
+    
+
+    
+
+        
+        // INITIALZE INTEGRATION 
+
+        let vault = spl_associated_token_account_client::address::get_associated_token_address(
+            &controller_pda,
+            &mint_pk,
+        );
+
+        let spl_token_program_id = Pubkey::from(pinocchio_token::ID);
+        let spl_token_config = SplTokenVaultConfig{
+            vault: vault, 
+            mint: mint_pk, 
+            program: pinocchio_token::ID.into(), 
+            padding: [0u8;96] 
+        };
+         
+        let spl_token_config_bytes_to_hash: Vec<u8> = [
+            &[1u8][..], // SplTokenVault
+            &spl_token_config.program.to_bytes()[..],
+            &spl_token_config.mint.to_bytes()[..],
+            &spl_token_config.vault.to_bytes()[..],
+            &spl_token_config.padding[..]
+        ].concat();
+        let spl_token_config_hash = hash(spl_token_config_bytes_to_hash.as_slice()).to_bytes();
+
+        let (integration_pda, _integration_bump) = Pubkey::find_program_address(
+            &[
+                b"integration",
+                &controller_pda.to_bytes(),
+                &spl_token_config_hash
+            ],
+            &Pubkey::from(SVM_ALM_CONTROLLER_ID),
+        );
+
+        // Create a fixed-size array with zeros
+        let mut description = [0u8; 32];
+        let source = "USDC VAULT".as_bytes();
+        description[..source.len()].copy_from_slice(source);
+
+
+        let remaining_accounts = [
+            AccountMeta { pubkey: Pubkey::from(spl_token_config.mint), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(spl_token_config.vault), is_signer: false, is_writable: true },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_token::ID), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_associated_token_account::ID), is_signer: false, is_writable: false },
+        ];
+
+        // Create initialization integration instruction
+        let ix = InializeIntegrationBuilder::new()
+            .status(IntegrationStatus::Active) 
+            .description(description)
+            .integration_type(IntegrationType::SplTokenVault)
+            .payer(authority.pubkey())
+            .controller(controller_pda)
+            .authority(authority.pubkey())
+            .permission(permission_pda)
+            .integration(integration_pda)
+            .lookup_table(system_program::ID)
+            .system_program(system_program::ID)
+            .add_remaining_accounts(&remaining_accounts)
+            .instruction();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&authority.pubkey()),
+            &[&authority], 
+            svm.latest_blockhash(),
+        );
+
+        let tx_res = svm.send_transaction(transaction).unwrap();
+
+        let integration_info = svm.get_account(&integration_pda).unwrap();
+        let integration = Integration::try_from_slice(&integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
+
+        println!("{:?}", integration);
+
+        assert_eq!(integration.controller, controller_pda);
+        assert_eq!(integration.config, IntegrationConfig::SplTokenVault(spl_token_config.clone()));
+        assert_eq!(integration.hash, spl_token_config_hash);
+
+        let last_refresh_timestamp = match integration.state {
+            IntegrationState::SplTokenVault(state) => state.last_refresh_timestamp,
+            _ => {
+                eprintln!("Unexpected integration state");
+                return;
+            }
+        };
+
+
+        // MINT TOKENS TO TEST SYNC
+
+        let mint_amount = 1000000;
+
+        let create_ata_ins = spl_associated_token_account_client::instruction::create_associated_token_account_idempotent(
+            &authority.pubkey(),
+            &controller_pda,
+            &mint_pk, 
+            &spl_token::id(), 
+        );
+
+        let mint_to_ins = spl_token::instruction::mint_to(
+            &spl_token::id(), 
+            &mint_pk, 
+            &vault,
+            &authority.pubkey(),
+            &[&authority.pubkey()],
+            mint_amount
+        ).unwrap();
+
+        let tx_result = svm.send_transaction(
+            Transaction::new_signed_with_payer(
+                &[create_ata_ins, mint_to_ins],
+                Some(&authority.pubkey()),
+                &[&authority],
+                svm.latest_blockhash(),
+            )
+        );
+        assert!(tx_result.is_ok());
+       
+        let vault_acc = svm.get_account(&vault);
+        let mint_acc = svm.get_account(&mint_kp.pubkey());
+        let mint_state = spl_token::state::Mint::unpack(&mint_acc.unwrap().data).unwrap();
+        let vault_state = spl_token::state::Account::unpack(&vault_acc.unwrap().data).unwrap();
+
+        assert_eq!(mint_state.supply, mint_amount);
+        assert_eq!(vault_state.amount, mint_amount);
+
+
+            
+        
+        /// TEST SYNC SPL VAULT
+        
+
+        let remaining_accounts = [
+            AccountMeta { pubkey: Pubkey::from(spl_token_config.vault), is_signer: false, is_writable: false },
+        ];
+
+        // Create initialization integration instruction
+        let sync_ix = SyncBuilder::new()
+            .controller(controller_pda)
+            .integration(integration_pda)
+            .add_remaining_accounts(&remaining_accounts)
+            .instruction();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[sync_ix],
+            Some(&authority.pubkey()),
+            &[&authority], 
+            svm.latest_blockhash(),
+        );
+
+        let tx_res = svm.send_transaction(transaction).unwrap();
+        println!("{:#?}", tx_res.logs);
+
+        let integration_info = svm.get_account(&integration_pda).unwrap();
+        let integration = Integration::try_from_slice(&integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
+        println!("{:?}", integration);
+
+        let (current_refresh_timestamp, current_balance) = match integration.state {
+            IntegrationState::SplTokenVault(state) => (state.last_refresh_timestamp, state.last_balance),
+            _ => {
+                eprintln!("Unexpected integration state");
+                return;
+            }
+        };
+
+        // assert_ne!(current_refresh_timestamp, last_refresh_timestamp); // Slot and timestamp don't update in LiteSVM
+        assert_eq!(current_balance, mint_amount);
+
 
     }
 

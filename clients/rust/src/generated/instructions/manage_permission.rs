@@ -44,7 +44,7 @@ impl ManagePermission {
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
         ));
@@ -89,7 +89,7 @@ pub struct ManagePermissionInstructionData {
 
 impl ManagePermissionInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 1 }
+        Self { discriminator: 2 }
     }
 }
 
@@ -109,6 +109,7 @@ pub struct ManagePermissionInstructionArgs {
     pub can_reallocate: bool,
     pub can_freeze: bool,
     pub can_unfreeze: bool,
+    pub can_manage_integrations: bool,
 }
 
 /// Instruction builder for `ManagePermission`.
@@ -116,7 +117,7 @@ pub struct ManagePermissionInstructionArgs {
 /// ### Accounts:
 ///
 ///   0. `[writable, signer]` payer
-///   1. `[writable]` controller
+///   1. `[]` controller
 ///   2. `[signer]` super_authority
 ///   3. `[]` super_permission
 ///   4. `[]` authority
@@ -138,6 +139,7 @@ pub struct ManagePermissionBuilder {
     can_reallocate: Option<bool>,
     can_freeze: Option<bool>,
     can_unfreeze: Option<bool>,
+    can_manage_integrations: Option<bool>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -225,6 +227,11 @@ impl ManagePermissionBuilder {
         self.can_unfreeze = Some(can_unfreeze);
         self
     }
+    #[inline(always)]
+    pub fn can_manage_integrations(&mut self, can_manage_integrations: bool) -> &mut Self {
+        self.can_manage_integrations = Some(can_manage_integrations);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -276,6 +283,10 @@ impl ManagePermissionBuilder {
                 .expect("can_reallocate is not set"),
             can_freeze: self.can_freeze.clone().expect("can_freeze is not set"),
             can_unfreeze: self.can_unfreeze.clone().expect("can_unfreeze is not set"),
+            can_manage_integrations: self
+                .can_manage_integrations
+                .clone()
+                .expect("can_manage_integrations is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -377,7 +388,7 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
             *self.payer.key,
             true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
         ));
@@ -443,7 +454,7 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
 /// ### Accounts:
 ///
 ///   0. `[writable, signer]` payer
-///   1. `[writable]` controller
+///   1. `[]` controller
 ///   2. `[signer]` super_authority
 ///   3. `[]` super_permission
 ///   4. `[]` authority
@@ -472,6 +483,7 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
             can_reallocate: None,
             can_freeze: None,
             can_unfreeze: None,
+            can_manage_integrations: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -567,6 +579,11 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
         self.instruction.can_unfreeze = Some(can_unfreeze);
         self
     }
+    #[inline(always)]
+    pub fn can_manage_integrations(&mut self, can_manage_integrations: bool) -> &mut Self {
+        self.instruction.can_manage_integrations = Some(can_manage_integrations);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -640,6 +657,11 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
                 .can_unfreeze
                 .clone()
                 .expect("can_unfreeze is not set"),
+            can_manage_integrations: self
+                .instruction
+                .can_manage_integrations
+                .clone()
+                .expect("can_manage_integrations is not set"),
         };
         let instruction = ManagePermissionCpi {
             __program: self.instruction.__program,
@@ -692,6 +714,7 @@ struct ManagePermissionCpiBuilderInstruction<'a, 'b> {
     can_reallocate: Option<bool>,
     can_freeze: Option<bool>,
     can_unfreeze: Option<bool>,
+    can_manage_integrations: Option<bool>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

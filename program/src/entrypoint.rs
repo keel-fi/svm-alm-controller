@@ -4,8 +4,11 @@ use pinocchio::{
 };
 
 use crate::processor::{
+    process_emit_event,
     process_initialize_controller,
     process_manage_permission,
+    process_initialize_integration,
+    process_sync,
 };
 
 entrypoint!(process_instruction);
@@ -21,8 +24,12 @@ pub fn process_instruction(
         .ok_or(ProgramError::InvalidInstructionData)?;
 
     match discriminator {
-        0 => process_initialize_controller(program_id, accounts, instruction_data),
-        1 => process_manage_permission(program_id, accounts, instruction_data),
+        0 => process_emit_event(program_id, accounts, instruction_data),
+        1 => process_initialize_controller(program_id, accounts, instruction_data),
+        2 => process_manage_permission(program_id, accounts, instruction_data),
+        3 => process_initialize_integration(program_id, accounts, instruction_data),
+        4 => process_sync(program_id, accounts, instruction_data),
+        // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

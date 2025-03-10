@@ -6,6 +6,7 @@ pub enum SvmAlmControllerErrors {
     Invalid,
     InvalidPda,
     InvalidEnum,
+    InvalidAccountData,
     UnauthorizedAction,
 }
 

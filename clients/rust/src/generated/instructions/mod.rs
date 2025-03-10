@@ -5,8 +5,24 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+pub(crate) mod r#accounting_event;
+pub(crate) mod r#controller_update;
+pub(crate) mod r#emit_event;
+pub(crate) mod r#inialize_integration;
 pub(crate) mod r#initialize_controller;
+pub(crate) mod r#integration_update;
 pub(crate) mod r#manage_permission;
+pub(crate) mod r#permission_update;
+pub(crate) mod r#pull;
+pub(crate) mod r#sync;
 
+pub use self::r#accounting_event::*;
+pub use self::r#controller_update::*;
+pub use self::r#emit_event::*;
+pub use self::r#inialize_integration::*;
 pub use self::r#initialize_controller::*;
+pub use self::r#integration_update::*;
 pub use self::r#manage_permission::*;
+pub use self::r#permission_update::*;
+pub use self::r#pull::*;
+pub use self::r#sync::*;

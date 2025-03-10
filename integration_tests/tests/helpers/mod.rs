@@ -1,4 +1,6 @@
 use litesvm::LiteSVM;
+pub mod logs_parser;
+pub use logs_parser::print_inner_instructions;
 
 /// Get LiteSvm with myproject loaded.
 pub fn lite_svm_with_programs() -> LiteSVM {

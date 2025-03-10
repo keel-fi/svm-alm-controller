@@ -1,10 +1,7 @@
-use borsh::{maybestd::io::Error, BorshDeserialize};
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use borsh::BorshDeserialize;
+use pinocchio::{account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    enums::PermissionStatus, 
-    instructions::InitializeControllerArgs, 
-    processor::shared::{verify_signer, verify_system_account, verify_system_program}, 
-    state::{Controller, Permission}
+    constants::CONTROLLER_SEED, enums::PermissionStatus, events::{ControllerUpdateEvent, SvmAlmControllerEvent}, instructions::InitializeControllerArgs, processor::shared::emit_cpi, state::{Controller, Permission}
 };
 
 pub struct InitializeControllerAccounts<'info> {
@@ -60,7 +57,7 @@ impl<'info> InitializeControllerAccounts<'info> {
 
 
 pub fn process_initialize_controller(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
@@ -75,7 +72,7 @@ pub fn process_initialize_controller(
     
 
     // Initialize the controller data
-    Controller::init_account(
+    let controller = Controller::init_account(
         ctx.controller_info, 
         ctx.payer_info, 
         args.id,
@@ -94,7 +91,25 @@ pub fn process_initialize_controller(
         false,
         false,
         false,
+        false,
         false
+    )?;    
+    // Emit the Event
+    emit_cpi(
+        ctx.controller_info,
+        [
+            Seed::from(CONTROLLER_SEED),
+            Seed::from(&controller.id.to_le_bytes()),
+            Seed::from(&[controller.bump])
+        ],
+        SvmAlmControllerEvent::ControllerUpdate (
+            ControllerUpdateEvent {
+                controller: *ctx.controller_info.key(),
+                authority: *ctx.authority_info.key(),
+                old_state: None,
+                new_state: Some(controller)
+            }
+        )
     )?;
 
     Ok(())

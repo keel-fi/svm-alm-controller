@@ -3,6 +3,92 @@
   "name": "svm_alm_controller",
   "instructions": [
     {
+      "name": "ControllerUpdate",
+      "accounts": [],
+      "args": [
+        {
+          "name": "controllerUpdateEvent",
+          "type": {
+            "defined": "ControllerUpdateEvent"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "PermissionUpdate",
+      "accounts": [],
+      "args": [
+        {
+          "name": "permissionUpdateEvent",
+          "type": {
+            "defined": "PermissionUpdateEvent"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    },
+    {
+      "name": "IntegrationUpdate",
+      "accounts": [],
+      "args": [
+        {
+          "name": "permissionUpdateEvent",
+          "type": {
+            "defined": "PermissionUpdateEvent"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
+      "name": "AccountingEvent",
+      "accounts": [],
+      "args": [
+        {
+          "name": "accountingEvent",
+          "type": {
+            "defined": "AccountingEvent"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "EmitEvent",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "emitEventArgs",
+          "type": {
+            "defined": "EmitEventArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
       "name": "InitializeController",
       "accounts": [
         {
@@ -41,7 +127,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 0
+        "value": 1
       }
     },
     {
@@ -54,7 +140,7 @@
         },
         {
           "name": "controller",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -93,7 +179,123 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 1
+        "value": 2
+      }
+    },
+    {
+      "name": "InializeIntegration",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lookupTable",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeIntegrationArgs",
+          "type": {
+            "defined": "InitializeIntegrationArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "Sync",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "syncArgs",
+          "type": {
+            "defined": "SyncArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    },
+    {
+      "name": "Pull",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "pullArgs",
+          "type": {
+            "defined": "PullArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 5
       }
     }
   ],
@@ -130,12 +332,44 @@
             "type": "publicKey"
           },
           {
-            "name": "program",
+            "name": "description",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lookupTable",
             "type": "publicKey"
           },
           {
             "name": "status",
-            "type": "u8"
+            "type": {
+              "defined": "IntegrationStatus"
+            }
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "IntegrationConfig"
+            }
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": "IntegrationState"
+            }
           }
         ]
       }
@@ -182,12 +416,166 @@
           {
             "name": "canUnfreeze",
             "type": "bool"
+          },
+          {
+            "name": "canManageIntegrations",
+            "type": "bool"
           }
         ]
       }
     }
   ],
   "types": [
+    {
+      "name": "ControllerUpdateEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "oldState",
+            "type": {
+              "option": {
+                "defined": "Controller"
+              }
+            }
+          },
+          {
+            "name": "newState",
+            "type": {
+              "option": {
+                "defined": "Controller"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PermissionUpdateEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "permission",
+            "type": "publicKey"
+          },
+          {
+            "name": "oldState",
+            "type": {
+              "option": {
+                "defined": "Permission"
+              }
+            }
+          },
+          {
+            "name": "newState",
+            "type": {
+              "option": {
+                "defined": "Permission"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "IntegrationUpdateEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "integration",
+            "type": "publicKey"
+          },
+          {
+            "name": "oldState",
+            "type": {
+              "option": {
+                "defined": "Integration"
+              }
+            }
+          },
+          {
+            "name": "newState",
+            "type": {
+              "option": {
+                "defined": "Integration"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AccountingEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "integration",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "action",
+            "type": {
+              "defined": "AccountingAction"
+            }
+          },
+          {
+            "name": "before",
+            "type": "u64"
+          },
+          {
+            "name": "after",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EmitEventArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "data",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
     {
       "name": "InitializeControllerArgs",
       "type": {
@@ -240,6 +628,116 @@
           {
             "name": "canUnfreeze",
             "type": "bool"
+          },
+          {
+            "name": "canManageIntegrations",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeIntegrationArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "integrationType",
+            "type": {
+              "defined": "IntegrationType"
+            }
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "IntegrationStatus"
+            }
+          },
+          {
+            "name": "description",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SyncArgs",
+      "type": {
+        "kind": "struct",
+        "fields": []
+      }
+    },
+    {
+      "name": "PullArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplTokenVaultConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "program",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "vault",
+            "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                96
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplTokenVaultState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastRefreshTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "lastRefreshSlot",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalance",
+            "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
           }
         ]
       }
@@ -259,6 +757,103 @@
       }
     },
     {
+      "name": "IntegrationConfig",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Undefined",
+            "fields": [
+              {
+                "name": "_padding",
+                "type": {
+                  "array": [
+                    "u8",
+                    192
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "SplTokenVault",
+            "fields": [
+              {
+                "defined": "SplTokenVaultConfig"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "IntegrationState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Undefined",
+            "fields": [
+              {
+                "name": "_padding",
+                "type": {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "SplTokenVault",
+            "fields": [
+              {
+                "defined": "SplTokenVaultState"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "IntegrationStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Suspended"
+          },
+          {
+            "name": "Active"
+          }
+        ]
+      }
+    },
+    {
+      "name": "IntegrationType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SplTokenVault"
+          },
+          {
+            "name": "SplTokenExternal"
+          },
+          {
+            "name": "SwapIntent"
+          },
+          {
+            "name": "CctpBridge"
+          },
+          {
+            "name": "LayerZeroBridge"
+          }
+        ]
+      }
+    },
+    {
       "name": "PermissionStatus",
       "type": {
         "kind": "enum",
@@ -268,6 +863,20 @@
           },
           {
             "name": "Active"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AccountingAction",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Sync"
+          },
+          {
+            "name": "ExternalTransfer"
           }
         ]
       }

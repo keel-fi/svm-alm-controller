@@ -5,8 +5,26 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+pub(crate) mod r#accounting_action;
 pub(crate) mod r#controller_status;
+pub(crate) mod r#integration_config;
+pub(crate) mod r#integration_state;
+pub(crate) mod r#integration_status;
+pub(crate) mod r#integration_type;
+pub(crate) mod r#integration_update_event;
 pub(crate) mod r#permission_status;
+pub(crate) mod r#permission_update_event;
+pub(crate) mod r#spl_token_vault_config;
+pub(crate) mod r#spl_token_vault_state;
 
+pub use self::r#accounting_action::*;
 pub use self::r#controller_status::*;
+pub use self::r#integration_config::*;
+pub use self::r#integration_state::*;
+pub use self::r#integration_status::*;
+pub use self::r#integration_type::*;
+pub use self::r#integration_update_event::*;
 pub use self::r#permission_status::*;
+pub use self::r#permission_update_event::*;
+pub use self::r#spl_token_vault_config::*;
+pub use self::r#spl_token_vault_state::*;

@@ -2076,6 +2076,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a8a77bf74e1c4050a2bad53648acfcfbf22b1806473f9c9334a58ef3b38ec4"
 
 [[package]]
+name = "pinocchio-associated-token-account"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d998f46875eb2144e63a9dd3f70df3a4132885497b25c4bedbfab7d14c0628e8"
+dependencies = [
+ "pinocchio",
+ "pinocchio-pubkey",
+]
+
+[[package]]
 name = "pinocchio-log"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2110,6 +2120,16 @@ name = "pinocchio-system"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "691ec8989fcb86fba22f22deb3cae9d440dc174d1735dd785b172349e9cbbb8a"
+dependencies = [
+ "pinocchio",
+ "pinocchio-pubkey",
+]
+
+[[package]]
+name = "pinocchio-token"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d94c71afd8ddf3d2befc8c64e6efc58ede172bb98051c0faa02db8a737c958cd"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
@@ -4660,6 +4680,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "spl-associated-token-account-client"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6f8349dbcbe575f354f9a533a21f272f3eb3808a49e2fdc1c34393b88ba76cb"
+dependencies = [
+ "solana-instruction",
+ "solana-pubkey",
+]
+
+[[package]]
+name = "spl-token"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed320a6c934128d4f7e54fe00e16b8aeaecf215799d060ae14f93378da6dc834"
+dependencies = [
+ "arrayref",
+ "bytemuck",
+ "num-derive",
+ "num-traits",
+ "num_enum",
+ "solana-program",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4687,10 +4732,13 @@ dependencies = [
  "num-derive",
  "num-traits",
  "pinocchio",
+ "pinocchio-associated-token-account",
  "pinocchio-log",
  "pinocchio-pubkey",
  "pinocchio-system",
+ "pinocchio-token",
  "shank",
+ "solana-keccak-hasher",
  "solana-program",
 ]
 
@@ -4710,7 +4758,13 @@ version = "0.1.0"
 dependencies = [
  "borsh 1.5.5",
  "litesvm",
+ "pinocchio-associated-token-account",
+ "pinocchio-token",
+ "solana-keccak-hasher",
  "solana-sdk",
+ "solana-system-interface",
+ "spl-associated-token-account-client",
+ "spl-token",
  "svm-alm-controller-client",
  "test-log",
 ]

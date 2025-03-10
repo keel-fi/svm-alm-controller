@@ -1,10 +1,7 @@
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    error::SvmAlmControllerErrors,
-    instructions::ManagePermissionArgs, 
-    processor::shared::{verify_signer, verify_system_account, verify_system_program}, 
-    state::{Controller, Permission}
+    constants::CONTROLLER_SEED, error::SvmAlmControllerErrors, events::{PermissionUpdateEvent, SvmAlmControllerEvent}, instructions::ManagePermissionArgs, processor::shared::{emit_cpi, verify_system_account}, state::{permission, Controller, Integration, Permission}
 };
 
 
@@ -66,7 +63,7 @@ impl<'info> ManagePermissionAccounts<'info> {
 
 
 pub fn process_manage_permission(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
@@ -79,7 +76,7 @@ pub fn process_manage_permission(
     ).unwrap();
     
     // Load in controller state
-    Controller::load_and_check(
+    let controller = Controller::load_and_check(
         ctx.controller_info, 
     )?;
 
@@ -94,10 +91,12 @@ pub fn process_manage_permission(
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into())
     }
 
+    let mut permission: Permission;
+    let old_state: Option<Permission>;
     if ctx.permission_info.data_is_empty() {
         // Initialize the permission account
         verify_system_account(ctx.permission_info, true)?;
-        Permission::init_account(
+        permission = Permission::init_account(
             ctx.permission_info, 
             ctx.payer_info, 
             *ctx.controller_info.key(),
@@ -109,14 +108,17 @@ pub fn process_manage_permission(
             args.can_reallocate,
             args.can_freeze,
             args.can_unfreeze,
+            args.can_manage_integrations,
         )?;
+        old_state = None;
     } else {
         // Initialize the permission account
-        let mut permission = Permission::load_and_check_mut(
+        permission = Permission::load_and_check_mut(
             ctx.permission_info,
             ctx.controller_info.key(),
             ctx.authority_info.key()
         )?;
+        old_state = Some(permission.clone());
         // Update the permission account and save it
         permission.update_and_save(
             ctx.permission_info,
@@ -127,9 +129,29 @@ pub fn process_manage_permission(
             Some(args.can_reallocate),
             Some(args.can_freeze),
             Some(args.can_unfreeze),
+            Some(args.can_manage_integrations),
         )?;
     }
     
+    // Emit the Event
+    emit_cpi(
+        ctx.controller_info,
+        [
+            Seed::from(CONTROLLER_SEED),
+            Seed::from(&controller.id.to_le_bytes()),
+            Seed::from(&[controller.bump])
+        ],
+        SvmAlmControllerEvent::PermissionUpdate (
+            PermissionUpdateEvent {
+                controller: *ctx.controller_info.key(),
+                permission: *ctx.permission_info.key(),
+                authority: *ctx.authority_info.key(),
+                old_state: old_state,
+                new_state: Some(permission)
+            }
+        )
+    )?;
+
     Ok(())
 }
 

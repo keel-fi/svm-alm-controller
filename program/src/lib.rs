@@ -8,7 +8,9 @@ pub mod state;
 pub mod constants;
 pub mod macros;
 pub mod enums;
+pub mod events;
 pub mod instructions;
+pub mod integrations;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;

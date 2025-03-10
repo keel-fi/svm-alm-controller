@@ -77,7 +77,7 @@ pub struct InitializeControllerInstructionData {
 
 impl InitializeControllerInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 0 }
+        Self { discriminator: 1 }
     }
 }
 

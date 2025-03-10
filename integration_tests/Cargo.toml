@@ -8,6 +8,12 @@ borsh = { workspace = true }
 litesvm = { workspace = true }
 solana-sdk = { workspace = true }
 svm-alm-controller-client = { workspace = true }
+pinocchio-token = { workspace = true }
+pinocchio-associated-token-account = { workspace = true }
+solana-keccak-hasher = { workspace = true}
+spl-token = { workspace = true }
+solana-system-interface = { workspace = true }
+spl-associated-token-account-client = { workspace = true }
 
 [dev-dependencies]
 test-log = "0.2.17"
