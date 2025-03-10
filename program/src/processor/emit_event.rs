@@ -6,7 +6,7 @@ pub fn process_emit_event(
     accounts: &[AccountInfo],
     _instruction_data: &[u8],
 ) -> ProgramResult {
-    msg!("initialize_controller");
+    msg!("emit_cpi");
 
     let [authority_info] = accounts else { return Err(ProgramError::NotEnoughAccountKeys) };
     // The authority must be the signer

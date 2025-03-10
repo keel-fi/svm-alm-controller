@@ -5,9 +5,10 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::PermissionUpdateEvent;
+use crate::accounts::Permission;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use solana_program::pubkey::Pubkey;
 
 /// Accounts.
 #[derive(Debug)]
@@ -61,7 +62,11 @@ impl Default for PermissionUpdateInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PermissionUpdateInstructionArgs {
-    pub permission_update_event: PermissionUpdateEvent,
+    pub authority: Pubkey,
+    pub controller: Pubkey,
+    pub permission: Pubkey,
+    pub old_state: Option<Permission>,
+    pub new_state: Option<Permission>,
 }
 
 /// Instruction builder for `PermissionUpdate`.
@@ -70,7 +75,11 @@ pub struct PermissionUpdateInstructionArgs {
 ///
 #[derive(Clone, Debug, Default)]
 pub struct PermissionUpdateBuilder {
-    permission_update_event: Option<PermissionUpdateEvent>,
+    authority: Option<Pubkey>,
+    controller: Option<Pubkey>,
+    permission: Option<Pubkey>,
+    old_state: Option<Permission>,
+    new_state: Option<Permission>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -79,11 +88,30 @@ impl PermissionUpdateBuilder {
         Self::default()
     }
     #[inline(always)]
-    pub fn permission_update_event(
-        &mut self,
-        permission_update_event: PermissionUpdateEvent,
-    ) -> &mut Self {
-        self.permission_update_event = Some(permission_update_event);
+    pub fn authority(&mut self, authority: Pubkey) -> &mut Self {
+        self.authority = Some(authority);
+        self
+    }
+    #[inline(always)]
+    pub fn controller(&mut self, controller: Pubkey) -> &mut Self {
+        self.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn permission(&mut self, permission: Pubkey) -> &mut Self {
+        self.permission = Some(permission);
+        self
+    }
+    /// `[optional argument]`
+    #[inline(always)]
+    pub fn old_state(&mut self, old_state: Permission) -> &mut Self {
+        self.old_state = Some(old_state);
+        self
+    }
+    /// `[optional argument]`
+    #[inline(always)]
+    pub fn new_state(&mut self, new_state: Permission) -> &mut Self {
+        self.new_state = Some(new_state);
         self
     }
     /// Add an additional account to the instruction.
@@ -108,10 +136,11 @@ impl PermissionUpdateBuilder {
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
         let accounts = PermissionUpdate {};
         let args = PermissionUpdateInstructionArgs {
-            permission_update_event: self
-                .permission_update_event
-                .clone()
-                .expect("permission_update_event is not set"),
+            authority: self.authority.clone().expect("authority is not set"),
+            controller: self.controller.clone().expect("controller is not set"),
+            permission: self.permission.clone().expect("permission is not set"),
+            old_state: self.old_state.clone(),
+            new_state: self.new_state.clone(),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -213,17 +242,40 @@ impl<'a, 'b> PermissionUpdateCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(PermissionUpdateCpiBuilderInstruction {
             __program: program,
-            permission_update_event: None,
+            authority: None,
+            controller: None,
+            permission: None,
+            old_state: None,
+            new_state: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
     }
     #[inline(always)]
-    pub fn permission_update_event(
-        &mut self,
-        permission_update_event: PermissionUpdateEvent,
-    ) -> &mut Self {
-        self.instruction.permission_update_event = Some(permission_update_event);
+    pub fn authority(&mut self, authority: Pubkey) -> &mut Self {
+        self.instruction.authority = Some(authority);
+        self
+    }
+    #[inline(always)]
+    pub fn controller(&mut self, controller: Pubkey) -> &mut Self {
+        self.instruction.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn permission(&mut self, permission: Pubkey) -> &mut Self {
+        self.instruction.permission = Some(permission);
+        self
+    }
+    /// `[optional argument]`
+    #[inline(always)]
+    pub fn old_state(&mut self, old_state: Permission) -> &mut Self {
+        self.instruction.old_state = Some(old_state);
+        self
+    }
+    /// `[optional argument]`
+    #[inline(always)]
+    pub fn new_state(&mut self, new_state: Permission) -> &mut Self {
+        self.instruction.new_state = Some(new_state);
         self
     }
     /// Add an additional account to the instruction.
@@ -268,11 +320,23 @@ impl<'a, 'b> PermissionUpdateCpiBuilder<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
         let args = PermissionUpdateInstructionArgs {
-            permission_update_event: self
+            authority: self
                 .instruction
-                .permission_update_event
+                .authority
                 .clone()
-                .expect("permission_update_event is not set"),
+                .expect("authority is not set"),
+            controller: self
+                .instruction
+                .controller
+                .clone()
+                .expect("controller is not set"),
+            permission: self
+                .instruction
+                .permission
+                .clone()
+                .expect("permission is not set"),
+            old_state: self.instruction.old_state.clone(),
+            new_state: self.instruction.new_state.clone(),
         };
         let instruction = PermissionUpdateCpi {
             __program: self.instruction.__program,
@@ -288,7 +352,11 @@ impl<'a, 'b> PermissionUpdateCpiBuilder<'a, 'b> {
 #[derive(Clone, Debug)]
 struct PermissionUpdateCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
-    permission_update_event: Option<PermissionUpdateEvent>,
+    authority: Option<Pubkey>,
+    controller: Option<Pubkey>,
+    permission: Option<Pubkey>,
+    old_state: Option<Permission>,
+    new_state: Option<Permission>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

@@ -17,7 +17,7 @@ mod tests {
 
 
     use solana_sdk::{feature_set::spl_token_v2_multisig_fix, instruction::AccountMeta, program_pack::Pack, rent::Rent};
-    use svm_alm_controller_client::{instructions::SyncBuilder, types::{IntegrationState, IntegrationType, SplTokenVaultConfig, SplTokenVaultState}};
+    use svm_alm_controller_client::{instructions::{PushBuilder, SyncBuilder}, types::{IntegrationState, IntegrationType, SplTokenExternalConfig, SplTokenVaultConfig, SplTokenVaultState}};
 
     use crate::helpers::print_inner_instructions;
 
@@ -269,7 +269,7 @@ mod tests {
         ].concat();
         let spl_token_config_hash = hash(spl_token_config_bytes_to_hash.as_slice()).to_bytes();
 
-        let (integration_pda, _integration_bump) = Pubkey::find_program_address(
+        let (vault_integration_pda, _integration_bump) = Pubkey::find_program_address(
             &[
                 b"integration",
                 &controller_pda.to_bytes(),
@@ -300,7 +300,7 @@ mod tests {
             .controller(controller_pda)
             .authority(authority.pubkey())
             .permission(permission_pda)
-            .integration(integration_pda)
+            .integration(vault_integration_pda)
             .lookup_table(system_program::ID)
             .system_program(system_program::ID)
             .add_remaining_accounts(&remaining_accounts)
@@ -315,7 +315,7 @@ mod tests {
 
         let tx_res = svm.send_transaction(transaction).unwrap();
 
-        let integration_info = svm.get_account(&integration_pda).unwrap();
+        let integration_info = svm.get_account(&vault_integration_pda).unwrap();
         let integration = Integration::try_from_slice(&integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
 
         println!("{:?}", integration);
@@ -335,7 +335,7 @@ mod tests {
 
         // MINT TOKENS TO TEST SYNC
 
-        let mint_amount = 1000000;
+        let mint_amount = 100_000_000;
 
         let create_ata_ins = spl_associated_token_account_client::instruction::create_associated_token_account_idempotent(
             &authority.pubkey(),
@@ -384,7 +384,7 @@ mod tests {
         // Create initialization integration instruction
         let sync_ix = SyncBuilder::new()
             .controller(controller_pda)
-            .integration(integration_pda)
+            .integration(vault_integration_pda)
             .add_remaining_accounts(&remaining_accounts)
             .instruction();
 
@@ -398,7 +398,7 @@ mod tests {
         let tx_res = svm.send_transaction(transaction).unwrap();
         println!("{:#?}", tx_res.logs);
 
-        let integration_info = svm.get_account(&integration_pda).unwrap();
+        let integration_info = svm.get_account(&vault_integration_pda).unwrap();
         let integration = Integration::try_from_slice(&integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
         println!("{:?}", integration);
 
@@ -414,7 +414,161 @@ mod tests {
         assert_eq!(current_balance, mint_amount);
 
 
+
+          
+        // INITIALZE EXTERNAL INTEGRATION 
+
+        let recipient = Keypair::new();
+        let receipient_token_account = spl_associated_token_account_client::address::get_associated_token_address(
+            &recipient.pubkey(),
+            &mint_pk,
+        );
+
+        let external_config = SplTokenExternalConfig{
+            program: pinocchio_token::ID.into(), 
+            mint: mint_pk, 
+            recipient: recipient.pubkey(),
+            token_account: receipient_token_account, 
+            padding: [0u8;64] 
+        };
+         
+        let external_config_bytes_to_hash: Vec<u8> = [
+            &[2u8][..], // SplTokenExternal
+            &external_config.program.to_bytes()[..],
+            &external_config.mint.to_bytes()[..],
+            &external_config.recipient.to_bytes()[..],
+            &external_config.token_account.to_bytes()[..],
+            &external_config.padding[..]
+        ].concat();
+        let external_config_hash = hash(external_config_bytes_to_hash.as_slice()).to_bytes();
+
+        let (external_integration_pda, _external_integration_bump) = Pubkey::find_program_address(
+            &[
+                b"integration",
+                &controller_pda.to_bytes(),
+                &external_config_hash
+            ],
+            &Pubkey::from(SVM_ALM_CONTROLLER_ID),
+        );
+
+        // Create a fixed-size array with zeros
+        let mut description = [0u8; 32];
+        let source = "USDC COLD WALLET".as_bytes();
+        description[..source.len()].copy_from_slice(source);
+
+
+        let external_initialize_remaining_accounts = [
+            AccountMeta { pubkey: Pubkey::from(external_config.mint), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(external_config.recipient), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(external_config.token_account), is_signer: false, is_writable: true },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_token::ID), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_associated_token_account::ID), is_signer: false, is_writable: false },
+        ];
+
+        // Create initialization integration instruction
+        let ix = InializeIntegrationBuilder::new()
+            .status(IntegrationStatus::Active) 
+            .description(description)
+            .integration_type(IntegrationType::SplTokenExternal)
+            .payer(authority.pubkey())
+            .controller(controller_pda)
+            .authority(authority.pubkey())
+            .permission(permission_pda)
+            .integration(external_integration_pda)
+            .lookup_table(system_program::ID)
+            .system_program(system_program::ID)
+            .add_remaining_accounts(&external_initialize_remaining_accounts)
+            .instruction();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&authority.pubkey()),
+            &[&authority], 
+            svm.latest_blockhash(),
+        );
+
+        let tx_res = svm.send_transaction(transaction).unwrap();
+
+        let external_integration_info = svm.get_account(&external_integration_pda).unwrap();
+        let external_integration = Integration::try_from_slice(&external_integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
+
+        println!("{:?}", external_integration);
+
+        assert_eq!(external_integration.controller, controller_pda);
+        assert_eq!(external_integration.config, IntegrationConfig::SplTokenExternal(external_config.clone()));
+        assert_eq!(external_integration.hash, external_config_hash);
+
+
+
+        // EXTERNAL TRANSFER TO THE COLD WALLET
+        
+
+        let external_push_remaining_accounts = [
+            AccountMeta { pubkey: Pubkey::from(vault_integration_pda), is_signer: false, is_writable: true },
+            AccountMeta { pubkey: Pubkey::from(external_config.mint), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(vault), is_signer: false, is_writable: true },
+            AccountMeta { pubkey: Pubkey::from(external_config.recipient), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(external_config.token_account), is_signer: false, is_writable: true },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_token::ID), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_associated_token_account::ID), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(system_program::ID), is_signer: false, is_writable: false },
+        ];
+    
+        // Create initialization integration instruction
+        let push_amount = 5_000_000;
+        let ix = PushBuilder::new()
+            .amount(push_amount)
+            .controller(controller_pda)
+            .authority(authority.pubkey())
+            .permission(permission_pda)
+            .integration(external_integration_pda)
+            .add_remaining_accounts(&external_push_remaining_accounts)
+            .instruction();
+
+       let transaction = Transaction::new_signed_with_payer(
+           &[ix],
+           Some(&authority.pubkey()),
+           &[&authority], 
+           svm.latest_blockhash(),
+       );
+
+       let tx_res = svm.send_transaction(transaction).unwrap_or_else(|e| {
+           println!("{:#?}", e);
+           panic!();
+       });
+       println!("{:#?}", tx_res.logs);
+
+
+       let external_integration_info = svm.get_account(&external_integration_pda).unwrap();
+       let external_integration = Integration::try_from_slice(&external_integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
+
+       let vault_integration_info = svm.get_account(&vault_integration_pda).unwrap();
+       let vault_integration = Integration::try_from_slice(&vault_integration_info.data[1..]).unwrap(); // TODO: Fix Discriminator
+
+       let vault_acc = svm.get_account(&vault);
+       let recipient_ta_acc = svm.get_account(&receipient_token_account);
+
+       let vault_state = spl_token::state::Account::unpack(&vault_acc.unwrap().data).unwrap();
+       let recipient_ta_state = spl_token::state::Account::unpack(&recipient_ta_acc.unwrap().data).unwrap();
+
+        assert_eq!(vault_state.amount, mint_amount - push_amount);
+        assert_eq!(recipient_ta_state.amount, push_amount);
+
+        println!("{:?}", vault_state.amount);
+        println!("{:?}", recipient_ta_state.amount);
+
+       println!("{:?}", external_integration);
+       println!("{:?}", vault_integration);
+
+       assert_eq!(external_integration.controller, controller_pda);
+       assert_eq!(external_integration.config, IntegrationConfig::SplTokenExternal(external_config.clone()));
+       assert_eq!(external_integration.hash, external_config_hash);
+
+
+
     }
+
+
 
 
 

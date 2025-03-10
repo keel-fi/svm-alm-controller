@@ -10,7 +10,7 @@ use borsh::BorshSerialize;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct Pull {
+pub struct Push {
     pub controller: solana_program::pubkey::Pubkey,
 
     pub authority: solana_program::pubkey::Pubkey,
@@ -20,17 +20,17 @@ pub struct Pull {
     pub integration: solana_program::pubkey::Pubkey,
 }
 
-impl Pull {
+impl Push {
     pub fn instruction(
         &self,
-        args: PullInstructionArgs,
+        args: PushInstructionArgs,
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: PullInstructionArgs,
+        args: PushInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
@@ -51,7 +51,7 @@ impl Pull {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&PullInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&PushInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
@@ -65,17 +65,17 @@ impl Pull {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PullInstructionData {
+pub struct PushInstructionData {
     discriminator: u8,
 }
 
-impl PullInstructionData {
+impl PushInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 6 }
+        Self { discriminator: 5 }
     }
 }
 
-impl Default for PullInstructionData {
+impl Default for PushInstructionData {
     fn default() -> Self {
         Self::new()
     }
@@ -83,11 +83,11 @@ impl Default for PullInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PullInstructionArgs {
+pub struct PushInstructionArgs {
     pub amount: u64,
 }
 
-/// Instruction builder for `Pull`.
+/// Instruction builder for `Push`.
 ///
 /// ### Accounts:
 ///
@@ -96,7 +96,7 @@ pub struct PullInstructionArgs {
 ///   2. `[]` permission
 ///   3. `[writable]` integration
 #[derive(Clone, Debug, Default)]
-pub struct PullBuilder {
+pub struct PushBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
@@ -105,7 +105,7 @@ pub struct PullBuilder {
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl PullBuilder {
+impl PushBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -154,13 +154,13 @@ impl PullBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = Pull {
+        let accounts = Push {
             controller: self.controller.expect("controller is not set"),
             authority: self.authority.expect("authority is not set"),
             permission: self.permission.expect("permission is not set"),
             integration: self.integration.expect("integration is not set"),
         };
-        let args = PullInstructionArgs {
+        let args = PushInstructionArgs {
             amount: self.amount.clone().expect("amount is not set"),
         };
 
@@ -168,8 +168,8 @@ impl PullBuilder {
     }
 }
 
-/// `pull` CPI accounts.
-pub struct PullCpiAccounts<'a, 'b> {
+/// `push` CPI accounts.
+pub struct PushCpiAccounts<'a, 'b> {
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub authority: &'b solana_program::account_info::AccountInfo<'a>,
@@ -179,8 +179,8 @@ pub struct PullCpiAccounts<'a, 'b> {
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-/// `pull` CPI instruction.
-pub struct PullCpi<'a, 'b> {
+/// `push` CPI instruction.
+pub struct PushCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -192,14 +192,14 @@ pub struct PullCpi<'a, 'b> {
 
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
-    pub __args: PullInstructionArgs,
+    pub __args: PushInstructionArgs,
 }
 
-impl<'a, 'b> PullCpi<'a, 'b> {
+impl<'a, 'b> PushCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        accounts: PullCpiAccounts<'a, 'b>,
-        args: PullInstructionArgs,
+        accounts: PushCpiAccounts<'a, 'b>,
+        args: PushInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -267,7 +267,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&PullInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&PushInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
@@ -294,7 +294,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `Pull` via CPI.
+/// Instruction builder for `Push` via CPI.
 ///
 /// ### Accounts:
 ///
@@ -303,13 +303,13 @@ impl<'a, 'b> PullCpi<'a, 'b> {
 ///   2. `[]` permission
 ///   3. `[writable]` integration
 #[derive(Clone, Debug)]
-pub struct PullCpiBuilder<'a, 'b> {
-    instruction: Box<PullCpiBuilderInstruction<'a, 'b>>,
+pub struct PushCpiBuilder<'a, 'b> {
+    instruction: Box<PushCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> PullCpiBuilder<'a, 'b> {
+impl<'a, 'b> PushCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(PullCpiBuilderInstruction {
+        let instruction = Box::new(PushCpiBuilderInstruction {
             __program: program,
             controller: None,
             authority: None,
@@ -398,10 +398,10 @@ impl<'a, 'b> PullCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = PullInstructionArgs {
+        let args = PushInstructionArgs {
             amount: self.instruction.amount.clone().expect("amount is not set"),
         };
-        let instruction = PullCpi {
+        let instruction = PushCpi {
             __program: self.instruction.__program,
 
             controller: self.instruction.controller.expect("controller is not set"),
@@ -424,7 +424,7 @@ impl<'a, 'b> PullCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct PullCpiBuilderInstruction<'a, 'b> {
+struct PushCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,

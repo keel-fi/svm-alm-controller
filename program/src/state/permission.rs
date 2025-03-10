@@ -246,6 +246,11 @@ impl Permission {
     pub fn can_reallocate(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_reallocate
     }
+
+    pub fn can_invoke_external_transfer(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_invoke_external_transfer
+    }
+
     
     
 }

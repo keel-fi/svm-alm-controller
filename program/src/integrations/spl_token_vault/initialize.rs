@@ -5,7 +5,7 @@ use pinocchio::{
     pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}, 
 };
 use crate::{
-    enums::{IntegrationConfig, IntegrationState}, integrations::spl_token_vault::{config::SplTokenVaultConfig, state::SplTokenVaultState}, processor::InitializeIntegrationAccounts
+    enums::{IntegrationConfig, IntegrationState}, instructions::InitializeIntegrationArgs, integrations::spl_token_vault::{config::SplTokenVaultConfig, state::SplTokenVaultState}, processor::InitializeIntegrationAccounts
 };
 use pinocchio_token::{self, state::{Mint, TokenAccount}};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
@@ -63,6 +63,7 @@ impl<'info> InitializeSplTokenVaultAccounts<'info> {
 
 pub fn process_initialize_spl_token_vault(
     outer_ctx: &InitializeIntegrationAccounts,
+    _outer_args: &InitializeIntegrationArgs
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_spl_token_vault");
 

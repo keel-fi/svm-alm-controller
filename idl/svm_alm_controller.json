@@ -39,9 +39,9 @@
       "accounts": [],
       "args": [
         {
-          "name": "permissionUpdateEvent",
+          "name": "integrationUpdateEvent",
           "type": {
-            "defined": "PermissionUpdateEvent"
+            "defined": "IntegrationUpdateEvent"
           }
         }
       ],
@@ -262,6 +262,43 @@
       }
     },
     {
+      "name": "Push",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "pushArgs",
+          "type": {
+            "defined": "PushArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 5
+      }
+    },
+    {
       "name": "Pull",
       "accounts": [
         {
@@ -295,7 +332,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 5
+        "value": 6
       }
     }
   ],
@@ -673,6 +710,18 @@
       }
     },
     {
+      "name": "PushArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "PullArgs",
       "type": {
         "kind": "struct",
@@ -680,6 +729,56 @@
           {
             "name": "amount",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplTokenExternalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "program",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "recipient",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplTokenExternalState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
@@ -782,6 +881,14 @@
                 "defined": "SplTokenVaultConfig"
               }
             ]
+          },
+          {
+            "name": "SplTokenExternal",
+            "fields": [
+              {
+                "defined": "SplTokenExternalConfig"
+              }
+            ]
           }
         ]
       }
@@ -810,6 +917,14 @@
             "fields": [
               {
                 "defined": "SplTokenVaultState"
+              }
+            ]
+          },
+          {
+            "name": "SplTokenExternal",
+            "fields": [
+              {
+                "defined": "SplTokenExternalState"
               }
             ]
           }

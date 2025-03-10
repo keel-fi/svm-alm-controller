@@ -1,7 +1,17 @@
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    constants::{ADDRESS_LOOKUP_TABLE_PROGRAM_ID, CONTROLLER_SEED}, enums::IntegrationType, error::SvmAlmControllerErrors, events::{IntegrationUpdateEvent, SvmAlmControllerEvent}, instructions::InitializeIntegrationArgs, integrations::spl_token_vault::initialize::process_initialize_spl_token_vault, processor::shared::emit_cpi, state::{Controller, Integration, Permission}
+    constants::{ADDRESS_LOOKUP_TABLE_PROGRAM_ID, CONTROLLER_SEED}, 
+    enums::IntegrationType, 
+    error::SvmAlmControllerErrors, 
+    events::{IntegrationUpdateEvent, SvmAlmControllerEvent}, 
+    instructions::InitializeIntegrationArgs, 
+    integrations::{
+        spl_token_vault::initialize::process_initialize_spl_token_vault, 
+        spl_token_external::initialize::process_initialize_spl_token_external,
+    },
+    processor::shared::emit_cpi, 
+    state::{Controller, Integration, Permission}
 };
 
 
@@ -107,7 +117,8 @@ pub fn process_initialize_integration(
     }
 
     let (config, state) = match args.integration_type {
-        IntegrationType::SplTokenVault => { process_initialize_spl_token_vault(&ctx)? },
+        IntegrationType::SplTokenVault => { process_initialize_spl_token_vault(&ctx, &args)? },
+        IntegrationType::SplTokenExternal => { process_initialize_spl_token_external(&ctx, &args)? },
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument)
     };

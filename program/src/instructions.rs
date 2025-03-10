@@ -46,6 +46,13 @@ pub enum SvmAlmControllerInstruction {
     #[account(1, writable, name = "integration")]
     Sync(SyncArgs),
 
+    /// Push 
+    #[account(0, name = "controller")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "permission")]
+    #[account(3, writable, name = "integration")]
+    Push(PushArgs),
+
     /// Pull 
     #[account(0, name = "controller")]
     #[account(1, signer, name = "authority")]
@@ -87,6 +94,12 @@ pub struct InitializeIntegrationArgs {
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct SyncArgs {}
+
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct PushArgs {
+    pub amount: u64
+}
 
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

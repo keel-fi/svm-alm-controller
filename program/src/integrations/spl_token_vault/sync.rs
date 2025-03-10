@@ -89,16 +89,16 @@ pub fn process_sync_spl_token_vault(
         _ => return Err(ProgramError::InvalidAccountData.into())
     }
 
-    let mint = match integration.config {
+    let mint_key = match integration.config {
         IntegrationConfig::SplTokenVault(config) => { config.mint },
         _ => return Err(ProgramError::InvalidAccountData.into())
     };
 
     // Prevent spamming/ddos attacks -- since the sync ixn is permissionless
     //  calling this repeatedly could bombard the program and indevers
-    // if new_balance == previous_balance {
-    //     return Err(ProgramError::InvalidInstructionData.into())
-    // }
+    if new_balance == previous_balance {
+        return Err(ProgramError::InvalidInstructionData.into())
+    }
 
 
     // Emit the accounting event
@@ -113,7 +113,7 @@ pub fn process_sync_spl_token_vault(
             AccountingEvent {
                 controller: *outer_ctx.controller_info.key(),
                 integration: *outer_ctx.integration_info.key(),
-                mint: mint,
+                mint: mint_key,
                 action: AccountingAction::Sync,
                 before: previous_balance,
                 after: new_balance

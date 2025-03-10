@@ -2,29 +2,14 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio_log::log;
 use shank::ShankType;
 use solana_keccak_hasher::hash;
-use crate::integrations::spl_token_vault::config::SplTokenVaultConfig;
+use crate::integrations::{spl_token_external::config::SplTokenExternalConfig, spl_token_vault::config::SplTokenVaultConfig};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 #[repr(u8)]
 pub enum IntegrationConfig {
-    Undefined {
-        _padding: [u8; 192]
-    },
-    SplTokenVault(SplTokenVaultConfig)
-    // SplTokenVault {
-    //     program: Pubkey,
-    //     inbound_token_account: Pubkey, // ATA
-    //     vault_token_account: Pubkey,
-    //     token_mint: Pubkey,
-    //     _padding: [u8; 64]
-    // },
-    // SplTokenExternal {
-    //     program: Pubkey,
-    //     authority: Pubkey,
-    //     token_account: Pubkey,
-    //     token_mint: Pubkey,
-    //     _padding: [u8; 64]
-    // },
+    Undefined {_padding: [u8; 192]},
+    SplTokenVault(SplTokenVaultConfig),
+    SplTokenExternal(SplTokenExternalConfig),
     // SwapIntent {
     //     program: Pubkey,
     //     from_token_mint: Pubkey,

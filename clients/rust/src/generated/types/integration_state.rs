@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::types::SplTokenExternalState;
 use crate::types::SplTokenVaultState;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
@@ -14,4 +15,5 @@ use borsh::BorshSerialize;
 pub enum IntegrationState {
     Undefined { padding: [u8; 32] },
     SplTokenVault(SplTokenVaultState),
+    SplTokenExternal(SplTokenExternalState),
 }
