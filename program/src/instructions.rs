@@ -97,14 +97,18 @@ pub struct SyncArgs {}
 
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct PushArgs {
-    pub amount: u64
+pub enum PushArgs {
+    SplTokenVault,
+    SplTokenExternal { amount: u64 },
+    SplTokenSwap { amount_a: u64, amount_b: u64 },
 }
 
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct PullArgs {
-    pub amount: u64
+pub enum PullArgs {
+    SplTokenVault,
+    SplTokenExternal,
+    SplTokenSwap { amount_a: u64, amount_b: u64 },
 }
 
 

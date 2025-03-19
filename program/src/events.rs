@@ -58,4 +58,7 @@ pub struct AccountingEvent {
 pub enum AccountingAction {
     Sync,
     ExternalTransfer,
+    Deposit,
+    Withdrawal,
+    Rebalance,
 }

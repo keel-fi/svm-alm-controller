@@ -155,43 +155,46 @@ pub fn process_sync_spl_token_vault(
         step_1_balance_b = 0u64;
     }
     // Emit the accounting events for the change in A and B's relative balances
-    emit_cpi(
-        outer_ctx.controller_info,
-        [
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller.id.to_le_bytes()),
-            Seed::from(&[controller.bump])
-        ],
-        SvmAlmControllerEvent::AccountingEvent (
-            AccountingEvent {
-                controller: *outer_ctx.controller_info.key(),
-                integration: *outer_ctx.integration_info.key(),
-                mint: mint_a_key,
-                action: AccountingAction::Sync,
-                before: last_balance_a,
-                after: step_1_balance_a
-            }
-        )
-    )?;
-    emit_cpi(
-        outer_ctx.controller_info,
-        [
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller.id.to_le_bytes()),
-            Seed::from(&[controller.bump])
-        ],
-        SvmAlmControllerEvent::AccountingEvent (
-            AccountingEvent {
-                controller: *outer_ctx.controller_info.key(),
-                integration: *outer_ctx.integration_info.key(),
-                mint: mint_b_key,
-                action: AccountingAction::Sync,
-                before: last_balance_b,
-                after: step_1_balance_b
-            }
-        )
-    )?;
-
+    if last_balance_a != step_1_balance_a {
+        emit_cpi(
+            outer_ctx.controller_info,
+            [
+                Seed::from(CONTROLLER_SEED),
+                Seed::from(&controller.id.to_le_bytes()),
+                Seed::from(&[controller.bump])
+            ],
+            SvmAlmControllerEvent::AccountingEvent (
+                AccountingEvent {
+                    controller: *outer_ctx.controller_info.key(),
+                    integration: *outer_ctx.integration_info.key(),
+                    mint: mint_a_key,
+                    action: AccountingAction::Sync,
+                    before: last_balance_a,
+                    after: step_1_balance_a
+                }
+            )
+        )?;
+    }
+    if last_balance_b != step_1_balance_b {
+        emit_cpi(
+            outer_ctx.controller_info,
+            [
+                Seed::from(CONTROLLER_SEED),
+                Seed::from(&controller.id.to_le_bytes()),
+                Seed::from(&[controller.bump])
+            ],
+            SvmAlmControllerEvent::AccountingEvent (
+                AccountingEvent {
+                    controller: *outer_ctx.controller_info.key(),
+                    integration: *outer_ctx.integration_info.key(),
+                    mint: mint_b_key,
+                    action: AccountingAction::Sync,
+                    before: last_balance_b,
+                    after: step_1_balance_b
+                }
+            )
+        )?;
+    }
 
 
     // Load in the vault, since it could have an opening balance

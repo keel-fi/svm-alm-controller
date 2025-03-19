@@ -119,7 +119,11 @@ pub fn process_push_spl_token_external(
     // Get the current slot and time
     let clock = Clock::get()?;
 
-    if outer_args.amount == 0 {
+    let amount = match outer_args {
+        PushArgs::SplTokenExternal { amount } => { *amount },
+        _ => return Err(ProgramError::InvalidAccountData)
+    };
+    if amount == 0 {
         msg!{"amount: must be > 0"};
         return Err(ProgramError::InvalidArgument);
     }
@@ -228,7 +232,7 @@ pub fn process_push_spl_token_external(
         from: inner_ctx.vault,
         to: inner_ctx.recipient_token_account,
         authority: outer_ctx.controller_info,
-        amount: outer_args.amount,
+        amount: amount,
     }.invoke_signed(
         &[
             Signer::from(
@@ -247,7 +251,7 @@ pub fn process_push_spl_token_external(
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let post_transfer_balance = vault.amount();
     let check_delta = post_sync_balance.checked_sub(post_transfer_balance).unwrap();
-    if check_delta != outer_args.amount {
+    if check_delta != amount {
         msg!{"check_delta: transfer did not match the vault balance change"};
         return Err(ProgramError::InvalidArgument);
     }
