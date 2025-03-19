@@ -102,7 +102,7 @@ pub fn process_initialize_spl_token_external(
 
     // Create the initial integration state
     let state = IntegrationState::SplTokenExternal(
-        SplTokenExternalState {_padding: [0u8;32]}
+        SplTokenExternalState {_padding: [0u8;48]}
     );
 
     Ok((config, state))

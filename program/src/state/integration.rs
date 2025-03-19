@@ -38,7 +38,7 @@ impl Discriminator for Integration {
 
 impl Integration {
 
-    pub const LEN: usize = 4*32 + 1 + 193 + 33;
+    pub const LEN: usize = 4*32 + 1 + 193 + 49;
 
     pub fn verify_pda(
         &self,

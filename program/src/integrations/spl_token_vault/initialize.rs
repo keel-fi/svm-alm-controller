@@ -106,7 +106,7 @@ pub fn process_initialize_spl_token_vault(
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
             last_balance: vault.amount(),
-            _padding: [0u8;8]
+            _padding: [0u8;24]
         }
     );
 

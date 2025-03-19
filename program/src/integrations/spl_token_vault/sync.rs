@@ -8,11 +8,11 @@ use crate::{
 use pinocchio_token::{self, state::TokenAccount};
 
 
-pub struct PullSplTokenVaultAccounts<'info> {
+pub struct SyncSplTokenVaultAccounts<'info> {
     pub vault: &'info AccountInfo,
 }
 
-impl<'info> PullSplTokenVaultAccounts<'info> {
+impl<'info> SyncSplTokenVaultAccounts<'info> {
 
     pub fn checked_from_accounts(
         controller: &Pubkey,
@@ -64,7 +64,7 @@ pub fn process_sync_spl_token_vault(
 
     msg!("process_sync_spl_token_vault");
 
-    let inner_ctx = PullSplTokenVaultAccounts::checked_from_accounts(
+    let inner_ctx = SyncSplTokenVaultAccounts::checked_from_accounts(
         outer_ctx.controller_info.key(),
         &integration.config,
         outer_ctx.remaining_accounts
