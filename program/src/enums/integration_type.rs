@@ -9,6 +9,6 @@ pub enum IntegrationType {
     SplTokenSwap,
     CctpBridge,
     SwapIntent,
-    LayerZeroBridge,
+    LzBridge,
 }
 

@@ -2,7 +2,10 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
 use solana_keccak_hasher::hash;
 use crate::integrations::{
-    cctp_bridge::config::CctpBridgeConfig, spl_token_external::config::SplTokenExternalConfig, spl_token_swap::config::SplTokenSwapConfig,
+    cctp_bridge::config::CctpBridgeConfig, 
+    spl_token_external::config::SplTokenExternalConfig, 
+    spl_token_swap::config::SplTokenSwapConfig,
+    lz_bridge::config::LzBridgeConfig
 };
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
@@ -12,30 +15,8 @@ pub enum IntegrationConfig {
     SplTokenExternal(SplTokenExternalConfig),
     SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),
-    // SwapIntent {
-    //     program: Pubkey,
-    //     from_token_mint: Pubkey,
-    //     to_token_mint: Pubkey,
-    //     oracle: Pubkey,
-    //     _padding: [u8; 64]
-    // },
-    // CctpBridge {
-    //     program: Pubkey,
-    //     token_mint: Pubkey,
-    //     inbount_token_account: Pubkey,
-    //     destination_domain: u32,
-    //     destination_address: Pubkey,
-    //     _padding: [u8; 60]
-    // },
-    // LayerZeroBridge {
-    //     program: Pubkey,
-    //     token_mint: Pubkey,
-    //     inbount_token_account: Pubkey,
-    //     destination_domain: u32,
-    //     mint_recipient: Pubkey,
-    //     destination_caller: Pubkey,
-    //     _padding: [u8; 28]
-    // }
+    LzBridge(LzBridgeConfig),
+
 }
 
 impl IntegrationConfig {

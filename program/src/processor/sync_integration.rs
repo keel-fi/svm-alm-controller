@@ -1,9 +1,5 @@
 use pinocchio::{
-    account_info::AccountInfo, 
-    msg, 
-    program_error::ProgramError, 
-    pubkey::Pubkey, 
-    ProgramResult
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{Sysvar, clock::Clock}, ProgramResult
 };
 use crate::{
     enums::IntegrationConfig, 
@@ -52,7 +48,9 @@ pub fn process_sync_integration(
     accounts: &[AccountInfo],
     _instruction_data: &[u8],
 ) -> ProgramResult {
-    msg!("sync");
+    msg!("process_sync_integration");
+
+    let clock = Clock::get()?;
 
     let ctx = SyncIntegrationAccounts::from_accounts(accounts)?;
  
@@ -67,6 +65,11 @@ pub fn process_sync_integration(
         ctx.controller.key(), 
     )?;
 
+    // Refresh the rate limits
+    integration.refresh_rate_limit(clock)?;
+
+    // Depending on the integration, there may be an 
+    //  inner (integration-specific) sync logic to call
     match integration.config {
         IntegrationConfig::SplTokenSwap(_config) => { 
             process_sync_spl_token_swap(&controller, &mut integration, &ctx)? 
@@ -74,7 +77,7 @@ pub fn process_sync_integration(
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument)
     };
-
+ 
     // Save the account
     integration.save(ctx.integration)?;
     

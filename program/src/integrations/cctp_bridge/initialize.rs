@@ -84,7 +84,7 @@ pub fn process_initialize_cctp_bridge(
     let config = IntegrationConfig::CctpBridge(
         CctpBridgeConfig {
             program: Pubkey::from(*inner_ctx.cctp_program.key()),
-            mint: Pubkey::from(*inner_ctx.cctp_program.key()),
+            mint: Pubkey::from(*inner_ctx.mint.key()),
             destination_address: Pubkey::from(desination_address),
             destination_domain: desination_domain,
             _padding: [0u8; 92]

@@ -4,6 +4,7 @@ use crate::integrations::{
     cctp_bridge::state::CctpBridgeState, 
     spl_token_external::state::SplTokenExternalState, 
     spl_token_swap::state::SplTokenSwapState, 
+    lz_bridge::state::LzBridgeState
 };
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
@@ -12,7 +13,8 @@ pub enum IntegrationState {
     Undefined { _padding: [u8; 48] },
     SplTokenExternal(SplTokenExternalState),
     SplTokenSwap(SplTokenSwapState),
-    CctpBridge(CctpBridgeState)
+    CctpBridge(CctpBridgeState),
+    LzBridge(LzBridgeState)
 }
 
 

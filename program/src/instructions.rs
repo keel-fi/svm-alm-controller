@@ -158,7 +158,8 @@ pub struct ManageIntegrationArgs {
 pub enum InitializeArgs {
     SplTokenExternal,
     SplTokenSwap,
-    CctpBridge { desination_address: Pubkey, desination_domain: u32, }
+    CctpBridge { desination_address: Pubkey, desination_domain: u32, },
+    LzBridge { desination_address: Pubkey, destination_eid: u32, }
 }
 
 
@@ -174,6 +175,7 @@ pub enum PushArgs {
     SplTokenExternal { amount: u64 },
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge { amount: u64 },
+    LzBridge { amount: u64 },
 }
 
 
@@ -182,6 +184,7 @@ pub enum PullArgs {
     SplTokenExternal,
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge,
+    LzBridge,
 }
 
 
