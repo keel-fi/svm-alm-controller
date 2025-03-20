@@ -1,13 +1,11 @@
 use pinocchio::{
     account_info::AccountInfo, 
-    instruction::{Seed, Signer}, 
     msg, 
     program_error::ProgramError, 
     sysvars::{clock::Clock, Sysvar} 
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use crate::{
-    constants::CONTROLLER_SEED, 
     enums::IntegrationConfig, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
@@ -16,7 +14,6 @@ use crate::{
 };
 use pinocchio_token::{
     self, 
-    instructions::Transfer, 
     state::TokenAccount
 };
 
@@ -164,25 +161,12 @@ pub fn process_push_spl_token_external(
         token_program: inner_ctx.token_program,
     }.invoke()?;
 
-
     // Perform the transfer
-    let controller_id_bytes = controller.id.to_le_bytes();
-    let controller_bump = controller.bump;
-    Transfer{
-        from: inner_ctx.vault,
-        to: inner_ctx.recipient_token_account,
-        authority: outer_ctx.controller,
-        amount: amount,
-    }.invoke_signed(
-        &[
-            Signer::from(
-                &[
-                    Seed::from(CONTROLLER_SEED),
-                    Seed::from(&controller_id_bytes),
-                    Seed::from(&[controller_bump])
-                ]
-            )
-        ]
+    controller.transfer_tokens(
+        outer_ctx.controller, 
+        inner_ctx.vault, 
+        inner_ctx.recipient_token_account,
+        amount
     )?;
     
     // Reload the vault account to check it's balance
@@ -193,6 +177,11 @@ pub fn process_push_spl_token_external(
         msg!{"check_delta: transfer did not match the vault balance change"};
         return Err(ProgramError::InvalidArgument);
     }
+
+    // Update the rate limit for the outflow
+    integration.update_rate_limit_for_outflow(clock, amount)?;
+
+    // No state transitions for SplTokenExternal
 
     // Update reserve balance and rate limits for the outflow
     reserve.update_for_outflow(clock, amount)?;

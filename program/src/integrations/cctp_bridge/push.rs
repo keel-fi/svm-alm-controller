@@ -224,6 +224,11 @@ pub fn process_push_cctp_bridge(
         return Err(ProgramError::InvalidArgument);
     }
 
+    // Update the rate limit for the outflow
+    integration.update_rate_limit_for_outflow(clock, amount)?;
+
+    // No state transitions for CctpBridge
+
     // Update the reserve for the outflow
     reserve.update_for_outflow(clock, amount)?;
 

@@ -3,7 +3,7 @@ use pinocchio::{
     account_info::AccountInfo, 
     msg, 
     program_error::ProgramError, 
-    pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}, 
+    pubkey::Pubkey, 
 };
 use crate::{
     enums::{IntegrationConfig, IntegrationState}, 
@@ -184,9 +184,6 @@ pub fn process_initialize_spl_token_swap(
             lp_token_account: Pubkey::from(*inner_ctx.lp_token_account.key()),
         }
     );
-
-    // Get the current slot and time
-    let clock = Clock::get()?;
     
     // Load in the vault, since it could have an opening balance
     let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
@@ -206,14 +203,13 @@ pub fn process_initialize_spl_token_swap(
     // Create the initial integration state
     let state = IntegrationState::SplTokenSwap(
         SplTokenSwapState {
-            last_refresh_timestamp: clock.unix_timestamp,
-            last_refresh_slot: clock.slot,
             last_balance_a: last_balance_a,
             last_balance_b: last_balance_b,
             last_balance_lp: last_balance_lp as u64,
-            _padding: [0u8;8]
+            _padding: [0u8;24]
         }
     );
+
 
     Ok((config, state))
 

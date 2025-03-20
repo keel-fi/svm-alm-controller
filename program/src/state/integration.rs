@@ -3,18 +3,14 @@ use alloc::vec::Vec;
 use shank::ShankAccount;
 use crate::{
     acc_info_as_str,
-    constants::INTEGRATION_SEED, 
+    constants::{INTEGRATION_SEED, SECONDS_PER_DAY}, 
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus}, 
     processor::shared::create_pda_account
 };
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 use pinocchio::{
-    account_info::AccountInfo, 
-    instruction::Seed, 
-    program_error::ProgramError, 
-    pubkey::Pubkey, 
-    sysvars::{rent::Rent, Sysvar}
+    account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{clock::Clock, rent::Rent, Sysvar}
 };
 use pinocchio_log::log;
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -28,11 +24,13 @@ pub struct Integration {
     pub hash: [u8;32],
     pub lookup_table: Pubkey,
     pub status: IntegrationStatus,
+    pub rate_limit_slope: u64,
+    pub rate_limit_max_outflow: u64,
+    pub rate_limit_amount_last_update: u64,
+    pub last_refresh_timestamp: i64,
+    pub last_refresh_slot: u64, 
     pub config: IntegrationConfig,
     pub state: IntegrationState,
-
-    // TODO: Rate Limiting
-    // TODO: Track and freeze program upgrades
 }
 
 
@@ -42,7 +40,7 @@ impl Discriminator for Integration {
 
 impl Integration {
 
-    pub const LEN: usize = 4*32 + 1 + 193 + 49;
+    pub const LEN: usize = 4*32 + 1 + 193 + 49 + 8*5;
 
     pub fn verify_pda(
         &self,
@@ -148,8 +146,11 @@ impl Integration {
         state: IntegrationState,
         description: [u8;32],
         lookup_table: Pubkey,
+        rate_limit_slope: u64,
+        rate_limit_max_outflow: u64,
     ) -> Result<Self, ProgramError> {
         
+        let clock = Clock::get()?;
         // Derive the hash for this config
         let hash = config.hash();
 
@@ -167,7 +168,12 @@ impl Integration {
             lookup_table,
             description,
             config,
-            state
+            state,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            rate_limit_amount_last_update: rate_limit_max_outflow,
+            last_refresh_timestamp: clock.unix_timestamp,
+            last_refresh_slot: clock.slot, 
         };
 
         // Account creation PDA
@@ -198,7 +204,9 @@ impl Integration {
         &mut self,
         account_info: &AccountInfo,
         status: Option<IntegrationStatus>,
-        lookup_table: Option<Pubkey>
+        lookup_table: Option<Pubkey>,
+        rate_limit_slope: Option<u64>,
+        rate_limit_max_outflow: Option<u64>,
     ) -> Result<(), ProgramError> {
         
         if let Some(status) = status {
@@ -207,15 +215,66 @@ impl Integration {
         if let Some(lookup_table) = lookup_table {
             self.lookup_table = lookup_table;
         }
+        if let Some(rate_limit_slope) = rate_limit_slope {
+            self.rate_limit_slope = rate_limit_slope;
+        }
+        if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
+            self.rate_limit_max_outflow = rate_limit_max_outflow;
+        }
      
-        // TODO: Add these 
-
         // Commit the account on-chain
         self.save(account_info)?;
 
         Ok(())
     }
 
+    pub fn refresh_rate_limit(
+        &mut self,
+        clock: Clock
+    ) -> Result<(), ProgramError> {
+        if self.rate_limit_max_outflow == u64::MAX || self.last_refresh_timestamp == clock.unix_timestamp {
+            () // Do nothing
+        } else {
+            self.rate_limit_amount_last_update = self.rate_limit_amount_last_update.checked_add(
+                (self.rate_limit_slope as u128 * clock.unix_timestamp.checked_sub(self.last_refresh_timestamp).unwrap() as u128 / SECONDS_PER_DAY as u128) as u64
+            ).unwrap_or(self.rate_limit_max_outflow);
+        }
+        self.last_refresh_timestamp = clock.unix_timestamp;
+        self.last_refresh_slot = clock.slot;
+        Ok(())
+    }
+
+    pub fn update_rate_limit_for_inflow(
+        &mut self,
+        clock: Clock,
+        inflow: u64,
+    ) -> Result<(), ProgramError> {
+        if !(self.last_refresh_timestamp != clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
+            msg!{"Rate limit must be refreshed before updating for flows"}
+            return Err(ProgramError::InvalidArgument)
+        }
+        // Cap the rate_limit_amount_last_update at the rate_limit_max_outflow
+        let v = self.rate_limit_amount_last_update.saturating_add(inflow);
+        if v > self.rate_limit_max_outflow { // Cannot daily max outflow
+            self.rate_limit_amount_last_update = self.rate_limit_max_outflow;
+        } else {
+            self.rate_limit_amount_last_update = v;
+        }
+        Ok(())
+    }
+
+    pub fn update_rate_limit_for_outflow(
+        &mut self,
+        clock: Clock,
+        outflow: u64,
+    ) -> Result<(), ProgramError> {
+        if !(self.last_refresh_timestamp != clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
+            msg!{"Rate limit must be refreshed before updating for flows"}
+            return Err(ProgramError::InvalidArgument)
+        }
+        self.rate_limit_amount_last_update = self.rate_limit_amount_last_update.checked_sub(outflow).unwrap();
+        Ok(())
+    }
     
 }
 

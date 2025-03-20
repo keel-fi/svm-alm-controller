@@ -459,6 +459,7 @@ pub fn process_pull_spl_token_swap(
     let lp_mint_supply = lp_mint.supply() as u128; 
     let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
     let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
+    let delta_lp = step_2_balance_lp.checked_sub(post_deposit_balance_lp).unwrap();
 
     // Determine the share of the pool's a and b tokens that we have a claim on 
     let post_deposit_balance_a: u64;
@@ -507,8 +508,6 @@ pub fn process_pull_spl_token_swap(
     // Update the state for the Pre-Push changes
     match &mut integration.state {
         IntegrationState::SplTokenSwap(state) => {
-            state.last_refresh_timestamp = clock.unix_timestamp;
-            state.last_refresh_slot = clock.slot;
             state.last_balance_a = post_deposit_balance_a;
             state.last_balance_b = post_deposit_balance_b;
             state.last_balance_lp = post_deposit_balance_lp as u64;
@@ -516,6 +515,11 @@ pub fn process_pull_spl_token_swap(
         _ => return Err(ProgramError::InvalidAccountData.into())
     }
 
+
+    // Update the integration rate limit for the outflow
+    //  Rate limit for the SplTokenSwap is (counterintuitively) tracked in
+    //  units of LP tokens (out, for tokens a or b in)
+    integration.update_rate_limit_for_inflow(clock, delta_lp as u64)?;
 
     // Update the reserves for the flows
     if amount_a > 0 {

@@ -1,15 +1,13 @@
 use pinocchio::{
     account_info::AccountInfo, 
-    instruction::Seed, msg, 
+    msg, 
     program_error::ProgramError, 
     pubkey::Pubkey, 
-    sysvars::{clock::Clock, Sysvar} 
 };
 use crate::{
-    constants::CONTROLLER_SEED, 
     enums::{IntegrationConfig, IntegrationState}, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
-    processor::{shared::emit_cpi, SyncIntegrationAccounts}, 
+    processor::SyncIntegrationAccounts, 
     state::{Controller, Integration} 
 };
 use pinocchio_token::{self, state::{Mint, TokenAccount}};
@@ -119,9 +117,6 @@ pub fn process_sync_spl_token_swap(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Get the current slot and time
-    let clock = Clock::get()?;
-
     // Extract the values from the config
     let ( mint_a_key, mint_b_key ) = match integration.config {
         IntegrationConfig::SplTokenSwap(config) => {
@@ -156,13 +151,8 @@ pub fn process_sync_spl_token_swap(
     }
     // Emit the accounting events for the change in A and B's relative balances
     if last_balance_a != step_1_balance_a {
-        emit_cpi(
+        controller.emit_event(
             outer_ctx.controller,
-            [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller.id.to_le_bytes()),
-                Seed::from(&[controller.bump])
-            ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
                     controller: *outer_ctx.controller.key(),
@@ -176,13 +166,8 @@ pub fn process_sync_spl_token_swap(
         )?;
     }
     if last_balance_b != step_1_balance_b {
-        emit_cpi(
+        controller.emit_event(
             outer_ctx.controller,
-            [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller.id.to_le_bytes()),
-                Seed::from(&[controller.bump])
-            ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
                     controller: *outer_ctx.controller.key(),
@@ -217,13 +202,8 @@ pub fn process_sync_spl_token_swap(
             step_2_balance_b = 0u64;
         }
         // Emit the accounting events for the change in A and B's relative balances
-        emit_cpi(
+        controller.emit_event(
             outer_ctx.controller,
-            [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller.id.to_le_bytes()),
-                Seed::from(&[controller.bump])
-            ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
                     controller: *outer_ctx.controller.key(),
@@ -235,13 +215,8 @@ pub fn process_sync_spl_token_swap(
                 }
             )
         )?;
-        emit_cpi(
+        controller.emit_event(
             outer_ctx.controller,
-            [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller.id.to_le_bytes()),
-                Seed::from(&[controller.bump])
-            ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
                     controller: *outer_ctx.controller.key(),
@@ -263,9 +238,6 @@ pub fn process_sync_spl_token_swap(
     // Update the state
     match &mut integration.state {
         IntegrationState::SplTokenSwap(state) => {
-            state.last_refresh_timestamp = clock.unix_timestamp;
-            state.last_refresh_slot = clock.slot;
-
             // Prevent spamming/ddos attacks -- since the sync ixn is permissionless
             //  calling this repeatedly could bombard the program and indevers
             if state.last_balance_a == step_2_balance_a && state.last_balance_b == step_2_balance_b && state.last_balance_lp == new_balance_lp as u64 {
@@ -278,8 +250,6 @@ pub fn process_sync_spl_token_swap(
         _ => return Err(ProgramError::InvalidAccountData.into())
     }
 
-
-  
     Ok(())
 
 }

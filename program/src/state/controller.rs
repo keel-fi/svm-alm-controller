@@ -1,11 +1,12 @@
 extern crate alloc;
 use alloc::vec::Vec;
+use pinocchio_token::instructions::Transfer;
 use shank::ShankAccount;
 use crate::{acc_info_as_str, constants::CONTROLLER_SEED, enums::ControllerStatus, events::SvmAlmControllerEvent, processor::shared::{create_pda_account, emit_cpi}};
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 use pinocchio::{
-    account_info::AccountInfo, instruction::Seed, program_error::ProgramError, pubkey::Pubkey, sysvars::{rent::Rent, Sysvar}
+    account_info::AccountInfo, instruction::{Seed, Signer}, program_error::ProgramError, pubkey::Pubkey, sysvars::{rent::Rent, Sysvar}
 };
 use pinocchio_log::log;
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -189,6 +190,33 @@ impl Controller {
         )?;
         Ok(())
     }
+
+    pub fn transfer_tokens(
+        &self,
+        controller: &AccountInfo,
+        vault: &AccountInfo,
+        recipient_token_account: &AccountInfo,
+        amount: u64,
+    ) -> Result<(), ProgramError> {
+        Transfer{
+            from: vault,
+            to: recipient_token_account,
+            authority: controller,
+            amount,
+        }.invoke_signed(
+            &[
+                Signer::from(
+                    &[
+                        Seed::from(CONTROLLER_SEED),
+                        Seed::from(&self.id.to_le_bytes()),
+                        Seed::from(&[self.bump])
+                    ]
+                )
+            ]
+        )?;
+        Ok(())
+    }
+
 
 }
 

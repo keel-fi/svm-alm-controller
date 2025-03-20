@@ -6,3 +6,4 @@ use shank::ShankType;
 pub struct CctpBridgeState {
     pub _padding: [u8;48]
 }
+

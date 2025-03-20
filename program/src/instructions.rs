@@ -62,6 +62,14 @@ pub enum SvmAlmControllerInstruction {
     #[account(6, name = "system_program")]
     InializeIntegration(InitializeIntegrationArgs),
 
+    /// Manage an integration account
+    #[account(0, name = "controller")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "permission")]
+    #[account(3, writable, name = "integration")]
+    #[account(4, name = "system_program")]
+    ManageIntegration(ManageIntegrationArgs),
+
     /// Initialize an integration account
     #[account(0, name = "controller")]
     #[account(1, writable, name = "reserve")]
@@ -133,7 +141,17 @@ pub struct InitializeIntegrationArgs {
     pub integration_type: IntegrationType,
     pub status: IntegrationStatus,
     pub description: [u8;32],
-    pub inner_args: InitializeArgs
+    pub rate_limit_slope: u64,
+    pub rate_limit_max_outflow: u64,
+    pub inner_args: InitializeArgs,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct ManageIntegrationArgs {
+    pub status: Option<IntegrationStatus>,
+    pub description: Option<[u8;32]>,
+    pub rate_limit_slope: Option<u64>,
+    pub rate_limit_max_outflow: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

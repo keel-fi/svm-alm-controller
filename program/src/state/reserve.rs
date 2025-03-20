@@ -257,33 +257,6 @@ impl Reserve {
         Ok(())
     }
 
-    pub fn update_rate_limit(
-        &mut self,
-        account_info: &AccountInfo,
-        status: Option<ReserveStatus>,
-        rate_limit_slope: Option<u64>,
-        rate_limit_max_outflow: Option<u64>,
-    ) -> Result<(), ProgramError> {
-        
-        if let Some(status) = status {
-            self.status = status;
-        }
-
-        if let Some(rate_limit_slope) = rate_limit_slope {
-            self.rate_limit_slope = rate_limit_slope;
-        }
-
-        if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
-            self.rate_limit_max_outflow = rate_limit_max_outflow;
-        }
-
-        // Commit the account on-chain
-        self.save(account_info)?;
-
-        Ok(())
-    }
-    
-
     pub fn sync_balance(
         &mut self,
         vault_info: &AccountInfo,
@@ -301,6 +274,9 @@ impl Reserve {
         // Get the current slot and time
         let clock = Clock::get()?;
         
+        // Refresh the rate limits
+        self.refresh_rate_limit(clock)?;
+
         // Load in the vault, since it could have an opening balance
         let vault = TokenAccount::from_account_info(vault_info)?;
         let new_balance = vault.amount();
@@ -336,7 +312,7 @@ impl Reserve {
                 )
             )?;
 
-        }
+        } 
 
         Ok(())
 
