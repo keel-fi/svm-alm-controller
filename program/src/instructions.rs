@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::vec::Vec;
+use pinocchio::pubkey::Pubkey;
 use shank::ShankInstruction;
 use borsh::{BorshDeserialize, BorshSerialize};
 
@@ -90,7 +91,17 @@ pub struct InitializeIntegrationArgs {
     pub integration_type: IntegrationType,
     pub status: IntegrationStatus,
     pub description: [u8;32],
+    pub inner_args: InitializeArgs
 }
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub enum InitializeArgs {
+    SplTokenVault,
+    SplTokenExternal,
+    SplTokenSwap,
+    CctpBridge { desination_address: Pubkey, desination_domain: u32, }
+}
+
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct SyncArgs {}
@@ -101,6 +112,7 @@ pub enum PushArgs {
     SplTokenVault,
     SplTokenExternal { amount: u64 },
     SplTokenSwap { amount_a: u64, amount_b: u64 },
+    CctpBridge { amount: u64 },
 }
 
 
@@ -109,6 +121,7 @@ pub enum PullArgs {
     SplTokenVault,
     SplTokenExternal,
     SplTokenSwap { amount_a: u64, amount_b: u64 },
+    CctpBridge,
 }
 
 

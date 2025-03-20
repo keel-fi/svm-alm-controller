@@ -16,7 +16,7 @@ use crate::{
         cpi::WithdrawSingleTokenTypeExactAmountOutArgs, 
         swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET}
     },
-    processor::{shared::emit_cpi, PushAccounts}, 
+    processor::{shared::emit_cpi, PullAccounts}, 
     state::{Controller, Integration, Permission} 
 };
 use pinocchio_token::{
@@ -207,7 +207,7 @@ pub fn process_pull_spl_token_swap(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
-    outer_ctx: &PushAccounts,
+    outer_ctx: &PullAccounts,
     outer_args: &PullArgs
 ) -> Result<(), ProgramError> {
     
@@ -714,6 +714,31 @@ pub fn process_pull_spl_token_swap(
         },
         _ => return Err(ProgramError::InvalidAccountData.into())
     }
+
+
+    // Update State Vault A
+    let vault_a = TokenAccount::from_account_info(&inner_ctx.vault_a)?;
+    match &mut spl_token_vault_integration_a.state {
+        IntegrationState::SplTokenVault(state) => {
+            state.last_refresh_timestamp = clock.unix_timestamp;
+            state.last_refresh_slot = clock.slot;
+            state.last_balance = vault_a.amount();
+        },
+        _ => return Err(ProgramError::InvalidAccountData.into())
+    }
+    drop(vault_a);
+
+    // Update State for Vault B
+    let vault_b = TokenAccount::from_account_info(&inner_ctx.vault_b)?;
+    match &mut spl_token_vault_integration_b.state {
+        IntegrationState::SplTokenVault(state) => {
+            state.last_refresh_timestamp = clock.unix_timestamp;
+            state.last_refresh_slot = clock.slot;
+            state.last_balance = vault_b.amount();
+        },
+        _ => return Err(ProgramError::InvalidAccountData.into())
+    }
+    drop(vault_b);
 
     
     // Save the changes to the SplTokenVault integration account for token a

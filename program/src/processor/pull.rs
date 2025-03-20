@@ -1,9 +1,7 @@
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    instructions::PullArgs, 
-    // integrations::spl_token_vault::pull::process_pull_spl_token_vault, 
-    state::{Controller, Integration, Permission}
+    instructions::PullArgs, integrations::spl_token_swap::pull::process_pull_spl_token_swap, state::{Controller, Integration, Permission}
 };
 
 
@@ -79,18 +77,23 @@ pub fn process_pull(
     )?;
 
     // Load in the super permission account
-    let integration = Integration::load_and_check(
+    let mut integration = Integration::load_and_check(
         ctx.integration_info, 
         ctx.controller_info.key(), 
     )?;
     
-    // process_pull_spl_token_vault(
-    //     &controller,
-    //     &permission,
-    //     &integration,
-    //     &ctx,
-    //     instruction_data
-    // )?;
+    match args {
+        PullArgs::SplTokenSwap { .. } => {
+            process_pull_spl_token_swap(
+                &controller,
+                &permission,
+                &mut integration,
+                &ctx,
+                &args
+            )?;
+        },
+        _ => return Err(ProgramError::InvalidArgument)
+    }
     
     Ok(())
 }

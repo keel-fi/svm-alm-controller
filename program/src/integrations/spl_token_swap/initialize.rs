@@ -118,7 +118,7 @@ impl<'info> InitializeSplTokenSwapAccounts<'info> {
 
 pub fn process_initialize_spl_token_swap(
     outer_ctx: &InitializeIntegrationAccounts,
-    _outer_args: &InitializeIntegrationArgs
+    outer_args: &InitializeIntegrationArgs
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_spl_token_swap");
 

@@ -1,7 +1,16 @@
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{
+    account_info::AccountInfo, 
+    msg, 
+    program_error::ProgramError, 
+    pubkey::Pubkey, 
+    ProgramResult
+};
 use crate::{
     enums::IntegrationConfig, 
-    integrations::spl_token_vault::sync::process_sync_spl_token_vault, 
+    integrations::{
+        spl_token_swap::sync::process_sync_spl_token_swap, 
+        spl_token_vault::sync::process_sync_spl_token_vault
+    }, 
     state::{Controller, Integration}
 };
 
@@ -62,7 +71,12 @@ pub fn process_sync(
     )?;
 
     match integration.config {
-        IntegrationConfig::SplTokenVault(_config) => { process_sync_spl_token_vault(&controller, &mut integration, &ctx)? },
+        IntegrationConfig::SplTokenVault(_config) => { 
+            process_sync_spl_token_vault(&controller, &mut integration, &ctx)? 
+        },
+        IntegrationConfig::SplTokenSwap(_config) => { 
+            process_sync_spl_token_swap(&controller, &mut integration, &ctx)? 
+        },
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument)
     };

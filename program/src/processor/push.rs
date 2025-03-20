@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
     instructions::PushArgs, 
-    integrations::spl_token_external::push::process_push_spl_token_external, 
+    integrations::{spl_token_external::push::process_push_spl_token_external, spl_token_swap::push::process_push_spl_token_swap}, 
     state::{Controller, Integration, Permission}
 };
 
@@ -80,18 +80,33 @@ pub fn process_push(
     )?;
 
     // Load in the integration account 
-    let integration = Integration::load_and_check(
+    let mut integration = Integration::load_and_check(
         ctx.integration_info, 
         ctx.controller_info.key(), 
     )?;
     
-    process_push_spl_token_external(
-        &controller,
-        &permission,
-        &integration,
-        &ctx,
-        &args
-    )?;
+    match args {
+        PushArgs::SplTokenExternal { .. } => {
+            process_push_spl_token_external(
+                &controller,
+                &permission,
+                &mut integration,
+                &ctx,
+                &args
+            )?;
+        },
+        PushArgs::SplTokenSwap { .. } => {
+            process_push_spl_token_swap(
+                &controller,
+                &permission,
+                &mut integration,
+                &ctx,
+                &args
+            )?;
+        },
+        _ => return Err(ProgramError::InvalidArgument)
+    }
+    
     
     Ok(())
 }

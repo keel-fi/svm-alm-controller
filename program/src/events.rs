@@ -60,5 +60,5 @@ pub enum AccountingAction {
     ExternalTransfer,
     Deposit,
     Withdrawal,
-    Rebalance,
+    BridgeSend,
 }

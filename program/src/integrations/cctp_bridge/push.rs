@@ -5,54 +5,71 @@ use pinocchio::{
     program_error::ProgramError, 
     sysvars::{clock::Clock, Sysvar} 
 };
-use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use crate::{
     constants::CONTROLLER_SEED, 
     enums::{IntegrationConfig, IntegrationState}, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
+    integrations::cctp_bridge::{
+        cctp_state::{LocalToken, RemoteTokenMessenger}, 
+        cpi::deposit_for_burn_cpi
+    }, 
     processor::{shared::emit_cpi, PushAccounts}, 
     state::{Controller, Integration, Permission} 
 };
 use pinocchio_token::{
     self, 
-    instructions::Transfer, 
     state::TokenAccount
 };
+use borsh::BorshDeserialize;
 
 
-pub struct PushSplTokenExternalAccounts<'info> {
+pub struct PushCctpBridgeAccounts<'info> {
     pub spl_token_vault_integration: &'info AccountInfo,
     pub mint: &'info AccountInfo,
     pub vault: &'info AccountInfo,
-    pub recipient: &'info AccountInfo,
-    pub recipient_token_account: &'info AccountInfo,
+    pub sender_authority_pda: &'info AccountInfo,
+    pub message_transmitter: &'info AccountInfo,
+    pub token_messenger: &'info AccountInfo,
+    pub remote_token_messenger: &'info AccountInfo,
+    pub token_minter: &'info AccountInfo,
+    pub local_token: &'info AccountInfo,
+    pub message_sent_event_data: &'info AccountInfo,
+    pub message_transmitter_program: &'info AccountInfo,
+    pub token_messenger_minter_program: &'info AccountInfo,
     pub token_program: &'info AccountInfo,
-    pub associated_token_program: &'info AccountInfo,
     pub system_program: &'info AccountInfo,
 }
 
-impl<'info> PushSplTokenExternalAccounts<'info> {
+
+
+impl<'info> PushCctpBridgeAccounts<'info> {
 
     pub fn checked_from_accounts(
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 8 {
+        if account_infos.len() != 14 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
             spl_token_vault_integration: &account_infos[0],
             mint: &account_infos[1],
             vault: &account_infos[2],
-            recipient: &account_infos[3],
-            recipient_token_account: &account_infos[4],
-            token_program: &account_infos[5],
-            associated_token_program: &account_infos[6],
-            system_program: &account_infos[7]
+            sender_authority_pda: &account_infos[3],
+            message_transmitter: &account_infos[4],
+            token_messenger: &account_infos[5],
+            remote_token_messenger: &account_infos[6],
+            token_minter: &account_infos[7],
+            local_token: &account_infos[8],
+            message_sent_event_data: &account_infos[9],
+            message_transmitter_program: &account_infos[10],
+            token_messenger_minter_program: &account_infos[11],
+            token_program: &account_infos[12],
+            system_program: &account_infos[13],
         };
         let config = match config {
-            IntegrationConfig::SplTokenExternal(config) => config,
+            IntegrationConfig::CctpBridge(config) => config,
             _ => return Err(ProgramError::InvalidAccountData)
         };
         if ctx.mint.key().ne(&config.mint) { 
@@ -63,28 +80,16 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
             msg!{"mint: not owned by token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.recipient.key().ne(&config.recipient) {
-            msg!{"recipient: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
+        if ctx.token_messenger_minter_program.key().ne(&config.program) { // TODO: Allow token 2022
+            msg!{"token_messenger_minter_program: does not match config"};
+            return Err(ProgramError::IncorrectProgramId);
         }
-        if ctx.recipient_token_account.key().ne(&config.token_account) {
-            msg!{"recipient_token_account: does not match config"};
+        if ctx.mint.key().ne(&config.mint) { // TODO: Allow token 2022
+            msg!{"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.recipient_token_account.is_writable() {
-            msg!{"recipient_token_account: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if ctx.recipient_token_account.owner().ne(ctx.token_program.key()) && ctx.recipient_token_account.owner().ne(&pinocchio_system::ID) {
-            msg!{"recipient_token_account: not owned by token_program or system_program"};
-            return Err(ProgramError::InvalidAccountOwner);
         }
         if ctx.token_program.key().ne(&config.program) { // TODO: Allow token 2022
             msg!{"token_program: does not match config"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.associated_token_program.key().ne(&pinocchio_associated_token_account::ID) { 
-            msg!{"associated_token_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
         if ctx.system_program.key().ne(&pinocchio_system::ID) { 
@@ -104,7 +109,7 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
 
 
 
-pub fn process_push_spl_token_external(
+pub fn process_push_cctp_bridge(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
@@ -112,15 +117,15 @@ pub fn process_push_spl_token_external(
     outer_args: &PushArgs
 ) -> Result<(), ProgramError> {
     
-    // SplTokenExternal PUSH implementation
+    // CctpBridge PUSH implementation
 
-    msg!("process_push_spl_token_external");
+    msg!("process_push_cctp_bridge");
 
     // Get the current slot and time
     let clock = Clock::get()?;
 
     let amount = match outer_args {
-        PushArgs::SplTokenExternal { amount } => { *amount },
+        PushArgs::CctpBridge { amount } => { *amount },
         _ => return Err(ProgramError::InvalidAccountData)
     };
     if amount == 0 {
@@ -134,7 +139,7 @@ pub fn process_push_spl_token_external(
         return Err(ProgramError::IncorrectAuthority)
     }
 
-    let inner_ctx = PushSplTokenExternalAccounts::checked_from_accounts(
+    let inner_ctx = PushCctpBridgeAccounts::checked_from_accounts(
         &integration.config,
         outer_ctx.remaining_accounts
     )?;
@@ -145,8 +150,30 @@ pub fn process_push_spl_token_external(
         outer_ctx.controller_info.key(), 
     )?;
 
+    // Load the destination_address and destination_domain from the config
+    let (destination_address, destination_domain) = match integration.config {
+        IntegrationConfig::CctpBridge(config) => {
+            (config.destination_address, config.destination_domain)
+        },
+        _ => return Err(ProgramError::InvalidAccountData)
+    };
+
+    // Load in the CCTP Local Token Account and verify the mint matches
+    let local_mint= LocalToken::deserialize(&mut &*inner_ctx.local_token.try_borrow_data()?).unwrap();
+    if local_mint.mint.ne(inner_ctx.mint.key()) {
+        msg!{"mint: does not match local_mint state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
+    let remote_token_messenger= RemoteTokenMessenger::deserialize(&mut &*inner_ctx.remote_token_messenger.try_borrow_data()?).unwrap();
+    if remote_token_messenger.domain.ne(&destination_domain) {
+        msg!{"desination_domain: does not match remote_token_messenger state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
+
     // CHeck consistency between the SplTokenVault integration's config and the 
-    //  SplTokenExternal integrations config
+    //  CctpBridge integrations config
     match spl_token_vault_integration.config {
         IntegrationConfig::SplTokenVault(spl_token_vault_config) => {
             if inner_ctx.vault.key().ne(&spl_token_vault_config.vault) { 
@@ -176,7 +203,7 @@ pub fn process_push_spl_token_external(
         }
     }
 
-    // Perform a SYNC on the 
+    // Perform a SYNC on the SPL Token Vault
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let starting_balance: u64;
     let post_sync_balance: u64;
@@ -216,36 +243,34 @@ pub fn process_push_spl_token_external(
         )?;
     }
     
-    // Invoke the CreateIdempotent ixn 
-    CreateIdempotent{
-        funding_account: outer_ctx.authority_info,
-        account: inner_ctx.recipient_token_account,
-        wallet: inner_ctx.recipient,
-        mint: inner_ctx.mint,
-        system_program: inner_ctx.system_program,
-        token_program: inner_ctx.token_program,
-    }.invoke()?;
-
-
-    // Perform the transfer
-    Transfer{
-        from: inner_ctx.vault,
-        to: inner_ctx.recipient_token_account,
-        authority: outer_ctx.controller_info,
-        amount: amount,
-    }.invoke_signed(
-        &[
-            Signer::from(
-                &[
-                    Seed::from(CONTROLLER_SEED),
-                    Seed::from(&controller_id_bytes),
-                    Seed::from(&[controller_bump])
-                ]
-            )
-        ]
+    // Perform the CPI to deposit and burn
+    deposit_for_burn_cpi(
+        amount, 
+        destination_domain, 
+        destination_address, 
+        Signer::from(&[
+            Seed::from(CONTROLLER_SEED),
+            Seed::from(&controller_id_bytes),
+            Seed::from(&[controller_bump])
+        ]), 
+        *inner_ctx.token_messenger_minter_program.key(), 
+        outer_ctx.controller_info, 
+        outer_ctx.authority_info, 
+        inner_ctx.sender_authority_pda, 
+        inner_ctx.vault, 
+        inner_ctx.message_transmitter, 
+        inner_ctx.token_messenger, 
+        inner_ctx.remote_token_messenger, 
+        inner_ctx.token_minter, 
+        inner_ctx.local_token, 
+        inner_ctx.mint, 
+        inner_ctx.message_sent_event_data, 
+        inner_ctx.message_transmitter_program, 
+        inner_ctx.token_messenger_minter_program, 
+        inner_ctx.token_program, 
+        inner_ctx.system_program
     )?;
     
-
 
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
@@ -256,7 +281,6 @@ pub fn process_push_spl_token_external(
         return Err(ProgramError::InvalidArgument);
     }
 
-    msg!("after checks");
 
     // Update the vault integration state
     match &mut spl_token_vault_integration.state {
@@ -282,7 +306,7 @@ pub fn process_push_spl_token_external(
                 controller: *outer_ctx.controller_info.key(),
                 integration: *outer_ctx.integration_info.key(),
                 mint: *inner_ctx.mint.key(),
-                action: AccountingAction::ExternalTransfer,
+                action: AccountingAction::BridgeSend,
                 before: post_sync_balance,
                 after: post_transfer_balance
             }
@@ -293,7 +317,7 @@ pub fn process_push_spl_token_external(
     // Save the changes to the SplTokenVault integration account
     spl_token_vault_integration.save(&inner_ctx.spl_token_vault_integration)?;
 
-    // Save the changes to the SplTokenExternal integration account
+    // Save the changes to the CctpBridge integration account
     integration.save(&outer_ctx.integration_info)?;
 
     

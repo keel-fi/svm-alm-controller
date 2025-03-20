@@ -86,7 +86,7 @@ impl<'info> SyncSplTokenSwapAccounts<'info> {
 
 
 
-pub fn process_sync_spl_token_vault(
+pub fn process_sync_spl_token_swap(
     controller: &Controller,
     integration: &mut Integration,
     outer_ctx: &SyncAccounts,
