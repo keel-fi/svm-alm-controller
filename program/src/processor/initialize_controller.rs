@@ -1,51 +1,54 @@
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    constants::CONTROLLER_SEED, enums::PermissionStatus, events::{ControllerUpdateEvent, SvmAlmControllerEvent}, instructions::InitializeControllerArgs, processor::shared::emit_cpi, state::{Controller, Permission}
+    enums::PermissionStatus, 
+    events::{ControllerUpdateEvent, SvmAlmControllerEvent}, 
+    instructions::InitializeControllerArgs,
+    state::{Controller, Permission}
 };
 
 pub struct InitializeControllerAccounts<'info> {
-    pub payer_info: &'info AccountInfo,
-    pub authority_info: &'info AccountInfo,
-    pub controller_info: &'info AccountInfo,
-    pub permission_info: &'info AccountInfo,
+    pub payer: &'info AccountInfo,
+    pub authority: &'info AccountInfo,
+    pub controller: &'info AccountInfo,
+    pub permission: &'info AccountInfo,
     pub system_program: &'info AccountInfo,
 }
 
 impl<'info> InitializeControllerAccounts<'info> {
 
     pub fn from_accounts(
-        account_infos: &'info [AccountInfo],
+        accounts: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 5 {
+        if accounts.len() != 5 {
             return Err(ProgramError::NotEnoughAccountKeys)
         }
         let ctx = Self {
-            payer_info: &account_infos[0],
-            authority_info: &account_infos[1],
-            controller_info: &account_infos[2],
-            permission_info: &account_infos[3],
-            system_program: &account_infos[4],
+            payer: &accounts[0],
+            authority: &accounts[1],
+            controller: &accounts[2],
+            permission: &accounts[3],
+            system_program: &accounts[4],
         };
-        if !ctx.payer_info.is_signer() {
+        if !ctx.payer.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if !ctx.payer_info.is_writable() {
+        if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if !ctx.authority_info.is_signer() {
+        if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if !ctx.controller_info.is_writable() {
+        if !ctx.controller.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller_info.owner().ne(&pinocchio_system::id()) || !ctx.controller_info.data_is_empty() {
+        if ctx.controller.owner().ne(&pinocchio_system::id()) || !ctx.controller.data_is_empty() {
             return Err(ProgramError::InvalidAccountOwner)
         }
-        if !ctx.permission_info.is_writable() {
+        if !ctx.permission.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.permission_info.owner().ne(&pinocchio_system::id()) || !ctx.permission_info.data_is_empty() {
+        if ctx.permission.owner().ne(&pinocchio_system::id()) || !ctx.permission.data_is_empty() {
             return Err(ProgramError::InvalidAccountOwner)
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
@@ -63,28 +66,29 @@ pub fn process_initialize_controller(
 ) -> ProgramResult {
     msg!("initialize_controller");
 
-    let ctx = InitializeControllerAccounts::from_accounts(accounts)?;
+    let ctx = InitializeControllerAccounts::from_accounts(
+        accounts
+    )?;
 
     // // Deserialize the args
     let args = InitializeControllerArgs::try_from_slice(
         instruction_data
     ).unwrap();
-    
 
     // Initialize the controller data
     let controller = Controller::init_account(
-        ctx.controller_info, 
-        ctx.payer_info, 
+        ctx.controller, 
+        ctx.payer, 
         args.id,
         args.status
     )?;
 
     // Initialize the controller data
     Permission::init_account(
-        ctx.permission_info, 
-        ctx.payer_info, 
-        *ctx.controller_info.key(),
-        *ctx.authority_info.key(),
+        ctx.permission, 
+        ctx.payer, 
+        *ctx.controller.key(),
+        *ctx.authority.key(),
         PermissionStatus::Active,
         true, // Only can manage permissions to begin with
         false,
@@ -94,18 +98,14 @@ pub fn process_initialize_controller(
         false,
         false
     )?;    
-    // Emit the Event
-    emit_cpi(
-        ctx.controller_info,
-        [
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller.id.to_le_bytes()),
-            Seed::from(&[controller.bump])
-        ],
+    
+    // Emit the event
+    controller.emit_event(
+        ctx.controller,
         SvmAlmControllerEvent::ControllerUpdate (
             ControllerUpdateEvent {
-                controller: *ctx.controller_info.key(),
-                authority: *ctx.authority_info.key(),
+                controller: *ctx.controller.key(),
+                authority: *ctx.authority.key(),
                 old_state: None,
                 new_state: Some(controller)
             }

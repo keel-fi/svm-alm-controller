@@ -3,7 +3,7 @@ use pinocchio::pubkey::Pubkey;
 use shank::ShankInstruction;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::state::{Controller, Integration, Permission};
+use crate::state::{Controller, Integration, Permission, Reserve};
 
 
 #[repr(u8)]
@@ -11,6 +11,7 @@ use crate::state::{Controller, Integration, Permission};
 pub enum SvmAlmControllerEvent {
     ControllerUpdate(ControllerUpdateEvent),
     PermissionUpdate(PermissionUpdateEvent),
+    ReserveUpdate(ReserveUpdateEvent),
     IntegrationUpdate(IntegrationUpdateEvent),
     AccountingEvent(AccountingEvent),
 }
@@ -31,6 +32,15 @@ pub struct PermissionUpdateEvent {
     pub permission: Pubkey,
     pub old_state: Option<Permission>,
     pub new_state: Option<Permission> 
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct ReserveUpdateEvent {
+    pub authority: Pubkey,
+    pub controller: Pubkey,
+    pub reserve: Pubkey,
+    pub old_state: Option<Reserve>,
+    pub new_state: Option<Reserve> 
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

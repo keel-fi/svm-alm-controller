@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::vec::Vec;
 use shank::ShankAccount;
-use crate::{acc_info_as_str, constants::CONTROLLER_SEED, enums::ControllerStatus, processor::shared::create_pda_account};
+use crate::{acc_info_as_str, constants::CONTROLLER_SEED, enums::ControllerStatus, events::SvmAlmControllerEvent, processor::shared::{create_pda_account, emit_cpi}};
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 use pinocchio::{
@@ -170,6 +170,24 @@ impl Controller {
 
     pub fn is_active(&self) -> bool {
         self.status == ControllerStatus::Active
+    }
+
+    pub fn emit_event(
+        &self,
+        controller_info: &AccountInfo,
+        event: SvmAlmControllerEvent
+    ) -> Result<(), ProgramError> {
+        // Emit the Event to record the update
+        emit_cpi(
+            controller_info,
+            [
+                Seed::from(CONTROLLER_SEED),
+                Seed::from(&self.id.to_le_bytes()),
+                Seed::from(&[self.bump])
+            ],
+            event
+        )?;
+        Ok(())
     }
 
 }

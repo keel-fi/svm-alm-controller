@@ -80,7 +80,7 @@ pub fn process_initialize_spl_token_external(
     // Invoke the CreateIdempotent ixn for the token_accout (ATA)
     // Will handle both the creation or the checking, if already created
     CreateIdempotent{
-        funding_account: outer_ctx.payer_info,
+        funding_account: outer_ctx.payer,
         account: inner_ctx.token_account,
         wallet: inner_ctx.recipient,
         mint: inner_ctx.mint,

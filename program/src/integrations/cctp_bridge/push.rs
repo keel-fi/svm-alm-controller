@@ -7,25 +7,23 @@ use pinocchio::{
 };
 use crate::{
     constants::CONTROLLER_SEED, 
-    enums::{IntegrationConfig, IntegrationState}, 
+    enums::IntegrationConfig, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger}, 
         cpi::deposit_for_burn_cpi
     }, 
-    processor::{shared::emit_cpi, PushAccounts}, 
-    state::{Controller, Integration, Permission} 
+    processor::PushAccounts, 
+    state::{Controller, Integration, Permission, Reserve} 
 };
 use pinocchio_token::{
     self, 
     state::TokenAccount
 };
-use borsh::BorshDeserialize;
 
 
 pub struct PushCctpBridgeAccounts<'info> {
-    pub spl_token_vault_integration: &'info AccountInfo,
     pub mint: &'info AccountInfo,
     pub vault: &'info AccountInfo,
     pub sender_authority_pda: &'info AccountInfo,
@@ -49,24 +47,23 @@ impl<'info> PushCctpBridgeAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 14 {
+        if account_infos.len() != 13 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
-            spl_token_vault_integration: &account_infos[0],
-            mint: &account_infos[1],
-            vault: &account_infos[2],
-            sender_authority_pda: &account_infos[3],
-            message_transmitter: &account_infos[4],
-            token_messenger: &account_infos[5],
-            remote_token_messenger: &account_infos[6],
-            token_minter: &account_infos[7],
-            local_token: &account_infos[8],
-            message_sent_event_data: &account_infos[9],
-            message_transmitter_program: &account_infos[10],
-            token_messenger_minter_program: &account_infos[11],
-            token_program: &account_infos[12],
-            system_program: &account_infos[13],
+            mint: &account_infos[0],
+            vault: &account_infos[1],
+            sender_authority_pda: &account_infos[2],
+            message_transmitter: &account_infos[3],
+            token_messenger: &account_infos[4],
+            remote_token_messenger: &account_infos[5],
+            token_minter: &account_infos[6],
+            local_token: &account_infos[7],
+            message_sent_event_data: &account_infos[8],
+            message_transmitter_program: &account_infos[9],
+            token_messenger_minter_program: &account_infos[10],
+            token_program: &account_infos[11],
+            system_program: &account_infos[12],
         };
         let config = match config {
             IntegrationConfig::CctpBridge(config) => config,
@@ -96,11 +93,7 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg!{"system_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if !ctx.spl_token_vault_integration.is_writable() {
-            msg!{"spl_token_vault_integration: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        
+    
         Ok(ctx)
     }
 
@@ -113,6 +106,7 @@ pub fn process_push_cctp_bridge(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
+    reserve: &mut Reserve,
     outer_ctx: &PushAccounts,
     outer_args: &PushArgs
 ) -> Result<(), ProgramError> {
@@ -144,12 +138,6 @@ pub fn process_push_cctp_bridge(
         outer_ctx.remaining_accounts
     )?;
 
-    // Load corresponding SplTokenVault integration 
-    let mut spl_token_vault_integration = Integration::load_and_check(
-        inner_ctx.spl_token_vault_integration, 
-        outer_ctx.controller_info.key(), 
-    )?;
-
     // Load the destination_address and destination_domain from the config
     let (destination_address, destination_domain) = match integration.config {
         IntegrationConfig::CctpBridge(config) => {
@@ -159,90 +147,45 @@ pub fn process_push_cctp_bridge(
     };
 
     // Load in the CCTP Local Token Account and verify the mint matches
-    let local_mint= LocalToken::deserialize(&mut &*inner_ctx.local_token.try_borrow_data()?).unwrap();
+    let local_mint= LocalToken::deserialize(
+        &mut &*inner_ctx.local_token.try_borrow_data()?
+    ).unwrap();
     if local_mint.mint.ne(inner_ctx.mint.key()) {
         msg!{"mint: does not match local_mint state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
     // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
-    let remote_token_messenger= RemoteTokenMessenger::deserialize(&mut &*inner_ctx.remote_token_messenger.try_borrow_data()?).unwrap();
+    let remote_token_messenger= RemoteTokenMessenger::deserialize(
+        &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?
+    ).unwrap();
     if remote_token_messenger.domain.ne(&destination_domain) {
         msg!{"desination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // CHeck consistency between the SplTokenVault integration's config and the 
-    //  CctpBridge integrations config
-    match spl_token_vault_integration.config {
-        IntegrationConfig::SplTokenVault(spl_token_vault_config) => {
-            if inner_ctx.vault.key().ne(&spl_token_vault_config.vault) { 
-                msg!{"vault: does not match config"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if !inner_ctx.vault.is_writable() { 
-                msg!{"vault: not mutable"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if inner_ctx.vault.owner().ne(&spl_token_vault_config.program) { 
-                msg!{"vault: not owned by token_program"};
-                return Err(ProgramError::InvalidAccountOwner);
-            }
-            if inner_ctx.mint.key().ne(&spl_token_vault_config.mint) { 
-                msg!{"mint: mismatch between integration configs"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if inner_ctx.token_program.key().ne(&spl_token_vault_config.program) { 
-                msg!{"token_program: mismatch between integration configs"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-        },
-        _=> {
-            msg!{"spl_token_vault_integration: wrong integration account type"};
-            return Err(ProgramError::InvalidAccountData)
-        }
-    }
 
-    // Perform a SYNC on the SPL Token Vault
-    let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
-    let starting_balance: u64;
-    let post_sync_balance: u64;
-    match &mut spl_token_vault_integration.state {
-        IntegrationState::SplTokenVault(state) => {
-            starting_balance = state.last_balance;
-            post_sync_balance = vault.amount();
-            state.last_refresh_timestamp = clock.unix_timestamp;
-            state.last_refresh_slot = clock.slot;
-            state.last_balance = post_sync_balance;
-        },
-        _ => return Err(ProgramError::InvalidAccountData.into())
+    // Check against reserve data
+    if inner_ctx.vault.key().ne(&reserve.vault) { 
+        msg!{"mint: mismatch with reserve"};
+        return Err(ProgramError::InvalidAccountData);
     }
-    drop(vault);
-
+    if inner_ctx.mint.key().ne(&reserve.mint) { 
+        msg!{"mint: mismatch with reserve"};
+        return Err(ProgramError::InvalidAccountData);
+    }
+   
+    // Sync the balance before doing anything else
+    reserve.sync_balance(
+        inner_ctx.vault,
+        outer_ctx.controller,
+        controller
+    )?;
+    let post_sync_balance = reserve.last_balance;
+    
     let controller_id_bytes = controller.id.to_le_bytes();
     let controller_bump = controller.bump;
-    if starting_balance != post_sync_balance {
-        // Emit the accounting event
-        emit_cpi(
-            outer_ctx.controller_info,
-            [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller_id_bytes),
-                Seed::from(&[controller_bump])
-            ],
-            SvmAlmControllerEvent::AccountingEvent (
-                AccountingEvent {
-                    controller: *outer_ctx.controller_info.key(),
-                    integration: *inner_ctx.spl_token_vault_integration.key(),
-                    mint: *inner_ctx.mint.key(),
-                    action: AccountingAction::Sync,
-                    before: starting_balance,
-                    after: post_sync_balance
-                }
-            )
-        )?;
-    }
-    
+
     // Perform the CPI to deposit and burn
     deposit_for_burn_cpi(
         amount, 
@@ -254,8 +197,8 @@ pub fn process_push_cctp_bridge(
             Seed::from(&[controller_bump])
         ]), 
         *inner_ctx.token_messenger_minter_program.key(), 
-        outer_ctx.controller_info, 
-        outer_ctx.authority_info, 
+        outer_ctx.controller, 
+        outer_ctx.authority, 
         inner_ctx.sender_authority_pda, 
         inner_ctx.vault, 
         inner_ctx.message_transmitter, 
@@ -281,30 +224,16 @@ pub fn process_push_cctp_bridge(
         return Err(ProgramError::InvalidArgument);
     }
 
-
-    // Update the vault integration state
-    match &mut spl_token_vault_integration.state {
-        IntegrationState::SplTokenVault(state) => {
-            state.last_refresh_timestamp = clock.unix_timestamp;
-            state.last_refresh_slot = clock.slot;
-            state.last_balance = post_transfer_balance;
-        },
-        _ => return Err(ProgramError::InvalidAccountData.into())
-    }
-
+    // Update the reserve for the outflow
+    reserve.update_for_outflow(clock, amount)?;
 
     // Emit the accounting event
-    emit_cpi(
-        outer_ctx.controller_info,
-        [
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller_id_bytes),
-            Seed::from(&[controller_bump])
-        ],
+    controller.emit_event(
+        outer_ctx.controller,
         SvmAlmControllerEvent::AccountingEvent (
             AccountingEvent {
-                controller: *outer_ctx.controller_info.key(),
-                integration: *outer_ctx.integration_info.key(),
+                controller: *outer_ctx.controller.key(),
+                integration: *outer_ctx.integration.key(),
                 mint: *inner_ctx.mint.key(),
                 action: AccountingAction::BridgeSend,
                 before: post_sync_balance,
@@ -313,14 +242,6 @@ pub fn process_push_cctp_bridge(
         )
     )?;
 
-    
-    // Save the changes to the SplTokenVault integration account
-    spl_token_vault_integration.save(&inner_ctx.spl_token_vault_integration)?;
-
-    // Save the changes to the CctpBridge integration account
-    integration.save(&outer_ctx.integration_info)?;
-
-    
     Ok(())
 
 }

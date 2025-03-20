@@ -4,12 +4,7 @@ use pinocchio::{
 };
 
 use crate::processor::{
-    process_emit_event, 
-    process_initialize_controller, 
-    process_initialize_integration, 
-    process_manage_permission, 
-    process_push, 
-    process_sync
+    process_emit_event, process_initialize_controller, process_initialize_integration, process_initialize_reserve, process_manage_permission, process_manage_reserve, process_push, process_sync_integration, process_sync_reserve
 };
 
 entrypoint!(process_instruction);
@@ -28,9 +23,12 @@ pub fn process_instruction(
         0 => process_emit_event(program_id, accounts, instruction_data),
         1 => process_initialize_controller(program_id, accounts, instruction_data),
         2 => process_manage_permission(program_id, accounts, instruction_data),
-        3 => process_initialize_integration(program_id, accounts, instruction_data),
-        4 => process_sync(program_id, accounts, instruction_data),
-        5 => process_push(program_id, accounts, instruction_data),
+        3 => process_initialize_reserve(program_id, accounts, instruction_data),
+        4 => process_manage_reserve(program_id, accounts, instruction_data),
+        5 => process_initialize_integration(program_id, accounts, instruction_data),
+        6 => process_sync_reserve(program_id, accounts, instruction_data),
+        7 => process_sync_integration(program_id, accounts, instruction_data),
+        8 => process_push(program_id, accounts, instruction_data),
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

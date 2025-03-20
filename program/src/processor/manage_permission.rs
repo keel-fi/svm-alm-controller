@@ -1,56 +1,60 @@
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo,  msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    constants::CONTROLLER_SEED, error::SvmAlmControllerErrors, events::{PermissionUpdateEvent, SvmAlmControllerEvent}, instructions::ManagePermissionArgs, processor::shared::{emit_cpi, verify_system_account}, state::{permission, Controller, Integration, Permission}
+    error::SvmAlmControllerErrors, 
+    events::{PermissionUpdateEvent, SvmAlmControllerEvent}, 
+    instructions::ManagePermissionArgs, 
+    processor::shared::verify_system_account, 
+    state::{Controller, Permission}
 };
 
 
 pub struct ManagePermissionAccounts<'info> {
-    pub payer_info: &'info AccountInfo,
-    pub controller_info: &'info AccountInfo,
-    pub super_authority_info: &'info AccountInfo,
-    pub super_permission_info: &'info AccountInfo,
-    pub authority_info: &'info AccountInfo,
-    pub permission_info: &'info AccountInfo,
+    pub payer: &'info AccountInfo,
+    pub controller: &'info AccountInfo,
+    pub super_authority: &'info AccountInfo,
+    pub super_permission: &'info AccountInfo,
+    pub authority: &'info AccountInfo,
+    pub permission: &'info AccountInfo,
     pub system_program: &'info AccountInfo,
 }
 
 impl<'info> ManagePermissionAccounts<'info> {
 
     pub fn from_accounts(
-        account_infos: &'info [AccountInfo],
+        accounts: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 7 {
+        if accounts.len() != 7 {
             return Err(ProgramError::NotEnoughAccountKeys)
         }
         let ctx = Self {
-            payer_info: &account_infos[0],
-            controller_info: &account_infos[1],
-            super_authority_info: &account_infos[2],
-            super_permission_info: &account_infos[3],
-            authority_info: &account_infos[4],
-            permission_info: &account_infos[5],
-            system_program: &account_infos[6],
+            payer: &accounts[0],
+            controller: &accounts[1],
+            super_authority: &accounts[2],
+            super_permission: &accounts[3],
+            authority: &accounts[4],
+            permission: &accounts[5],
+            system_program: &accounts[6],
         };
-        if !ctx.payer_info.is_signer() {
+        if !ctx.payer.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if !ctx.payer_info.is_writable() {
+        if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller_info.owner().ne(&crate::ID) {
+        if ctx.controller.owner().ne(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx.super_authority_info.is_signer() {
+        if !ctx.super_authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.super_permission_info.owner().ne(&crate::ID) {
+        if ctx.super_permission.owner().ne(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx.permission_info.is_writable() {
+        if !ctx.permission.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if !(ctx.permission_info.owner().eq(&pinocchio_system::id()) && !ctx.permission_info.data_is_empty()) && ctx.super_permission_info.owner().ne(&crate::ID) {
+        if !(ctx.permission.owner().eq(&pinocchio_system::id()) && !ctx.permission.data_is_empty()) && ctx.super_permission.owner().ne(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner)
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
@@ -77,14 +81,14 @@ pub fn process_manage_permission(
     
     // Load in controller state
     let controller = Controller::load_and_check(
-        ctx.controller_info, 
+        ctx.controller, 
     )?;
 
     // Load in the super permission account
     let super_permission = Permission::load_and_check(
-        ctx.super_permission_info, 
-        ctx.controller_info.key(), 
-        ctx.super_authority_info.key()
+        ctx.super_permission, 
+        ctx.controller.key(), 
+        ctx.super_authority.key()
     )?;
     // Check that super authority has permission and the permission is active
     if !super_permission.can_manage_permissions() {
@@ -93,14 +97,14 @@ pub fn process_manage_permission(
 
     let mut permission: Permission;
     let old_state: Option<Permission>;
-    if ctx.permission_info.data_is_empty() {
+    if ctx.permission.data_is_empty() {
         // Initialize the permission account
-        verify_system_account(ctx.permission_info, true)?;
+        verify_system_account(ctx.permission, true)?;
         permission = Permission::init_account(
-            ctx.permission_info, 
-            ctx.payer_info, 
-            *ctx.controller_info.key(),
-            *ctx.authority_info.key(),
+            ctx.permission, 
+            ctx.payer, 
+            *ctx.controller.key(),
+            *ctx.authority.key(),
             args.status,
             args.can_manage_permissions,
             args.can_invoke_external_transfer,
@@ -114,14 +118,13 @@ pub fn process_manage_permission(
     } else {
         // Initialize the permission account
         permission = Permission::load_and_check_mut(
-            ctx.permission_info,
-            ctx.controller_info.key(),
-            ctx.authority_info.key()
+            ctx.permission,
+            ctx.controller.key(),
+            ctx.authority.key()
         )?;
         old_state = Some(permission.clone());
         // Update the permission account and save it
         permission.update_and_save(
-            ctx.permission_info,
             Some(args.status),
             Some(args.can_manage_permissions),
             Some(args.can_invoke_external_transfer),
@@ -131,21 +134,18 @@ pub fn process_manage_permission(
             Some(args.can_unfreeze),
             Some(args.can_manage_integrations),
         )?;
+        // Save the state to the account
+        permission.save(ctx.permission)?;
     }
-    
-    // Emit the Event
-    emit_cpi(
-        ctx.controller_info,
-        [
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller.id.to_le_bytes()),
-            Seed::from(&[controller.bump])
-        ],
+ 
+    // Emit the event
+    controller.emit_event(
+        ctx.controller,
         SvmAlmControllerEvent::PermissionUpdate (
             PermissionUpdateEvent {
-                controller: *ctx.controller_info.key(),
-                permission: *ctx.permission_info.key(),
-                authority: *ctx.authority_info.key(),
+                controller: *ctx.controller.key(),
+                permission: *ctx.permission.key(),
+                authority: *ctx.authority.key(),
                 old_state: old_state,
                 new_state: Some(permission)
             }

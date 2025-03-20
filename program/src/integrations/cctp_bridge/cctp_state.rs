@@ -18,7 +18,7 @@ impl LocalToken {
 
     const DISCRIMINATOR: [u8;8] = [159,131,58,170,193,84,128,182];     //9f 83 3a aa c1 54 80 b6
 
-    fn deserialize(
+    pub fn deserialize(
         data: &[u8]
     ) -> Result<Self, ProgramError> {
         if data[0..8] != Self::DISCRIMINATOR {
@@ -39,7 +39,7 @@ impl RemoteTokenMessenger {
 
     const DISCRIMINATOR: [u8;8] = [106,115,174,34,95,233,138,252];     //69 73 ae 22 5f e9 8a fc
 
-    fn deserialize(
+    pub fn deserialize(
         data: &[u8]
     ) -> Result<Self, ProgramError> {
         if data[0..8] != Self::DISCRIMINATOR {

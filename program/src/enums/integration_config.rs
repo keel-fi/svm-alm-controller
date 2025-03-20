@@ -2,14 +2,13 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
 use solana_keccak_hasher::hash;
 use crate::integrations::{
-    cctp_bridge::config::CctpBridgeConfig, spl_token_external::config::SplTokenExternalConfig, spl_token_swap::config::SplTokenSwapConfig, spl_token_vault::config::SplTokenVaultConfig
+    cctp_bridge::config::CctpBridgeConfig, spl_token_external::config::SplTokenExternalConfig, spl_token_swap::config::SplTokenSwapConfig,
 };
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 #[repr(u8)]
 pub enum IntegrationConfig {
     Undefined {_padding: [u8; 192]},
-    SplTokenVault(SplTokenVaultConfig),
     SplTokenExternal(SplTokenExternalConfig),
     SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),

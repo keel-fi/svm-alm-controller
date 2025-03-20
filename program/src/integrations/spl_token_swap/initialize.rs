@@ -6,7 +6,14 @@ use pinocchio::{
     pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}, 
 };
 use crate::{
-    enums::{IntegrationConfig, IntegrationState}, instructions::InitializeIntegrationArgs, integrations::spl_token_swap::{config::SplTokenSwapConfig, state::SplTokenSwapState, swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET}}, processor::InitializeIntegrationAccounts
+    enums::{IntegrationConfig, IntegrationState}, 
+    instructions::InitializeIntegrationArgs, 
+    integrations::spl_token_swap::{
+        config::SplTokenSwapConfig, 
+        state::SplTokenSwapState, 
+        swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET}
+    }, 
+    processor::InitializeIntegrationAccounts
 };
 use pinocchio_token::{self, state::{Mint, TokenAccount}};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
@@ -118,7 +125,7 @@ impl<'info> InitializeSplTokenSwapAccounts<'info> {
 
 pub fn process_initialize_spl_token_swap(
     outer_ctx: &InitializeIntegrationAccounts,
-    outer_args: &InitializeIntegrationArgs
+    _outer_args: &InitializeIntegrationArgs
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_spl_token_swap");
 
@@ -158,9 +165,9 @@ pub fn process_initialize_spl_token_swap(
     // Invoke the CreateIdempotent ixn for the lp_token_account (ATA)
     // Will handle both the creation or the checking, if already created
     CreateIdempotent{
-        funding_account: outer_ctx.payer_info,
+        funding_account: outer_ctx.payer,
         account: inner_ctx.lp_token_account,
-        wallet: outer_ctx.controller_info,
+        wallet: outer_ctx.controller,
         mint: inner_ctx.lp_mint,
         system_program: outer_ctx.system_program,
         token_program: inner_ctx.lp_mint_token_program,

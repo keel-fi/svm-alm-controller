@@ -11,7 +11,7 @@ pub struct DepositForBurnArgs {
 
 impl DepositForBurnArgs {
 
-    pub const DISCRIMINATOR: [u8;8] = [0,0,0,0,0,0,0,0];
+    pub const DISCRIMINATOR: [u8;8] = [215, 195, 61, 46, 114, 55, 128, 176]; // d7 3c 3d 2e 72 37 80 b0
     pub const LEN: usize = 44;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {

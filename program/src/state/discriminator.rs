@@ -12,6 +12,7 @@ pub enum AccountDiscriminators {
     ControllerDiscriminator = 1,
     PermissionDiscriminator = 2,
     IntegrationDiscriminator = 3,
+    ReserveDiscriminator = 4,
 }
 
 pub trait AccountSerialize: Discriminator {

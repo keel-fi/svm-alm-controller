@@ -4,7 +4,7 @@ use pinocchio::pubkey::Pubkey;
 use shank::ShankInstruction;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::enums::{ControllerStatus, IntegrationType, IntegrationStatus, PermissionStatus};
+use crate::enums::{ControllerStatus, IntegrationStatus, IntegrationType, PermissionStatus, ReserveStatus};
 
 #[repr(C, u8)]
 #[derive(Clone, Debug, PartialEq, ShankInstruction, BorshSerialize, BorshDeserialize)]
@@ -32,6 +32,26 @@ pub enum SvmAlmControllerInstruction {
     #[account(6, name = "system_program")]
     ManagePermission(ManagePermissionArgs),
 
+    /// Initialize an reserve account
+    #[account(0, writable, signer, name = "payer")]
+    #[account(1, name = "controller")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, writable, name = "reserve")]
+    #[account(5, name = "mint")]
+    #[account(6, name = "vault")]
+    #[account(7, name = "token_program")]
+    #[account(8, name = "associated_token_program")]
+    #[account(9, name = "system_program")]
+    InitializeReserve(InitializeReserveArgs),
+
+    /// Manage and existing reserve account
+    #[account(0, name = "controller")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "permission")]
+    #[account(3, writable, name = "reserve")]
+    ManageReserve(ManageReserveArgs),
+
     /// Initialize an integration account
     #[account(0, writable, signer, name = "payer")]
     #[account(1, name = "controller")]
@@ -42,10 +62,17 @@ pub enum SvmAlmControllerInstruction {
     #[account(6, name = "system_program")]
     InializeIntegration(InitializeIntegrationArgs),
 
-    /// Pull 
+    /// Initialize an integration account
+    #[account(0, name = "controller")]
+    #[account(1, writable, name = "reserve")]
+    #[account(2, name = "mint")]
+    #[account(3, name = "vault")]
+    SyncReserve(SyncReserveArgs),
+
+    /// SyncIntegration 
     #[account(0, name = "controller")]
     #[account(1, writable, name = "integration")]
-    Sync(SyncArgs),
+    Sync(SyncIntegrationArgs),
 
     /// Push 
     #[account(0, name = "controller")]
@@ -87,6 +114,21 @@ pub struct ManagePermissionArgs {
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct InitializeReserveArgs {
+    pub status: ReserveStatus,
+    pub rate_limit_slope: u64,
+    pub rate_limit_max_outflow: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct ManageReserveArgs {
+    pub status: Option<ReserveStatus>,
+    pub rate_limit_slope: Option<u64>,
+    pub rate_limit_max_outflow: Option<u64>,
+}
+
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct InitializeIntegrationArgs {
     pub integration_type: IntegrationType,
     pub status: IntegrationStatus,
@@ -96,7 +138,6 @@ pub struct InitializeIntegrationArgs {
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum InitializeArgs {
-    SplTokenVault,
     SplTokenExternal,
     SplTokenSwap,
     CctpBridge { desination_address: Pubkey, desination_domain: u32, }
@@ -104,12 +145,14 @@ pub enum InitializeArgs {
 
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct SyncArgs {}
+pub struct SyncReserveArgs {}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct SyncIntegrationArgs {}
 
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PushArgs {
-    SplTokenVault,
     SplTokenExternal { amount: u64 },
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge { amount: u64 },
@@ -118,7 +161,6 @@ pub enum PushArgs {
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PullArgs {
-    SplTokenVault,
     SplTokenExternal,
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge,

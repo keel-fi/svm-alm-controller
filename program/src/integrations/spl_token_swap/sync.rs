@@ -9,7 +9,7 @@ use crate::{
     constants::CONTROLLER_SEED, 
     enums::{IntegrationConfig, IntegrationState}, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
-    processor::{shared::emit_cpi, SyncAccounts}, 
+    processor::{shared::emit_cpi, SyncIntegrationAccounts}, 
     state::{Controller, Integration} 
 };
 use pinocchio_token::{self, state::{Mint, TokenAccount}};
@@ -89,11 +89,11 @@ impl<'info> SyncSplTokenSwapAccounts<'info> {
 pub fn process_sync_spl_token_swap(
     controller: &Controller,
     integration: &mut Integration,
-    outer_ctx: &SyncAccounts,
+    outer_ctx: &SyncIntegrationAccounts,
 ) -> Result<(), ProgramError> {
     
     let inner_ctx = SyncSplTokenSwapAccounts::checked_from_accounts(
-        outer_ctx.controller_info.key(),
+        outer_ctx.controller.key(),
         &integration.config,
         outer_ctx.remaining_accounts
     )?;
@@ -157,7 +157,7 @@ pub fn process_sync_spl_token_swap(
     // Emit the accounting events for the change in A and B's relative balances
     if last_balance_a != step_1_balance_a {
         emit_cpi(
-            outer_ctx.controller_info,
+            outer_ctx.controller,
             [
                 Seed::from(CONTROLLER_SEED),
                 Seed::from(&controller.id.to_le_bytes()),
@@ -165,8 +165,8 @@ pub fn process_sync_spl_token_swap(
             ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
-                    controller: *outer_ctx.controller_info.key(),
-                    integration: *outer_ctx.integration_info.key(),
+                    controller: *outer_ctx.controller.key(),
+                    integration: *outer_ctx.integration.key(),
                     mint: mint_a_key,
                     action: AccountingAction::Sync,
                     before: last_balance_a,
@@ -177,7 +177,7 @@ pub fn process_sync_spl_token_swap(
     }
     if last_balance_b != step_1_balance_b {
         emit_cpi(
-            outer_ctx.controller_info,
+            outer_ctx.controller,
             [
                 Seed::from(CONTROLLER_SEED),
                 Seed::from(&controller.id.to_le_bytes()),
@@ -185,8 +185,8 @@ pub fn process_sync_spl_token_swap(
             ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
-                    controller: *outer_ctx.controller_info.key(),
-                    integration: *outer_ctx.integration_info.key(),
+                    controller: *outer_ctx.controller.key(),
+                    integration: *outer_ctx.integration.key(),
                     mint: mint_b_key,
                     action: AccountingAction::Sync,
                     before: last_balance_b,
@@ -218,7 +218,7 @@ pub fn process_sync_spl_token_swap(
         }
         // Emit the accounting events for the change in A and B's relative balances
         emit_cpi(
-            outer_ctx.controller_info,
+            outer_ctx.controller,
             [
                 Seed::from(CONTROLLER_SEED),
                 Seed::from(&controller.id.to_le_bytes()),
@@ -226,8 +226,8 @@ pub fn process_sync_spl_token_swap(
             ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
-                    controller: *outer_ctx.controller_info.key(),
-                    integration: *outer_ctx.integration_info.key(),
+                    controller: *outer_ctx.controller.key(),
+                    integration: *outer_ctx.integration.key(),
                     mint: mint_a_key,
                     action: AccountingAction::Sync,
                     before: step_1_balance_a,
@@ -236,7 +236,7 @@ pub fn process_sync_spl_token_swap(
             )
         )?;
         emit_cpi(
-            outer_ctx.controller_info,
+            outer_ctx.controller,
             [
                 Seed::from(CONTROLLER_SEED),
                 Seed::from(&controller.id.to_le_bytes()),
@@ -244,8 +244,8 @@ pub fn process_sync_spl_token_swap(
             ],
             SvmAlmControllerEvent::AccountingEvent (
                 AccountingEvent {
-                    controller: *outer_ctx.controller_info.key(),
-                    integration: *outer_ctx.integration_info.key(),
+                    controller: *outer_ctx.controller.key(),
+                    integration: *outer_ctx.integration.key(),
                     mint: mint_b_key,
                     action: AccountingAction::Sync,
                     before: step_1_balance_b,
@@ -279,8 +279,6 @@ pub fn process_sync_spl_token_swap(
     }
 
 
-    // Save the changes to the integration account
-    integration.save(&outer_ctx.integration_info)?;
   
     Ok(())
 

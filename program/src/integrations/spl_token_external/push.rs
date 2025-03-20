@@ -8,11 +8,11 @@ use pinocchio::{
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use crate::{
     constants::CONTROLLER_SEED, 
-    enums::{IntegrationConfig, IntegrationState}, 
+    enums::IntegrationConfig, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
-    processor::{shared::emit_cpi, PushAccounts}, 
-    state::{Controller, Integration, Permission} 
+    processor::PushAccounts, 
+    state::{Controller, Integration, Permission, Reserve} 
 };
 use pinocchio_token::{
     self, 
@@ -22,7 +22,6 @@ use pinocchio_token::{
 
 
 pub struct PushSplTokenExternalAccounts<'info> {
-    pub spl_token_vault_integration: &'info AccountInfo,
     pub mint: &'info AccountInfo,
     pub vault: &'info AccountInfo,
     pub recipient: &'info AccountInfo,
@@ -38,18 +37,17 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 8 {
+        if account_infos.len() != 7 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
-            spl_token_vault_integration: &account_infos[0],
-            mint: &account_infos[1],
-            vault: &account_infos[2],
-            recipient: &account_infos[3],
-            recipient_token_account: &account_infos[4],
-            token_program: &account_infos[5],
-            associated_token_program: &account_infos[6],
-            system_program: &account_infos[7]
+            mint: &account_infos[0],
+            vault: &account_infos[1],
+            recipient: &account_infos[2],
+            recipient_token_account: &account_infos[3],
+            token_program: &account_infos[4],
+            associated_token_program: &account_infos[5],
+            system_program: &account_infos[6]
         };
         let config = match config {
             IntegrationConfig::SplTokenExternal(config) => config,
@@ -91,11 +89,7 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
             msg!{"system_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if !ctx.spl_token_vault_integration.is_writable() {
-            msg!{"spl_token_vault_integration: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        
+ 
         Ok(ctx)
     }
 
@@ -108,6 +102,7 @@ pub fn process_push_spl_token_external(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
+    reserve: &mut Reserve,
     outer_ctx: &PushAccounts,
     outer_args: &PushArgs
 ) -> Result<(), ProgramError> {
@@ -139,86 +134,29 @@ pub fn process_push_spl_token_external(
         outer_ctx.remaining_accounts
     )?;
 
-    // Load corresponding SplTokenVault integration 
-    let mut spl_token_vault_integration = Integration::load_and_check(
-        inner_ctx.spl_token_vault_integration, 
-        outer_ctx.controller_info.key(), 
-    )?;
 
-    // CHeck consistency between the SplTokenVault integration's config and the 
+    // Check consistency between the reserve
     //  SplTokenExternal integrations config
-    match spl_token_vault_integration.config {
-        IntegrationConfig::SplTokenVault(spl_token_vault_config) => {
-            if inner_ctx.vault.key().ne(&spl_token_vault_config.vault) { 
-                msg!{"vault: does not match config"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if !inner_ctx.vault.is_writable() { 
-                msg!{"vault: not mutable"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if inner_ctx.vault.owner().ne(&spl_token_vault_config.program) { 
-                msg!{"vault: not owned by token_program"};
-                return Err(ProgramError::InvalidAccountOwner);
-            }
-            if inner_ctx.mint.key().ne(&spl_token_vault_config.mint) { 
-                msg!{"mint: mismatch between integration configs"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-            if inner_ctx.token_program.key().ne(&spl_token_vault_config.program) { 
-                msg!{"token_program: mismatch between integration configs"};
-                return Err(ProgramError::InvalidAccountData);
-            }
-        },
-        _=> {
-            msg!{"spl_token_vault_integration: wrong integration account type"};
-            return Err(ProgramError::InvalidAccountData)
-        }
+    if inner_ctx.vault.key().ne(&reserve.vault) { 
+        msg!{"vault: does not match config"};
+        return Err(ProgramError::InvalidAccountData);
     }
-
-    // Perform a SYNC on the 
-    let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
-    let starting_balance: u64;
-    let post_sync_balance: u64;
-    match &mut spl_token_vault_integration.state {
-        IntegrationState::SplTokenVault(state) => {
-            starting_balance = state.last_balance;
-            post_sync_balance = vault.amount();
-            state.last_refresh_timestamp = clock.unix_timestamp;
-            state.last_refresh_slot = clock.slot;
-            state.last_balance = post_sync_balance;
-        },
-        _ => return Err(ProgramError::InvalidAccountData.into())
+    if !inner_ctx.vault.is_writable() { 
+        msg!{"vault: not mutable"};
+        return Err(ProgramError::InvalidAccountData);
     }
-    drop(vault);
-
-    let controller_id_bytes = controller.id.to_le_bytes();
-    let controller_bump = controller.bump;
-    if starting_balance != post_sync_balance {
-        // Emit the accounting event
-        emit_cpi(
-            outer_ctx.controller_info,
-            [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller_id_bytes),
-                Seed::from(&[controller_bump])
-            ],
-            SvmAlmControllerEvent::AccountingEvent (
-                AccountingEvent {
-                    controller: *outer_ctx.controller_info.key(),
-                    integration: *inner_ctx.spl_token_vault_integration.key(),
-                    mint: *inner_ctx.mint.key(),
-                    action: AccountingAction::Sync,
-                    before: starting_balance,
-                    after: post_sync_balance
-                }
-            )
-        )?;
+    if inner_ctx.mint.key().ne(&reserve.mint) { 
+        msg!{"mint: mismatch between integration configs"};
+        return Err(ProgramError::InvalidAccountData);
     }
     
+    let post_sync_balance = reserve.last_balance;
+    
     // Invoke the CreateIdempotent ixn 
+    //  to create or validate the ATA for the recipient
+    //  external account
     CreateIdempotent{
-        funding_account: outer_ctx.authority_info,
+        funding_account: outer_ctx.authority,
         account: inner_ctx.recipient_token_account,
         wallet: inner_ctx.recipient,
         mint: inner_ctx.mint,
@@ -228,10 +166,12 @@ pub fn process_push_spl_token_external(
 
 
     // Perform the transfer
+    let controller_id_bytes = controller.id.to_le_bytes();
+    let controller_bump = controller.bump;
     Transfer{
         from: inner_ctx.vault,
         to: inner_ctx.recipient_token_account,
-        authority: outer_ctx.controller_info,
+        authority: outer_ctx.controller,
         amount: amount,
     }.invoke_signed(
         &[
@@ -245,8 +185,6 @@ pub fn process_push_spl_token_external(
         ]
     )?;
     
-
-
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let post_transfer_balance = vault.amount();
@@ -256,31 +194,16 @@ pub fn process_push_spl_token_external(
         return Err(ProgramError::InvalidArgument);
     }
 
-    msg!("after checks");
-
-    // Update the vault integration state
-    match &mut spl_token_vault_integration.state {
-        IntegrationState::SplTokenVault(state) => {
-            state.last_refresh_timestamp = clock.unix_timestamp;
-            state.last_refresh_slot = clock.slot;
-            state.last_balance = post_transfer_balance;
-        },
-        _ => return Err(ProgramError::InvalidAccountData.into())
-    }
-
+    // Update reserve balance and rate limits for the outflow
+    reserve.update_for_outflow(clock, amount)?;
 
     // Emit the accounting event
-    emit_cpi(
-        outer_ctx.controller_info,
-        [
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller_id_bytes),
-            Seed::from(&[controller_bump])
-        ],
+    controller.emit_event(
+        outer_ctx.controller,
         SvmAlmControllerEvent::AccountingEvent (
             AccountingEvent {
-                controller: *outer_ctx.controller_info.key(),
-                integration: *outer_ctx.integration_info.key(),
+                controller: *outer_ctx.controller.key(),
+                integration: *outer_ctx.integration.key(),
                 mint: *inner_ctx.mint.key(),
                 action: AccountingAction::ExternalTransfer,
                 before: post_sync_balance,
@@ -288,14 +211,7 @@ pub fn process_push_spl_token_external(
             }
         )
     )?;
-
-    
-    // Save the changes to the SplTokenVault integration account
-    spl_token_vault_integration.save(&inner_ctx.spl_token_vault_integration)?;
-
-    // Save the changes to the SplTokenExternal integration account
-    integration.save(&outer_ctx.integration_info)?;
-
+ 
     
     Ok(())
 
