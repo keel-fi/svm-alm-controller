@@ -35,6 +35,22 @@
       }
     },
     {
+      "name": "ReserveUpdate",
+      "accounts": [],
+      "args": [
+        {
+          "name": "reserveUpdateEvent",
+          "type": {
+            "defined": "ReserveUpdateEvent"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
       "name": "IntegrationUpdate",
       "accounts": [],
       "args": [
@@ -47,7 +63,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 2
+        "value": 3
       }
     },
     {
@@ -63,7 +79,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 3
+        "value": 4
       }
     },
     {
@@ -183,6 +199,110 @@
       }
     },
     {
+      "name": "InitializeReserve",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeReserveArgs",
+          "type": {
+            "defined": "InitializeReserveArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "ManageReserve",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "manageReserveArgs",
+          "type": {
+            "defined": "ManageReserveArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    },
+    {
       "name": "InializeIntegration",
       "accounts": [
         {
@@ -231,7 +351,86 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 3
+        "value": 5
+      }
+    },
+    {
+      "name": "ManageIntegration",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "manageIntegrationArgs",
+          "type": {
+            "defined": "ManageIntegrationArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 6
+      }
+    },
+    {
+      "name": "SyncReserve",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "vault",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "syncReserveArgs",
+          "type": {
+            "defined": "SyncReserveArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 7
       }
     },
     {
@@ -250,15 +449,15 @@
       ],
       "args": [
         {
-          "name": "syncArgs",
+          "name": "syncIntegrationArgs",
           "type": {
-            "defined": "SyncArgs"
+            "defined": "SyncIntegrationArgs"
           }
         }
       ],
       "discriminant": {
         "type": "u8",
-        "value": 4
+        "value": 8
       }
     },
     {
@@ -283,6 +482,16 @@
           "name": "integration",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "reserveA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveB",
+          "isMut": true,
+          "isSigner": false
         }
       ],
       "args": [
@@ -295,7 +504,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 5
+        "value": 9
       }
     },
     {
@@ -320,6 +529,16 @@
           "name": "integration",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "reserveA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveB",
+          "isMut": true,
+          "isSigner": false
         }
       ],
       "args": [
@@ -332,7 +551,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 6
+        "value": 10
       }
     }
   ],
@@ -397,6 +616,26 @@
             }
           },
           {
+            "name": "rateLimitSlope",
+            "type": "u64"
+          },
+          {
+            "name": "rateLimitMaxOutflow",
+            "type": "u64"
+          },
+          {
+            "name": "rateLimitAmountLastUpdate",
+            "type": "u64"
+          },
+          {
+            "name": "lastRefreshTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "lastRefreshSlot",
+            "type": "u64"
+          },
+          {
             "name": "config",
             "type": {
               "defined": "IntegrationConfig"
@@ -457,6 +696,56 @@
           {
             "name": "canManageIntegrations",
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Reserve",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "vault",
+            "type": "publicKey"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "ReserveStatus"
+            }
+          },
+          {
+            "name": "rateLimitSlope",
+            "type": "u64"
+          },
+          {
+            "name": "rateLimitMaxOutflow",
+            "type": "u64"
+          },
+          {
+            "name": "rateLimitAmountLastUpdate",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalance",
+            "type": "u64"
+          },
+          {
+            "name": "lastRefreshTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "lastRefreshSlot",
+            "type": "u64"
           }
         ]
       }
@@ -525,6 +814,42 @@
             "type": {
               "option": {
                 "defined": "Permission"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReserveUpdateEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserve",
+            "type": "publicKey"
+          },
+          {
+            "name": "oldState",
+            "type": {
+              "option": {
+                "defined": "Reserve"
+              }
+            }
+          },
+          {
+            "name": "newState",
+            "type": {
+              "option": {
+                "defined": "Reserve"
               }
             }
           }
@@ -674,6 +999,56 @@
       }
     },
     {
+      "name": "InitializeReserveArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "status",
+            "type": {
+              "defined": "ReserveStatus"
+            }
+          },
+          {
+            "name": "rateLimitSlope",
+            "type": "u64"
+          },
+          {
+            "name": "rateLimitMaxOutflow",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ManageReserveArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "status",
+            "type": {
+              "option": {
+                "defined": "ReserveStatus"
+              }
+            }
+          },
+          {
+            "name": "rateLimitSlope",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "rateLimitMaxOutflow",
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "InitializeIntegrationArgs",
       "type": {
         "kind": "struct",
@@ -698,37 +1073,369 @@
                 32
               ]
             }
+          },
+          {
+            "name": "rateLimitSlope",
+            "type": "u64"
+          },
+          {
+            "name": "rateLimitMaxOutflow",
+            "type": "u64"
+          },
+          {
+            "name": "innerArgs",
+            "type": {
+              "defined": "InitializeArgs"
+            }
           }
         ]
       }
     },
     {
-      "name": "SyncArgs",
+      "name": "ManageIntegrationArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "status",
+            "type": {
+              "option": {
+                "defined": "IntegrationStatus"
+              }
+            }
+          },
+          {
+            "name": "description",
+            "type": {
+              "option": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "rateLimitSlope",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "rateLimitMaxOutflow",
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SyncReserveArgs",
       "type": {
         "kind": "struct",
         "fields": []
       }
     },
     {
-      "name": "PushArgs",
+      "name": "SyncIntegrationArgs",
+      "type": {
+        "kind": "struct",
+        "fields": []
+      }
+    },
+    {
+      "name": "LocalToken",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "custody",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "burnLimitPerMessage",
+            "type": "u64"
+          },
+          {
+            "name": "messagesSent",
+            "type": "u64"
+          },
+          {
+            "name": "messagesReceived",
+            "type": "u64"
+          },
+          {
+            "name": "amountSent",
+            "type": "u128"
+          },
+          {
+            "name": "amountReceived",
+            "type": "u128"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "custodyBump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RemoteTokenMessenger",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "domain",
+            "type": "u32"
+          },
+          {
+            "name": "tokenMessenger",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CctpBridgeConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "program",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "destinationAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "destinationDomain",
+            "type": "u32"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                92
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositForBurnArgs",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "destinationDomain",
+            "type": "u32"
+          },
+          {
+            "name": "mintRecipient",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CctpBridgeState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                48
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LzBridgeConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "program",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "oftStore",
+            "type": "publicKey"
+          },
+          {
+            "name": "peerConfig",
+            "type": "publicKey"
+          },
+          {
+            "name": "destinationAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "destinationEid",
+            "type": "u32"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                28
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OftSendParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "dstEid",
+            "type": "u32"
+          },
+          {
+            "name": "to",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amountLd",
+            "type": "u64"
+          },
+          {
+            "name": "minAmountLd",
             "type": "u64"
           }
         ]
       }
     },
     {
-      "name": "PullArgs",
+      "name": "OFTStore",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "amount",
+            "name": "oftType",
+            "type": {
+              "defined": "OFTType"
+            }
+          },
+          {
+            "name": "ld2sdRate",
             "type": "u64"
+          },
+          {
+            "name": "tokenMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenEscrow",
+            "type": "publicKey"
+          },
+          {
+            "name": "endpointProgram",
+            "type": "publicKey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "tvlLd",
+            "type": "u64"
+          },
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "defaultFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "pauser",
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "unpauser",
+            "type": {
+              "option": "publicKey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PeerConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "peerAddress",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LzBridgeState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                48
+              ]
+            }
           }
         ]
       }
@@ -776,7 +1483,7 @@
             "type": {
               "array": [
                 "u8",
-                32
+                48
               ]
             }
           }
@@ -784,7 +1491,7 @@
       }
     },
     {
-      "name": "SplTokenVaultConfig",
+      "name": "SplTokenSwapConfig",
       "type": {
         "kind": "struct",
         "fields": [
@@ -793,19 +1500,83 @@
             "type": "publicKey"
           },
           {
-            "name": "mint",
+            "name": "swap",
             "type": "publicKey"
           },
           {
-            "name": "vault",
+            "name": "mintA",
             "type": "publicKey"
+          },
+          {
+            "name": "mintB",
+            "type": "publicKey"
+          },
+          {
+            "name": "lpMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "lpTokenAccount",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositSingleTokenTypeExactAmountInArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sourceTokenAmount",
+            "type": "u64"
+          },
+          {
+            "name": "minimumPoolTokenAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawSingleTokenTypeExactAmountOutArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "destinationTokenAmount",
+            "type": "u64"
+          },
+          {
+            "name": "maximumPoolTokenAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SplTokenSwapState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastBalanceA",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalanceB",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalanceLp",
+            "type": "u64"
           },
           {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                96
+                24
               ]
             }
           }
@@ -813,30 +1584,45 @@
       }
     },
     {
-      "name": "SplTokenVaultState",
+      "name": "SwapV1Subset",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "lastRefreshTimestamp",
-            "type": "i64"
+            "name": "isInitialized",
+            "type": "bool"
           },
           {
-            "name": "lastRefreshSlot",
-            "type": "u64"
+            "name": "bumpSeed",
+            "type": "u8"
           },
           {
-            "name": "lastBalance",
-            "type": "u64"
+            "name": "tokenProgramId",
+            "type": "publicKey"
           },
           {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                8
-              ]
-            }
+            "name": "tokenA",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenB",
+            "type": "publicKey"
+          },
+          {
+            "name": "poolMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenBMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "poolFeeAccount",
+            "type": "publicKey"
           }
         ]
       }
@@ -875,18 +1661,34 @@
             ]
           },
           {
-            "name": "SplTokenVault",
-            "fields": [
-              {
-                "defined": "SplTokenVaultConfig"
-              }
-            ]
-          },
-          {
             "name": "SplTokenExternal",
             "fields": [
               {
                 "defined": "SplTokenExternalConfig"
+              }
+            ]
+          },
+          {
+            "name": "SplTokenSwap",
+            "fields": [
+              {
+                "defined": "SplTokenSwapConfig"
+              }
+            ]
+          },
+          {
+            "name": "CctpBridge",
+            "fields": [
+              {
+                "defined": "CctpBridgeConfig"
+              }
+            ]
+          },
+          {
+            "name": "LzBridge",
+            "fields": [
+              {
+                "defined": "LzBridgeConfig"
               }
             ]
           }
@@ -906,17 +1708,9 @@
                 "type": {
                   "array": [
                     "u8",
-                    32
+                    48
                   ]
                 }
-              }
-            ]
-          },
-          {
-            "name": "SplTokenVault",
-            "fields": [
-              {
-                "defined": "SplTokenVaultState"
               }
             ]
           },
@@ -925,6 +1719,30 @@
             "fields": [
               {
                 "defined": "SplTokenExternalState"
+              }
+            ]
+          },
+          {
+            "name": "SplTokenSwap",
+            "fields": [
+              {
+                "defined": "SplTokenSwapState"
+              }
+            ]
+          },
+          {
+            "name": "CctpBridge",
+            "fields": [
+              {
+                "defined": "CctpBridgeState"
+              }
+            ]
+          },
+          {
+            "name": "LzBridge",
+            "fields": [
+              {
+                "defined": "LzBridgeState"
               }
             ]
           }
@@ -951,25 +1769,39 @@
         "kind": "enum",
         "variants": [
           {
-            "name": "SplTokenVault"
-          },
-          {
             "name": "SplTokenExternal"
           },
           {
-            "name": "SwapIntent"
+            "name": "SplTokenSwap"
           },
           {
             "name": "CctpBridge"
           },
           {
-            "name": "LayerZeroBridge"
+            "name": "SwapIntent"
+          },
+          {
+            "name": "LzBridge"
           }
         ]
       }
     },
     {
       "name": "PermissionStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Suspended"
+          },
+          {
+            "name": "Active"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReserveStatus",
       "type": {
         "kind": "enum",
         "variants": [
@@ -992,6 +1824,147 @@
           },
           {
             "name": "ExternalTransfer"
+          },
+          {
+            "name": "Deposit"
+          },
+          {
+            "name": "Withdrawal"
+          },
+          {
+            "name": "BridgeSend"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeArgs",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SplTokenExternal"
+          },
+          {
+            "name": "SplTokenSwap"
+          },
+          {
+            "name": "CctpBridge",
+            "fields": [
+              {
+                "name": "desination_address",
+                "type": "publicKey"
+              },
+              {
+                "name": "desination_domain",
+                "type": "u32"
+              }
+            ]
+          },
+          {
+            "name": "LzBridge",
+            "fields": [
+              {
+                "name": "desination_address",
+                "type": "publicKey"
+              },
+              {
+                "name": "destination_eid",
+                "type": "u32"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "PushArgs",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SplTokenExternal",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
+          },
+          {
+            "name": "SplTokenSwap",
+            "fields": [
+              {
+                "name": "amount_a",
+                "type": "u64"
+              },
+              {
+                "name": "amount_b",
+                "type": "u64"
+              }
+            ]
+          },
+          {
+            "name": "CctpBridge",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
+          },
+          {
+            "name": "LzBridge",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "PullArgs",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "SplTokenExternal"
+          },
+          {
+            "name": "SplTokenSwap",
+            "fields": [
+              {
+                "name": "amount_a",
+                "type": "u64"
+              },
+              {
+                "name": "amount_b",
+                "type": "u64"
+              }
+            ]
+          },
+          {
+            "name": "CctpBridge"
+          },
+          {
+            "name": "LzBridge"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OFTType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Native"
+          },
+          {
+            "name": "Adapter"
           }
         ]
       }

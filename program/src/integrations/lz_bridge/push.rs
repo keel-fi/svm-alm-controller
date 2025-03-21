@@ -1,13 +1,11 @@
 use pinocchio::{
     account_info::AccountInfo, 
-    instruction::{Seed, Signer}, 
     msg, 
     program_error::ProgramError, 
     sysvars::{clock::Clock, Sysvar} 
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use crate::{
-    constants::CONTROLLER_SEED, 
     enums::IntegrationConfig, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
@@ -158,10 +156,10 @@ pub fn process_push_lz_bridge(
 
     // // 1. Check this instruction is at the first instruction of the transaction    <---- TBD if this step is necessary
     // let current_idx = load_current_index_checked(&inner_ctx.sysvar_instruction)?;
-    // if current_idx != 0 {
-    //     msg!{"current ixn is not first"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // };
+    // // if current_idx != 0 {
+    // //     msg!{"current ixn is not first"}
+    // //     return Err(ProgramError::InvalidInstructionData)
+    // // };
     
     // // 2. Check the subsequent instruction is the OFT send instruction
     // let subsequent_ixn = load_instruction_at_checked(current_idx+1, &inner_ctx.sysvar_instruction)?;
@@ -172,7 +170,15 @@ pub fn process_push_lz_bridge(
 
     // // 3. Decode the OFT send instruction data and assert the amount, destination_address and destination_eid
     // let send_params = OftSendParams::deserialize(&mut &subsequent_ixn.data[..]).unwrap();
-    // if send_params.amount_ld != amount {
+
+    // // TODO: Calculate amount_ld from amount and OFTStore decimals
+    // // TODO: Calculate min_amount_ld from amount and OFTStore decimals
+
+    // if send_params.amount_ld != amount_ld {
+    //     msg!{"subsequent ixn's amount does not match"}
+    //     return Err(ProgramError::InvalidInstructionData)
+    // };
+    // if send_params.min_amount_ld != mint_amount_ld {
     //     msg!{"subsequent ixn's amount does not match"}
     //     return Err(ProgramError::InvalidInstructionData)
     // };
@@ -185,7 +191,6 @@ pub fn process_push_lz_bridge(
     //     return Err(ProgramError::InvalidInstructionData)
     // };
 
-    // TODO: Confirm no need to check send_params.min_amount_ld? (Expect txn just fails) 
 
     // // 4. check the accounts of OFT Send instruction
     // // the signer of OFT Send instruction is the authority

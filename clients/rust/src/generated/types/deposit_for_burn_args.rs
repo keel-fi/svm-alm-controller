@@ -7,25 +7,16 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use num_derive::FromPrimitive;
+use solana_program::pubkey::Pubkey;
 
-#[derive(
-    BorshSerialize,
-    BorshDeserialize,
-    Clone,
-    Debug,
-    Eq,
-    PartialEq,
-    Copy,
-    PartialOrd,
-    Hash,
-    FromPrimitive,
-)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum IntegrationType {
-    SplTokenExternal,
-    SplTokenSwap,
-    CctpBridge,
-    SwapIntent,
-    LzBridge,
+pub struct DepositForBurnArgs {
+    pub amount: u64,
+    pub destination_domain: u32,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub mint_recipient: Pubkey,
 }

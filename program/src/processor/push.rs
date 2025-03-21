@@ -1,5 +1,5 @@
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}, ProgramResult};
 use crate::{
     instructions::PushArgs, 
     integrations::{
@@ -82,6 +82,8 @@ pub fn process_push(
 ) -> ProgramResult {
     msg!("push");
 
+    let clock = Clock::get()?;
+
     let ctx = PushAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = PushArgs::try_from_slice(
@@ -105,6 +107,7 @@ pub fn process_push(
         ctx.integration, 
         ctx.controller.key(), 
     )?;
+    integration.refresh_rate_limit(clock)?;
 
     // Load in the reserve account for a
     let mut reserve_a = Reserve::load_and_check_mut(

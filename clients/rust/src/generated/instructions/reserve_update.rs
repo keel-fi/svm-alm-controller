@@ -5,31 +5,31 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::AccountingAction;
+use crate::accounts::Reserve;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct AccountingEvent {}
+pub struct ReserveUpdate {}
 
-impl AccountingEvent {
+impl ReserveUpdate {
     pub fn instruction(
         &self,
-        args: AccountingEventInstructionArgs,
+        args: ReserveUpdateInstructionArgs,
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: AccountingEventInstructionArgs,
+        args: ReserveUpdateInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(remaining_accounts.len());
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&AccountingEventInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&ReserveUpdateInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
@@ -43,17 +43,17 @@ impl AccountingEvent {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccountingEventInstructionData {
+pub struct ReserveUpdateInstructionData {
     discriminator: u8,
 }
 
-impl AccountingEventInstructionData {
+impl ReserveUpdateInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 4 }
+        Self { discriminator: 2 }
     }
 }
 
-impl Default for AccountingEventInstructionData {
+impl Default for ReserveUpdateInstructionData {
     fn default() -> Self {
         Self::new()
     }
@@ -61,33 +61,36 @@ impl Default for AccountingEventInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccountingEventInstructionArgs {
+pub struct ReserveUpdateInstructionArgs {
+    pub authority: Pubkey,
     pub controller: Pubkey,
-    pub integration: Pubkey,
-    pub mint: Pubkey,
-    pub action: AccountingAction,
-    pub before: u64,
-    pub after: u64,
+    pub reserve: Pubkey,
+    pub old_state: Option<Reserve>,
+    pub new_state: Option<Reserve>,
 }
 
-/// Instruction builder for `AccountingEvent`.
+/// Instruction builder for `ReserveUpdate`.
 ///
 /// ### Accounts:
 ///
 #[derive(Clone, Debug, Default)]
-pub struct AccountingEventBuilder {
+pub struct ReserveUpdateBuilder {
+    authority: Option<Pubkey>,
     controller: Option<Pubkey>,
-    integration: Option<Pubkey>,
-    mint: Option<Pubkey>,
-    action: Option<AccountingAction>,
-    before: Option<u64>,
-    after: Option<u64>,
+    reserve: Option<Pubkey>,
+    old_state: Option<Reserve>,
+    new_state: Option<Reserve>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl AccountingEventBuilder {
+impl ReserveUpdateBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+    #[inline(always)]
+    pub fn authority(&mut self, authority: Pubkey) -> &mut Self {
+        self.authority = Some(authority);
+        self
     }
     #[inline(always)]
     pub fn controller(&mut self, controller: Pubkey) -> &mut Self {
@@ -95,28 +98,20 @@ impl AccountingEventBuilder {
         self
     }
     #[inline(always)]
-    pub fn integration(&mut self, integration: Pubkey) -> &mut Self {
-        self.integration = Some(integration);
+    pub fn reserve(&mut self, reserve: Pubkey) -> &mut Self {
+        self.reserve = Some(reserve);
         self
     }
+    /// `[optional argument]`
     #[inline(always)]
-    pub fn mint(&mut self, mint: Pubkey) -> &mut Self {
-        self.mint = Some(mint);
+    pub fn old_state(&mut self, old_state: Reserve) -> &mut Self {
+        self.old_state = Some(old_state);
         self
     }
+    /// `[optional argument]`
     #[inline(always)]
-    pub fn action(&mut self, action: AccountingAction) -> &mut Self {
-        self.action = Some(action);
-        self
-    }
-    #[inline(always)]
-    pub fn before(&mut self, before: u64) -> &mut Self {
-        self.before = Some(before);
-        self
-    }
-    #[inline(always)]
-    pub fn after(&mut self, after: u64) -> &mut Self {
-        self.after = Some(after);
+    pub fn new_state(&mut self, new_state: Reserve) -> &mut Self {
+        self.new_state = Some(new_state);
         self
     }
     /// Add an additional account to the instruction.
@@ -139,32 +134,31 @@ impl AccountingEventBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = AccountingEvent {};
-        let args = AccountingEventInstructionArgs {
+        let accounts = ReserveUpdate {};
+        let args = ReserveUpdateInstructionArgs {
+            authority: self.authority.clone().expect("authority is not set"),
             controller: self.controller.clone().expect("controller is not set"),
-            integration: self.integration.clone().expect("integration is not set"),
-            mint: self.mint.clone().expect("mint is not set"),
-            action: self.action.clone().expect("action is not set"),
-            before: self.before.clone().expect("before is not set"),
-            after: self.after.clone().expect("after is not set"),
+            reserve: self.reserve.clone().expect("reserve is not set"),
+            old_state: self.old_state.clone(),
+            new_state: self.new_state.clone(),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
     }
 }
 
-/// `accounting_event` CPI instruction.
-pub struct AccountingEventCpi<'a, 'b> {
+/// `reserve_update` CPI instruction.
+pub struct ReserveUpdateCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
-    pub __args: AccountingEventInstructionArgs,
+    pub __args: ReserveUpdateInstructionArgs,
 }
 
-impl<'a, 'b> AccountingEventCpi<'a, 'b> {
+impl<'a, 'b> ReserveUpdateCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        args: AccountingEventInstructionArgs,
+        args: ReserveUpdateInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -212,7 +206,7 @@ impl<'a, 'b> AccountingEventCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&AccountingEventInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&ReserveUpdateInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
@@ -235,28 +229,32 @@ impl<'a, 'b> AccountingEventCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `AccountingEvent` via CPI.
+/// Instruction builder for `ReserveUpdate` via CPI.
 ///
 /// ### Accounts:
 ///
 #[derive(Clone, Debug)]
-pub struct AccountingEventCpiBuilder<'a, 'b> {
-    instruction: Box<AccountingEventCpiBuilderInstruction<'a, 'b>>,
+pub struct ReserveUpdateCpiBuilder<'a, 'b> {
+    instruction: Box<ReserveUpdateCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
+impl<'a, 'b> ReserveUpdateCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(AccountingEventCpiBuilderInstruction {
+        let instruction = Box::new(ReserveUpdateCpiBuilderInstruction {
             __program: program,
+            authority: None,
             controller: None,
-            integration: None,
-            mint: None,
-            action: None,
-            before: None,
-            after: None,
+            reserve: None,
+            old_state: None,
+            new_state: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
+    }
+    #[inline(always)]
+    pub fn authority(&mut self, authority: Pubkey) -> &mut Self {
+        self.instruction.authority = Some(authority);
+        self
     }
     #[inline(always)]
     pub fn controller(&mut self, controller: Pubkey) -> &mut Self {
@@ -264,28 +262,20 @@ impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn integration(&mut self, integration: Pubkey) -> &mut Self {
-        self.instruction.integration = Some(integration);
+    pub fn reserve(&mut self, reserve: Pubkey) -> &mut Self {
+        self.instruction.reserve = Some(reserve);
         self
     }
+    /// `[optional argument]`
     #[inline(always)]
-    pub fn mint(&mut self, mint: Pubkey) -> &mut Self {
-        self.instruction.mint = Some(mint);
+    pub fn old_state(&mut self, old_state: Reserve) -> &mut Self {
+        self.instruction.old_state = Some(old_state);
         self
     }
+    /// `[optional argument]`
     #[inline(always)]
-    pub fn action(&mut self, action: AccountingAction) -> &mut Self {
-        self.instruction.action = Some(action);
-        self
-    }
-    #[inline(always)]
-    pub fn before(&mut self, before: u64) -> &mut Self {
-        self.instruction.before = Some(before);
-        self
-    }
-    #[inline(always)]
-    pub fn after(&mut self, after: u64) -> &mut Self {
-        self.instruction.after = Some(after);
+    pub fn new_state(&mut self, new_state: Reserve) -> &mut Self {
+        self.instruction.new_state = Some(new_state);
         self
     }
     /// Add an additional account to the instruction.
@@ -329,23 +319,26 @@ impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = AccountingEventInstructionArgs {
+        let args = ReserveUpdateInstructionArgs {
+            authority: self
+                .instruction
+                .authority
+                .clone()
+                .expect("authority is not set"),
             controller: self
                 .instruction
                 .controller
                 .clone()
                 .expect("controller is not set"),
-            integration: self
+            reserve: self
                 .instruction
-                .integration
+                .reserve
                 .clone()
-                .expect("integration is not set"),
-            mint: self.instruction.mint.clone().expect("mint is not set"),
-            action: self.instruction.action.clone().expect("action is not set"),
-            before: self.instruction.before.clone().expect("before is not set"),
-            after: self.instruction.after.clone().expect("after is not set"),
+                .expect("reserve is not set"),
+            old_state: self.instruction.old_state.clone(),
+            new_state: self.instruction.new_state.clone(),
         };
-        let instruction = AccountingEventCpi {
+        let instruction = ReserveUpdateCpi {
             __program: self.instruction.__program,
             __args: args,
         };
@@ -357,14 +350,13 @@ impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct AccountingEventCpiBuilderInstruction<'a, 'b> {
+struct ReserveUpdateCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
+    authority: Option<Pubkey>,
     controller: Option<Pubkey>,
-    integration: Option<Pubkey>,
-    mint: Option<Pubkey>,
-    action: Option<AccountingAction>,
-    before: Option<u64>,
-    after: Option<u64>,
+    reserve: Option<Pubkey>,
+    old_state: Option<Reserve>,
+    new_state: Option<Reserve>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

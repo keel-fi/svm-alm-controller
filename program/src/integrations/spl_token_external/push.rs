@@ -5,6 +5,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar} 
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
+use pinocchio_log::log;
 use crate::{
     enums::IntegrationConfig, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
@@ -147,6 +148,12 @@ pub fn process_push_spl_token_external(
         return Err(ProgramError::InvalidAccountData);
     }
     
+    // Sync the reserve before main logic
+    reserve.sync_balance(
+        inner_ctx.vault, 
+        outer_ctx.controller, 
+        controller
+    )?;
     let post_sync_balance = reserve.last_balance;
     
     // Invoke the CreateIdempotent ixn 
@@ -172,6 +179,8 @@ pub fn process_push_spl_token_external(
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let post_transfer_balance = vault.amount();
+    log!("post_sync_balance: {}", post_sync_balance);
+    log!("post_transfer_balance: {}", post_transfer_balance);
     let check_delta = post_sync_balance.checked_sub(post_transfer_balance).unwrap();
     if check_delta != amount {
         msg!{"check_delta: transfer did not match the vault balance change"};

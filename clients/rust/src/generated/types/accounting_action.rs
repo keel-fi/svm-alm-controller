@@ -25,4 +25,7 @@ use num_derive::FromPrimitive;
 pub enum AccountingAction {
     Sync,
     ExternalTransfer,
+    Deposit,
+    Withdrawal,
+    BridgeSend,
 }

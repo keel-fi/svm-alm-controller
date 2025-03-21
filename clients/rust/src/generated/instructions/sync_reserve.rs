@@ -5,33 +5,47 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::AccountingAction;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct AccountingEvent {}
+pub struct SyncReserve {
+    pub controller: solana_program::pubkey::Pubkey,
 
-impl AccountingEvent {
-    pub fn instruction(
-        &self,
-        args: AccountingEventInstructionArgs,
-    ) -> solana_program::instruction::Instruction {
-        self.instruction_with_remaining_accounts(args, &[])
+    pub reserve: solana_program::pubkey::Pubkey,
+
+    pub mint: solana_program::pubkey::Pubkey,
+
+    pub vault: solana_program::pubkey::Pubkey,
+}
+
+impl SyncReserve {
+    pub fn instruction(&self) -> solana_program::instruction::Instruction {
+        self.instruction_with_remaining_accounts(&[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: AccountingEventInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.controller,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            self.reserve,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.mint, false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.vault, false,
+        ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&AccountingEventInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&args).unwrap();
-        data.append(&mut args);
+        let data = borsh::to_vec(&SyncReserveInstructionData::new()).unwrap();
 
         solana_program::instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -43,80 +57,61 @@ impl AccountingEvent {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccountingEventInstructionData {
+pub struct SyncReserveInstructionData {
     discriminator: u8,
 }
 
-impl AccountingEventInstructionData {
+impl SyncReserveInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 4 }
+        Self { discriminator: 7 }
     }
 }
 
-impl Default for AccountingEventInstructionData {
+impl Default for SyncReserveInstructionData {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccountingEventInstructionArgs {
-    pub controller: Pubkey,
-    pub integration: Pubkey,
-    pub mint: Pubkey,
-    pub action: AccountingAction,
-    pub before: u64,
-    pub after: u64,
-}
-
-/// Instruction builder for `AccountingEvent`.
+/// Instruction builder for `SyncReserve`.
 ///
 /// ### Accounts:
 ///
+///   0. `[]` controller
+///   1. `[writable]` reserve
+///   2. `[]` mint
+///   3. `[]` vault
 #[derive(Clone, Debug, Default)]
-pub struct AccountingEventBuilder {
-    controller: Option<Pubkey>,
-    integration: Option<Pubkey>,
-    mint: Option<Pubkey>,
-    action: Option<AccountingAction>,
-    before: Option<u64>,
-    after: Option<u64>,
+pub struct SyncReserveBuilder {
+    controller: Option<solana_program::pubkey::Pubkey>,
+    reserve: Option<solana_program::pubkey::Pubkey>,
+    mint: Option<solana_program::pubkey::Pubkey>,
+    vault: Option<solana_program::pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl AccountingEventBuilder {
+impl SyncReserveBuilder {
     pub fn new() -> Self {
         Self::default()
     }
     #[inline(always)]
-    pub fn controller(&mut self, controller: Pubkey) -> &mut Self {
+    pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
         self
     }
     #[inline(always)]
-    pub fn integration(&mut self, integration: Pubkey) -> &mut Self {
-        self.integration = Some(integration);
+    pub fn reserve(&mut self, reserve: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.reserve = Some(reserve);
         self
     }
     #[inline(always)]
-    pub fn mint(&mut self, mint: Pubkey) -> &mut Self {
+    pub fn mint(&mut self, mint: solana_program::pubkey::Pubkey) -> &mut Self {
         self.mint = Some(mint);
         self
     }
     #[inline(always)]
-    pub fn action(&mut self, action: AccountingAction) -> &mut Self {
-        self.action = Some(action);
-        self
-    }
-    #[inline(always)]
-    pub fn before(&mut self, before: u64) -> &mut Self {
-        self.before = Some(before);
-        self
-    }
-    #[inline(always)]
-    pub fn after(&mut self, after: u64) -> &mut Self {
-        self.after = Some(after);
+    pub fn vault(&mut self, vault: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.vault = Some(vault);
         self
     }
     /// Add an additional account to the instruction.
@@ -139,36 +134,53 @@ impl AccountingEventBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = AccountingEvent {};
-        let args = AccountingEventInstructionArgs {
-            controller: self.controller.clone().expect("controller is not set"),
-            integration: self.integration.clone().expect("integration is not set"),
-            mint: self.mint.clone().expect("mint is not set"),
-            action: self.action.clone().expect("action is not set"),
-            before: self.before.clone().expect("before is not set"),
-            after: self.after.clone().expect("after is not set"),
+        let accounts = SyncReserve {
+            controller: self.controller.expect("controller is not set"),
+            reserve: self.reserve.expect("reserve is not set"),
+            mint: self.mint.expect("mint is not set"),
+            vault: self.vault.expect("vault is not set"),
         };
 
-        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
+        accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
     }
 }
 
-/// `accounting_event` CPI instruction.
-pub struct AccountingEventCpi<'a, 'b> {
-    /// The program to invoke.
-    pub __program: &'b solana_program::account_info::AccountInfo<'a>,
-    /// The arguments for the instruction.
-    pub __args: AccountingEventInstructionArgs,
+/// `sync_reserve` CPI accounts.
+pub struct SyncReserveCpiAccounts<'a, 'b> {
+    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub mint: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub vault: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-impl<'a, 'b> AccountingEventCpi<'a, 'b> {
+/// `sync_reserve` CPI instruction.
+pub struct SyncReserveCpi<'a, 'b> {
+    /// The program to invoke.
+    pub __program: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub mint: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub vault: &'b solana_program::account_info::AccountInfo<'a>,
+}
+
+impl<'a, 'b> SyncReserveCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        args: AccountingEventInstructionArgs,
+        accounts: SyncReserveCpiAccounts<'a, 'b>,
     ) -> Self {
         Self {
             __program: program,
-            __args: args,
+            controller: accounts.controller,
+            reserve: accounts.reserve,
+            mint: accounts.mint,
+            vault: accounts.vault,
         }
     }
     #[inline(always)]
@@ -204,7 +216,23 @@ impl<'a, 'b> AccountingEventCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.controller.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            *self.reserve.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.mint.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.vault.key,
+            false,
+        ));
         remaining_accounts.iter().for_each(|remaining_account| {
             accounts.push(solana_program::instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
@@ -212,17 +240,19 @@ impl<'a, 'b> AccountingEventCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&AccountingEventInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&self.__args).unwrap();
-        data.append(&mut args);
+        let data = borsh::to_vec(&SyncReserveInstructionData::new()).unwrap();
 
         let instruction = solana_program::instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(1 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
+        account_infos.push(self.controller.clone());
+        account_infos.push(self.reserve.clone());
+        account_infos.push(self.mint.clone());
+        account_infos.push(self.vault.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -235,57 +265,55 @@ impl<'a, 'b> AccountingEventCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `AccountingEvent` via CPI.
+/// Instruction builder for `SyncReserve` via CPI.
 ///
 /// ### Accounts:
 ///
+///   0. `[]` controller
+///   1. `[writable]` reserve
+///   2. `[]` mint
+///   3. `[]` vault
 #[derive(Clone, Debug)]
-pub struct AccountingEventCpiBuilder<'a, 'b> {
-    instruction: Box<AccountingEventCpiBuilderInstruction<'a, 'b>>,
+pub struct SyncReserveCpiBuilder<'a, 'b> {
+    instruction: Box<SyncReserveCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
+impl<'a, 'b> SyncReserveCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(AccountingEventCpiBuilderInstruction {
+        let instruction = Box::new(SyncReserveCpiBuilderInstruction {
             __program: program,
             controller: None,
-            integration: None,
+            reserve: None,
             mint: None,
-            action: None,
-            before: None,
-            after: None,
+            vault: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
     }
     #[inline(always)]
-    pub fn controller(&mut self, controller: Pubkey) -> &mut Self {
+    pub fn controller(
+        &mut self,
+        controller: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
         self.instruction.controller = Some(controller);
         self
     }
     #[inline(always)]
-    pub fn integration(&mut self, integration: Pubkey) -> &mut Self {
-        self.instruction.integration = Some(integration);
+    pub fn reserve(
+        &mut self,
+        reserve: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.reserve = Some(reserve);
         self
     }
     #[inline(always)]
-    pub fn mint(&mut self, mint: Pubkey) -> &mut Self {
+    pub fn mint(&mut self, mint: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.mint = Some(mint);
         self
     }
     #[inline(always)]
-    pub fn action(&mut self, action: AccountingAction) -> &mut Self {
-        self.instruction.action = Some(action);
-        self
-    }
-    #[inline(always)]
-    pub fn before(&mut self, before: u64) -> &mut Self {
-        self.instruction.before = Some(before);
-        self
-    }
-    #[inline(always)]
-    pub fn after(&mut self, after: u64) -> &mut Self {
-        self.instruction.after = Some(after);
+    pub fn vault(&mut self, vault: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.vault = Some(vault);
         self
     }
     /// Add an additional account to the instruction.
@@ -329,25 +357,16 @@ impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = AccountingEventInstructionArgs {
-            controller: self
-                .instruction
-                .controller
-                .clone()
-                .expect("controller is not set"),
-            integration: self
-                .instruction
-                .integration
-                .clone()
-                .expect("integration is not set"),
-            mint: self.instruction.mint.clone().expect("mint is not set"),
-            action: self.instruction.action.clone().expect("action is not set"),
-            before: self.instruction.before.clone().expect("before is not set"),
-            after: self.instruction.after.clone().expect("after is not set"),
-        };
-        let instruction = AccountingEventCpi {
+        let instruction = SyncReserveCpi {
             __program: self.instruction.__program,
-            __args: args,
+
+            controller: self.instruction.controller.expect("controller is not set"),
+
+            reserve: self.instruction.reserve.expect("reserve is not set"),
+
+            mint: self.instruction.mint.expect("mint is not set"),
+
+            vault: self.instruction.vault.expect("vault is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -357,14 +376,12 @@ impl<'a, 'b> AccountingEventCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct AccountingEventCpiBuilderInstruction<'a, 'b> {
+struct SyncReserveCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
-    controller: Option<Pubkey>,
-    integration: Option<Pubkey>,
-    mint: Option<Pubkey>,
-    action: Option<AccountingAction>,
-    before: Option<u64>,
-    after: Option<u64>,
+    controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    reserve: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    mint: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    vault: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

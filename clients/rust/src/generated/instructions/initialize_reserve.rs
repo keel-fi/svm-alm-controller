@@ -5,15 +5,13 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::InitializeArgs;
-use crate::types::IntegrationStatus;
-use crate::types::IntegrationType;
+use crate::types::ReserveStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct InializeIntegration {
+pub struct InitializeReserve {
     pub payer: solana_program::pubkey::Pubkey,
 
     pub controller: solana_program::pubkey::Pubkey,
@@ -22,27 +20,33 @@ pub struct InializeIntegration {
 
     pub permission: solana_program::pubkey::Pubkey,
 
-    pub integration: solana_program::pubkey::Pubkey,
+    pub reserve: solana_program::pubkey::Pubkey,
 
-    pub lookup_table: solana_program::pubkey::Pubkey,
+    pub mint: solana_program::pubkey::Pubkey,
+
+    pub vault: solana_program::pubkey::Pubkey,
+
+    pub token_program: solana_program::pubkey::Pubkey,
+
+    pub associated_token_program: solana_program::pubkey::Pubkey,
 
     pub system_program: solana_program::pubkey::Pubkey,
 }
 
-impl InializeIntegration {
+impl InitializeReserve {
     pub fn instruction(
         &self,
-        args: InializeIntegrationInstructionArgs,
+        args: InitializeReserveInstructionArgs,
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: InializeIntegrationInstructionArgs,
+        args: InitializeReserveInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
@@ -59,11 +63,21 @@ impl InializeIntegration {
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
-            self.integration,
+            self.reserve,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.lookup_table,
+            self.mint, false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            self.vault, false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.token_program,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.associated_token_program,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -71,7 +85,7 @@ impl InializeIntegration {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&InializeIntegrationInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&InitializeReserveInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
@@ -85,17 +99,17 @@ impl InializeIntegration {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InializeIntegrationInstructionData {
+pub struct InitializeReserveInstructionData {
     discriminator: u8,
 }
 
-impl InializeIntegrationInstructionData {
+impl InitializeReserveInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 5 }
+        Self { discriminator: 3 }
     }
 }
 
-impl Default for InializeIntegrationInstructionData {
+impl Default for InitializeReserveInstructionData {
     fn default() -> Self {
         Self::new()
     }
@@ -103,16 +117,13 @@ impl Default for InializeIntegrationInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InializeIntegrationInstructionArgs {
-    pub integration_type: IntegrationType,
-    pub status: IntegrationStatus,
-    pub description: [u8; 32],
+pub struct InitializeReserveInstructionArgs {
+    pub status: ReserveStatus,
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
-    pub inner_args: InitializeArgs,
 }
 
-/// Instruction builder for `InializeIntegration`.
+/// Instruction builder for `InitializeReserve`.
 ///
 /// ### Accounts:
 ///
@@ -120,28 +131,31 @@ pub struct InializeIntegrationInstructionArgs {
 ///   1. `[]` controller
 ///   2. `[signer]` authority
 ///   3. `[]` permission
-///   4. `[writable]` integration
-///   5. `[]` lookup_table
-///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   4. `[writable]` reserve
+///   5. `[]` mint
+///   6. `[writable]` vault
+///   7. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///   8. `[]` associated_token_program
+///   9. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct InializeIntegrationBuilder {
+pub struct InitializeReserveBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
     controller: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
-    integration: Option<solana_program::pubkey::Pubkey>,
-    lookup_table: Option<solana_program::pubkey::Pubkey>,
+    reserve: Option<solana_program::pubkey::Pubkey>,
+    mint: Option<solana_program::pubkey::Pubkey>,
+    vault: Option<solana_program::pubkey::Pubkey>,
+    token_program: Option<solana_program::pubkey::Pubkey>,
+    associated_token_program: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
-    integration_type: Option<IntegrationType>,
-    status: Option<IntegrationStatus>,
-    description: Option<[u8; 32]>,
+    status: Option<ReserveStatus>,
     rate_limit_slope: Option<u64>,
     rate_limit_max_outflow: Option<u64>,
-    inner_args: Option<InitializeArgs>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl InializeIntegrationBuilder {
+impl InitializeReserveBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -166,13 +180,32 @@ impl InializeIntegrationBuilder {
         self
     }
     #[inline(always)]
-    pub fn integration(&mut self, integration: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.integration = Some(integration);
+    pub fn reserve(&mut self, reserve: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.reserve = Some(reserve);
         self
     }
     #[inline(always)]
-    pub fn lookup_table(&mut self, lookup_table: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.lookup_table = Some(lookup_table);
+    pub fn mint(&mut self, mint: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.mint = Some(mint);
+        self
+    }
+    #[inline(always)]
+    pub fn vault(&mut self, vault: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.vault = Some(vault);
+        self
+    }
+    /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
+    #[inline(always)]
+    pub fn token_program(&mut self, token_program: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.token_program = Some(token_program);
+        self
+    }
+    #[inline(always)]
+    pub fn associated_token_program(
+        &mut self,
+        associated_token_program: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.associated_token_program = Some(associated_token_program);
         self
     }
     /// `[optional account, default to '11111111111111111111111111111111']`
@@ -182,18 +215,8 @@ impl InializeIntegrationBuilder {
         self
     }
     #[inline(always)]
-    pub fn integration_type(&mut self, integration_type: IntegrationType) -> &mut Self {
-        self.integration_type = Some(integration_type);
-        self
-    }
-    #[inline(always)]
-    pub fn status(&mut self, status: IntegrationStatus) -> &mut Self {
+    pub fn status(&mut self, status: ReserveStatus) -> &mut Self {
         self.status = Some(status);
-        self
-    }
-    #[inline(always)]
-    pub fn description(&mut self, description: [u8; 32]) -> &mut Self {
-        self.description = Some(description);
         self
     }
     #[inline(always)]
@@ -204,11 +227,6 @@ impl InializeIntegrationBuilder {
     #[inline(always)]
     pub fn rate_limit_max_outflow(&mut self, rate_limit_max_outflow: u64) -> &mut Self {
         self.rate_limit_max_outflow = Some(rate_limit_max_outflow);
-        self
-    }
-    #[inline(always)]
-    pub fn inner_args(&mut self, inner_args: InitializeArgs) -> &mut Self {
-        self.inner_args = Some(inner_args);
         self
     }
     /// Add an additional account to the instruction.
@@ -231,24 +249,26 @@ impl InializeIntegrationBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = InializeIntegration {
+        let accounts = InitializeReserve {
             payer: self.payer.expect("payer is not set"),
             controller: self.controller.expect("controller is not set"),
             authority: self.authority.expect("authority is not set"),
             permission: self.permission.expect("permission is not set"),
-            integration: self.integration.expect("integration is not set"),
-            lookup_table: self.lookup_table.expect("lookup_table is not set"),
+            reserve: self.reserve.expect("reserve is not set"),
+            mint: self.mint.expect("mint is not set"),
+            vault: self.vault.expect("vault is not set"),
+            token_program: self.token_program.unwrap_or(solana_program::pubkey!(
+                "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+            )),
+            associated_token_program: self
+                .associated_token_program
+                .expect("associated_token_program is not set"),
             system_program: self
                 .system_program
                 .unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
         };
-        let args = InializeIntegrationInstructionArgs {
-            integration_type: self
-                .integration_type
-                .clone()
-                .expect("integration_type is not set"),
+        let args = InitializeReserveInstructionArgs {
             status: self.status.clone().expect("status is not set"),
-            description: self.description.clone().expect("description is not set"),
             rate_limit_slope: self
                 .rate_limit_slope
                 .clone()
@@ -257,15 +277,14 @@ impl InializeIntegrationBuilder {
                 .rate_limit_max_outflow
                 .clone()
                 .expect("rate_limit_max_outflow is not set"),
-            inner_args: self.inner_args.clone().expect("inner_args is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
     }
 }
 
-/// `inialize_integration` CPI accounts.
-pub struct InializeIntegrationCpiAccounts<'a, 'b> {
+/// `initialize_reserve` CPI accounts.
+pub struct InitializeReserveCpiAccounts<'a, 'b> {
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
@@ -274,15 +293,21 @@ pub struct InializeIntegrationCpiAccounts<'a, 'b> {
 
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub integration: &'b solana_program::account_info::AccountInfo<'a>,
+    pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
+    pub mint: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub vault: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub associated_token_program: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-/// `inialize_integration` CPI instruction.
-pub struct InializeIntegrationCpi<'a, 'b> {
+/// `initialize_reserve` CPI instruction.
+pub struct InitializeReserveCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -294,20 +319,26 @@ pub struct InializeIntegrationCpi<'a, 'b> {
 
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub integration: &'b solana_program::account_info::AccountInfo<'a>,
+    pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
+    pub mint: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub vault: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub associated_token_program: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
-    pub __args: InializeIntegrationInstructionArgs,
+    pub __args: InitializeReserveInstructionArgs,
 }
 
-impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
+impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        accounts: InializeIntegrationCpiAccounts<'a, 'b>,
-        args: InializeIntegrationInstructionArgs,
+        accounts: InitializeReserveCpiAccounts<'a, 'b>,
+        args: InitializeReserveInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -315,8 +346,11 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
             controller: accounts.controller,
             authority: accounts.authority,
             permission: accounts.permission,
-            integration: accounts.integration,
-            lookup_table: accounts.lookup_table,
+            reserve: accounts.reserve,
+            mint: accounts.mint,
+            vault: accounts.vault,
+            token_program: accounts.token_program,
+            associated_token_program: accounts.associated_token_program,
             system_program: accounts.system_program,
             __args: args,
         }
@@ -354,7 +388,7 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
@@ -372,11 +406,23 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
-            *self.integration.key,
+            *self.reserve.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.lookup_table.key,
+            *self.mint.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            *self.vault.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.token_program.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.associated_token_program.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -390,7 +436,7 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&InializeIntegrationInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&InitializeReserveInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
@@ -399,14 +445,17 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(11 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.permission.clone());
-        account_infos.push(self.integration.clone());
-        account_infos.push(self.lookup_table.clone());
+        account_infos.push(self.reserve.clone());
+        account_infos.push(self.mint.clone());
+        account_infos.push(self.vault.clone());
+        account_infos.push(self.token_program.clone());
+        account_infos.push(self.associated_token_program.clone());
         account_infos.push(self.system_program.clone());
         remaining_accounts
             .iter()
@@ -420,7 +469,7 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `InializeIntegration` via CPI.
+/// Instruction builder for `InitializeReserve` via CPI.
 ///
 /// ### Accounts:
 ///
@@ -428,31 +477,34 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
 ///   1. `[]` controller
 ///   2. `[signer]` authority
 ///   3. `[]` permission
-///   4. `[writable]` integration
-///   5. `[]` lookup_table
-///   6. `[]` system_program
+///   4. `[writable]` reserve
+///   5. `[]` mint
+///   6. `[writable]` vault
+///   7. `[]` token_program
+///   8. `[]` associated_token_program
+///   9. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct InializeIntegrationCpiBuilder<'a, 'b> {
-    instruction: Box<InializeIntegrationCpiBuilderInstruction<'a, 'b>>,
+pub struct InitializeReserveCpiBuilder<'a, 'b> {
+    instruction: Box<InitializeReserveCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
+impl<'a, 'b> InitializeReserveCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(InializeIntegrationCpiBuilderInstruction {
+        let instruction = Box::new(InitializeReserveCpiBuilderInstruction {
             __program: program,
             payer: None,
             controller: None,
             authority: None,
             permission: None,
-            integration: None,
-            lookup_table: None,
+            reserve: None,
+            mint: None,
+            vault: None,
+            token_program: None,
+            associated_token_program: None,
             system_program: None,
-            integration_type: None,
             status: None,
-            description: None,
             rate_limit_slope: None,
             rate_limit_max_outflow: None,
-            inner_args: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -487,19 +539,37 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn integration(
+    pub fn reserve(
         &mut self,
-        integration: &'b solana_program::account_info::AccountInfo<'a>,
+        reserve: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
-        self.instruction.integration = Some(integration);
+        self.instruction.reserve = Some(reserve);
         self
     }
     #[inline(always)]
-    pub fn lookup_table(
+    pub fn mint(&mut self, mint: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.mint = Some(mint);
+        self
+    }
+    #[inline(always)]
+    pub fn vault(&mut self, vault: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.vault = Some(vault);
+        self
+    }
+    #[inline(always)]
+    pub fn token_program(
         &mut self,
-        lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
+        token_program: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
-        self.instruction.lookup_table = Some(lookup_table);
+        self.instruction.token_program = Some(token_program);
+        self
+    }
+    #[inline(always)]
+    pub fn associated_token_program(
+        &mut self,
+        associated_token_program: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.associated_token_program = Some(associated_token_program);
         self
     }
     #[inline(always)]
@@ -511,18 +581,8 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn integration_type(&mut self, integration_type: IntegrationType) -> &mut Self {
-        self.instruction.integration_type = Some(integration_type);
-        self
-    }
-    #[inline(always)]
-    pub fn status(&mut self, status: IntegrationStatus) -> &mut Self {
+    pub fn status(&mut self, status: ReserveStatus) -> &mut Self {
         self.instruction.status = Some(status);
-        self
-    }
-    #[inline(always)]
-    pub fn description(&mut self, description: [u8; 32]) -> &mut Self {
-        self.instruction.description = Some(description);
         self
     }
     #[inline(always)]
@@ -533,11 +593,6 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn rate_limit_max_outflow(&mut self, rate_limit_max_outflow: u64) -> &mut Self {
         self.instruction.rate_limit_max_outflow = Some(rate_limit_max_outflow);
-        self
-    }
-    #[inline(always)]
-    pub fn inner_args(&mut self, inner_args: InitializeArgs) -> &mut Self {
-        self.instruction.inner_args = Some(inner_args);
         self
     }
     /// Add an additional account to the instruction.
@@ -581,18 +636,8 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = InializeIntegrationInstructionArgs {
-            integration_type: self
-                .instruction
-                .integration_type
-                .clone()
-                .expect("integration_type is not set"),
+        let args = InitializeReserveInstructionArgs {
             status: self.instruction.status.clone().expect("status is not set"),
-            description: self
-                .instruction
-                .description
-                .clone()
-                .expect("description is not set"),
             rate_limit_slope: self
                 .instruction
                 .rate_limit_slope
@@ -603,13 +648,8 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
                 .rate_limit_max_outflow
                 .clone()
                 .expect("rate_limit_max_outflow is not set"),
-            inner_args: self
-                .instruction
-                .inner_args
-                .clone()
-                .expect("inner_args is not set"),
         };
-        let instruction = InializeIntegrationCpi {
+        let instruction = InitializeReserveCpi {
             __program: self.instruction.__program,
 
             payer: self.instruction.payer.expect("payer is not set"),
@@ -620,15 +660,21 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
 
             permission: self.instruction.permission.expect("permission is not set"),
 
-            integration: self
-                .instruction
-                .integration
-                .expect("integration is not set"),
+            reserve: self.instruction.reserve.expect("reserve is not set"),
 
-            lookup_table: self
+            mint: self.instruction.mint.expect("mint is not set"),
+
+            vault: self.instruction.vault.expect("vault is not set"),
+
+            token_program: self
                 .instruction
-                .lookup_table
-                .expect("lookup_table is not set"),
+                .token_program
+                .expect("token_program is not set"),
+
+            associated_token_program: self
+                .instruction
+                .associated_token_program
+                .expect("associated_token_program is not set"),
 
             system_program: self
                 .instruction
@@ -644,21 +690,21 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct InializeIntegrationCpiBuilderInstruction<'a, 'b> {
+struct InitializeReserveCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    lookup_table: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    reserve: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    mint: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    vault: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    associated_token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    integration_type: Option<IntegrationType>,
-    status: Option<IntegrationStatus>,
-    description: Option<[u8; 32]>,
+    status: Option<ReserveStatus>,
     rate_limit_slope: Option<u64>,
     rate_limit_max_outflow: Option<u64>,
-    inner_args: Option<InitializeArgs>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

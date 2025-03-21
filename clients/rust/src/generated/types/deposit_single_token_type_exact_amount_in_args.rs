@@ -7,25 +7,10 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use num_derive::FromPrimitive;
 
-#[derive(
-    BorshSerialize,
-    BorshDeserialize,
-    Clone,
-    Debug,
-    Eq,
-    PartialEq,
-    Copy,
-    PartialOrd,
-    Hash,
-    FromPrimitive,
-)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum IntegrationType {
-    SplTokenExternal,
-    SplTokenSwap,
-    CctpBridge,
-    SwapIntent,
-    LzBridge,
+pub struct DepositSingleTokenTypeExactAmountInArgs {
+    pub source_token_amount: u64,
+    pub minimum_pool_token_amount: u64,
 }

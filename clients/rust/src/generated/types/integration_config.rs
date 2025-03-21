@@ -5,8 +5,10 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::types::CctpBridgeConfig;
+use crate::types::LzBridgeConfig;
 use crate::types::SplTokenExternalConfig;
-use crate::types::SplTokenVaultConfig;
+use crate::types::SplTokenSwapConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
@@ -17,6 +19,8 @@ pub enum IntegrationConfig {
         #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
         padding: [u8; 192],
     },
-    SplTokenVault(SplTokenVaultConfig),
     SplTokenExternal(SplTokenExternalConfig),
+    SplTokenSwap(SplTokenSwapConfig),
+    CctpBridge(CctpBridgeConfig),
+    LzBridge(LzBridgeConfig),
 }

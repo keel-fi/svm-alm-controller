@@ -53,7 +53,7 @@ pub struct SyncInstructionData {
 
 impl SyncInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 4 }
+        Self { discriminator: 8 }
     }
 }
 

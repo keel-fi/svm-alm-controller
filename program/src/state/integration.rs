@@ -10,7 +10,7 @@ use crate::{
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 use pinocchio::{
-    account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{clock::Clock, rent::Rent, Sysvar}
+    account_info::AccountInfo, instruction::Seed, log, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{clock::Clock, rent::Rent, Sysvar}
 };
 use pinocchio_log::log;
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -153,6 +153,7 @@ impl Integration {
         let clock = Clock::get()?;
         // Derive the hash for this config
         let hash = config.hash();
+        log!{"hash: {}", &hash};
 
         // Derive the PDA
         let (pda, bump) = Self::derive_pda(controller, hash)?;
@@ -209,6 +210,10 @@ impl Integration {
         rate_limit_max_outflow: Option<u64>,
     ) -> Result<(), ProgramError> {
         
+        // Need to refresh rate limits before any updates
+        let clock = Clock::get()?;
+        self.refresh_rate_limit(clock)?;
+
         if let Some(status) = status {
             self.status = status;
         }
@@ -219,7 +224,10 @@ impl Integration {
             self.rate_limit_slope = rate_limit_slope;
         }
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
+            let gap = self.rate_limit_max_outflow.checked_sub(self.rate_limit_amount_last_update).unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
+            // Reset the rate_limit_amount_last_update such that the gap from the max remains the same
+            self.rate_limit_amount_last_update = self.rate_limit_max_outflow.saturating_sub(gap);
         }
      
         // Commit the account on-chain
@@ -249,7 +257,7 @@ impl Integration {
         clock: Clock,
         inflow: u64,
     ) -> Result<(), ProgramError> {
-        if !(self.last_refresh_timestamp != clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
+        if !(self.last_refresh_timestamp == clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
             msg!{"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument)
         }
@@ -268,7 +276,7 @@ impl Integration {
         clock: Clock,
         outflow: u64,
     ) -> Result<(), ProgramError> {
-        if !(self.last_refresh_timestamp != clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
+        if !(self.last_refresh_timestamp == clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
             msg!{"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument)
         }

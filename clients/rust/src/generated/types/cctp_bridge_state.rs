@@ -7,25 +7,10 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use num_derive::FromPrimitive;
 
-#[derive(
-    BorshSerialize,
-    BorshDeserialize,
-    Clone,
-    Debug,
-    Eq,
-    PartialEq,
-    Copy,
-    PartialOrd,
-    Hash,
-    FromPrimitive,
-)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum IntegrationType {
-    SplTokenExternal,
-    SplTokenSwap,
-    CctpBridge,
-    SwapIntent,
-    LzBridge,
+pub struct CctpBridgeState {
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 48],
 }

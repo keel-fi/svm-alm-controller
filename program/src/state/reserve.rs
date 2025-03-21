@@ -195,6 +195,10 @@ impl Reserve {
         rate_limit_slope: Option<u64>,
         rate_limit_max_outflow: Option<u64>,
     ) -> Result<(), ProgramError> {
+        // Need to refresh rate limits before any updates
+        let clock = Clock::get()?;
+        self.refresh_rate_limit(clock)?;
+
         if let Some(status) = status {
             self.status = status;
         }
@@ -202,7 +206,10 @@ impl Reserve {
             self.rate_limit_slope = rate_limit_slope;
         }
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
+            let gap = self.rate_limit_max_outflow.checked_sub(self.rate_limit_amount_last_update).unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
+            // Reset the rate_limit_amount_last_update such that the gap from the max remains the same
+            self.rate_limit_amount_last_update = self.rate_limit_max_outflow.saturating_sub(gap);
         }
         Ok(())
     }
@@ -228,7 +235,7 @@ impl Reserve {
         clock: Clock,
         inflow: u64,
     ) -> Result<(), ProgramError> {
-        if !(self.last_refresh_timestamp != clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
+        if !(self.last_refresh_timestamp == clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
             msg!{"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument)
         }
@@ -248,7 +255,7 @@ impl Reserve {
         clock: Clock,
         outflow: u64,
     ) -> Result<(), ProgramError> {
-        if !(self.last_refresh_timestamp != clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
+        if !(self.last_refresh_timestamp == clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
             msg!{"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument)
         }

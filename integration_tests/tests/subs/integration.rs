@@ -1,0 +1,302 @@
+use litesvm::LiteSVM;
+use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction};
+use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use svm_alm_controller_client::{accounts::{Integration, Reserve}, instructions::{InializeIntegrationBuilder, ManageIntegrationBuilder, PushBuilder}, programs::SVM_ALM_CONTROLLER_ID, types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PushArgs, SplTokenExternalConfig}};
+use std::error::Error;
+use borsh::BorshDeserialize;
+use solana_keccak_hasher::hash;
+
+use crate::subs::{derive_permission_pda, derive_reserve_pda};
+
+use super::{fetch_reserve_account, get_token_balance_or_zero};
+
+pub fn derive_integration_pda(controller_pda: &Pubkey, hash: &[u8;32]) -> Pubkey {
+    let (integration_pda, _integration_bump) = Pubkey::find_program_address(
+        &[
+            b"integration",
+            &controller_pda.to_bytes(),
+            &hash.as_ref(),
+        ],
+        &Pubkey::from(SVM_ALM_CONTROLLER_ID),
+    );
+    integration_pda
+}
+
+pub fn fetch_integration_account(
+    svm: &mut LiteSVM, integration_pda: &Pubkey
+) -> Result<Option<Integration>, Box<dyn Error>> {
+    let info = svm.get_account(integration_pda);
+    match info {
+        Some(info) => {
+            if info.data.is_empty() {
+                Ok(None)
+            } else {
+                Integration::try_from_slice(&info.data[1..]).map(Some).map_err(Into::into)
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+pub fn initialize_integration(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    payer: &Keypair,
+    authority: &Keypair,
+    description: &str,
+    status: IntegrationStatus,
+    rate_limit_slope: u64,
+    rate_limit_max_outflow: u64,
+    config: &IntegrationConfig,
+    inner_args: &InitializeArgs 
+) -> Result<Pubkey, Box<dyn Error>> {
+
+    let calling_permission_pda = derive_permission_pda(
+        controller, 
+        &authority.pubkey()
+    );
+
+    let description_bytes = description.as_bytes();
+    let mut description_encoding: [u8; 32] = [0; 32];
+    description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
+    
+    let (integration_type, hash) = match config {
+        IntegrationConfig::SplTokenExternal(c) => {
+            let b: Vec<u8> = [
+                &[1u8][..], 
+                &c.program.to_bytes()[..],
+                &c.mint.to_bytes()[..],
+                &c.recipient.to_bytes()[..],
+                &c.token_account.to_bytes()[..],
+                &c.padding[..]
+            ].concat();
+            let h =hash(b.as_slice()).to_bytes();
+            (IntegrationType::SplTokenExternal, h)
+        },
+        _ => panic!("Not specified")
+    };
+
+    let remaining_accounts: &[AccountMeta] = match config {
+        IntegrationConfig::SplTokenExternal(c) => {&[
+            AccountMeta { pubkey: Pubkey::from(c.mint), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(c.recipient), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(c.token_account), is_signer: false, is_writable: true },
+            AccountMeta { pubkey: Pubkey::from(c.program), is_signer: false, is_writable: false },
+            AccountMeta { pubkey: Pubkey::from(pinocchio_associated_token_account::ID), is_signer: false, is_writable: false },
+        ]},
+        _ => panic!("Not specified")
+    };
+
+    print!("hash: {:?}", hash);
+
+    let integration_pda = derive_integration_pda(
+        controller, 
+        &hash
+    );
+
+    let ixn = InializeIntegrationBuilder::new()
+        .integration_type(integration_type)
+        .status(status) 
+        .description(description_encoding)
+        .rate_limit_slope(rate_limit_slope)
+        .rate_limit_max_outflow(rate_limit_max_outflow)
+        .inner_args(inner_args.clone())
+        .payer(payer.pubkey())
+        .controller(*controller)
+        .authority(authority.pubkey())
+        .permission(calling_permission_pda)
+        .integration(integration_pda)
+        .lookup_table(system_program::ID) // TODO: Add this in the future
+        .add_remaining_accounts(remaining_accounts)
+        .system_program(system_program::ID)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&payer.pubkey()),
+        &[&authority, &payer], 
+        svm.latest_blockhash(),
+    );
+
+    let tx_result = svm.send_transaction(txn);
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
+    }
+    
+    let integration = fetch_integration_account(svm, &integration_pda).expect("Failed to fetch integration account");
+    assert!(integration.is_some(), "Integration must exist after the transaction");
+
+    let integration = integration.unwrap();
+    assert_eq!(integration.status, status, "Status does not match expected value");
+    assert_eq!(integration.rate_limit_slope, rate_limit_slope, "Rate limit slope does not match expected value");
+    assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow, "Rate limit max outflow does not match expected value");
+    assert_eq!(integration.controller, *controller, "Controller does not match expected value");
+    assert_eq!(integration.config, *config, "Config does not match expected value");
+
+    Ok(integration_pda)
+}
+
+pub fn manage_integration(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    integration: &Pubkey,
+    authority: &Keypair,
+    status: IntegrationStatus,
+    rate_limit_slope: u64,
+    rate_limit_max_outflow: u64,
+) -> Result<(), Box<dyn Error>> {
+
+    let calling_permission_pda = derive_permission_pda(
+        controller, 
+        &authority.pubkey()
+    );
+
+    let ixn = ManageIntegrationBuilder::new()
+        .status(status) 
+        .rate_limit_slope(rate_limit_slope)
+        .rate_limit_max_outflow(rate_limit_max_outflow)
+        .controller(*controller)
+        .authority(authority.pubkey())
+        .permission(calling_permission_pda)
+        .integration(*integration)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&authority.pubkey()),
+        &[&authority], 
+        svm.latest_blockhash(),
+    );
+
+    let tx_result = svm.send_transaction(txn);
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
+    }
+
+    let integration = fetch_integration_account(svm, integration).expect("Failed to fetch integration account");
+    assert!(integration.is_some(), "Integration must exist after the transaction");
+
+    let integration = integration.unwrap();
+    assert_eq!(integration.status, status, "Status does not match expected value");
+    assert_eq!(integration.rate_limit_slope, rate_limit_slope, "Rate limit slope does not match expected value");
+    assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow, "Rate limit max outflow does not match expected value");
+    assert_eq!(integration.controller, *controller, "Controller does not match expected value");
+
+    Ok(())
+}
+
+
+
+
+pub fn push_integration(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    integration: &Pubkey,
+    authority: &Keypair,
+    push_args: &PushArgs
+) -> Result<(), Box<dyn Error>> {
+
+    let calling_permission_pda = derive_permission_pda(
+        controller, 
+        &authority.pubkey()
+    );
+
+    let integration_account = fetch_integration_account(
+        svm, 
+        integration
+    ).expect("Failed to fetch integration account")
+    .unwrap();
+
+    // To support checks after
+    let integration_before = fetch_integration_account(svm, &integration).expect("Failed to fetch reserve account").unwrap();
+    let mut reserve_a_before: Option<Reserve> = None;
+    let mut reserve_b_before: Option<Reserve> = None;
+    let mut vault_a_balance_before = 0u64;
+    let mut vault_b_balance_before = 0u64;
+    let mut other_value_before = 0u64;
+    match &integration_account.config {
+        IntegrationConfig::SplTokenExternal(ref c) => {
+            let reserve_pda = derive_reserve_pda(controller, &c.mint);
+            let vault = get_associated_token_address_with_program_id(controller, &c.mint, &c.program);
+            reserve_a_before = fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
+            vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
+            other_value_before = get_token_balance_or_zero(svm, &c.token_account);
+            println!("{:?}", reserve_a_before);
+            println!("{:?}", integration_before);
+        }, 
+        _ => panic!("Not configured")
+    };
+
+    let (reserve_a_pk, reserve_b_pk, remaining_accounts) = match &integration_account.config {
+        IntegrationConfig::SplTokenExternal(ref c) => {
+            let reserve_pda = derive_reserve_pda(controller, &c.mint);
+            let vault = get_associated_token_address_with_program_id(controller, &c.mint, &c.program);
+            (
+                reserve_pda, 
+                reserve_pda, // pass same reserve twice
+                &[ 
+                    AccountMeta { pubkey: Pubkey::from(c.mint), is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: Pubkey::from(vault), is_signer: false, is_writable: true },
+                    AccountMeta { pubkey: Pubkey::from(c.recipient), is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: Pubkey::from(c.token_account), is_signer: false, is_writable: true },
+                    AccountMeta { pubkey: Pubkey::from(c.program), is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: Pubkey::from(pinocchio_associated_token_account::ID), is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: Pubkey::from(system_program::ID), is_signer: false, is_writable: false },
+                ]
+            ) 
+        }, 
+        _ => panic!("Invalid config for this type of PushArgs")
+    };
+
+    let ixn = PushBuilder::new()
+        .push_args(push_args.clone()) 
+        .controller(*controller)
+        .authority(authority.pubkey())
+        .permission(calling_permission_pda)
+        .integration(*integration)
+        .reserve_a(reserve_a_pk)
+        .reserve_b(reserve_b_pk)
+        .add_remaining_accounts(remaining_accounts)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&authority.pubkey()),
+        &[&authority], 
+        svm.latest_blockhash(),
+    );
+
+    let tx_result = svm.send_transaction(txn);
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
+    }    
+
+
+    let integration_after = fetch_integration_account(svm, &integration).expect("Failed to fetch reserve account").unwrap();
+
+    // Checks afterwards
+    match &integration_account.config {
+        IntegrationConfig::SplTokenExternal(ref c) => {
+            let reserve_pda = derive_reserve_pda(controller, &c.mint);
+            let vault = get_associated_token_address_with_program_id(controller, &c.mint, &c.program);
+            let reserve_a_after = fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
+            let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
+            let other_value_after = get_token_balance_or_zero(svm, &c.token_account);
+            let vault_a_delta = vault_a_balance_before.checked_sub(vault_a_balance_after).unwrap();
+            println!("{:?}", reserve_a_after);
+            println!("{:?}", integration_after);
+            assert_ne!(vault_a_balance_before, vault_a_balance_after, "Vault A balance should have changed");
+            assert_ne!(other_value_before, other_value_after, "Other vault balance should have changed");
+        }, 
+        _ => panic!("Not configured")
+    };
+
+
+    Ok(())
+}

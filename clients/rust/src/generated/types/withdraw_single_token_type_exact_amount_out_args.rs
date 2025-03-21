@@ -10,9 +10,7 @@ use borsh::BorshSerialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SplTokenVaultState {
-    pub last_refresh_timestamp: i64,
-    pub last_refresh_slot: u64,
-    pub last_balance: u64,
-    pub padding: [u8; 8],
+pub struct WithdrawSingleTokenTypeExactAmountOutArgs {
+    pub destination_token_amount: u64,
+    pub maximum_pool_token_amount: u64,
 }

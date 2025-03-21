@@ -5,15 +5,22 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::types::CctpBridgeState;
+use crate::types::LzBridgeState;
 use crate::types::SplTokenExternalState;
-use crate::types::SplTokenVaultState;
+use crate::types::SplTokenSwapState;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum IntegrationState {
-    Undefined { padding: [u8; 32] },
-    SplTokenVault(SplTokenVaultState),
+    Undefined {
+        #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+        padding: [u8; 48],
+    },
     SplTokenExternal(SplTokenExternalState),
+    SplTokenSwap(SplTokenSwapState),
+    CctpBridge(CctpBridgeState),
+    LzBridge(LzBridgeState),
 }

@@ -39,7 +39,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, writable, name = "reserve")]
     #[account(5, name = "mint")]
-    #[account(6, name = "vault")]
+    #[account(6, writable, name = "vault")]
     #[account(7, name = "token_program")]
     #[account(8, name = "associated_token_program")]
     #[account(9, name = "system_program")]
@@ -87,6 +87,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(1, signer, name = "authority")]
     #[account(2, name = "permission")]
     #[account(3, writable, name = "integration")]
+    #[account(4, writable, name = "reserve_a")]
+    #[account(5, writable, name = "reserve_b")]
     Push(PushArgs),
 
     /// Pull 
@@ -94,6 +96,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(1, signer, name = "authority")]
     #[account(2, name = "permission")]
     #[account(3, writable, name = "integration")]
+    #[account(4, writable, name = "reserve_a")]
+    #[account(5, writable, name = "reserve_b")]
     Pull(PullArgs),
 }
 

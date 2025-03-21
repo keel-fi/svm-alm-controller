@@ -1,5 +1,5 @@
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult, sysvars::{clock::Clock, Sysvar}};
 use crate::{
     instructions::PullArgs, integrations::spl_token_swap::pull::process_pull_spl_token_swap, state::{Controller, Integration, Permission, Reserve}
 };
@@ -62,6 +62,7 @@ pub fn process_pull(
 ) -> ProgramResult {
     msg!("pull");
 
+    let clock = Clock::get()?;
     let ctx = PullAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = PullArgs::try_from_slice(
@@ -85,6 +86,7 @@ pub fn process_pull(
         ctx.integration, 
         ctx.controller.key(), 
     )?;
+    integration.refresh_rate_limit(clock)?;
 
     // Load in the reserve account for a
     let mut reserve_a = Reserve::load_and_check_mut(
