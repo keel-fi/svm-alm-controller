@@ -33,8 +33,9 @@ pub struct PushCctpBridgeAccounts<'info> {
     pub token_minter: &'info AccountInfo,
     pub local_token: &'info AccountInfo,
     pub message_sent_event_data: &'info AccountInfo,
-    pub message_transmitter_program: &'info AccountInfo,
-    pub token_messenger_minter_program: &'info AccountInfo,
+    pub cctp_message_transmitter: &'info AccountInfo,
+    pub cctp_token_messenger_minter: &'info AccountInfo,
+    pub event_authority: &'info AccountInfo,
     pub token_program: &'info AccountInfo,
     pub system_program: &'info AccountInfo,
 }
@@ -47,7 +48,7 @@ impl<'info> PushCctpBridgeAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 13 {
+        if account_infos.len() != 14 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
@@ -60,10 +61,11 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             token_minter: &account_infos[6],
             local_token: &account_infos[7],
             message_sent_event_data: &account_infos[8],
-            message_transmitter_program: &account_infos[9],
-            token_messenger_minter_program: &account_infos[10],
-            token_program: &account_infos[11],
-            system_program: &account_infos[12],
+            cctp_message_transmitter: &account_infos[9],
+            cctp_token_messenger_minter: &account_infos[10],
+            event_authority: &account_infos[11],
+            token_program: &account_infos[12],
+            system_program: &account_infos[13],
         };
         let config = match config {
             IntegrationConfig::CctpBridge(config) => config,
@@ -73,20 +75,24 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg!{"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.mint.owner().ne(&config.program) { 
+        if ctx.mint.owner().ne(&pinocchio_token::ID) { // TODO: Allow token 2022
             msg!{"mint: not owned by token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.token_messenger_minter_program.key().ne(&config.program) { // TODO: Allow token 2022
-            msg!{"token_messenger_minter_program: does not match config"};
+        if ctx.cctp_token_messenger_minter.key().ne(&config.cctp_token_messenger_minter) { 
+            msg!{"cctp_token_messenger_minter: does not match config"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if ctx.mint.key().ne(&config.mint) { // TODO: Allow token 2022
+        if ctx.cctp_message_transmitter.key().ne(&config.cctp_message_transmitter) { 
+            msg!{"cctp_message_transmitter: does not match config"};
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        if ctx.mint.key().ne(&config.mint) { 
             msg!{"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.token_program.key().ne(&config.program) { // TODO: Allow token 2022
-            msg!{"token_program: does not match config"};
+        if ctx.token_program.key().ne(&pinocchio_token::ID) { // TODO: Allow token 2022
+            msg!{"token_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
         if ctx.system_program.key().ne(&pinocchio_system::ID) { 
@@ -196,7 +202,6 @@ pub fn process_push_cctp_bridge(
             Seed::from(&controller_id_bytes),
             Seed::from(&[controller_bump])
         ]), 
-        *inner_ctx.token_messenger_minter_program.key(), 
         outer_ctx.controller, 
         outer_ctx.authority, 
         inner_ctx.sender_authority_pda, 
@@ -208,8 +213,9 @@ pub fn process_push_cctp_bridge(
         inner_ctx.local_token, 
         inner_ctx.mint, 
         inner_ctx.message_sent_event_data, 
-        inner_ctx.message_transmitter_program, 
-        inner_ctx.token_messenger_minter_program, 
+        inner_ctx.cctp_message_transmitter, 
+        inner_ctx.cctp_token_messenger_minter, 
+        inner_ctx.event_authority,
         inner_ctx.token_program, 
         inner_ctx.system_program
     )?;

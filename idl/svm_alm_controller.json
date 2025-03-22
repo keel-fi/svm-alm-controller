@@ -1210,7 +1210,11 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "program",
+            "name": "cctpTokenMessengerMinter",
+            "type": "publicKey"
+          },
+          {
+            "name": "cctpMessageTransmitter",
             "type": "publicKey"
           },
           {
@@ -1230,7 +1234,7 @@
             "type": {
               "array": [
                 "u8",
-                92
+                60
               ]
             }
           }

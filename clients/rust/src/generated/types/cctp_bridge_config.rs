@@ -16,7 +16,12 @@ pub struct CctpBridgeConfig {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub program: Pubkey,
+    pub cctp_token_messenger_minter: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub cctp_message_transmitter: Pubkey,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
@@ -29,5 +34,5 @@ pub struct CctpBridgeConfig {
     pub destination_address: Pubkey,
     pub destination_domain: u32,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 92],
+    pub padding: [u8; 60],
 }

@@ -11,7 +11,8 @@ pub struct DepositForBurnArgs {
 
 impl DepositForBurnArgs {
 
-    pub const DISCRIMINATOR: [u8;8] = [215, 195, 61, 46, 114, 55, 128, 176]; // d7 3c 3d 2e 72 37 80 b0
+    pub const DISCRIMINATOR: [u8;8] = [215, 60, 61, 46, 114, 55, 128, 176]; // d7 3c 3d 2e 72 37 80 b0
+
     pub const LEN: usize = 44;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
@@ -29,7 +30,6 @@ pub fn deposit_for_burn_cpi(
     destination_domain: u32,
     mint_recipient: Pubkey,
     signer: Signer,
-    cctp_program: Pubkey,
     controller: &AccountInfo,
     event_rent_payer: &AccountInfo,
     sender_authority_pda: &AccountInfo,
@@ -43,6 +43,7 @@ pub fn deposit_for_burn_cpi(
     message_sent_event_data: &AccountInfo,
     message_transmitter_program: &AccountInfo,
     token_messenger_minter_program: &AccountInfo,
+    event_authority: &AccountInfo,
     token_program: &AccountInfo,
     system_program: &AccountInfo,
 ) -> Result<(), ProgramError> {
@@ -54,7 +55,7 @@ pub fn deposit_for_burn_cpi(
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {
-            program_id: &cctp_program,
+            program_id: &*token_messenger_minter_program.key(),
             data: &data,
             accounts: &[
                 AccountMeta::readonly_signer(controller.key()),
@@ -67,11 +68,13 @@ pub fn deposit_for_burn_cpi(
                 AccountMeta::readonly(token_minter.key()),
                 AccountMeta::writable(local_token.key()),
                 AccountMeta::writable(burn_token_mint.key()),
-                AccountMeta::writable(message_sent_event_data.key()),
+                AccountMeta::writable_signer(message_sent_event_data.key()),
                 AccountMeta::readonly(message_transmitter_program.key()),
                 AccountMeta::readonly(token_messenger_minter_program.key()),
                 AccountMeta::readonly(token_program.key()),
                 AccountMeta::readonly(system_program.key()),
+                AccountMeta::readonly(event_authority.key()),
+                AccountMeta::readonly(token_messenger_minter_program.key()),
             ]
         },
         &[
@@ -90,6 +93,8 @@ pub fn deposit_for_burn_cpi(
             token_messenger_minter_program,
             token_program,
             system_program,
+            event_authority,
+            token_messenger_minter_program
         ], 
         &[
             signer

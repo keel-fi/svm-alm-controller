@@ -1,5 +1,6 @@
 use borsh::BorshDeserialize;
-use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio_log::log;
 
 #[derive(Debug, Default, PartialEq, BorshDeserialize)]
 pub struct LocalToken {
@@ -24,7 +25,7 @@ impl LocalToken {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        Self::try_from_slice(&data[9..]).map_err(|_| ProgramError::InvalidAccountData)
+        Self::try_from_slice(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
 
@@ -37,7 +38,7 @@ pub struct RemoteTokenMessenger {
 
 impl RemoteTokenMessenger {
 
-    const DISCRIMINATOR: [u8;8] = [106,115,174,34,95,233,138,252];     //69 73 ae 22 5f e9 8a fc
+    const DISCRIMINATOR: [u8;8] = [105,115,174,34,95,233,138,252];     //69 73 ae 22 5f e9 8a fc
 
     pub fn deserialize(
         data: &[u8]
@@ -45,7 +46,7 @@ impl RemoteTokenMessenger {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        Self::try_from_slice(&data[9..]).map_err(|_| ProgramError::InvalidAccountData)
+        Self::try_from_slice(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
 

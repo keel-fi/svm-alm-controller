@@ -4,6 +4,7 @@ use pinocchio::{
     program_error::ProgramError, 
     pubkey::Pubkey, 
 };
+use pinocchio_log::log;
 use crate::{
     enums::{IntegrationConfig, IntegrationState}, instructions::{InitializeArgs, InitializeIntegrationArgs}, 
     integrations::cctp_bridge::{cctp_state::{LocalToken, RemoteTokenMessenger}, config::CctpBridgeConfig, state::CctpBridgeState}, 
@@ -13,9 +14,10 @@ use crate::{
 
 pub struct InitializeCctpBridgeAccounts<'info> {
     pub mint: &'info AccountInfo,
-    pub local_mint: &'info AccountInfo,
+    pub local_token: &'info AccountInfo,
     pub remote_token_messenger: &'info AccountInfo,
-    pub cctp_program: &'info AccountInfo,
+    pub cctp_message_transmitter: &'info AccountInfo,
+    pub cctp_token_messenger_minter: &'info AccountInfo,
 }
 
 
@@ -24,20 +26,21 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
     pub fn from_accounts(
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 4 {
+        if account_infos.len() != 5 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
             mint: &account_infos[0],
-            local_mint: &account_infos[1],
+            local_token: &account_infos[1],
             remote_token_messenger: &account_infos[2],
-            cctp_program: &account_infos[3],
+            cctp_message_transmitter: &account_infos[3],
+            cctp_token_messenger_minter: &account_infos[4],
         };
-        if ctx.local_mint.owner().ne(ctx.cctp_program.key()) {
+        if ctx.local_token.owner().ne(ctx.cctp_token_messenger_minter.key()) {
             msg!{"local_mint: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.remote_token_messenger.owner().ne(ctx.cctp_program.key()) {
+        if ctx.remote_token_messenger.owner().ne(ctx.cctp_token_messenger_minter.key()) {
             msg!{"remote_token_messenger: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -65,29 +68,34 @@ pub fn process_initialize_cctp_bridge(
         InitializeArgs::CctpBridge { desination_address, desination_domain } => (desination_address, desination_domain),
         _ => return Err(ProgramError::InvalidArgument)
     };
-    
+
     // Load in the CCTP Local Token Account and verify the mint matches
-    let local_mint= LocalToken::deserialize(&mut &*inner_ctx.local_mint.try_borrow_data()?).unwrap();
-    if local_mint.mint.ne(inner_ctx.mint.key()) {
-        msg!{"mint: does not match local_mint state"};
+    let local_token = LocalToken::deserialize(
+        &mut &*inner_ctx.local_token.try_borrow_data()?
+    ).map_err(|e| e)?;
+    if local_token.mint.ne(inner_ctx.mint.key()) {
+        msg!{"mint: does not match local_token state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
     // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
-    let remote_token_messenger= RemoteTokenMessenger::deserialize(&mut &*inner_ctx.remote_token_messenger.try_borrow_data()?).unwrap();
+    let remote_token_messenger= RemoteTokenMessenger::deserialize(
+        &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?
+    ).map_err(|e| e)?;
     if remote_token_messenger.domain.ne(&desination_domain) {
         msg!{"desination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
-  
+
     // Create the Config
     let config = IntegrationConfig::CctpBridge(
         CctpBridgeConfig {
-            program: Pubkey::from(*inner_ctx.cctp_program.key()),
+            cctp_token_messenger_minter: Pubkey::from(*inner_ctx.cctp_token_messenger_minter.key()),
+            cctp_message_transmitter: Pubkey::from(*inner_ctx.cctp_message_transmitter.key()),
             mint: Pubkey::from(*inner_ctx.mint.key()),
             destination_address: Pubkey::from(desination_address),
             destination_domain: desination_domain,
-            _padding: [0u8; 92]
+            _padding: [0u8; 60]
         }
     );
 

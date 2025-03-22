@@ -1,12 +1,9 @@
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}, ProgramResult};
 use crate::{
-    instructions::PushArgs, 
-    integrations::{
-        spl_token_external::push::process_push_spl_token_external, 
-        spl_token_swap::push::process_push_spl_token_swap
-    }, 
-    state::{Controller, Integration, Permission, Reserve}
+    enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus}, error::SvmAlmControllerErrors, instructions::PushArgs, integrations::{
+       spl_token_external::push::process_push_spl_token_external, spl_token_swap::push::process_push_spl_token_swap, cctp_bridge::push::process_push_cctp_bridge
+    }, state::{Controller, Integration, Permission, Reserve}
 };
 
 
@@ -94,6 +91,9 @@ pub fn process_push(
     let controller = Controller::load_and_check(
         ctx.controller, 
     )?;
+    if controller.status != ControllerStatus::Active {
+        return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into())
+    }
 
     // Load in the super permission account
     let permission = Permission::load_and_check(
@@ -101,12 +101,18 @@ pub fn process_push(
         ctx.controller.key(), 
         ctx.authority.key()
     )?;
+    if permission.status != PermissionStatus::Active {
+        return Err(SvmAlmControllerErrors::PermissionStatusDoesNotPermitAction.into())
+    }
 
     // Load in the integration account 
     let mut integration = Integration::load_and_check_mut(
         ctx.integration, 
         ctx.controller.key(), 
     )?;
+    if integration.status != IntegrationStatus::Active {
+        return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into())
+    }
     integration.refresh_rate_limit(clock)?;
 
     // Load in the reserve account for a
@@ -114,13 +120,20 @@ pub fn process_push(
         ctx.reserve_a, 
         ctx.controller.key(), 
     )?;
+    if reserve_a.status != ReserveStatus::Active {
+        return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into())
+    }
 
     // Load in the reserve account for b (if applicable)
     let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
-        Some(Reserve::load_and_check_mut(
+        let reserve_b = Reserve::load_and_check_mut(
             ctx.reserve_b, 
             ctx.controller.key(), 
-        )?)
+        )?;
+        if reserve_b.status != ReserveStatus::Active {
+            return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into())
+        }
+        Some(reserve_b)
     } else {
         None
     };
@@ -143,6 +156,16 @@ pub fn process_push(
                 &mut integration,
                 &mut reserve_a,
                 &mut reserve_b.unwrap(),
+                &ctx,
+                &args
+            )?;
+        },
+        PushArgs::CctpBridge { .. } => {
+            process_push_cctp_bridge(
+                &controller,
+                &permission,
+                &mut integration,
+                &mut reserve_a,
                 &ctx,
                 &args
             )?;

@@ -39,7 +39,7 @@ impl OFTStore {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        Self::try_from_slice(&data[9..]).map_err(|_| ProgramError::InvalidAccountData)
+        Self::try_from_slice(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
 
@@ -65,7 +65,7 @@ impl PeerConfig {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        Self::try_from_slice(&data[9..Self::TRUNCATED_LEN+8]).map_err(|_| ProgramError::InvalidAccountData)
+        Self::try_from_slice(&data[8..Self::TRUNCATED_LEN+8]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
 

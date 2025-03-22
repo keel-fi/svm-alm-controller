@@ -1,6 +1,7 @@
-use constants::{NOVA_TOKEN_SWAP_PROGRAM_ID, WORMHOLE_GUARDIAN_SET_4_PUBKEY};
+use constants::{CCTP_LOCAL_TOKEN, CCTP_MESSAGE_TRANSMITTER, CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_REMOTE_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID, CCTP_TOKEN_MINTER, NOVA_TOKEN_SWAP_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY, WORMHOLE_GUARDIAN_SET_4_PUBKEY};
 use litesvm::LiteSVM;
 pub mod logs_parser;
+pub mod cctp;
 pub mod constants;
 pub use logs_parser::print_inner_instructions;
 use serde_json::Value;
@@ -26,6 +27,27 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     // // Get the Account object
     let gs4_account = get_account_data_from_json("./fixtures/wormhole_guardian_set_4.json");
     svm.set_account(WORMHOLE_GUARDIAN_SET_4_PUBKEY, gs4_account).unwrap();
+
+ 
+    // Add the CCTP Programs
+    let cctp_message_transmitter_program = include_bytes!("../../fixtures/cctp_message_transmitter.so");
+    svm.add_program(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, cctp_message_transmitter_program);
+    let cctp_token_messenger_minter_program = include_bytes!("../../fixtures/cctp_token_messenger_minter.so");
+    svm.add_program(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID, cctp_token_messenger_minter_program);
+
+    // Add the CCTP accounts
+    let usdc_mint_account = get_account_data_from_json("./fixtures/usdc_mint.json");
+    svm.set_account(USDC_TOKEN_MINT_PUBKEY, usdc_mint_account).unwrap();
+    let cctp_local_token_account = get_account_data_from_json("./fixtures/cctp_local_token.json");
+    svm.set_account(CCTP_LOCAL_TOKEN, cctp_local_token_account).unwrap();
+    let cctp_message_transmitter_account = get_account_data_from_json("./fixtures/cctp_message_transmitter.json");
+    svm.set_account(CCTP_MESSAGE_TRANSMITTER, cctp_message_transmitter_account).unwrap();
+    let cctp_token_messenger_account = get_account_data_from_json("./fixtures/cctp_token_messenger.json");
+    svm.set_account(CCTP_TOKEN_MESSENGER, cctp_token_messenger_account).unwrap();
+    let cctp_token_minter_account = get_account_data_from_json("./fixtures/cctp_token_minter.json");
+    svm.set_account(CCTP_TOKEN_MINTER, cctp_token_minter_account).unwrap();
+    let cctp_remote_token_messenger_account = get_account_data_from_json("./fixtures/cctp_remote_token_messenger.json");
+    svm.set_account(CCTP_REMOTE_TOKEN_MESSENGER, cctp_remote_token_messenger_account).unwrap();
 
     svm
 }

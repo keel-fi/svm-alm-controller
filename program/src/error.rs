@@ -8,6 +8,10 @@ pub enum SvmAlmControllerErrors {
     InvalidEnum,
     InvalidAccountData,
     UnauthorizedAction,
+    ControllerStatusDoesNotPermitAction,
+    PermissionStatusDoesNotPermitAction,
+    IntegrationStatusDoesNotPermitAction,
+    ReserveStatusDoesNotPermitAction,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

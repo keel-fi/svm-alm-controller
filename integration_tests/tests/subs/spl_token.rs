@@ -1,5 +1,5 @@
 use litesvm::LiteSVM;
-use solana_sdk::{program_option::COption, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
+use solana_sdk::{account::ReadableAccount, program_option::COption, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 use spl_associated_token_account_client::{address::get_associated_token_address_with_program_id, instruction::create_associated_token_account_idempotent};
 use spl_token::{instruction::{initialize_mint2, mint_to}, state::{Account, Mint}};
 use std::error::Error;
@@ -165,12 +165,22 @@ pub fn get_token_balance_or_zero(
     })
 }
 
+pub fn get_mint_supply_or_zero(
+    svm: &mut LiteSVM, 
+    mint: &Pubkey
+) -> u64 {
+    svm.get_account(mint).map_or(0, |account| {
+        let ata = Mint::unpack(&account.data).map_err(|e| format!("Failed to unpack ata: {:?}", e));
+        ata.map_or(0, |ata| ata.supply)
+    })
+}
+
 pub fn transfer_tokens(
     svm: &mut LiteSVM,
     payer: &Keypair,
     authority: &Keypair,
     mint: &Pubkey,
-    destination: &Pubkey,
+    recipient: &Pubkey,
     amount: u64
 ) -> Result<(), Box<dyn Error>> {
 
@@ -181,7 +191,7 @@ pub fn transfer_tokens(
     );
 
     let destination_ata_pk = get_associated_token_address_with_program_id(
-        destination,
+        recipient,
                 mint, 
         &spl_token::id(), 
     );
@@ -191,7 +201,7 @@ pub fn transfer_tokens(
 
     let create_ixn = create_associated_token_account_idempotent(
         &payer.pubkey(),
-        destination,
+        recipient,
         mint, 
         &spl_token::id(), 
     );
@@ -222,6 +232,35 @@ pub fn transfer_tokens(
 
     assert_eq!(source_delta, amount, "Amount deducted from source is incorrect");
     assert_eq!(destination_delta, amount, "Amount added to destination is incorrect");
+
+    Ok(())
+}
+
+
+
+pub fn edit_ata_amount(
+    svm: &mut LiteSVM,
+    owner: &Pubkey,
+    mint: &Pubkey,
+    amount: u64
+) -> Result<(), Box<dyn Error>> {
+
+    let ata_pk = get_associated_token_address_with_program_id(
+        &owner,
+        mint, 
+        &spl_token::id(), 
+    );
+
+    let mut ata_ai = svm.get_account(&ata_pk).unwrap();
+   
+    let mut ata = Account::unpack(&ata_ai.data).map_err(|e| format!("Failed to unpack ata: {:?}", e)).unwrap();
+    ata.amount = amount;
+    Account::pack(ata, &mut ata_ai.data)?;
+    svm.set_account(ata_pk, ata_ai)?;
+
+    let balance_after = get_token_balance_or_zero(svm, &ata_pk);
+
+    assert_eq!(balance_after, amount, "balance_after is incorrect");
 
     Ok(())
 }
