@@ -4756,10 +4756,13 @@ dependencies = [
 name = "svm-alm-controller-tests"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "borsh 1.5.5",
  "litesvm",
  "pinocchio-associated-token-account",
  "pinocchio-token",
+ "serde",
+ "serde_json",
  "solana-keccak-hasher",
  "solana-sdk",
  "solana-system-interface",

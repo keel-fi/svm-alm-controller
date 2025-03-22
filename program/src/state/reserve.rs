@@ -287,6 +287,7 @@ impl Reserve {
         // Load in the vault, since it could have an opening balance
         let vault = TokenAccount::from_account_info(vault_info)?;
         let new_balance = vault.amount();
+        drop(vault);
 
         if self.last_balance != new_balance {
             

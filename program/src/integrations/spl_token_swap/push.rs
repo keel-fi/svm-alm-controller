@@ -233,8 +233,8 @@ pub fn process_push_spl_token_swap(
         msg!{"mint_a: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
-    if inner_ctx.vault_b.owner().ne(&reserve_b.vault) { 
-        msg!{"vault_b:  mismatch with reserve"};
+    if inner_ctx.vault_b.key().ne(&reserve_b.vault) { 
+        msg!{"vault_b: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountOwner);
     }
     if inner_ctx.mint_a.key().ne(&reserve_a.mint) { 
@@ -251,6 +251,7 @@ pub fn process_push_spl_token_swap(
     //  w.r.t it's stored state
     let swap_data = inner_ctx.swap.try_borrow_data()?;
     let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET+1]).unwrap();
+    drop(swap_data);
 
     if swap_state.pool_mint.ne(inner_ctx.lp_mint.key()) {
         msg!{"lp_mint: does not match swap state"};
@@ -265,7 +266,7 @@ pub fn process_push_spl_token_swap(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Perform a SYNC on Reserve A
+    // // Perform a SYNC on Reserve A
     reserve_a.sync_balance(
         inner_ctx.vault_a,
         outer_ctx.controller,
@@ -280,9 +281,9 @@ pub fn process_push_spl_token_swap(
     )?;
 
    
-    // Perform SYNC on LP Tokens
+    // // Perform SYNC on LP Tokens
 
-    // Extract the values from the last update
+    // // Extract the values from the last update
     let ( last_balance_a, last_balance_b, last_balance_lp ) = match integration.state {
         IntegrationState::SplTokenSwap(state) => {
             (state.last_balance_a, state.last_balance_b, state.last_balance_lp as u128)
@@ -292,6 +293,7 @@ pub fn process_push_spl_token_swap(
 
     let lp_mint = Mint::from_account_info(inner_ctx.lp_mint).unwrap();
     let lp_mint_supply = lp_mint.supply() as u128; 
+    drop(lp_mint);
 
     // STEP 1: Get the changes due to relative movement between token A and B
     // LP tokens constant, relative balance of A and B changed
@@ -299,16 +301,22 @@ pub fn process_push_spl_token_swap(
 
     let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
     let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
+    let swap_token_a_balance = swap_token_a.amount();
+    let swap_token_b_balance = swap_token_b.amount();
+    drop(swap_token_a);
+    drop(swap_token_b);
 
     let step_1_balance_a: u64;
     let step_1_balance_b: u64;
     if last_balance_lp > 0 {
-        step_1_balance_a = (swap_token_a.amount() as u128 * last_balance_lp / lp_mint_supply) as u64;
-        step_1_balance_b = (swap_token_b.amount() as u128 * last_balance_lp / lp_mint_supply) as u64;
+        step_1_balance_a = (swap_token_a_balance as u128 * last_balance_lp / lp_mint_supply) as u64;
+        step_1_balance_b = (swap_token_b_balance as u128 * last_balance_lp / lp_mint_supply) as u64;
     } else {
         step_1_balance_a = 0u64;
         step_1_balance_b = 0u64;
     }
+
+
     // Emit the accounting events for the change in A and B's relative balances
     if last_balance_a != step_1_balance_a {
         controller.emit_event(
@@ -341,10 +349,10 @@ pub fn process_push_spl_token_swap(
         )?;
     }
 
-
     // Load in the vault, since it could have an opening balance
     let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
     let step_2_balance_lp = lp_token_account.amount() as u128;
+    drop(lp_token_account);
 
     // STEP 2: If the number of LP tokens changed
     // We need to account for the change in our claim
@@ -355,8 +363,8 @@ pub fn process_push_spl_token_swap(
     let step_2_balance_b: u64;
     if step_2_balance_lp != last_balance_lp {
         if step_2_balance_lp > 0 {
-            step_2_balance_a = (swap_token_a.amount() as u128 * step_2_balance_lp / lp_mint_supply) as u64;
-            step_2_balance_b = (swap_token_b.amount() as u128 * step_2_balance_lp / lp_mint_supply) as u64;
+            step_2_balance_a = (swap_token_a_balance as u128 * step_2_balance_lp / lp_mint_supply) as u64;
+            step_2_balance_b = (swap_token_b_balance as u128 * step_2_balance_lp / lp_mint_supply) as u64;
         } else {
             step_2_balance_a = 0u64;
             step_2_balance_b = 0u64;
@@ -451,6 +459,8 @@ pub fn process_push_spl_token_swap(
     //  and swap pool owned balances for tokens a and b
     let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
     let post_deposit_balance_lp = lp_token_account.amount() as u128;
+    drop(lp_token_account);
+
     let lp_mint = Mint::from_account_info(inner_ctx.lp_mint).unwrap();
     let lp_mint_supply = lp_mint.supply() as u128; 
     let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
@@ -467,6 +477,9 @@ pub fn process_push_spl_token_swap(
         post_deposit_balance_a = 0u64;
         post_deposit_balance_b = 0u64;
     }
+    drop(swap_token_a);
+    drop(swap_token_b);
+    msg!{"f"};
 
     // Emit the accounting event
     if step_2_balance_a != post_deposit_balance_a {
@@ -500,6 +513,7 @@ pub fn process_push_spl_token_swap(
             )
         )?;
     }
+    msg!{"g"};
 
     // Update the state for the changes in balances
     match &mut integration.state {

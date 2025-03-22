@@ -74,14 +74,6 @@ impl<'info> InitializeSplTokenSwapAccounts<'info> {
             msg!{"lp_mint: not owned by lp_mint_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx.lp_mint.is_writable() {
-            msg!{"lp_mint: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.swap.is_writable() {
-            msg!{"pool: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
         if ctx.mint_a_token_program.key().ne(&pinocchio_token::ID){ // TODO: Allow token 2022
             msg!{"mint_a_token_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);

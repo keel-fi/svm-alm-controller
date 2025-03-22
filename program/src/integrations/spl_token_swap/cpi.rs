@@ -1,6 +1,6 @@
 
 use borsh::{maybestd::vec::Vec, BorshSerialize};
-use pinocchio::{account_info::AccountInfo, instruction::{AccountMeta, Instruction, Signer}, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{account_info::AccountInfo, instruction::{AccountMeta, Instruction, Signer}, msg, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey};
 
 
 #[derive(BorshSerialize, Debug, PartialEq, Eq, Clone,)]
@@ -63,10 +63,9 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
     mint_token_program: &AccountInfo,
     lp_mint_token_program: &AccountInfo,
 ) -> Result<(), ProgramError> {
-
     let args_vec = DepositSingleTokenTypeExactAmountInArgs {
         source_token_amount: amount,
-        minimum_pool_token_amount: u64::MAX
+        minimum_pool_token_amount: 0
     }.to_vec().unwrap();
     let data = args_vec.as_slice();
     invoke_signed(

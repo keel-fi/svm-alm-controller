@@ -1,40 +1,21 @@
-use helpers::lite_svm_with_programs;
-use svm_alm_controller_client::instructions::{InitializeControllerBuilder, ManagePermissionBuilder, InializeIntegrationBuilder};
-use solana_sdk::{signature::Keypair, signer::Signer, transaction::Transaction};
-use solana_sdk::pubkey::Pubkey;
-use svm_alm_controller_client::programs::SVM_ALM_CONTROLLER_ID;
-use solana_sdk::system_program;
-use solana_keccak_hasher::hash;
-use borsh::BorshDeserialize;
-use svm_alm_controller_client::{accounts::{Controller, Permission, Integration}, types::{ControllerStatus,PermissionStatus, IntegrationConfig, IntegrationStatus}};
-use pinocchio_token::state::token; 
 mod helpers;
-use helpers::print_inner_instructions;
-
-use solana_sdk::{feature_set::spl_token_v2_multisig_fix, instruction::AccountMeta, program_pack::Pack, rent::Rent};
-use svm_alm_controller_client::{instructions::{PushBuilder, SyncBuilder}, types::{IntegrationState, IntegrationType, SplTokenExternalConfig}};
-
 mod subs;
-use crate::subs::{
-    airdrop_lamports, initialize_mint, initialize_ata
-};
+use helpers::lite_svm_with_programs;
+use solana_sdk::{signature::Keypair, signer::Signer};
+use svm_alm_controller_client::types::{ControllerStatus,PermissionStatus, IntegrationConfig, IntegrationStatus};
+use svm_alm_controller_client::types::SplTokenExternalConfig;
+use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use svm_alm_controller_client::types::{InitializeArgs, PushArgs, ReserveStatus};
+use crate::subs::{airdrop_lamports, initialize_mint, initialize_ata, initialize_contoller, initialize_integration, initialize_reserve, manage_integration, manage_permission, manage_reserve, mint_tokens, push_integration};
+
 
 #[cfg(test)]
 mod tests {
-
-
-
-
-
-    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-    use svm_alm_controller_client::types::{InitializeArgs, PushArgs, ReserveStatus};
-
-    use crate::subs::{controller, initialize_contoller, initialize_integration, initialize_reserve, manage_integration, manage_permission, manage_reserve, mint_tokens, push_integration};
-
+  
     use super::*;
 
     #[test_log::test]
-    fn initialize_controller_success() -> Result<(), Box<dyn std::error::Error>> {
+    fn initialize_controller_and_token_external_success() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut svm = lite_svm_with_programs();
     
@@ -56,7 +37,8 @@ mod tests {
             &authority, 
             &authority.pubkey(), 
             None, 
-            6
+            6,
+            None
         )?;
 
         let authority_usdc_ata = initialize_ata(
