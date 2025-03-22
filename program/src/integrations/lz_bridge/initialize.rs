@@ -67,13 +67,15 @@ pub fn process_initialize_lz_bridge(
         InitializeArgs::LzBridge { desination_address, destination_eid } => (desination_address, destination_eid),
         _ => return Err(ProgramError::InvalidArgument)
     };
-    
+    msg!("a");
+
     // Load in the LZ OFT Store Account and verify the mint matches
-    let oft_store= OFTStore::deserialize(&mut &*inner_ctx.oft_store.try_borrow_data()?).unwrap();
+    let oft_store= OFTStore::deserialize(&mut &*inner_ctx.oft_store.try_borrow_data()?).map_err(|e| e)?;
     if oft_store.token_mint.ne(inner_ctx.mint.key()) {
         msg!{"mint: does not match oft_store state"};
         return Err(ProgramError::InvalidAccountData);
     }
+    msg!("b");
 
     // Check the PDA of the peer_config exists for this desination_eid
     let (expected_peer_config_pda, _bump) = SolanaPubkey::find_program_address(
@@ -85,7 +87,7 @@ pub fn process_initialize_lz_bridge(
         return Err(ProgramError::InvalidSeeds);
     }
     // Load in the LZ Peer Config Account (if it doesn't load it's not configured)
-    PeerConfig::deserialize(&mut &*inner_ctx.peer_config.try_borrow_data()?).unwrap();
+    PeerConfig::deserialize(&mut &*inner_ctx.peer_config.try_borrow_data()?).map_err(|e| e)?;;
   
     // Create the Config
     let config = IntegrationConfig::LzBridge(

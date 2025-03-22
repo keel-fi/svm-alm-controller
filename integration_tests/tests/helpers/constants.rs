@@ -18,3 +18,11 @@ pub const CCTP_TOKEN_MESSENGER: Pubkey = pubkey!("Afgq3BHEfCE7d78D2XE9Bfyu2ieDqv
 pub const CCTP_TOKEN_MINTER: Pubkey = pubkey!("DBD8hAwLDRQkTsu6EqviaYNGKPnsAMmQonxf7AH8ZcFY");
 pub const CCTP_LOCAL_TOKEN: Pubkey = pubkey!("72bvEFk2Usi2uYc1SnaTNhBcQPc6tiJWXr9oKk7rkd4C");
 pub const CCTP_REMOTE_TOKEN_MESSENGER: Pubkey = pubkey!("Hazwi3jFQtLKc2ughi7HFXPkpDeso7DQaMR9Ks4afh3j");
+
+
+// Layer Zero OFT
+pub const USDS_TOKEN_MINT_PUBKEY: Pubkey = pubkey!("AtGakZsHVY1BkinHEFMEJxZYhwA9KnuLD8QRmGjSAZEC");
+pub const LZ_USDS_OFT_PROGRAM_ID: Pubkey = pubkey!("E2R6qMMzLBjCwXs66MPEg2zKfpt5AMxWNgSULsLYfPS2");
+pub const LZ_USDS_PEER_CONFIG_PUBKEY: Pubkey = pubkey!("EZ4hoYu18tVZBYjw7rdVGahHbyuwakukw2zHNvvMHyjR");
+pub const LZ_USDS_OFT_STORE_PUBKEY: Pubkey = pubkey!("HUPW9dJZxxSafEVovebGxgbac3JamjMHXiThBxY5u43M");
+pub const LZ_DESTINATION_DOMAIN_EID: u32 = 40106u32;

@@ -1,4 +1,4 @@
-use constants::{CCTP_LOCAL_TOKEN, CCTP_MESSAGE_TRANSMITTER, CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_REMOTE_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID, CCTP_TOKEN_MINTER, NOVA_TOKEN_SWAP_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY, WORMHOLE_GUARDIAN_SET_4_PUBKEY};
+use constants::{CCTP_LOCAL_TOKEN, CCTP_MESSAGE_TRANSMITTER, CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_REMOTE_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID, CCTP_TOKEN_MINTER, LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY, LZ_USDS_PEER_CONFIG_PUBKEY, NOVA_TOKEN_SWAP_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY, USDS_TOKEN_MINT_PUBKEY, WORMHOLE_GUARDIAN_SET_4_PUBKEY};
 use litesvm::LiteSVM;
 pub mod logs_parser;
 pub mod cctp;
@@ -48,6 +48,16 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.set_account(CCTP_TOKEN_MINTER, cctp_token_minter_account).unwrap();
     let cctp_remote_token_messenger_account = get_account_data_from_json("./fixtures/cctp_remote_token_messenger.json");
     svm.set_account(CCTP_REMOTE_TOKEN_MESSENGER, cctp_remote_token_messenger_account).unwrap();
+
+    // Layer Zero
+    let usds_oft_program = include_bytes!("../../fixtures/oft.so");
+    svm.add_program(LZ_USDS_OFT_PROGRAM_ID, usds_oft_program);
+    let usds_mint_account = get_account_data_from_json("./fixtures/usds_mint.json");
+    svm.set_account(USDS_TOKEN_MINT_PUBKEY, usds_mint_account).unwrap();
+    let lz_usds_oft_store_account = get_account_data_from_json("./fixtures/lz_usds_oft_store.json");
+    svm.set_account(LZ_USDS_OFT_STORE_PUBKEY, lz_usds_oft_store_account).unwrap();
+    let lz_usds_eth_peer_config_account = get_account_data_from_json("./fixtures/lz_usds_eth_peer_config.json");
+    svm.set_account(LZ_USDS_PEER_CONFIG_PUBKEY, lz_usds_eth_peer_config_account).unwrap();
 
     svm
 }

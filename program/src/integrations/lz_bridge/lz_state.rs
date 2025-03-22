@@ -1,5 +1,6 @@
 use borsh::BorshDeserialize;
-use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio_log::log;
 
 
 pub const OFT_PEER_CONFIG_SEED: &[u8] = b"Peer";
@@ -8,7 +9,7 @@ pub const OFT_PEER_CONFIG_SEED: &[u8] = b"Peer";
 
 #[derive(BorshDeserialize)]
 pub struct OFTStore {
-    pub oft_type: OFTType,
+    pub oft_type: u8,
     pub ld2sd_rate: u64,
     pub token_mint: Pubkey,
     pub token_escrow: Pubkey, 
@@ -18,20 +19,21 @@ pub struct OFTStore {
     pub admin: Pubkey,
     pub default_fee_bps: u16,
     pub paused: bool,
-    pub pauser: Option<Pubkey>,
-    pub unpauser: Option<Pubkey>,
+    // pub pauser: Option<Pubkey>,
+    // pub unpauser: Option<Pubkey>,
 }
 
-#[derive(BorshDeserialize, PartialEq, Eq)]
-pub enum OFTType {
-    Native,
-    Adapter,
-}
+// #[derive(BorshDeserialize, PartialEq, Eq)]
+// pub enum OFTType {
+//     Native,
+//     Adapter,
+// }
 
 
 impl OFTStore {
 
     const DISCRIMINATOR: [u8;8] = [195,215,104,134,185,195,240,114];     //c3 d7 68 86 b9 c3 f0 72
+    const TRUNCATED_LEN: usize = 149;
 
     pub fn deserialize(
         data: &[u8]
@@ -39,7 +41,9 @@ impl OFTStore {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        Self::try_from_slice(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+        msg!("a2");
+        log!("{}", data.len() as u16);
+        Self::try_from_slice(&data[8..Self::TRUNCATED_LEN+8]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
 
@@ -62,9 +66,11 @@ impl PeerConfig {
     pub fn deserialize(
         data: &[u8]
     ) -> Result<Self, ProgramError> {
+        msg!("b1");
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
+        msg!("b2");
         Self::try_from_slice(&data[8..Self::TRUNCATED_LEN+8]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }

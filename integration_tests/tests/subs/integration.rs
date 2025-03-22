@@ -1,5 +1,5 @@
 use litesvm::LiteSVM;
-use solana_sdk::{compute_budget::ComputeBudgetInstruction, instruction::AccountMeta, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction};
+use solana_sdk::{compute_budget::ComputeBudgetInstruction, instruction::AccountMeta, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, sysvar, transaction::Transaction};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use svm_alm_controller_client::{accounts::{Integration, Reserve}, instructions::{InializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder}, programs::SVM_ALM_CONTROLLER_ID, types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PullArgs, PushArgs, SplTokenExternalConfig}};
 use std::error::Error;
@@ -100,6 +100,20 @@ pub fn initialize_integration(
             let h =hash(b.as_slice()).to_bytes();
             (IntegrationType::CctpBridge, h)
         },
+        IntegrationConfig::LzBridge(c) => {
+            let b: Vec<u8> = [
+                &[4u8][..], 
+                &c.program.to_bytes()[..],
+                &c.mint.to_bytes()[..],
+                &c.oft_store.to_bytes()[..],
+                &c.peer_config.to_bytes()[..],
+                &c.destination_address.to_bytes()[..],
+                &c.destination_eid.to_le_bytes()[..],
+                &c.padding[..],
+            ].concat();
+            let h =hash(b.as_slice()).to_bytes();
+            (IntegrationType::LzBridge, h)
+        },
         _ => panic!("Not specified")
     };
 
@@ -146,6 +160,14 @@ pub fn initialize_integration(
                 AccountMeta { pubkey: cctp_accounts.remote_token_messenger, is_signer: false, is_writable: false },
                 AccountMeta { pubkey: c.cctp_message_transmitter, is_signer: false, is_writable: false },
                 AccountMeta { pubkey: c.cctp_token_messenger_minter, is_signer: false, is_writable: false },
+            ]
+        },
+        IntegrationConfig::LzBridge(c) => {
+            &[
+                AccountMeta { pubkey: c.mint, is_signer: false, is_writable: false },
+                AccountMeta { pubkey: c.oft_store, is_signer: false, is_writable: false },
+                AccountMeta { pubkey: c.peer_config, is_signer: false, is_writable: false },
+                AccountMeta { pubkey: c.program, is_signer: false, is_writable: false },
             ]
         },
         _ => panic!("Not specified")
@@ -319,6 +341,16 @@ pub fn push_integration(
             println!("{:?}", integration_before);
             println!("{:?}", other_value_before);
         }, 
+        IntegrationConfig::LzBridge(ref c) => {
+            let reserve_pda = derive_reserve_pda(controller, &c.mint);
+            let vault = get_associated_token_address_with_program_id(controller, &c.mint, &pinocchio_token::ID.into());
+            reserve_a_before = fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
+            vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
+            other_value_before = get_mint_supply_or_zero(svm, &c.mint);
+            println!("{:?}", reserve_a_before);
+            println!("{:?}", integration_before);
+            println!("{:?}", other_value_before);
+        }, 
         _ => panic!("Not configured")
     };
 
@@ -417,6 +449,25 @@ pub fn push_integration(
                 &[message_sent_event_data]
             )
         },
+        IntegrationConfig::LzBridge(c) => {
+            let reserve_pda = derive_reserve_pda(controller, &c.mint);
+            let vault = get_associated_token_address_with_program_id(controller, &c.mint, &pinocchio_token::ID.into());
+            let authority_token_account = get_associated_token_address_with_program_id(&authority.pubkey(), &c.mint, &pinocchio_token::ID.into());
+            (
+                reserve_pda,
+                reserve_pda, // repeat since only one required
+                &[
+                    AccountMeta { pubkey: c.mint, is_signer: false, is_writable: true },
+                    AccountMeta { pubkey: vault, is_signer: false, is_writable: true },
+                    AccountMeta { pubkey: authority_token_account, is_signer: false, is_writable: true },
+                    AccountMeta { pubkey: pinocchio_token::ID.into(), is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: pinocchio_associated_token_account::ID.into(), is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: system_program::ID, is_signer: false, is_writable: false },
+                    AccountMeta { pubkey: sysvar::instructions::ID, is_signer: false, is_writable: false },
+                ],
+                &[]
+            )
+        },
         _ => panic!("Invalid config for this type of PushArgs")
     };
 
@@ -495,6 +546,20 @@ pub fn push_integration(
             let other_value_after = get_mint_supply_or_zero(svm, &c.mint);
             let other_vault_delta = other_value_before.checked_sub(other_value_after).unwrap();
             let expected_amount = match push_args { PushArgs::CctpBridge { amount } => *amount, _ => panic!("Invalid type")};
+            println!("{:?}", integration_after);
+            println!("{:?}", other_vault_delta);
+            assert_eq!(vault_a_delta, expected_amount, "Vault balance should have reduced by the amount");
+            assert_eq!(other_vault_delta, expected_amount, "Mint supply should have reduced by the amount");
+        }, 
+        IntegrationConfig::LzBridge(ref c) => {
+            let reserve_pda = derive_reserve_pda(controller, &c.mint);
+            let vault = get_associated_token_address_with_program_id(controller, &c.mint, &pinocchio_token::ID.into());
+            let reserve_a_after = fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account").unwrap();
+            let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
+            let vault_a_delta = vault_a_balance_before.checked_sub(vault_a_balance_after).unwrap();
+            let other_value_after = get_mint_supply_or_zero(svm, &c.mint);
+            let other_vault_delta = other_value_before.checked_sub(other_value_after).unwrap();
+            let expected_amount = match push_args { PushArgs::LzBridge { amount } => *amount, _ => panic!("Invalid type")};
             println!("{:?}", integration_after);
             println!("{:?}", other_vault_delta);
             assert_eq!(vault_a_delta, expected_amount, "Vault balance should have reduced by the amount");
