@@ -36,15 +36,15 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
             cctp_message_transmitter: &account_infos[3],
             cctp_token_messenger_minter: &account_infos[4],
         };
-        if ctx.local_token.owner().ne(ctx.cctp_token_messenger_minter.key()) {
+        if !ctx.local_token.is_owned_by(ctx.cctp_token_messenger_minter.key()) {
             msg!{"local_mint: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.remote_token_messenger.owner().ne(ctx.cctp_token_messenger_minter.key()) {
+        if !ctx.remote_token_messenger.is_owned_by(ctx.cctp_token_messenger_minter.key()) {
             msg!{"remote_token_messenger: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.mint.owner().ne(&pinocchio_token::ID){ // TODO: Allow token 2022
+        if !ctx.mint.is_owned_by(&pinocchio_token::ID){ // TODO: Allow token 2022
             msg!{"mint: not owned by token program"};
             return Err(ProgramError::InvalidAccountOwner);
         }

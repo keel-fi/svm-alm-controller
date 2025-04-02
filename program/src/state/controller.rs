@@ -67,7 +67,7 @@ impl Controller {
         account_info: &AccountInfo
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
-        if account_info.owner() != &crate::ID {
+        if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
         let controller = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
@@ -79,7 +79,7 @@ impl Controller {
         account_info: &AccountInfo
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
-        if account_info.owner() != &crate::ID {
+        if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
         let controller = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
@@ -89,7 +89,7 @@ impl Controller {
 
     pub fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
         // Ensure account owner is the program
-        if account_info.owner() != &crate::ID {
+        if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
         

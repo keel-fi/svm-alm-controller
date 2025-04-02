@@ -49,13 +49,13 @@ impl<'info> InitializeReserveAccounts<'info> {
         if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.permission.owner().ne(&crate::ID) {
+        if !ctx.permission.is_owned_by(&crate::ID) {
             msg!{"permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -63,7 +63,7 @@ impl<'info> InitializeReserveAccounts<'info> {
         if !ctx.reserve.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.reserve.owner().ne(&pinocchio_system::id()) {
+        if !ctx.reserve.is_owned_by(&pinocchio_system::id()) {
             msg!{"reserve: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

@@ -14,10 +14,9 @@ pub fn process_emit_event(
         return Err(ProgramError::MissingRequiredSignature.into());
     }
     // The authority must be a PDA of this program
-    if authority_info.owner() != &crate::ID {
+    if !authority_info.is_owned_by(&crate::ID) {
         return Err(ProgramError::InvalidAccountOwner.into());
     }
-    
     Ok(())
 }
 

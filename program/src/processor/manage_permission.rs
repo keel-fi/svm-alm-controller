@@ -42,19 +42,19 @@ impl<'info> ManagePermissionAccounts<'info> {
         if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.super_authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.super_permission.owner().ne(&crate::ID) {
+        if !ctx.super_permission.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.permission.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if !(ctx.permission.owner().eq(&pinocchio_system::id()) && !ctx.permission.data_is_empty()) && ctx.super_permission.owner().ne(&crate::ID) {
+        if !(ctx.permission.is_owned_by(&pinocchio_system::id()) && !ctx.permission.data_is_empty()) && !ctx.super_permission.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner)
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {

@@ -76,11 +76,11 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
             IntegrationConfig::SplTokenSwap(config) => config,
             _ => return Err(ProgramError::InvalidAccountData)
         };
-        if ctx.swap.owner().ne(ctx.swap_program.key()) {
+        if !ctx.swap.is_owned_by(ctx.swap_program.key()) {
             msg!{"pool: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.swap.owner().ne(&config.program) {
+        if !ctx.swap.is_owned_by(&config.program) {
             msg!{"swap: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -100,15 +100,15 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
             msg!{"lp_token_account: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.mint_a.owner().ne(ctx.mint_a_token_program.key()) {
+        if !ctx.mint_a.is_owned_by(ctx.mint_a_token_program.key()) {
             msg!{"mint_a: not owned by mint_a_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.mint_b.owner().ne(ctx.mint_b_token_program.key()) {
+        if !ctx.mint_b.is_owned_by(ctx.mint_b_token_program.key()) {
             msg!{"mint_b: not owned by mint_b_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.lp_mint.owner().ne(ctx.lp_mint_token_program.key()) {
+        if !ctx.lp_mint.is_owned_by(ctx.lp_mint_token_program.key()) {
             msg!{"lp_mint: not owned by lp_mint_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -132,15 +132,15 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
             msg!{"lp_token_account: not mutable"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.lp_token_account.owner().ne(ctx.lp_mint_token_program.key()) && ctx.lp_token_account.owner().ne(&pinocchio_system::ID) {
+        if !ctx.lp_token_account.is_owned_by(ctx.lp_mint_token_program.key()) && !ctx.lp_token_account.is_owned_by(&pinocchio_system::ID) {
             msg!{"lp_token_account: not owned by token_program or system_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.swap_token_a.owner().ne(ctx.mint_a_token_program.key()) {
+        if !ctx.swap_token_a.is_owned_by(ctx.mint_a_token_program.key()) {
             msg!{"swap_token_a: not owned by mint_a_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.swap_token_b.owner().ne(ctx.mint_b_token_program.key()) {
+        if !ctx.swap_token_b.is_owned_by(ctx.mint_b_token_program.key()) {
             msg!{"swap_token_b: not owned by mint_b_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
