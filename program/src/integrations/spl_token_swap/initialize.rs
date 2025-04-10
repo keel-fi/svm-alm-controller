@@ -94,7 +94,7 @@ impl<'info> InitializeSplTokenSwapAccounts<'info> {
             msg!{"lp_token_account: not mutable"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if !ctx.lp_token_account.is_owned_by(ctx.lp_mint_token_program.key()) && ctx.lp_token_account.is_owned_by(&pinocchio_system::ID) {
+        if !ctx.lp_token_account.is_owned_by(ctx.lp_mint_token_program.key()) && !ctx.lp_token_account.is_owned_by(&pinocchio_system::ID) {
             msg!{"lp_token_account: not owned by token_program or system_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
