@@ -27,10 +27,10 @@ impl<'info> SyncIntegrationAccounts<'info> {
             integration: &account_infos[1],
             remaining_accounts: &account_infos[2..]
         };
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.integration.owner().ne(&crate::ID) {
+        if !ctx.integration.is_owned_by(&crate::ID) {
             msg!{"integration: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

@@ -46,7 +46,7 @@ impl<'info> SyncSplTokenSwapAccounts<'info> {
             IntegrationConfig::SplTokenSwap(config) => config,
             _ => return Err(ProgramError::InvalidAccountData)
         };
-        if ctx.swap.owner().ne(&config.program) {
+        if !ctx.swap.is_owned_by(&config.program) {
             msg!{"swap: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }

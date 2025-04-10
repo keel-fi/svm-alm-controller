@@ -23,14 +23,14 @@ impl<'info> ManageReserveAccounts<'info> {
             permission: &account_infos[2],
             reserve: &account_infos[3],
     };
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.reserve.owner().ne(&crate::ID) {
+        if !ctx.reserve.is_owned_by(&crate::ID) {
             msg!{"reserve: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.permission.owner().ne(&crate::ID) {
+        if !ctx.permission.is_owned_by(&crate::ID) {
             msg!{"permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

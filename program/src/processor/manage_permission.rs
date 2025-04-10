@@ -1,13 +1,14 @@
-use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo,  msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    error::SvmAlmControllerErrors, 
-    events::{PermissionUpdateEvent, SvmAlmControllerEvent}, 
-    instructions::ManagePermissionArgs, 
-    processor::shared::verify_system_account, 
-    state::{Controller, Permission}
+    error::SvmAlmControllerErrors,
+    events::{PermissionUpdateEvent, SvmAlmControllerEvent},
+    instructions::ManagePermissionArgs,
+    processor::shared::verify_system_account,
+    state::{Controller, Permission},
 };
-
+use borsh::BorshDeserialize;
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 
 pub struct ManagePermissionAccounts<'info> {
     pub payer: &'info AccountInfo,
@@ -20,12 +21,9 @@ pub struct ManagePermissionAccounts<'info> {
 }
 
 impl<'info> ManagePermissionAccounts<'info> {
-
-    pub fn from_accounts(
-        accounts: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
+    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
         if accounts.len() != 7 {
-            return Err(ProgramError::NotEnoughAccountKeys)
+            return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
             payer: &accounts[0],
@@ -42,20 +40,22 @@ impl<'info> ManagePermissionAccounts<'info> {
         if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.super_authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.super_permission.owner().ne(&crate::ID) {
+        if !ctx.super_permission.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.permission.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if !(ctx.permission.owner().eq(&pinocchio_system::id()) && !ctx.permission.data_is_empty()) && ctx.super_permission.owner().ne(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner)
+        if !(ctx.permission.is_owned_by(&pinocchio_system::id()) && !ctx.permission.data_is_empty())
+            && !ctx.super_permission.is_owned_by(&crate::ID)
+        {
+            return Err(ProgramError::InvalidAccountOwner);
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
             return Err(ProgramError::IncorrectProgramId);
@@ -63,8 +63,6 @@ impl<'info> ManagePermissionAccounts<'info> {
         Ok(ctx)
     }
 }
-
-
 
 pub fn process_manage_permission(
     _program_id: &Pubkey,
@@ -75,24 +73,20 @@ pub fn process_manage_permission(
 
     let ctx = ManagePermissionAccounts::from_accounts(accounts)?;
     // // Deserialize the args
-    let args = ManagePermissionArgs::try_from_slice(
-        instruction_data
-    ).unwrap();
-    
+    let args = ManagePermissionArgs::try_from_slice(instruction_data).unwrap();
+
     // Load in controller state
-    let controller = Controller::load_and_check(
-        ctx.controller, 
-    )?;
+    let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in the super permission account
     let super_permission = Permission::load_and_check(
-        ctx.super_permission, 
-        ctx.controller.key(), 
-        ctx.super_authority.key()
+        ctx.super_permission,
+        ctx.controller.key(),
+        ctx.super_authority.key(),
     )?;
     // Check that super authority has permission and the permission is active
     if !super_permission.can_manage_permissions() {
-        return Err(SvmAlmControllerErrors::UnauthorizedAction.into())
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
     let mut permission: Permission;
@@ -101,8 +95,8 @@ pub fn process_manage_permission(
         // Initialize the permission account
         verify_system_account(ctx.permission, true)?;
         permission = Permission::init_account(
-            ctx.permission, 
-            ctx.payer, 
+            ctx.permission,
+            ctx.payer,
             *ctx.controller.key(),
             *ctx.authority.key(),
             args.status,
@@ -120,7 +114,7 @@ pub fn process_manage_permission(
         permission = Permission::load_and_check_mut(
             ctx.permission,
             ctx.controller.key(),
-            ctx.authority.key()
+            ctx.authority.key(),
         )?;
         old_state = Some(permission.clone());
         // Update the permission account and save it
@@ -137,21 +131,18 @@ pub fn process_manage_permission(
         // Save the state to the account
         permission.save(ctx.permission)?;
     }
- 
+
     // Emit the event
     controller.emit_event(
         ctx.controller,
-        SvmAlmControllerEvent::PermissionUpdate (
-            PermissionUpdateEvent {
-                controller: *ctx.controller.key(),
-                permission: *ctx.permission.key(),
-                authority: *ctx.authority.key(),
-                old_state: old_state,
-                new_state: Some(permission)
-            }
-        )
+        SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
+            controller: *ctx.controller.key(),
+            permission: *ctx.permission.key(),
+            authority: *ctx.authority.key(),
+            old_state: old_state,
+            new_state: Some(permission),
+        }),
     )?;
 
     Ok(())
 }
-

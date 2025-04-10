@@ -55,7 +55,7 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
             msg!{"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.mint.owner().ne(&config.program) { 
+        if !ctx.mint.is_owned_by(&config.program) { 
             msg!{"mint: not owned by token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -71,7 +71,7 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
             msg!{"recipient_token_account: not mutable"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.recipient_token_account.owner().ne(ctx.token_program.key()) && ctx.recipient_token_account.owner().ne(&pinocchio_system::ID) {
+        if !ctx.recipient_token_account.is_owned_by(ctx.token_program.key()) && !ctx.recipient_token_account.is_owned_by(&pinocchio_system::ID) {
             msg!{"recipient_token_account: not owned by token_program or system_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }

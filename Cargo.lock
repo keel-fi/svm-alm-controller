@@ -1019,9 +1019,9 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "five8_const"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b4f62f0f8ca357f93ae90c8c2dd1041a1f665fde2f889ea9b1787903829015"
+checksum = "26dec3da8bc3ef08f2c04f61eab298c3ab334523e55f076354d6d6f613799a7b"
 dependencies = [
  "five8_core",
 ]
@@ -2077,15 +2077,15 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pinocchio"
-version = "0.7.1"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43a8a77bf74e1c4050a2bad53648acfcfbf22b1806473f9c9334a58ef3b38ec4"
+checksum = "530596fa307103e53257f2cf064815919ee7fbc4c7ab999f6f13cc7067c3aff1"
 
 [[package]]
 name = "pinocchio-associated-token-account"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d998f46875eb2144e63a9dd3f70df3a4132885497b25c4bedbfab7d14c0628e8"
+checksum = "b45fffdec0a1d05199b0f67b6b802be32ffc30a5fe29d222d7653865ca57401c"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
@@ -2093,18 +2093,18 @@ dependencies = [
 
 [[package]]
 name = "pinocchio-log"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95bd1d0d8a24f2637cb6748232912b6bae67b643b7ca903c68e670e704cd0652"
+checksum = "f89f8ffd986174cefe59448295a004aaf70c3605f30de066f42d27b06188f267"
 dependencies = [
  "pinocchio-log-macro",
 ]
 
 [[package]]
 name = "pinocchio-log-macro"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "657779675430389ebbf00b8a5b6325e64157795ac61702fadf8756ac8806a50e"
+checksum = "7d3ca23b4b0721ac5e013ad73f592f2030c0c601c5d11773fe4709f03d4a329d"
 dependencies = [
  "quote",
  "regex",
@@ -2113,9 +2113,9 @@ dependencies = [
 
 [[package]]
 name = "pinocchio-pubkey"
-version = "0.2.2"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "103d69776a0c585bb01b344d641346593adb4496120796df229722a9bab2db68"
+checksum = "0c6b20fcebc172c3cd3f54114b0241b48fa8e30893ced2eb4927aaba5e3a0ba5"
 dependencies = [
  "five8_const",
  "pinocchio",
@@ -2123,9 +2123,9 @@ dependencies = [
 
 [[package]]
 name = "pinocchio-system"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "691ec8989fcb86fba22f22deb3cae9d440dc174d1735dd785b172349e9cbbb8a"
+checksum = "1f75423420ae70aa748cf611cab14cfd00af08d0d2d3d258cb0cf5e2880ec19c"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
@@ -2133,9 +2133,9 @@ dependencies = [
 
 [[package]]
 name = "pinocchio-token"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d94c71afd8ddf3d2befc8c64e6efc58ede172bb98051c0faa02db8a737c958cd"
+checksum = "7d037f645db5ed4df9163362f1716932feb987a82f70caf15d0259cfeef82f4c"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",

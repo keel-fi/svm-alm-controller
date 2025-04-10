@@ -34,15 +34,15 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
             peer_config: &account_infos[2],
             lz_program: &account_infos[3],
         };
-        if ctx.oft_store.owner().ne(ctx.lz_program.key()) {
+        if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
             msg!{"oft_store: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.peer_config.owner().ne(ctx.lz_program.key()) {
+        if !ctx.peer_config.is_owned_by(ctx.lz_program.key()) {
             msg!{"peer_config: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.mint.owner().ne(&pinocchio_token::ID){ // TODO: Allow token 2022
+        if !ctx.mint.is_owned_by(&pinocchio_token::ID){ // TODO: Allow token 2022
             msg!{"mint: not owned by token program"};
             return Err(ProgramError::InvalidAccountOwner);
         }

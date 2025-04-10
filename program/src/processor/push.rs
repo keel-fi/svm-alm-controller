@@ -35,31 +35,31 @@ impl<'info> PushAccounts<'info> {
             reserve_b: &accounts[5],
             remaining_accounts: &accounts[6..]
         };
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.permission.owner().ne(&crate::ID) {
+        if !ctx.permission.is_owned_by(&crate::ID) {
             msg!{"permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.integration.owner().ne(&crate::ID) {
+        if !ctx.integration.is_owned_by(&crate::ID) {
             msg!{"integration: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.integration.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.reserve_a.owner().ne(&crate::ID) {
+        if !ctx.reserve_a.is_owned_by(&crate::ID) {
             msg!{"reserve_a: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.reserve_a.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.reserve_b.owner().ne(&crate::ID) {
+        if !ctx.reserve_b.is_owned_by(&crate::ID) {
             msg!{"reserve_b: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

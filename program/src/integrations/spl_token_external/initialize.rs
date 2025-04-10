@@ -41,7 +41,7 @@ impl<'info> InitializeSplTokenExternalAccounts<'info> {
             msg!{"token_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if ctx.mint.owner().ne(ctx.token_program.key()) { // TODO: Allow token 2022
+        if !ctx.mint.is_owned_by(ctx.token_program.key()) { // TODO: Allow token 2022
             msg!{"mint: not owned by token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -49,7 +49,7 @@ impl<'info> InitializeSplTokenExternalAccounts<'info> {
             msg!{"token_account: not mutable"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.token_account.owner().ne(ctx.token_program.key()) && ctx.token_account.owner().ne(&pinocchio_system::ID) {
+        if !ctx.token_account.is_owned_by(ctx.token_program.key()) && !ctx.token_account.is_owned_by(&pinocchio_system::ID) {
             msg!{"token_account: not owned by token_program or system_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
