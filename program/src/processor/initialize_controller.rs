@@ -42,13 +42,13 @@ impl<'info> InitializeControllerAccounts<'info> {
         if !ctx.controller.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller.owner().ne(&pinocchio_system::id()) || !ctx.controller.data_is_empty() {
+        if !ctx.controller.is_owned_by(&pinocchio_system::id()) || !ctx.controller.data_is_empty() {
             return Err(ProgramError::InvalidAccountOwner)
         }
         if !ctx.permission.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.permission.owner().ne(&pinocchio_system::id()) || !ctx.permission.data_is_empty() {
+        if !ctx.permission.is_owned_by(&pinocchio_system::id()) || !ctx.permission.data_is_empty() {
             return Err(ProgramError::InvalidAccountOwner)
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {

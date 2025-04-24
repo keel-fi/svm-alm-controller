@@ -48,13 +48,13 @@ impl<'info> InitializeIntegrationAccounts<'info> {
         if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.permission.owner().ne(&crate::ID) {
+        if !ctx.permission.is_owned_by(&crate::ID) {
             msg!{"Permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -63,7 +63,7 @@ impl<'info> InitializeIntegrationAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
         // The Integration AccountInfo must be the system program and be empty
-        if ctx.integration.owner().ne(&pinocchio_system::id()) {
+        if !ctx.integration.is_owned_by(&pinocchio_system::id()) {
             msg!{"Integration: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
@@ -72,7 +72,7 @@ impl<'info> InitializeIntegrationAccounts<'info> {
             return Err(ProgramError::InvalidAccountOwner);
         }
         // The Lookuptable must be either a value ALUT or the system_program (i.e. no LUT provided)
-        if ctx.lookup_table.key().ne(&pinocchio_system::id()) && ctx.lookup_table.owner().ne(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID) {
+        if ctx.lookup_table.key().ne(&pinocchio_system::id()) && !ctx.lookup_table.is_owned_by(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID) {
             msg!{"Lookup Table: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

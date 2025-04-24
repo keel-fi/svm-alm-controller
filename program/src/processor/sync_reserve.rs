@@ -21,10 +21,10 @@ impl<'info> SyncReserveAccounts<'info> {
             reserve: &account_infos[1],
             vault: &account_infos[2],
     };
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.reserve.owner().ne(&crate::ID) {
+        if !ctx.reserve.is_owned_by(&crate::ID) {
             msg!{"permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

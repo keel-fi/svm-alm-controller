@@ -32,17 +32,17 @@ impl<'info> PullAccounts<'info> {
             reserve_b: &accounts[5],
             remaining_accounts: &accounts[6..]
         };
-        if ctx.controller.owner().ne(&crate::ID) {
+        if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
-        if ctx.permission.owner().ne(&crate::ID) {
+        if !ctx.permission.is_owned_by(&crate::ID) {
             msg!{"Permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if ctx.integration.owner().ne(&crate::ID) {
+        if !ctx.integration.is_owned_by(&crate::ID) {
             msg!{"Integration: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }

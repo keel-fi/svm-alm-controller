@@ -75,7 +75,7 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg!{"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.mint.owner().ne(&pinocchio_token::ID) { // TODO: Allow token 2022
+        if !ctx.mint.is_owned_by(&pinocchio_token::ID) { // TODO: Allow token 2022
             msg!{"mint: not owned by token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
