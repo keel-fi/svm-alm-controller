@@ -33,7 +33,7 @@ impl Controller {
         &self,
         acc_info: &AccountInfo,
     ) -> Result<(), ProgramError> {
-        let (controller_pda, _controller_bump) = Self::derive_pda(self.id)?;
+        let (controller_pda, _controller_bump) = Self::derive_pda_bytes(self.id)?;
         if acc_info.key().ne(&controller_pda) {
             log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
             return Err(ProgramError::InvalidSeeds);
@@ -41,7 +41,7 @@ impl Controller {
         Ok(())
     }
 
-    pub fn derive_pda(
+    pub fn derive_pda_bytes(
         id: u16
     ) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
@@ -119,7 +119,7 @@ impl Controller {
         
         // Derive the PDA
         let controller_id = id.to_le_bytes();
-        let (pda, bump) = Self::derive_pda(id)?;
+        let (pda, bump) = Self::derive_pda_bytes(id)?;
         if account_info.key().ne(&pda) {
             return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
         }
@@ -186,7 +186,8 @@ impl Controller {
                 Seed::from(&self.id.to_le_bytes()),
                 Seed::from(&[self.bump])
             ],
-            event
+            &self.id.to_le_bytes(),
+            event,
         )?;
         Ok(())
     }

@@ -104,6 +104,7 @@ pub enum SvmAlmControllerInstruction {
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct EmitEventArgs {
+    pub controller_id: [u8; 2],
     pub data: Vec<u8>
 }
 

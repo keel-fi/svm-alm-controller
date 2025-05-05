@@ -12,15 +12,17 @@ use crate::instructions::SvmAlmControllerInstruction;
 pub fn emit_cpi<const N: usize>(
     authority: &AccountInfo,
     signer_seeds: [Seed; N],
+    controller_id: &[u8; 2],
     event: SvmAlmControllerEvent
 ) -> ProgramResult {
 
     // Serialize the event data
     let serialized = event.try_to_vec().unwrap();
+    
 
     // Prepare the instruction data and serialize it
     let instruction_data = SvmAlmControllerInstruction::EmitEvent(
-        EmitEventArgs { data: serialized }
+        EmitEventArgs { controller_id: *controller_id, data: serialized }
     ).try_to_vec().unwrap();
     
     // Create the instruction
