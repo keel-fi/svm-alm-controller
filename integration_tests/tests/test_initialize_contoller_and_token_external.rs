@@ -62,7 +62,7 @@ mod tests {
             &authority, 
             &authority, 
             ControllerStatus::Active, 
-            0u16 // Id
+            321u16 // Id
         )?;
 
         // Update the authority to have all permissions
