@@ -1,22 +1,21 @@
 extern crate alloc;
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use crate::{
-    acc_info_as_str,
     constants::{INTEGRATION_SEED, SECONDS_PER_DAY},
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
     processor::shared::create_pda_account,
+    state::nova_account::NovaAccount,
 };
 use alloc::vec::Vec;
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
-    log, msg,
+    msg,
     program_error::ProgramError,
     pubkey::Pubkey,
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
-use pinocchio_log::log;
 use shank::ShankAccount;
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 
@@ -41,26 +40,23 @@ impl Discriminator for Integration {
     const DISCRIMINATOR: u8 = AccountDiscriminators::IntegrationDiscriminator as u8;
 }
 
-impl Integration {
-    pub const LEN: usize = 4 * 32 + 1 + 193 + 49 + 8 * 5;
+impl NovaAccount for Integration {
+    const LEN: usize = 4 * 32 + 1 + 193 + 49 + 8 * 5;
 
-    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (pda, _bump) = Self::derive_pda(self.controller, self.hash)?;
-        if acc_info.key().ne(&pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-
-    pub fn derive_pda(controller: Pubkey, hash: [u8; 32]) -> Result<(Pubkey, u8), ProgramError> {
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
-            &[INTEGRATION_SEED, controller.as_ref(), hash.as_ref()],
+            &[
+                INTEGRATION_SEED,
+                self.controller.as_ref(),
+                self.hash.as_ref(),
+            ],
             &SolanaPubkey::from(crate::ID),
         );
         Ok((pda.to_bytes(), bump))
     }
+}
 
+impl Integration {
     fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         // Check discriminator
         if data[0] != Self::DISCRIMINATOR {
@@ -143,13 +139,6 @@ impl Integration {
         let clock = Clock::get()?;
         // Derive the hash for this config
         let hash = config.hash();
-        log! {"hash: {}", &hash};
-
-        // Derive the PDA
-        let (pda, bump) = Self::derive_pda(controller, hash)?;
-        if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
-        }
 
         // Create and serialize the controller
         let integration = Integration {
@@ -166,6 +155,12 @@ impl Integration {
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
         };
+
+        // Derive the PDA
+        let (pda, bump) = integration.derive_pda()?;
+        if account_info.key().ne(&pda) {
+            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+        }
 
         // Account creation PDA
         let rent = Rent::get()?;

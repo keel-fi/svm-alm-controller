@@ -1,8 +1,10 @@
 extern crate alloc;
-use super::discriminator::{AccountDiscriminators, Discriminator};
+use super::{
+    discriminator::{AccountDiscriminators, Discriminator},
+    nova_account::NovaAccount,
+};
 use crate::{
-    acc_info_as_str, constants::PERMISSION_SEED, enums::PermissionStatus,
-    processor::shared::create_pda_account,
+    constants::PERMISSION_SEED, enums::PermissionStatus, processor::shared::create_pda_account,
 };
 use alloc::vec::Vec;
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -13,7 +15,6 @@ use pinocchio::{
     pubkey::Pubkey,
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_log::log;
 use shank::ShankAccount;
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 
@@ -36,26 +37,23 @@ impl Discriminator for Permission {
     const DISCRIMINATOR: u8 = AccountDiscriminators::PermissionDiscriminator as u8;
 }
 
-impl Permission {
-    pub const LEN: usize = 65 + 7;
+impl NovaAccount for Permission {
+    const LEN: usize = 65 + 7;
 
-    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (pda, _bump) = Self::derive_pda(self.controller, self.authority)?;
-        if acc_info.key().ne(&pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-
-    pub fn derive_pda(controller: Pubkey, authority: Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
-            &[PERMISSION_SEED, controller.as_ref(), authority.as_ref()],
+            &[
+                PERMISSION_SEED,
+                self.controller.as_ref(),
+                self.authority.as_ref(),
+            ],
             &SolanaPubkey::from(crate::ID),
         );
         Ok((pda.to_bytes(), bump))
     }
+}
 
+impl Permission {
     fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         // Check discriminator
         if data[0] != Self::DISCRIMINATOR {
@@ -140,12 +138,6 @@ impl Permission {
         can_unfreeze: bool,
         can_manage_integrations: bool,
     ) -> Result<Self, ProgramError> {
-        // Derive the PDA
-        let (pda, bump) = Self::derive_pda(controller, authority)?;
-        if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
-        }
-
         // Create and serialize the controller
         let permission = Permission {
             controller,
@@ -159,6 +151,12 @@ impl Permission {
             can_unfreeze,
             can_manage_integrations,
         };
+
+        // Derive the PDA
+        let (pda, bump) = permission.derive_pda()?;
+        if account_info.key().ne(&pda) {
+            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+        }
 
         // Account creation PDA
         let rent = Rent::get()?;

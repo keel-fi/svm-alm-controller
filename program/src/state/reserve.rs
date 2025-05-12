@@ -1,10 +1,10 @@
 extern crate alloc;
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
+    nova_account::NovaAccount,
     Controller,
 };
 use crate::{
-    acc_info_as_str,
     constants::RESERVE_SEED,
     enums::ReserveStatus,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -20,7 +20,6 @@ use pinocchio::{
     pubkey::Pubkey,
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
-use pinocchio_log::log;
 use pinocchio_token::state::TokenAccount;
 use shank::ShankAccount;
 use solana_program::{clock::SECONDS_PER_DAY, pubkey::Pubkey as SolanaPubkey};
@@ -44,26 +43,19 @@ impl Discriminator for Reserve {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ReserveDiscriminator as u8;
 }
 
-impl Reserve {
-    pub const LEN: usize = 32 * 3 + 8 * 6 + 1;
+impl NovaAccount for Reserve {
+    const LEN: usize = 32 * 3 + 8 * 6 + 1;
 
-    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (pda, _bump) = Self::derive_pda(self.controller, self.mint)?;
-        if acc_info.key().ne(&pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-
-    pub fn derive_pda(controller: Pubkey, mint: Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
-            &[RESERVE_SEED, controller.as_ref(), mint.as_ref()],
+            &[RESERVE_SEED, self.controller.as_ref(), self.mint.as_ref()],
             &SolanaPubkey::from(crate::ID),
         );
         Ok((pda.to_bytes(), bump))
     }
+}
 
+impl Reserve {
     fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         // Check discriminator
         if data[0] != Self::DISCRIMINATOR {
@@ -141,11 +133,6 @@ impl Reserve {
         rate_limit_slope: u64,
         rate_limit_max_outflow: u64,
     ) -> Result<Self, ProgramError> {
-        // Derive the PDA
-        let (pda, bump) = Self::derive_pda(controller, mint)?;
-        if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
-        }
         // Create and serialize the controller
         let clock = Clock::get()?;
         let reserve = Reserve {
@@ -160,6 +147,11 @@ impl Reserve {
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
         };
+        // Derive the PDA
+        let (pda, bump) = reserve.derive_pda()?;
+        if account_info.key().ne(&pda) {
+            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+        }
         // Account creation PDA
         let rent = Rent::get()?;
         let bump_seed = [bump];
@@ -310,7 +302,8 @@ impl Reserve {
                 controller_info,
                 SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                     controller: self.controller,
-                    integration: Self::derive_pda(self.controller, self.mint).unwrap().0,
+                    // REVIEW: Should this be an Integration's pubkey?
+                    integration: self.derive_pda().unwrap().0,
                     mint: self.mint,
                     action: AccountingAction::Sync,
                     before: previous_balance,

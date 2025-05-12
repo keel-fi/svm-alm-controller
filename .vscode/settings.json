@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.cargo.extraEnv": {
+      "OPENSSL_LIB_DIR": "/opt/homebrew/opt/openssl/lib",
+      "OPENSSL_INCLUDE_DIR": "/opt/homebrew/opt/openssl/include"
+  }
+}
