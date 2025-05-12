@@ -1,25 +1,31 @@
 extern crate alloc;
-use alloc::vec::Vec;
-use pinocchio_token::state::TokenAccount;
-use shank::ShankAccount;
-use crate::{
-    acc_info_as_str, 
-    constants::RESERVE_SEED, 
-    enums::ReserveStatus, 
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
-    processor::shared::create_pda_account
+use super::{
+    discriminator::{AccountDiscriminators, Discriminator},
+    Controller,
 };
-use super::{discriminator::{AccountDiscriminators, Discriminator}, Controller};
-use solana_program::{clock::SECONDS_PER_DAY, pubkey::Pubkey as SolanaPubkey};
+use crate::{
+    acc_info_as_str,
+    constants::RESERVE_SEED,
+    enums::ReserveStatus,
+    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    processor::shared::create_pda_account,
+};
+use alloc::vec::Vec;
+use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
-    account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::Pubkey, sysvars::{clock::Clock, rent::Rent, Sysvar}
+    account_info::AccountInfo,
+    instruction::Seed,
+    msg,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
 use pinocchio_log::log;
-use borsh::{BorshDeserialize, BorshSerialize};
+use pinocchio_token::state::TokenAccount;
+use shank::ShankAccount;
+use solana_program::{clock::SECONDS_PER_DAY, pubkey::Pubkey as SolanaPubkey};
 
-
-
-#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize,)]
+#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Reserve {
     pub controller: Pubkey,
@@ -28,25 +34,20 @@ pub struct Reserve {
     pub status: ReserveStatus,
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
-    pub rate_limit_amount_last_update: u64, 
+    pub rate_limit_amount_last_update: u64,
     pub last_balance: u64,
     pub last_refresh_timestamp: i64,
     pub last_refresh_slot: u64,
 }
-
 
 impl Discriminator for Reserve {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ReserveDiscriminator as u8;
 }
 
 impl Reserve {
+    pub const LEN: usize = 32 * 3 + 8 * 6 + 1;
 
-    pub const LEN: usize = 32*3 + 8*6 + 1;
-
-    pub fn verify_pda(
-        &self,
-        acc_info: &AccountInfo,
-    ) -> Result<(), ProgramError> {
+    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
         let (pda, _bump) = Self::derive_pda(self.controller, self.mint)?;
         if acc_info.key().ne(&pda) {
             log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
@@ -55,10 +56,7 @@ impl Reserve {
         Ok(())
     }
 
-    pub fn derive_pda(
-        controller: Pubkey,
-        mint: Pubkey
-    ) -> Result<(Pubkey, u8), ProgramError> {
+    pub fn derive_pda(controller: Pubkey, mint: Pubkey) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
             &[RESERVE_SEED, controller.as_ref(), mint.as_ref()],
             &SolanaPubkey::from(crate::ID),
@@ -66,9 +64,7 @@ impl Reserve {
         Ok((pda.to_bytes(), bump))
     }
 
-    fn deserialize(
-        data: &[u8]
-    ) -> Result<Self, ProgramError> {
+    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         // Check discriminator
         if data[0] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
@@ -77,10 +73,7 @@ impl Reserve {
         Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 
-    pub fn check_data(
-        &self,
-        controller: &Pubkey,
-    ) -> Result<(), ProgramError> {
+    pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
             return Err(ProgramError::InvalidAccountData);
         }
@@ -96,8 +89,8 @@ impl Reserve {
             return Err(ProgramError::IncorrectProgramId);
         }
         // Check PDA
-        
-        let reserve= Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+
+        let reserve = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;
         Ok(reserve)
@@ -122,7 +115,7 @@ impl Reserve {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        
+
         let mut serialized = Vec::with_capacity(1 + Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized)
@@ -174,15 +167,15 @@ impl Reserve {
             Seed::from(RESERVE_SEED),
             Seed::from(&controller),
             Seed::from(&mint),
-            Seed::from(&bump_seed)
+            Seed::from(&bump_seed),
         ];
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN, 
+            1 + Self::LEN,
             &crate::ID,
-            account_info, 
-            signer_seeds
+            account_info,
+            signer_seeds,
         )?;
         // Commit the account on-chain
         reserve.save(account_info)?;
@@ -206,7 +199,10 @@ impl Reserve {
             self.rate_limit_slope = rate_limit_slope;
         }
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
-            let gap = self.rate_limit_max_outflow.checked_sub(self.rate_limit_amount_last_update).unwrap();
+            let gap = self
+                .rate_limit_max_outflow
+                .checked_sub(self.rate_limit_amount_last_update)
+                .unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
             // Reset the rate_limit_amount_last_update such that the gap from the max remains the same
             self.rate_limit_amount_last_update = self.rate_limit_max_outflow.saturating_sub(gap);
@@ -214,34 +210,40 @@ impl Reserve {
         Ok(())
     }
 
-    pub fn refresh_rate_limit(
-        &mut self,
-        clock: Clock
-    ) -> Result<(), ProgramError> {
-        if self.rate_limit_max_outflow == u64::MAX || self.last_refresh_timestamp == clock.unix_timestamp {
+    pub fn refresh_rate_limit(&mut self, clock: Clock) -> Result<(), ProgramError> {
+        if self.rate_limit_max_outflow == u64::MAX
+            || self.last_refresh_timestamp == clock.unix_timestamp
+        {
             () // Do nothing
         } else {
-            self.rate_limit_amount_last_update = self.rate_limit_amount_last_update.checked_add(
-                (self.rate_limit_slope as u128 * clock.unix_timestamp.checked_sub(self.last_refresh_timestamp).unwrap() as u128 / SECONDS_PER_DAY as u128) as u64
-            ).unwrap_or(self.rate_limit_max_outflow);
+            self.rate_limit_amount_last_update = self
+                .rate_limit_amount_last_update
+                .checked_add(
+                    (self.rate_limit_slope as u128
+                        * clock
+                            .unix_timestamp
+                            .checked_sub(self.last_refresh_timestamp)
+                            .unwrap() as u128
+                        / SECONDS_PER_DAY as u128) as u64,
+                )
+                .unwrap_or(self.rate_limit_max_outflow);
         }
         self.last_refresh_timestamp = clock.unix_timestamp;
         self.last_refresh_slot = clock.slot;
         Ok(())
     }
 
-    pub fn update_for_inflow(
-        &mut self,
-        clock: Clock,
-        inflow: u64,
-    ) -> Result<(), ProgramError> {
-        if !(self.last_refresh_timestamp == clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
-            msg!{"Rate limit must be refreshed before updating for flows"}
-            return Err(ProgramError::InvalidArgument)
+    pub fn update_for_inflow(&mut self, clock: Clock, inflow: u64) -> Result<(), ProgramError> {
+        if !(self.last_refresh_timestamp == clock.unix_timestamp
+            && self.last_refresh_slot == clock.slot)
+        {
+            msg! {"Rate limit must be refreshed before updating for flows"}
+            return Err(ProgramError::InvalidArgument);
         }
         // Cap the rate_limit_amount_last_update at the rate_limit_max_outflow
         let v = self.rate_limit_amount_last_update.saturating_add(inflow);
-        if v > self.rate_limit_max_outflow { // Cannot daily max outflow
+        if v > self.rate_limit_max_outflow {
+            // Cannot daily max outflow
             self.rate_limit_amount_last_update = self.rate_limit_max_outflow;
         } else {
             self.rate_limit_amount_last_update = v;
@@ -250,16 +252,17 @@ impl Reserve {
         Ok(())
     }
 
-    pub fn update_for_outflow(
-        &mut self,
-        clock: Clock,
-        outflow: u64,
-    ) -> Result<(), ProgramError> {
-        if !(self.last_refresh_timestamp == clock.unix_timestamp && self.last_refresh_slot == clock.slot) {
-            msg!{"Rate limit must be refreshed before updating for flows"}
-            return Err(ProgramError::InvalidArgument)
+    pub fn update_for_outflow(&mut self, clock: Clock, outflow: u64) -> Result<(), ProgramError> {
+        if !(self.last_refresh_timestamp == clock.unix_timestamp
+            && self.last_refresh_slot == clock.slot)
+        {
+            msg! {"Rate limit must be refreshed before updating for flows"}
+            return Err(ProgramError::InvalidArgument);
         }
-        self.rate_limit_amount_last_update = self.rate_limit_amount_last_update.checked_sub(outflow).unwrap();
+        self.rate_limit_amount_last_update = self
+            .rate_limit_amount_last_update
+            .checked_sub(outflow)
+            .unwrap();
         self.last_balance = self.last_balance.checked_sub(outflow).unwrap();
         Ok(())
     }
@@ -270,17 +273,16 @@ impl Reserve {
         controller_info: &AccountInfo,
         controller: &Controller,
     ) -> Result<(), ProgramError> {
-
         if vault_info.key().ne(&self.vault) {
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
         if controller_info.key().ne(&self.controller) {
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         // Get the current slot and time
         let clock = Clock::get()?;
-        
+
         // Refresh the rate limits
         self.refresh_rate_limit(clock)?;
 
@@ -290,40 +292,33 @@ impl Reserve {
         drop(vault);
 
         if self.last_balance != new_balance {
-            
             let previous_balance = self.last_balance;
 
             // Update the rate limits and balance for the change
-            if new_balance > self.last_balance  { // => inflow
-                self.update_for_inflow(
-                    clock, 
-                    new_balance.checked_sub(self.last_balance).unwrap()
-                )?;
-            } else { // new_balance < previous_balance => outflow (should not be possible)
+            if new_balance > self.last_balance {
+                // => inflow
+                self.update_for_inflow(clock, new_balance.checked_sub(self.last_balance).unwrap())?;
+            } else {
+                // new_balance < previous_balance => outflow (should not be possible)
                 self.update_for_outflow(
-                    clock, 
-                    self.last_balance.checked_sub(new_balance).unwrap()
+                    clock,
+                    self.last_balance.checked_sub(new_balance).unwrap(),
                 )?;
             }
 
             controller.emit_event(
                 controller_info,
-                SvmAlmControllerEvent::AccountingEvent (
-                    AccountingEvent {
-                        controller: self.controller,
-                        integration: Self::derive_pda(self.controller, self.mint).unwrap().0,
-                        mint: self.mint,
-                        action: AccountingAction::Sync,
-                        before: previous_balance,
-                        after: self.last_balance // (new balance after the update)
-                    }
-                )
+                SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                    controller: self.controller,
+                    integration: Self::derive_pda(self.controller, self.mint).unwrap().0,
+                    mint: self.mint,
+                    action: AccountingAction::Sync,
+                    before: previous_balance,
+                    after: self.last_balance, // (new balance after the update)
+                }),
             )?;
-
-        } 
+        }
 
         Ok(())
-
     }
 }
-

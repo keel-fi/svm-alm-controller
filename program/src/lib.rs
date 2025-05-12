@@ -1,16 +1,16 @@
 #![no_std]
 
+pub mod constants;
+pub mod enums;
 pub mod error;
+pub mod events;
 #[cfg(feature = "idl")]
 pub mod instructions;
-pub mod processor;
-pub mod state;
-pub mod constants;
-pub mod macros;
-pub mod enums;
-pub mod events;
 pub mod instructions;
 pub mod integrations;
+pub mod macros;
+pub mod processor;
+pub mod state;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;

@@ -8,4 +8,3 @@ pub enum ControllerStatus {
     Suspended,
     Active,
 }
-

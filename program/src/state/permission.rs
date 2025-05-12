@@ -1,17 +1,23 @@
 extern crate alloc;
-use alloc::vec::Vec;
-use shank::ShankAccount;
-use crate::{acc_info_as_str, constants::PERMISSION_SEED, enums::PermissionStatus, processor::shared::create_pda_account};
 use super::discriminator::{AccountDiscriminators, Discriminator};
-use solana_program::pubkey::Pubkey as SolanaPubkey;
+use crate::{
+    acc_info_as_str, constants::PERMISSION_SEED, enums::PermissionStatus,
+    processor::shared::create_pda_account,
+};
+use alloc::vec::Vec;
+use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
-    account_info::AccountInfo, instruction::Seed, program_error::ProgramError, pubkey::Pubkey, sysvars::{rent::Rent, Sysvar}
+    account_info::AccountInfo,
+    instruction::Seed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvars::{rent::Rent, Sysvar},
 };
 use pinocchio_log::log;
-use borsh::{BorshDeserialize, BorshSerialize};
+use shank::ShankAccount;
+use solana_program::pubkey::Pubkey as SolanaPubkey;
 
-
-#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize,)]
+#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Permission {
     pub controller: Pubkey,
@@ -31,13 +37,9 @@ impl Discriminator for Permission {
 }
 
 impl Permission {
+    pub const LEN: usize = 65 + 7;
 
-    pub const LEN: usize = 65 +7;
-
-    pub fn verify_pda(
-        &self,
-        acc_info: &AccountInfo,
-    ) -> Result<(), ProgramError> {
+    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
         let (pda, _bump) = Self::derive_pda(self.controller, self.authority)?;
         if acc_info.key().ne(&pda) {
             log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
@@ -46,10 +48,7 @@ impl Permission {
         Ok(())
     }
 
-    pub fn derive_pda(
-        controller: Pubkey,
-        authority: Pubkey
-    ) -> Result<(Pubkey, u8), ProgramError> {
+    pub fn derive_pda(controller: Pubkey, authority: Pubkey) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
             &[PERMISSION_SEED, controller.as_ref(), authority.as_ref()],
             &SolanaPubkey::from(crate::ID),
@@ -57,9 +56,7 @@ impl Permission {
         Ok((pda.to_bytes(), bump))
     }
 
-    fn deserialize(
-        data: &[u8]
-    ) -> Result<Self, ProgramError> {
+    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         // Check discriminator
         if data[0] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
@@ -68,11 +65,7 @@ impl Permission {
         Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 
-    pub fn check_data(
-        &self,
-        controller: &Pubkey,
-        authority: &Pubkey
-    ) -> Result<(), ProgramError> {
+    pub fn check_data(&self, controller: &Pubkey, authority: &Pubkey) -> Result<(), ProgramError> {
         if self.authority.ne(authority) || self.controller.ne(controller) {
             return Err(ProgramError::InvalidAccountData);
         }
@@ -82,15 +75,15 @@ impl Permission {
     pub fn load_and_check(
         account_info: &AccountInfo,
         controller: &Pubkey,
-        authority: &Pubkey
+        authority: &Pubkey,
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
         // Check PDA
-        
-        let permission= Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+
+        let permission = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
@@ -99,7 +92,7 @@ impl Permission {
     pub fn load_and_check_mut(
         account_info: &AccountInfo,
         controller: &Pubkey,
-        authority: &Pubkey
+        authority: &Pubkey,
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
@@ -116,7 +109,7 @@ impl Permission {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        
+
         let mut serialized = Vec::with_capacity(1 + Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized)
@@ -129,7 +122,7 @@ impl Permission {
         // Copy serialized data to account
         let mut data = account_info.try_borrow_mut_data()?;
         data[..serialized.len()].copy_from_slice(&serialized);
-        
+
         Ok(())
     }
 
@@ -147,7 +140,6 @@ impl Permission {
         can_unfreeze: bool,
         can_manage_integrations: bool,
     ) -> Result<Self, ProgramError> {
-        
         // Derive the PDA
         let (pda, bump) = Self::derive_pda(controller, authority)?;
         if account_info.key().ne(&pda) {
@@ -175,17 +167,17 @@ impl Permission {
             Seed::from(PERMISSION_SEED),
             Seed::from(&controller),
             Seed::from(&authority),
-            Seed::from(&bump_seed)
+            Seed::from(&bump_seed),
         ];
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN, 
+            1 + Self::LEN,
             &crate::ID,
-            account_info, 
-            signer_seeds
+            account_info,
+            signer_seeds,
         )?;
-        
+
         // Commit the account on-chain
         permission.save(account_info)?;
 
@@ -203,7 +195,6 @@ impl Permission {
         can_unfreeze: Option<bool>,
         can_manage_integrations: Option<bool>,
     ) -> Result<(), ProgramError> {
-        
         if let Some(status) = status {
             self.status = status;
         }
@@ -247,8 +238,4 @@ impl Permission {
     pub fn can_invoke_external_transfer(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_invoke_external_transfer
     }
-
-    
-    
 }
-

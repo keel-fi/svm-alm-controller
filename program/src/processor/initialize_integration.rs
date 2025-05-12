@@ -1,17 +1,21 @@
-use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    constants::ADDRESS_LOOKUP_TABLE_PROGRAM_ID, 
-    enums::IntegrationType, 
-    error::SvmAlmControllerErrors, 
-    events::{IntegrationUpdateEvent, SvmAlmControllerEvent}, 
-    instructions::InitializeIntegrationArgs, 
+    constants::ADDRESS_LOOKUP_TABLE_PROGRAM_ID,
+    enums::IntegrationType,
+    error::SvmAlmControllerErrors,
+    events::{IntegrationUpdateEvent, SvmAlmControllerEvent},
+    instructions::InitializeIntegrationArgs,
     integrations::{
-        cctp_bridge::initialize::process_initialize_cctp_bridge, lz_bridge::initialize::process_initialize_lz_bridge, spl_token_external::initialize::process_initialize_spl_token_external, spl_token_swap::initialize::process_initialize_spl_token_swap
+        cctp_bridge::initialize::process_initialize_cctp_bridge,
+        lz_bridge::initialize::process_initialize_lz_bridge,
+        spl_token_external::initialize::process_initialize_spl_token_external,
+        spl_token_swap::initialize::process_initialize_spl_token_swap,
     },
-    state::{Controller, Integration, Permission}
+    state::{Controller, Integration, Permission},
 };
-
+use borsh::BorshDeserialize;
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 
 pub struct InitializeIntegrationAccounts<'info> {
     pub payer: &'info AccountInfo,
@@ -25,10 +29,7 @@ pub struct InitializeIntegrationAccounts<'info> {
 }
 
 impl<'info> InitializeIntegrationAccounts<'info> {
-
-    pub fn from_accounts(
-        accounts: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
+    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
         if accounts.len() < 7 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -40,7 +41,7 @@ impl<'info> InitializeIntegrationAccounts<'info> {
             integration: &accounts[4],
             lookup_table: &accounts[5],
             system_program: &accounts[6],
-            remaining_accounts: &accounts[7..]
+            remaining_accounts: &accounts[7..],
         };
         if !ctx.payer.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
@@ -55,7 +56,7 @@ impl<'info> InitializeIntegrationAccounts<'info> {
             return Err(ProgramError::MissingRequiredSignature);
         }
         if !ctx.permission.is_owned_by(&crate::ID) {
-            msg!{"Permission: wrong owner"};
+            msg! {"Permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         // New Integration AccountInfo must be mutable
@@ -64,16 +65,20 @@ impl<'info> InitializeIntegrationAccounts<'info> {
         }
         // The Integration AccountInfo must be the system program and be empty
         if !ctx.integration.is_owned_by(&pinocchio_system::id()) {
-            msg!{"Integration: wrong owner"};
+            msg! {"Integration: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.integration.data_is_empty() {
-            msg!{"Integration: not empty"};
+            msg! {"Integration: not empty"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         // The Lookuptable must be either a value ALUT or the system_program (i.e. no LUT provided)
-        if ctx.lookup_table.key().ne(&pinocchio_system::id()) && !ctx.lookup_table.is_owned_by(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID) {
-            msg!{"Lookup Table: wrong owner"};
+        if ctx.lookup_table.key().ne(&pinocchio_system::id())
+            && !ctx
+                .lookup_table
+                .is_owned_by(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID)
+        {
+            msg! {"Lookup Table: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
@@ -82,8 +87,6 @@ impl<'info> InitializeIntegrationAccounts<'info> {
         Ok(ctx)
     }
 }
-
-
 
 pub fn process_initialize_integration(
     _program_id: &Pubkey,
@@ -94,39 +97,32 @@ pub fn process_initialize_integration(
 
     let ctx = InitializeIntegrationAccounts::from_accounts(accounts)?;
     // // Deserialize the args
-    let args = InitializeIntegrationArgs::try_from_slice(
-        instruction_data
-    ).unwrap();
-    
+    let args = InitializeIntegrationArgs::try_from_slice(instruction_data).unwrap();
+
     // Load in controller state
-    let controller = Controller::load_and_check(
-        ctx.controller, 
-    )?;
+    let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in the super permission account
-    let permission = Permission::load_and_check(
-        ctx.permission, 
-        ctx.controller.key(), 
-        ctx.authority.key()
-    )?;
+    let permission =
+        Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
     // Check that super authority has permission and the permission is active
     if !permission.can_manage_integrations() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
     let (config, state) = match args.integration_type {
-        IntegrationType::SplTokenExternal => { process_initialize_spl_token_external(&ctx, &args)? },
-        IntegrationType::SplTokenSwap => { process_initialize_spl_token_swap(&ctx, &args)? },
-        IntegrationType::CctpBridge => { process_initialize_cctp_bridge(&ctx, &args)? },
-        IntegrationType::LzBridge => { process_initialize_lz_bridge(&ctx, &args)? },
+        IntegrationType::SplTokenExternal => process_initialize_spl_token_external(&ctx, &args)?,
+        IntegrationType::SplTokenSwap => process_initialize_spl_token_swap(&ctx, &args)?,
+        IntegrationType::CctpBridge => process_initialize_cctp_bridge(&ctx, &args)?,
+        IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
         // TODO: More integration types to be supported
-        _ => return Err(ProgramError::InvalidArgument)
+        _ => return Err(ProgramError::InvalidArgument),
     };
 
     // Initialize the integration account
     let integration = Integration::init_account(
-        ctx.integration, 
-        ctx.payer, 
+        ctx.integration,
+        ctx.payer,
         *ctx.controller.key(),
         args.status,
         config,
@@ -134,23 +130,20 @@ pub fn process_initialize_integration(
         args.description,
         *ctx.lookup_table.key(),
         args.rate_limit_slope,
-        args.rate_limit_max_outflow
+        args.rate_limit_max_outflow,
     )?;
-  
+
     // Emit the event
     controller.emit_event(
         ctx.controller,
-        SvmAlmControllerEvent::IntegrationUpdate (
-            IntegrationUpdateEvent {
-                controller: *ctx.controller.key(),
-                integration: *ctx.integration.key(),
-                authority: *ctx.authority.key(),
-                old_state: None,
-                new_state: Some(integration)
-            }
-        )
+        SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: *ctx.controller.key(),
+            integration: *ctx.integration.key(),
+            authority: *ctx.authority.key(),
+            old_state: None,
+            new_state: Some(integration),
+        }),
     )?;
-    
+
     Ok(())
 }
-

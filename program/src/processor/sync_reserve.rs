@@ -1,6 +1,7 @@
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::state::{Controller, Reserve};
-
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 
 pub struct SyncReserveAccounts<'info> {
     pub controller: &'info AccountInfo,
@@ -9,10 +10,7 @@ pub struct SyncReserveAccounts<'info> {
 }
 
 impl<'info> SyncReserveAccounts<'info> {
-
-    pub fn from_accounts(
-        account_infos: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
+    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
         if account_infos.len() != 3 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -20,23 +18,21 @@ impl<'info> SyncReserveAccounts<'info> {
             controller: &account_infos[0],
             reserve: &account_infos[1],
             vault: &account_infos[2],
-    };
+        };
         if !ctx.controller.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.reserve.is_owned_by(&crate::ID) {
-            msg!{"permission: wrong owner"};
+            msg! {"permission: wrong owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.reserve.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        
+
         Ok(ctx)
     }
 }
-
-
 
 pub fn process_sync_reserve(
     _program_id: &Pubkey,
@@ -45,32 +41,20 @@ pub fn process_sync_reserve(
 ) -> ProgramResult {
     msg!("process_sync_reserve");
 
-    let ctx = SyncReserveAccounts::from_accounts(
-        accounts
-    )?;
-   
+    let ctx = SyncReserveAccounts::from_accounts(accounts)?;
+
     // Load in controller state
-    let controller = Controller::load_and_check(
-        ctx.controller, 
-    )?;
+    let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in the super permission account
-    let mut reserve = Reserve::load_and_check_mut(
-        ctx.reserve, 
-        ctx.controller.key(), 
-    )?;
-    
-    // Call the method to synchronize the reserve's state 
+    let mut reserve = Reserve::load_and_check_mut(ctx.reserve, ctx.controller.key())?;
+
+    // Call the method to synchronize the reserve's state
     //  and rate limits
-    reserve.sync_balance(
-        ctx.vault, 
-        ctx.controller, 
-        &controller
-    )?;
+    reserve.sync_balance(ctx.vault, ctx.controller, &controller)?;
 
     // Save the state
     reserve.save(ctx.reserve)?;
 
     Ok(())
 }
-

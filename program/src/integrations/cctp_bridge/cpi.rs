@@ -1,8 +1,13 @@
 use borsh::{maybestd::vec::Vec, BorshSerialize};
-use pinocchio::{account_info::AccountInfo, instruction::{AccountMeta, Instruction, Signer}, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{
+    account_info::AccountInfo,
+    instruction::{AccountMeta, Instruction, Signer},
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+};
 
-
-#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone,)]
+#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
 pub struct DepositForBurnArgs {
     pub amount: u64,
     pub destination_domain: u32,
@@ -10,8 +15,7 @@ pub struct DepositForBurnArgs {
 }
 
 impl DepositForBurnArgs {
-
-    pub const DISCRIMINATOR: [u8;8] = [215, 60, 61, 46, 114, 55, 128, 176]; // d7 3c 3d 2e 72 37 80 b0
+    pub const DISCRIMINATOR: [u8; 8] = [215, 60, 61, 46, 114, 55, 128, 176]; // d7 3c 3d 2e 72 37 80 b0
 
     pub const LEN: usize = 44;
 
@@ -20,10 +24,8 @@ impl DepositForBurnArgs {
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized).unwrap();
         Ok(serialized)
-    } 
-    
+    }
 }
-
 
 pub fn deposit_for_burn_cpi(
     amount: u64,
@@ -51,7 +53,9 @@ pub fn deposit_for_burn_cpi(
         amount: amount,
         destination_domain: destination_domain,
         mint_recipient: mint_recipient,
-    }.to_vec().unwrap();
+    }
+    .to_vec()
+    .unwrap();
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {
@@ -75,15 +79,15 @@ pub fn deposit_for_burn_cpi(
                 AccountMeta::readonly(system_program.key()),
                 AccountMeta::readonly(event_authority.key()),
                 AccountMeta::readonly(token_messenger_minter_program.key()),
-            ]
+            ],
         },
         &[
-            controller,                 // owner
+            controller, // owner
             event_rent_payer,
             sender_authority_pda,
-            vault,                      // burn_token_account,
+            vault, // burn_token_account,
             message_transmitter,
-            token_messenger, 
+            token_messenger,
             remote_token_messenger,
             token_minter,
             local_token,
@@ -94,11 +98,9 @@ pub fn deposit_for_burn_cpi(
             token_program,
             system_program,
             event_authority,
-            token_messenger_minter_program
-        ], 
-        &[
-            signer
-        ]
+            token_messenger_minter_program,
+        ],
+        &[signer],
     )?;
     Ok(())
 }

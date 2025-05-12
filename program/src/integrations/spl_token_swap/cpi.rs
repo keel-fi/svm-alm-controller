@@ -1,16 +1,20 @@
-
 use borsh::{maybestd::vec::Vec, BorshSerialize};
-use pinocchio::{account_info::AccountInfo, instruction::{AccountMeta, Instruction, Signer}, msg, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{
+    account_info::AccountInfo,
+    instruction::{AccountMeta, Instruction, Signer},
+    msg,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+};
 
-
-#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone,)]
+#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
 pub struct DepositSingleTokenTypeExactAmountInArgs {
     pub source_token_amount: u64,
     pub minimum_pool_token_amount: u64,
 }
 
 impl DepositSingleTokenTypeExactAmountInArgs {
-
     pub const DISCRIMINATOR: u8 = 4;
     pub const LEN: usize = 17;
 
@@ -19,21 +23,16 @@ impl DepositSingleTokenTypeExactAmountInArgs {
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized).unwrap();
         Ok(serialized)
-    } 
-    
+    }
 }
 
-
-
-#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone,)]
+#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
 pub struct WithdrawSingleTokenTypeExactAmountOutArgs {
     pub destination_token_amount: u64,
     pub maximum_pool_token_amount: u64,
 }
 
-
 impl WithdrawSingleTokenTypeExactAmountOutArgs {
-
     pub const DISCRIMINATOR: u8 = 5;
     pub const LEN: usize = 17;
 
@@ -42,10 +41,8 @@ impl WithdrawSingleTokenTypeExactAmountOutArgs {
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized).unwrap();
         Ok(serialized)
-    } 
-    
+    }
 }
-
 
 pub fn deposit_single_token_type_exact_amount_in_cpi(
     amount: u64,
@@ -65,8 +62,10 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
 ) -> Result<(), ProgramError> {
     let args_vec = DepositSingleTokenTypeExactAmountInArgs {
         source_token_amount: amount,
-        minimum_pool_token_amount: 0
-    }.to_vec().unwrap();
+        minimum_pool_token_amount: 0,
+    }
+    .to_vec()
+    .unwrap();
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {
@@ -84,7 +83,7 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
                 AccountMeta::readonly(mint.key()),
                 AccountMeta::readonly(mint_token_program.key()),
                 AccountMeta::readonly(lp_mint_token_program.key()),
-            ]
+            ],
         },
         &[
             swap,
@@ -98,15 +97,11 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
             mint,
             mint_token_program,
             lp_mint_token_program,
-        ], 
-        &[
-            signer
-        ]
+        ],
+        &[signer],
     )?;
     Ok(())
 }
-
-
 
 pub fn withdraw_single_token_type_exact_amount_out_cpi(
     amount: u64,
@@ -125,11 +120,12 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
     lp_mint_token_program: &AccountInfo,
     swap_fee_account: &AccountInfo,
 ) -> Result<(), ProgramError> {
-
     let args_vec = WithdrawSingleTokenTypeExactAmountOutArgs {
         destination_token_amount: amount,
-        maximum_pool_token_amount: u64::MAX
-    }.to_vec().unwrap();
+        maximum_pool_token_amount: u64::MAX,
+    }
+    .to_vec()
+    .unwrap();
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {
@@ -148,7 +144,7 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
                 AccountMeta::readonly(mint.key()),
                 AccountMeta::readonly(lp_mint_token_program.key()),
                 AccountMeta::readonly(mint_token_program.key()),
-            ]
+            ],
         },
         &[
             swap,
@@ -163,10 +159,8 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
             mint,
             lp_mint_token_program,
             mint_token_program,
-        ], 
-        &[
-            signer
-        ]
+        ],
+        &[signer],
     )?;
     Ok(())
 }
