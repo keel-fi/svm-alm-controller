@@ -1,18 +1,27 @@
 extern crate alloc;
-use alloc::vec::Vec;
-use pinocchio_token::instructions::Transfer;
-use shank::ShankAccount;
-use crate::{acc_info_as_str, constants::CONTROLLER_SEED, enums::ControllerStatus, events::SvmAlmControllerEvent, processor::shared::{create_pda_account, emit_cpi}};
 use super::discriminator::{AccountDiscriminators, Discriminator};
-use solana_program::pubkey::Pubkey as SolanaPubkey;
+use crate::{
+    acc_info_as_str,
+    constants::CONTROLLER_SEED,
+    enums::ControllerStatus,
+    events::SvmAlmControllerEvent,
+    processor::shared::{create_pda_account, emit_cpi},
+};
+use alloc::vec::Vec;
+use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
-    account_info::AccountInfo, instruction::{Seed, Signer}, program_error::ProgramError, pubkey::Pubkey, sysvars::{rent::Rent, Sysvar}
+    account_info::AccountInfo,
+    instruction::{Seed, Signer},
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvars::{rent::Rent, Sysvar},
 };
 use pinocchio_log::log;
-use borsh::{BorshDeserialize, BorshSerialize};
+use pinocchio_token::instructions::Transfer;
+use shank::ShankAccount;
+use solana_program::pubkey::Pubkey as SolanaPubkey;
 
-
-#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize,)]
+#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Controller {
     pub id: u16,
@@ -24,15 +33,10 @@ impl Discriminator for Controller {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ControllerDiscriminator as u8;
 }
 
-
 impl Controller {
-
     pub const LEN: usize = 4;
 
-    pub fn verify_pda(
-        &self,
-        acc_info: &AccountInfo,
-    ) -> Result<(), ProgramError> {
+    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
         let (controller_pda, _controller_bump) = Self::derive_pda_bytes(self.id)?;
         if acc_info.key().ne(&controller_pda) {
             log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
@@ -41,9 +45,7 @@ impl Controller {
         Ok(())
     }
 
-    pub fn derive_pda_bytes(
-        id: u16
-    ) -> Result<(Pubkey, u8), ProgramError> {
+    pub fn derive_pda_bytes(id: u16) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
             &[CONTROLLER_SEED, id.to_le_bytes().as_ref()],
             &SolanaPubkey::from(crate::ID),
@@ -51,10 +53,7 @@ impl Controller {
         Ok((pda.to_bytes(), bump))
     }
 
-
-    fn deserialize(
-        data: &[u8]
-    ) -> Result<Self, ProgramError> {
+    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         // Check discriminator
         if data[0] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
@@ -63,9 +62,7 @@ impl Controller {
         Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 
-    pub fn load_and_check(
-        account_info: &AccountInfo
-    ) -> Result<Self, ProgramError> {
+    pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
@@ -75,9 +72,7 @@ impl Controller {
         Ok(controller)
     }
 
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo
-    ) -> Result<Self, ProgramError> {
+    pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
@@ -92,21 +87,21 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        
+
         let mut serialized = Vec::with_capacity(1 + Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized)
             .map_err(|_| ProgramError::InvalidAccountData)?;
-        
+
         // Ensure account has enough space
         if account_info.data_len() < serialized.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
-        
+
         // Copy serialized data to account
         let mut data = account_info.try_borrow_mut_data()?;
         data[..serialized.len()].copy_from_slice(&serialized);
-        
+
         Ok(())
     }
 
@@ -116,7 +111,6 @@ impl Controller {
         id: u16,
         status: ControllerStatus,
     ) -> Result<Self, ProgramError> {
-        
         // Derive the PDA
         let controller_id = id.to_le_bytes();
         let (pda, bump) = Self::derive_pda_bytes(id)?;
@@ -142,12 +136,12 @@ impl Controller {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN, 
+            1 + Self::LEN,
             &crate::ID,
-            account_info, 
-            signer_seeds
+            account_info,
+            signer_seeds,
         )?;
-        
+
         // Commit the account on-chain
         controller.save(account_info)?;
 
@@ -176,7 +170,7 @@ impl Controller {
     pub fn emit_event(
         &self,
         controller_info: &AccountInfo,
-        event: SvmAlmControllerEvent
+        event: SvmAlmControllerEvent,
     ) -> Result<(), ProgramError> {
         // Emit the Event to record the update
         emit_cpi(
@@ -184,7 +178,7 @@ impl Controller {
             [
                 Seed::from(CONTROLLER_SEED),
                 Seed::from(&self.id.to_le_bytes()),
-                Seed::from(&[self.bump])
+                Seed::from(&[self.bump]),
             ],
             &self.id.to_le_bytes(),
             event,
@@ -199,26 +193,19 @@ impl Controller {
         recipient_token_account: &AccountInfo,
         amount: u64,
     ) -> Result<(), ProgramError> {
-        Transfer{
+        Transfer {
             from: vault,
             to: recipient_token_account,
             authority: controller,
             amount,
-        }.invoke_signed(
-            &[
-                Signer::from(
-                    &[
-                        Seed::from(CONTROLLER_SEED),
-                        Seed::from(&self.id.to_le_bytes()),
-                        Seed::from(&[self.bump])
-                    ]
-                )
-            ]
-        )?;
+        }
+        .invoke_signed(&[Signer::from(&[
+            Seed::from(CONTROLLER_SEED),
+            Seed::from(&self.id.to_le_bytes()),
+            Seed::from(&[self.bump]),
+        ])])?;
         Ok(())
     }
-
-
 }
 
 // impl AccountDeserialize for Controller {}

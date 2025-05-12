@@ -1,10 +1,13 @@
-use litesvm::LiteSVM;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction};
-use svm_alm_controller_client::{accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID, types::PermissionStatus};
-use std::error::Error;
 use borsh::BorshDeserialize;
-
-
+use litesvm::LiteSVM;
+use solana_sdk::{
+    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
+};
+use std::error::Error;
+use svm_alm_controller_client::{
+    accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID,
+    types::PermissionStatus,
+};
 
 pub fn derive_permission_pda(controller_pda: &Pubkey, authority: &Pubkey) -> Pubkey {
     let (permission_pda, _permission_bump) = Pubkey::find_program_address(
@@ -18,9 +21,9 @@ pub fn derive_permission_pda(controller_pda: &Pubkey, authority: &Pubkey) -> Pub
     permission_pda
 }
 
-
 pub fn fetch_permission_account(
-    svm: &mut LiteSVM, permission_pda: &Pubkey
+    svm: &mut LiteSVM,
+    permission_pda: &Pubkey,
 ) -> Result<Option<Permission>, Box<dyn Error>> {
     let permission_info = svm.get_account(permission_pda);
     match permission_info {
@@ -28,7 +31,9 @@ pub fn fetch_permission_account(
             if info.data.is_empty() {
                 Ok(None)
             } else {
-                Permission::try_from_slice(&info.data[1..]).map(Some).map_err(Into::into)
+                Permission::try_from_slice(&info.data[1..])
+                    .map(Some)
+                    .map_err(Into::into)
             }
         }
         None => Ok(None),
@@ -48,25 +53,21 @@ pub fn manage_permission(
     can_reallocate: bool,
     can_freeze: bool,
     can_unfreeze: bool,
-    can_manage_integrations: bool
+    can_manage_integrations: bool,
 ) -> Result<Pubkey, Box<dyn Error>> {
-
-    let calling_permission_pda = derive_permission_pda(
-        controller, 
-        &calling_authority.pubkey()
-    );
+    let calling_permission_pda = derive_permission_pda(controller, &calling_authority.pubkey());
     let calling_permission_account_before = fetch_permission_account(svm, &calling_permission_pda)?;
 
     // Ensure the calling permission exists before the transaction
-    assert!(calling_permission_account_before.is_some(), "Calling permission account must exist before the transaction");
-
-    let subject_permission_pda = derive_permission_pda(
-        controller, 
-        subject_authority
+    assert!(
+        calling_permission_account_before.is_some(),
+        "Calling permission account must exist before the transaction"
     );
 
+    let subject_permission_pda = derive_permission_pda(controller, subject_authority);
+
     let ixn = ManagePermissionBuilder::new()
-        .status(status) 
+        .status(status)
         .can_execute_swap(can_execute_swap)
         .can_manage_permissions(can_manage_permissions)
         .can_invoke_external_transfer(can_invoke_external_transfer)
@@ -86,7 +87,7 @@ pub fn manage_permission(
     let txn = Transaction::new_signed_with_payer(
         &[ixn],
         Some(&payer.pubkey()),
-        &[&calling_authority, &payer], 
+        &[&calling_authority, &payer],
         svm.latest_blockhash(),
     );
 
@@ -97,28 +98,67 @@ pub fn manage_permission(
     let subject_permission_account_after = fetch_permission_account(svm, &subject_permission_pda)?;
 
     // Ensure both permission accounts exist after the transaction
-    assert!(calling_permission_account_after.is_some(), "Calling permission account must exist after the transaction");
-    assert!(subject_permission_account_after.is_some(), "Subject permission account must exist after the transaction");
+    assert!(
+        calling_permission_account_after.is_some(),
+        "Calling permission account must exist after the transaction"
+    );
+    assert!(
+        subject_permission_account_after.is_some(),
+        "Subject permission account must exist after the transaction"
+    );
 
     // If the calling and subject addresses are different, check that the calling values are unchanged
     if calling_authority.pubkey() != *subject_authority {
         let calling_permission_before = calling_permission_account_before.unwrap();
         let calling_permission_after = calling_permission_account_after.unwrap();
-        assert_eq!(calling_permission_before, calling_permission_after, "Calling permission values have changed");
+        assert_eq!(
+            calling_permission_before, calling_permission_after,
+            "Calling permission values have changed"
+        );
     }
 
     // Check that the subject values, controller, and authority are aligned to the inputs
     let subject_permission_after = subject_permission_account_after.unwrap();
-    assert_eq!(subject_permission_after.controller, *controller, "Subject permission controller does not match the expected controller");
-    assert_eq!(subject_permission_after.authority, *subject_authority, "Subject permission authority does not match the expected authority");
-    assert_eq!(subject_permission_after.status, status, "Subject permission status does not match the expected status");
-    assert_eq!(subject_permission_after.can_execute_swap, can_execute_swap, "Subject permission to execute swap does not match the expected value");
-    assert_eq!(subject_permission_after.can_manage_permissions, can_manage_permissions, "Subject permission to manage permissions does not match the expected value");
-    assert_eq!(subject_permission_after.can_invoke_external_transfer, can_invoke_external_transfer, "Subject permission to invoke external transfer does not match the expected value");
-    assert_eq!(subject_permission_after.can_reallocate, can_reallocate, "Subject permission to reallocate does not match the expected value");
-    assert_eq!(subject_permission_after.can_freeze, can_freeze, "Subject permission to freeze does not match the expected value");
-    assert_eq!(subject_permission_after.can_unfreeze, can_unfreeze, "Subject permission to unfreeze does not match the expected value");
-    assert_eq!(subject_permission_after.can_manage_integrations, can_manage_integrations, "Subject permission to manage integrations does not match the expected value");
+    assert_eq!(
+        subject_permission_after.controller, *controller,
+        "Subject permission controller does not match the expected controller"
+    );
+    assert_eq!(
+        subject_permission_after.authority, *subject_authority,
+        "Subject permission authority does not match the expected authority"
+    );
+    assert_eq!(
+        subject_permission_after.status, status,
+        "Subject permission status does not match the expected status"
+    );
+    assert_eq!(
+        subject_permission_after.can_execute_swap, can_execute_swap,
+        "Subject permission to execute swap does not match the expected value"
+    );
+    assert_eq!(
+        subject_permission_after.can_manage_permissions, can_manage_permissions,
+        "Subject permission to manage permissions does not match the expected value"
+    );
+    assert_eq!(
+        subject_permission_after.can_invoke_external_transfer, can_invoke_external_transfer,
+        "Subject permission to invoke external transfer does not match the expected value"
+    );
+    assert_eq!(
+        subject_permission_after.can_reallocate, can_reallocate,
+        "Subject permission to reallocate does not match the expected value"
+    );
+    assert_eq!(
+        subject_permission_after.can_freeze, can_freeze,
+        "Subject permission to freeze does not match the expected value"
+    );
+    assert_eq!(
+        subject_permission_after.can_unfreeze, can_unfreeze,
+        "Subject permission to unfreeze does not match the expected value"
+    );
+    assert_eq!(
+        subject_permission_after.can_manage_integrations, can_manage_integrations,
+        "Subject permission to manage integrations does not match the expected value"
+    );
 
     Ok(subject_permission_pda)
 }

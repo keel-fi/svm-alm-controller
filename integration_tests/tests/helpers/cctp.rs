@@ -1,59 +1,42 @@
-use solana_sdk::pubkey::Pubkey;
 use hex;
+use solana_sdk::pubkey::Pubkey;
 use std::string::String;
 
 fn derive_token_messenger_pda(program_id: &Pubkey) -> Pubkey {
-    let (pda, bump) = Pubkey::find_program_address(
-&[b"token_messenger"],
-        program_id
-    );
+    let (pda, bump) = Pubkey::find_program_address(&[b"token_messenger"], program_id);
     pda
 }
 
 fn derive_message_transmitter_pda(program_id: &Pubkey) -> Pubkey {
-    let (pda, bump) = Pubkey::find_program_address(
-&[b"message_transmitter"],
-        program_id
-    );
+    let (pda, bump) = Pubkey::find_program_address(&[b"message_transmitter"], program_id);
     pda
 }
 
 fn derive_token_minter_pda(program_id: &Pubkey) -> Pubkey {
-    let (pda, bump) = Pubkey::find_program_address(
-&[b"token_minter"],
-        program_id
-    );
+    let (pda, bump) = Pubkey::find_program_address(&[b"token_minter"], program_id);
     pda
 }
 
 fn derive_local_token_pda(mint_pubkey: Pubkey, program_id: &Pubkey) -> Pubkey {
-    let (pda, bump) = Pubkey::find_program_address(
-&[b"local_token", mint_pubkey.as_ref()],
-        program_id
-    );
+    let (pda, bump) =
+        Pubkey::find_program_address(&[b"local_token", mint_pubkey.as_ref()], program_id);
     pda
 }
 
 fn derive_remote_token_messenger_pda(remote_domain: &str, program_id: &Pubkey) -> Pubkey {
     let (pda, bump) = Pubkey::find_program_address(
-&[b"remote_token_messenger", remote_domain.as_ref()],
-        program_id
+        &[b"remote_token_messenger", remote_domain.as_ref()],
+        program_id,
     );
     pda
 }
 
 fn derive_sender_authority_pda(program_id: &Pubkey) -> Pubkey {
-    let (pda, bump) = Pubkey::find_program_address(
-&[b"sender_authority"],
-        program_id
-    );
+    let (pda, bump) = Pubkey::find_program_address(&[b"sender_authority"], program_id);
     pda
 }
 fn derive_event_authority_pda(program_id: &Pubkey) -> Pubkey {
-    let (pda, bump) = Pubkey::find_program_address(
-&[b"__event_authority"],
-        program_id
-    );
+    let (pda, bump) = Pubkey::find_program_address(&[b"__event_authority"], program_id);
     pda
 }
 
@@ -66,7 +49,7 @@ pub struct CctpDepositForBurnPdas {
     pub local_token: Pubkey,
     pub remote_token_messenger: Pubkey,
     pub sender_authority: Pubkey,
-    pub event_authority: Pubkey
+    pub event_authority: Pubkey,
 }
 
 impl CctpDepositForBurnPdas {
@@ -80,7 +63,10 @@ impl CctpDepositForBurnPdas {
         let token_messenger = derive_token_messenger_pda(&token_messenger_minter_program_id);
         let token_minter = derive_token_minter_pda(&token_messenger_minter_program_id);
         let local_token = derive_local_token_pda(mint_pubkey, &token_messenger_minter_program_id);
-        let remote_token_messenger = derive_remote_token_messenger_pda(&remote_domain.to_string(), &token_messenger_minter_program_id);
+        let remote_token_messenger = derive_remote_token_messenger_pda(
+            &remote_domain.to_string(),
+            &token_messenger_minter_program_id,
+        );
         let sender_authority = derive_sender_authority_pda(&token_messenger_minter_program_id);
         let event_authority = derive_event_authority_pda(&token_messenger_minter_program_id);
         Self {
@@ -90,16 +76,14 @@ impl CctpDepositForBurnPdas {
             local_token,
             remote_token_messenger,
             sender_authority,
-            event_authority
+            event_authority,
         }
     }
 }
 
 /// Converts an Ethereum address from hexadecimal to a base58-encoded string.
 pub fn evm_address_to_solana_pubkey(evm_address: &str) -> Pubkey {
-    let mut bytes = hex::decode(
-        evm_address.trim_start_matches("0x")
-    ).expect("Invalid hex string");
+    let mut bytes = hex::decode(evm_address.trim_start_matches("0x")).expect("Invalid hex string");
     // Ensure the byte array is 32 bytes long by padding with leading zeros
     bytes.resize(32, 0);
     Pubkey::from(<[u8; 32]>::try_from(bytes.as_slice()).expect("Invalid length"))
@@ -114,6 +98,3 @@ fn evm_address_to_bytes32(address: &str) -> String {
 fn hex_to_bytes(hex: &str) -> Vec<u8> {
     hex::decode(hex.trim_start_matches("0x")).expect("Invalid hex string")
 }
-
-
-

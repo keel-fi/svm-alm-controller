@@ -4,7 +4,10 @@ use pinocchio::{
 };
 
 use crate::processor::{
-    process_emit_event, process_initialize_controller, process_initialize_integration, process_initialize_reserve, process_manage_integration, process_manage_permission, process_manage_reserve, process_pull, process_push, process_sync_integration, process_sync_reserve
+    process_emit_event, process_initialize_controller, process_initialize_integration,
+    process_initialize_reserve, process_manage_integration, process_manage_permission,
+    process_manage_reserve, process_pull, process_push, process_sync_integration,
+    process_sync_reserve,
 };
 
 entrypoint!(process_instruction);
@@ -14,7 +17,6 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-
     let (discriminator, instruction_data) = instruction_data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;

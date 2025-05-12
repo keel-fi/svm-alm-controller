@@ -28,7 +28,6 @@ pub struct SwapV1Subset {
 
     /// Pool token account to receive trading and / or withdrawal fees
     pub pool_fee_account: Pubkey,
-
 }
 
-pub const LEN_SWAP_V1_SUBSET: usize = 7*32 + 1 + 1;
+pub const LEN_SWAP_V1_SUBSET: usize = 7 * 32 + 1 + 1;

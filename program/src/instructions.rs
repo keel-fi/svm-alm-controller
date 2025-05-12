@@ -1,15 +1,16 @@
 extern crate alloc;
 use alloc::vec::Vec;
+use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::pubkey::Pubkey;
 use shank::ShankInstruction;
-use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::enums::{ControllerStatus, IntegrationStatus, IntegrationType, PermissionStatus, ReserveStatus};
+use crate::enums::{
+    ControllerStatus, IntegrationStatus, IntegrationType, PermissionStatus, ReserveStatus,
+};
 
 #[repr(C, u8)]
 #[derive(Clone, Debug, PartialEq, ShankInstruction, BorshSerialize, BorshDeserialize)]
 pub enum SvmAlmControllerInstruction {
-    
     /// Emit event self CPI
     #[account(0, signer, name = "authority")]
     EmitEvent(EmitEventArgs),
@@ -77,12 +78,12 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "vault")]
     SyncReserve(SyncReserveArgs),
 
-    /// SyncIntegration 
+    /// SyncIntegration
     #[account(0, name = "controller")]
     #[account(1, writable, name = "integration")]
     Sync(SyncIntegrationArgs),
 
-    /// Push 
+    /// Push
     #[account(0, name = "controller")]
     #[account(1, signer, name = "authority")]
     #[account(2, name = "permission")]
@@ -91,7 +92,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(5, writable, name = "reserve_b")]
     Push(PushArgs),
 
-    /// Pull 
+    /// Pull
     #[account(0, name = "controller")]
     #[account(1, signer, name = "authority")]
     #[account(2, name = "permission")]
@@ -101,17 +102,16 @@ pub enum SvmAlmControllerInstruction {
     Pull(PullArgs),
 }
 
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct EmitEventArgs {
     pub controller_id: [u8; 2],
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct InitializeControllerArgs {
     pub id: u16,
-    pub status: ControllerStatus 
+    pub status: ControllerStatus,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -140,12 +140,11 @@ pub struct ManageReserveArgs {
     pub rate_limit_max_outflow: Option<u64>,
 }
 
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct InitializeIntegrationArgs {
     pub integration_type: IntegrationType,
     pub status: IntegrationStatus,
-    pub description: [u8;32],
+    pub description: [u8; 32],
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
     pub inner_args: InitializeArgs,
@@ -154,7 +153,7 @@ pub struct InitializeIntegrationArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct ManageIntegrationArgs {
     pub status: Option<IntegrationStatus>,
-    pub description: Option<[u8;32]>,
+    pub description: Option<[u8; 32]>,
     pub rate_limit_slope: Option<u64>,
     pub rate_limit_max_outflow: Option<u64>,
 }
@@ -163,17 +162,21 @@ pub struct ManageIntegrationArgs {
 pub enum InitializeArgs {
     SplTokenExternal,
     SplTokenSwap,
-    CctpBridge { desination_address: Pubkey, desination_domain: u32, },
-    LzBridge { desination_address: Pubkey, destination_eid: u32, }
+    CctpBridge {
+        desination_address: Pubkey,
+        desination_domain: u32,
+    },
+    LzBridge {
+        desination_address: Pubkey,
+        destination_eid: u32,
+    },
 }
-
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct SyncReserveArgs {}
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct SyncIntegrationArgs {}
-
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PushArgs {
@@ -183,7 +186,6 @@ pub enum PushArgs {
     LzBridge { amount: u64 },
 }
 
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PullArgs {
     SplTokenExternal,
@@ -191,5 +193,3 @@ pub enum PullArgs {
     CctpBridge,
     LzBridge,
 }
-
-

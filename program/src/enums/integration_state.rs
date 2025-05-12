@@ -1,11 +1,9 @@
+use crate::integrations::{
+    cctp_bridge::state::CctpBridgeState, lz_bridge::state::LzBridgeState,
+    spl_token_external::state::SplTokenExternalState, spl_token_swap::state::SplTokenSwapState,
+};
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
-use crate::integrations::{
-    cctp_bridge::state::CctpBridgeState, 
-    spl_token_external::state::SplTokenExternalState, 
-    spl_token_swap::state::SplTokenSwapState, 
-    lz_bridge::state::LzBridgeState
-};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 #[repr(u8)]
@@ -14,9 +12,5 @@ pub enum IntegrationState {
     SplTokenExternal(SplTokenExternalState),
     SplTokenSwap(SplTokenSwapState),
     CctpBridge(CctpBridgeState),
-    LzBridge(LzBridgeState)
+    LzBridge(LzBridgeState),
 }
-
-
-
-

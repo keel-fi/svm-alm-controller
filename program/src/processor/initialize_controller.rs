@@ -1,10 +1,12 @@
-use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 use crate::{
-    enums::PermissionStatus, 
-    events::{ControllerUpdateEvent, SvmAlmControllerEvent}, 
+    enums::PermissionStatus,
+    events::{ControllerUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeControllerArgs,
-    state::{Controller, Permission}
+    state::{Controller, Permission},
+};
+use borsh::BorshDeserialize;
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
 pub struct InitializeControllerAccounts<'info> {
@@ -16,12 +18,9 @@ pub struct InitializeControllerAccounts<'info> {
 }
 
 impl<'info> InitializeControllerAccounts<'info> {
-
-    pub fn from_accounts(
-        accounts: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
+    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
         if accounts.len() != 5 {
-            return Err(ProgramError::NotEnoughAccountKeys)
+            return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
             payer: &accounts[0],
@@ -43,13 +42,13 @@ impl<'info> InitializeControllerAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
         if !ctx.controller.is_owned_by(&pinocchio_system::id()) || !ctx.controller.data_is_empty() {
-            return Err(ProgramError::InvalidAccountOwner)
+            return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.permission.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
         if !ctx.permission.is_owned_by(&pinocchio_system::id()) || !ctx.permission.data_is_empty() {
-            return Err(ProgramError::InvalidAccountOwner)
+            return Err(ProgramError::InvalidAccountOwner);
         }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
             return Err(ProgramError::IncorrectProgramId);
@@ -58,7 +57,6 @@ impl<'info> InitializeControllerAccounts<'info> {
     }
 }
 
-
 pub fn process_initialize_controller(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -66,27 +64,18 @@ pub fn process_initialize_controller(
 ) -> ProgramResult {
     msg!("initialize_controller");
 
-    let ctx = InitializeControllerAccounts::from_accounts(
-        accounts
-    )?;
+    let ctx = InitializeControllerAccounts::from_accounts(accounts)?;
 
     // // Deserialize the args
-    let args = InitializeControllerArgs::try_from_slice(
-        instruction_data
-    ).unwrap();
+    let args = InitializeControllerArgs::try_from_slice(instruction_data).unwrap();
 
     // Initialize the controller data
-    let controller = Controller::init_account(
-        ctx.controller, 
-        ctx.payer, 
-        args.id,
-        args.status
-    )?;
+    let controller = Controller::init_account(ctx.controller, ctx.payer, args.id, args.status)?;
 
     // Initialize the controller data
     Permission::init_account(
-        ctx.permission, 
-        ctx.payer, 
+        ctx.permission,
+        ctx.payer,
         *ctx.controller.key(),
         *ctx.authority.key(),
         PermissionStatus::Active,
@@ -96,22 +85,19 @@ pub fn process_initialize_controller(
         false,
         false,
         false,
-        false
-    )?;    
-    
+        false,
+    )?;
+
     // Emit the event
     controller.emit_event(
         ctx.controller,
-        SvmAlmControllerEvent::ControllerUpdate (
-            ControllerUpdateEvent {
-                controller: *ctx.controller.key(),
-                authority: *ctx.authority.key(),
-                old_state: None,
-                new_state: Some(controller)
-            }
-        )
+        SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
+            controller: *ctx.controller.key(),
+            authority: *ctx.authority.key(),
+            old_state: None,
+            new_state: Some(controller),
+        }),
     )?;
 
     Ok(())
 }
-

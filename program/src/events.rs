@@ -1,10 +1,9 @@
 extern crate alloc;
+use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::pubkey::Pubkey;
 use shank::ShankInstruction;
-use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::state::{Controller, Integration, Permission, Reserve};
-
 
 #[repr(u8)]
 #[derive(Clone, Debug, PartialEq, ShankInstruction, BorshSerialize, BorshDeserialize)]
@@ -16,13 +15,12 @@ pub enum SvmAlmControllerEvent {
     AccountingEvent(AccountingEvent),
 }
 
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct ControllerUpdateEvent {
     pub authority: Pubkey,
     pub controller: Pubkey,
     pub old_state: Option<Controller>,
-    pub new_state: Option<Controller> 
+    pub new_state: Option<Controller>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -31,7 +29,7 @@ pub struct PermissionUpdateEvent {
     pub controller: Pubkey,
     pub permission: Pubkey,
     pub old_state: Option<Permission>,
-    pub new_state: Option<Permission> 
+    pub new_state: Option<Permission>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -40,7 +38,7 @@ pub struct ReserveUpdateEvent {
     pub controller: Pubkey,
     pub reserve: Pubkey,
     pub old_state: Option<Reserve>,
-    pub new_state: Option<Reserve> 
+    pub new_state: Option<Reserve>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -49,7 +47,7 @@ pub struct IntegrationUpdateEvent {
     pub controller: Pubkey,
     pub integration: Pubkey,
     pub old_state: Option<Integration>,
-    pub new_state: Option<Integration> 
+    pub new_state: Option<Integration>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -61,7 +59,6 @@ pub struct AccountingEvent {
     pub before: u64,
     pub after: u64,
 }
-
 
 #[repr(u8)]
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
