@@ -2,13 +2,13 @@ extern crate alloc;
 
 use crate::acc_info_as_str;
 use alloc::vec::Vec;
-use borsh::BorshSerialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_log::log;
 
 use super::Discriminator;
 
-pub trait NovaAccount: Discriminator + BorshSerialize {
+pub trait NovaAccount: Discriminator + BorshDeserialize + BorshSerialize {
     /// The size in bytes for the discriminator
     const DISCRIMINATOR_SIZE: usize = 1;
     /// The size in bytes for the account data (sans discriminator)
@@ -45,5 +45,15 @@ pub trait NovaAccount: Discriminator + BorshSerialize {
         let mut data = account_info.try_borrow_mut_data()?;
         data[..serialized.len()].copy_from_slice(&serialized);
         Ok(())
+    }
+
+    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
+        // Check discriminator
+        if data[0] != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        // Use Borsh deserialization
+        Self::try_from_slice(&data[Self::DISCRIMINATOR_SIZE..])
+            .map_err(|_| ProgramError::InvalidAccountData)
     }
 }

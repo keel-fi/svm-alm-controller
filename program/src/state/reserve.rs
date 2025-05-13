@@ -54,15 +54,6 @@ impl NovaAccount for Reserve {
 }
 
 impl Reserve {
-    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        // Check discriminator
-        if data[0] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // Use Borsh deserialization
-        Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
             return Err(ProgramError::InvalidAccountData);
@@ -80,7 +71,7 @@ impl Reserve {
         }
         // Check PDA
 
-        let reserve = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;
         Ok(reserve)
@@ -94,7 +85,7 @@ impl Reserve {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let reserve = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;
         Ok(reserve)

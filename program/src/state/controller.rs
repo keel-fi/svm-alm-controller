@@ -49,21 +49,12 @@ impl Controller {
         Ok((pda.to_bytes(), bump))
     }
 
-    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        // Check discriminator
-        if data[0] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // Use Borsh deserialization
-        Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
         controller.verify_pda(account_info)?;
         Ok(controller)
     }
@@ -73,7 +64,8 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let controller: Self =
+            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
         controller.verify_pda(account_info)?;
         Ok(controller)
     }

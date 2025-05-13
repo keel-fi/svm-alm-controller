@@ -52,15 +52,6 @@ impl NovaAccount for Permission {
 }
 
 impl Permission {
-    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        // Check discriminator
-        if data[0] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // Use Borsh deserialization
-        Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     pub fn check_data(&self, controller: &Pubkey, authority: &Pubkey) -> Result<(), ProgramError> {
         if self.authority.ne(authority) || self.controller.ne(controller) {
             return Err(ProgramError::InvalidAccountData);
@@ -79,7 +70,7 @@ impl Permission {
         }
         // Check PDA
 
-        let permission = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
@@ -94,7 +85,8 @@ impl Permission {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let permission = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let permission: Self =
+            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
