@@ -1,4 +1,4 @@
-use crate::state::{Controller, Reserve};
+use crate::state::{nova_account::NovaAccount, Controller, Reserve};
 use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };

@@ -2,7 +2,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::ManageReserveArgs,
-    state::{Controller, Permission, Reserve},
+    state::{nova_account::NovaAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{

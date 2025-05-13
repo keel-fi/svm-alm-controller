@@ -1,4 +1,3 @@
-extern crate alloc;
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
     nova_account::NovaAccount,
@@ -10,7 +9,6 @@ use crate::{
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     processor::shared::create_pda_account,
 };
-use alloc::vec::Vec;
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
@@ -100,27 +98,6 @@ impl Reserve {
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;
         Ok(reserve)
-    }
-
-    pub fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        let mut serialized = Vec::with_capacity(1 + Self::LEN);
-        serialized.push(Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-
-        // Ensure account has enough space
-        if account_info.data_len() < serialized.len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        // Copy serialized data to account
-        let mut data = account_info.try_borrow_mut_data()?;
-        data[..serialized.len()].copy_from_slice(&serialized);
-        Ok(())
     }
 
     pub fn init_account(
