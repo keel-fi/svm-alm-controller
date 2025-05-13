@@ -1,22 +1,19 @@
-extern crate alloc;
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use crate::{
-    acc_info_as_str,
     constants::{INTEGRATION_SEED, SECONDS_PER_DAY},
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
     processor::shared::create_pda_account,
+    state::nova_account::NovaAccount,
 };
-use alloc::vec::Vec;
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
-    log, msg,
+    msg,
     program_error::ProgramError,
     pubkey::Pubkey,
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
-use pinocchio_log::log;
 use shank::ShankAccount;
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 
@@ -41,35 +38,23 @@ impl Discriminator for Integration {
     const DISCRIMINATOR: u8 = AccountDiscriminators::IntegrationDiscriminator as u8;
 }
 
-impl Integration {
-    pub const LEN: usize = 4 * 32 + 1 + 193 + 49 + 8 * 5;
+impl NovaAccount for Integration {
+    const LEN: usize = 4 * 32 + 1 + 193 + 49 + 8 * 5;
 
-    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (pda, _bump) = Self::derive_pda(self.controller, self.hash)?;
-        if acc_info.key().ne(&pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-
-    pub fn derive_pda(controller: Pubkey, hash: [u8; 32]) -> Result<(Pubkey, u8), ProgramError> {
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
-            &[INTEGRATION_SEED, controller.as_ref(), hash.as_ref()],
+            &[
+                INTEGRATION_SEED,
+                self.controller.as_ref(),
+                self.hash.as_ref(),
+            ],
             &SolanaPubkey::from(crate::ID),
         );
         Ok((pda.to_bytes(), bump))
     }
+}
 
-    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        // Check discriminator
-        if data[0] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // Use Borsh deserialization
-        Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
+impl Integration {
     pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
             return Err(ProgramError::InvalidAccountData);
@@ -87,7 +72,7 @@ impl Integration {
         }
         // Check PDA
 
-        let integration = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;
         Ok(integration)
@@ -101,31 +86,11 @@ impl Integration {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let integration = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let integration: Self =
+            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;
         Ok(integration)
-    }
-
-    pub fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        let mut serialized = Vec::with_capacity(1 + Self::LEN);
-        serialized.push(Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-
-        // Ensure account has enough space
-        if account_info.data_len() < serialized.len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        // Copy serialized data to account
-        let mut data = account_info.try_borrow_mut_data()?;
-        data[..serialized.len()].copy_from_slice(&serialized);
-        Ok(())
     }
 
     pub fn init_account(
@@ -143,13 +108,6 @@ impl Integration {
         let clock = Clock::get()?;
         // Derive the hash for this config
         let hash = config.hash();
-        log! {"hash: {}", &hash};
-
-        // Derive the PDA
-        let (pda, bump) = Self::derive_pda(controller, hash)?;
-        if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
-        }
 
         // Create and serialize the controller
         let integration = Integration {
@@ -166,6 +124,12 @@ impl Integration {
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
         };
+
+        // Derive the PDA
+        let (pda, bump) = integration.derive_pda()?;
+        if account_info.key().ne(&pda) {
+            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+        }
 
         // Account creation PDA
         let rent = Rent::get()?;

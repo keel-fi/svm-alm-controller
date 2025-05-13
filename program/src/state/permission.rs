@@ -1,10 +1,10 @@
-extern crate alloc;
-use super::discriminator::{AccountDiscriminators, Discriminator};
-use crate::{
-    acc_info_as_str, constants::PERMISSION_SEED, enums::PermissionStatus,
-    processor::shared::create_pda_account,
+use super::{
+    discriminator::{AccountDiscriminators, Discriminator},
+    nova_account::NovaAccount,
 };
-use alloc::vec::Vec;
+use crate::{
+    constants::PERMISSION_SEED, enums::PermissionStatus, processor::shared::create_pda_account,
+};
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
@@ -13,7 +13,6 @@ use pinocchio::{
     pubkey::Pubkey,
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_log::log;
 use shank::ShankAccount;
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 
@@ -36,35 +35,23 @@ impl Discriminator for Permission {
     const DISCRIMINATOR: u8 = AccountDiscriminators::PermissionDiscriminator as u8;
 }
 
-impl Permission {
-    pub const LEN: usize = 65 + 7;
+impl NovaAccount for Permission {
+    const LEN: usize = 65 + 7;
 
-    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (pda, _bump) = Self::derive_pda(self.controller, self.authority)?;
-        if acc_info.key().ne(&pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-
-    pub fn derive_pda(controller: Pubkey, authority: Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
-            &[PERMISSION_SEED, controller.as_ref(), authority.as_ref()],
+            &[
+                PERMISSION_SEED,
+                self.controller.as_ref(),
+                self.authority.as_ref(),
+            ],
             &SolanaPubkey::from(crate::ID),
         );
         Ok((pda.to_bytes(), bump))
     }
+}
 
-    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        // Check discriminator
-        if data[0] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // Use Borsh deserialization
-        Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
+impl Permission {
     pub fn check_data(&self, controller: &Pubkey, authority: &Pubkey) -> Result<(), ProgramError> {
         if self.authority.ne(authority) || self.controller.ne(controller) {
             return Err(ProgramError::InvalidAccountData);
@@ -83,7 +70,7 @@ impl Permission {
         }
         // Check PDA
 
-        let permission = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
@@ -98,32 +85,11 @@ impl Permission {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let permission = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let permission: Self =
+            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
-    }
-
-    pub fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        let mut serialized = Vec::with_capacity(1 + Self::LEN);
-        serialized.push(Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-
-        // Ensure account has enough space
-        if account_info.data_len() < serialized.len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-        // Copy serialized data to account
-        let mut data = account_info.try_borrow_mut_data()?;
-        data[..serialized.len()].copy_from_slice(&serialized);
-
-        Ok(())
     }
 
     pub fn init_account(
@@ -140,12 +106,6 @@ impl Permission {
         can_unfreeze: bool,
         can_manage_integrations: bool,
     ) -> Result<Self, ProgramError> {
-        // Derive the PDA
-        let (pda, bump) = Self::derive_pda(controller, authority)?;
-        if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
-        }
-
         // Create and serialize the controller
         let permission = Permission {
             controller,
@@ -159,6 +119,12 @@ impl Permission {
             can_unfreeze,
             can_manage_integrations,
         };
+
+        // Derive the PDA
+        let (pda, bump) = permission.derive_pda()?;
+        if account_info.key().ne(&pda) {
+            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+        }
 
         // Account creation PDA
         let rent = Rent::get()?;

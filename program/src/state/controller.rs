@@ -1,13 +1,13 @@
-extern crate alloc;
-use super::discriminator::{AccountDiscriminators, Discriminator};
+use super::{
+    discriminator::{AccountDiscriminators, Discriminator},
+    nova_account::NovaAccount,
+};
 use crate::{
-    acc_info_as_str,
     constants::CONTROLLER_SEED,
     enums::ControllerStatus,
     events::SvmAlmControllerEvent,
     processor::shared::{create_pda_account, emit_cpi},
 };
-use alloc::vec::Vec;
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
@@ -16,7 +16,6 @@ use pinocchio::{
     pubkey::Pubkey,
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_log::log;
 use pinocchio_token::instructions::Transfer;
 use shank::ShankAccount;
 use solana_program::pubkey::Pubkey as SolanaPubkey;
@@ -33,18 +32,15 @@ impl Discriminator for Controller {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ControllerDiscriminator as u8;
 }
 
-impl Controller {
-    pub const LEN: usize = 4;
+impl NovaAccount for Controller {
+    const LEN: usize = 4;
 
-    pub fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (controller_pda, _controller_bump) = Self::derive_pda_bytes(self.id)?;
-        if acc_info.key().ne(&controller_pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
+        Self::derive_pda_bytes(self.id)
     }
+}
 
+impl Controller {
     pub fn derive_pda_bytes(id: u16) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
             &[CONTROLLER_SEED, id.to_le_bytes().as_ref()],
@@ -53,21 +49,12 @@ impl Controller {
         Ok((pda.to_bytes(), bump))
     }
 
-    fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        // Check discriminator
-        if data[0] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // Use Borsh deserialization
-        Self::try_from_slice(&data[1..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller = Self::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
         controller.verify_pda(account_info)?;
         Ok(controller)
     }
@@ -77,32 +64,10 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller = Self::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let controller: Self =
+            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
         controller.verify_pda(account_info)?;
         Ok(controller)
-    }
-
-    pub fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        let mut serialized = Vec::with_capacity(1 + Self::LEN);
-        serialized.push(Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-
-        // Ensure account has enough space
-        if account_info.data_len() < serialized.len() {
-            return Err(ProgramError::AccountDataTooSmall);
-        }
-
-        // Copy serialized data to account
-        let mut data = account_info.try_borrow_mut_data()?;
-        data[..serialized.len()].copy_from_slice(&serialized);
-
-        Ok(())
     }
 
     pub fn init_account(
@@ -207,5 +172,3 @@ impl Controller {
         Ok(())
     }
 }
-
-// impl AccountDeserialize for Controller {}

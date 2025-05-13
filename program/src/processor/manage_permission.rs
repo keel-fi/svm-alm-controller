@@ -3,7 +3,7 @@ use crate::{
     events::{PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::ManagePermissionArgs,
     processor::shared::verify_system_account,
-    state::{Controller, Permission},
+    state::{nova_account::NovaAccount, Controller, Permission},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{

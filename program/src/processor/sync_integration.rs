@@ -1,7 +1,7 @@
 use crate::{
     enums::IntegrationConfig,
     integrations::spl_token_swap::sync::process_sync_spl_token_swap,
-    state::{Controller, Integration},
+    state::{nova_account::NovaAccount, Controller, Integration},
 };
 use pinocchio::{
     account_info::AccountInfo,
