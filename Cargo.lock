@@ -1006,6 +1006,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "fast-math"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2465292146cdfc2011350fe3b1c616ac83cf0faeedb33463ba1c332ed8948d66"
+dependencies = [
+ "ieee754",
+]
+
+[[package]]
 name = "feature-probe"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1229,6 +1238,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hmac"
@@ -1505,6 +1517,12 @@ dependencies = [
  "icu_normalizer",
  "icu_properties",
 ]
+
+[[package]]
+name = "ieee754"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9007da9cacbd3e6343da136e98b0d2df013f553d35bdec8b518f07bea768e19c"
 
 [[package]]
 name = "indexmap"
@@ -2196,6 +2214,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pythnet-sdk"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "498d20fd330277697aaee92f341bdabdb4695b10e05f054157a18ad8b7746a17"
+dependencies = [
+ "bincode",
+ "borsh 0.10.4",
+ "bytemuck",
+ "byteorder",
+ "fast-math",
+ "hex",
+ "rustc_version",
+ "serde",
+ "sha3",
+ "slow_primes",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "qstring"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2684,6 +2721,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "slow_primes"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58267dd2fbaa6dceecba9e3e106d2d90a2b02497c0e8b01b8759beccf5113938"
+dependencies = [
+ "num",
 ]
 
 [[package]]
@@ -4717,6 +4763,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4735,6 +4787,7 @@ dependencies = [
  "borsh 0.10.4",
  "borsh-derive 0.10.4",
  "bs58 0.4.0",
+ "byteorder",
  "num-derive",
  "num-traits",
  "pinocchio",
@@ -4743,9 +4796,11 @@ dependencies = [
  "pinocchio-pubkey",
  "pinocchio-system",
  "pinocchio-token",
+ "pythnet-sdk",
  "shank",
  "solana-keccak-hasher",
  "solana-program",
+ "wormhole-raw-vaas",
 ]
 
 [[package]]
@@ -4775,6 +4830,8 @@ dependencies = [
  "solana-system-interface",
  "spl-associated-token-account-client",
  "spl-token",
+ "static_assertions",
+ "svm-alm-controller",
  "svm-alm-controller-client",
  "test-log",
 ]
@@ -5483,6 +5540,12 @@ dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "wormhole-raw-vaas"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ceb9fca372420dc0084581fd9d5f74b30a7462719c9d241d1dd6ae9ddac4c40"
 
 [[package]]
 name = "write16"

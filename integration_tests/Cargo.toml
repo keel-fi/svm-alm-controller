@@ -7,6 +7,7 @@ edition = { workspace = true }
 borsh = { workspace = true }
 litesvm = { workspace = true }
 solana-sdk = { workspace = true }
+svm-alm-controller = { workspace = true }
 svm-alm-controller-client = { workspace = true }
 pinocchio-token = { workspace = true }
 pinocchio-associated-token-account = { workspace = true }
@@ -18,6 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
 hex = { workspace = true }
+static_assertions = { workspace = true }
 
 [dev-dependencies]
 test-log = "0.2.17"
