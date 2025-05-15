@@ -29,7 +29,7 @@ pub fn setup_token_account(
         delegated_amount: 0,
         close_authority: None.into(),
     };
-    
+
     let space = spl_token_2022::state::Account::LEN;
     let rent = svm.minimum_balance_for_rent_exemption(space);
 

@@ -13,7 +13,9 @@ use solana_sdk::pubkey;
 use solana_sdk::{account::AccountSharedData, pubkey::Pubkey};
 pub use state::*;
 
-use super::spl::{setup_token_account, setup_token_mint, NATIVE_MINT_ADDRESS, SPL_TOKEN_PROGRAM_ID};
+use super::spl::{
+    setup_token_account, setup_token_mint, NATIVE_MINT_ADDRESS, SPL_TOKEN_PROGRAM_ID,
+};
 
 pub const RAYDIUM_LEGACY_AMM_V4: Pubkey = pubkey!("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 pub const RAYDIUM_LEGACY_AMM_V4_UPGRADE_AUTH: Pubkey =
