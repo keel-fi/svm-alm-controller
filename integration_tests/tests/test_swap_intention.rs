@@ -30,22 +30,22 @@ mod tests {
     use crate::{
         helpers::{
             raydium::{setup_amm, setup_amm_config, swap_base_in},
-            spl::{setup_token_account, setup_token_mint, SPL_TOKEN_PROGRAM_ID},
+            spl::setup_token_mint,
         },
         subs::{
-            edit_token_amount, initialize_contoller, initialize_reserve, manage_permission,
-            ReserveKeys,
+            edit_token_amount, get_token_balance_or_zero, initialize_contoller, initialize_reserve,
+            manage_permission, ReserveKeys,
         },
     };
 
     use super::*;
 
-    #[test]
+    #[test_log::test]
     fn test_basic_swap_through_raydium_v4() -> Result<(), Box<dyn std::error::Error>> {
         let coin_liquidity: u64 = 10_000_000;
         let pc_liquidity: u64 = 10_000_000;
         let amount_in: u64 = 500;
-        let _expected_amount_out: u64 = 499;
+        let expected_amount_out: u64 = 499;
 
         let mut svm = lite_svm_with_programs();
 
@@ -128,6 +128,8 @@ mod tests {
         )?;
         // TODO: stub the OracleAccount data
 
+        let coin_reserve_balance_before = get_token_balance_or_zero(&mut svm, &coin_reserve_vault);
+
         let _swap_base_in_ix = swap_base_in(
             &RAYDIUM_LEGACY_AMM_V4,
             &amm_accounts.amm,
@@ -153,7 +155,12 @@ mod tests {
         .unwrap();
         // TODO: sandwhich the swap instruction with the setup and clean up
 
-        // TODO: Write assertions for ALM controller balance changes
+        // Assert the ALM coin_reserve balance changed by expected swap amount
+        let coin_reserve_balance_after = get_token_balance_or_zero(&mut svm, &coin_reserve_vault);
+        assert_eq!(
+            coin_reserve_balance_after - coin_reserve_balance_before,
+            expected_amount_out
+        );
         Ok(())
     }
 }
