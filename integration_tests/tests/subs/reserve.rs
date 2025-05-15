@@ -40,6 +40,11 @@ pub fn fetch_reserve_account(
         None => Ok(None),
     }
 }
+
+pub struct ReserveKeys {
+    pub pubkey: Pubkey,
+    pub vault: Pubkey,
+}
 pub fn initialize_reserve(
     svm: &mut LiteSVM,
     controller: &Pubkey,
@@ -49,7 +54,7 @@ pub fn initialize_reserve(
     status: ReserveStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
-) -> Result<Pubkey, Box<dyn Error>> {
+) -> Result<ReserveKeys, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
 
     let reserve_pda = derive_reserve_pda(controller, mint);
@@ -110,7 +115,10 @@ pub fn initialize_reserve(
     assert_eq!(reserve.mint, *mint, "Mint does not match expected value");
     assert_eq!(reserve.vault, vault, "Vault does not match expected value");
 
-    Ok(reserve_pda)
+    Ok(ReserveKeys {
+        pubkey: reserve_pda,
+        vault,
+    })
 }
 
 pub fn manage_reserve(

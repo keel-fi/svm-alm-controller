@@ -1,4 +1,5 @@
 mod helpers;
+mod subs;
 
 use helpers::raydium::RAYDIUM_LEGACY_AMM_V4;
 use litesvm::LiteSVM;
@@ -24,24 +25,33 @@ fn lite_svm_with_programs() -> LiteSVM {
 #[cfg(test)]
 mod tests {
     use solana_sdk::{signature::Keypair, signer::Signer};
+    use svm_alm_controller_client::types::{ControllerStatus, PermissionStatus, ReserveStatus};
 
-    use crate::helpers::{
-        raydium::{setup_amm, setup_amm_config, swap_base_in},
-        spl::{setup_token_account, setup_token_mint, SPL_TOKEN_PROGRAM_ID},
+    use crate::{
+        helpers::{
+            raydium::{setup_amm, setup_amm_config, swap_base_in},
+            spl::{setup_token_account, setup_token_mint, SPL_TOKEN_PROGRAM_ID},
+        },
+        subs::{
+            edit_token_amount, initialize_contoller, initialize_reserve, manage_permission,
+            ReserveKeys,
+        },
     };
 
     use super::*;
 
     #[test]
-    fn test_basic_swap_through_raydium_v4() {
+    fn test_basic_swap_through_raydium_v4() -> Result<(), Box<dyn std::error::Error>> {
         let coin_liquidity: u64 = 10_000_000;
         let pc_liquidity: u64 = 10_000_000;
         let amount_in: u64 = 500;
         let _expected_amount_out: u64 = 499;
 
-        let user_kp = Keypair::new();
         let mut svm = lite_svm_with_programs();
-        svm.airdrop(&user_kp.pubkey(), 100_000_000).unwrap();
+
+        let relayer_authority_kp = Keypair::new();
+        svm.airdrop(&relayer_authority_kp.pubkey(), 100_000_000)
+            .unwrap();
         setup_amm_config(&mut svm);
         let coin_token_mint = Pubkey::new_unique();
         let pc_token_mint = Pubkey::new_unique();
@@ -56,30 +66,66 @@ mod tests {
             coin_liquidity,
             pc_liquidity,
         );
-        // Mock user account for tokens in
-        let user_token_source = Pubkey::new_unique();
         let initial_source_amount = 1_000;
-        setup_token_account(
-            &mut svm,
-            &user_token_source,
-            &pc_token_mint,
-            &user_kp.pubkey(),
-            initial_source_amount,
-            &SPL_TOKEN_PROGRAM_ID,
-            None,
-        );
-        let user_token_destination = Pubkey::new_unique();
-        setup_token_account(
-            &mut svm,
-            &user_token_destination,
-            &coin_token_mint,
-            &user_kp.pubkey(),
-            0,
-            &SPL_TOKEN_PROGRAM_ID,
-            None,
-        );
 
-        // TODO: Set up a controller and relayer with swap capabilities.
+        // Set up a controller and relayer with swap capabilities.
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &relayer_authority_kp,
+            &relayer_authority_kp,
+            ControllerStatus::Active,
+            321u16, // Id
+        )?;
+
+        // REVIEW: What is calling_authority vs subject_authority?
+        // Update the authority to have all permissions
+        let _ = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &relayer_authority_kp,          // payer
+            &relayer_authority_kp,          // calling authority
+            &relayer_authority_kp.pubkey(), // subject authority
+            PermissionStatus::Active,
+            true, // can_execute_swap,
+            true, // can_manage_permissions,
+            true, // can_invoke_external_transfer,
+            true, // can_reallocate,
+            true, // can_freeze,
+            true, // can_unfreeze,
+            true, // can_manage_integrations
+        )?;
+
+        // Initialize a reserve for the token
+        let ReserveKeys {
+            pubkey: _pc_reserve_pubkey,
+            vault: pc_reserve_vault,
+        } = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &pc_token_mint,        // mint
+            &relayer_authority_kp, // payer
+            &relayer_authority_kp, // authority
+            ReserveStatus::Active,
+            1_000_000_000_000, // rate_limit_slope
+            1_000_000_000_000, // rate_limit_max_outflow
+        )?;
+
+        // Put some funds in the reserve's vault
+        edit_token_amount(&mut svm, &pc_reserve_vault, initial_source_amount)?;
+        // Initialize the coin vault, for receiving balance
+        let ReserveKeys {
+            pubkey: _coin_reserve_pubkey,
+            vault: coin_reserve_vault,
+        } = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &coin_token_mint,      // mint
+            &relayer_authority_kp, // payer
+            &relayer_authority_kp, // authority
+            ReserveStatus::Active,
+            1_000_000_000_000, // rate_limit_slope
+            1_000_000_000_000, // rate_limit_max_outflow
+        )?;
         // TODO: stub the OracleAccount data
 
         let _swap_base_in_ix = swap_base_in(
@@ -97,9 +143,9 @@ mod tests {
             &amm_accounts.market_coin_vault,
             &amm_accounts.market_pc_vault,
             &amm_accounts.market_vault_signer,
-            &user_token_source,
-            &user_token_destination,
-            &user_kp.pubkey(),
+            &pc_reserve_vault,
+            &coin_reserve_vault,
+            &controller_pk,
             amount_in,
             // allow for any slippage
             0,
@@ -108,7 +154,6 @@ mod tests {
         // TODO: sandwhich the swap instruction with the setup and clean up
 
         // TODO: Write assertions for ALM controller balance changes
-
-
+        Ok(())
     }
 }
