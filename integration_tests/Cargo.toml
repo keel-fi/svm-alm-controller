@@ -4,15 +4,20 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+arrayref = { workspace = true }
 borsh = { workspace = true }
+bytemuck = { workspace = true }
 litesvm = { workspace = true }
+solana-program = { workspace = true }
 solana-sdk = { workspace = true }
 svm-alm-controller = { workspace = true }
 svm-alm-controller-client = { workspace = true }
 pinocchio-token = { workspace = true }
 pinocchio-associated-token-account = { workspace = true }
+safe-transmute = { workspace = true }
 solana-keccak-hasher = { workspace = true}
 spl-token = { workspace = true }
+spl-token-2022 = { workspace = true }
 solana-system-interface = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
 serde = { workspace = true }

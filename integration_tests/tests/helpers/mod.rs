@@ -9,6 +9,8 @@ use litesvm::LiteSVM;
 pub mod cctp;
 pub mod constants;
 pub mod logs_parser;
+pub mod raydium;
+pub mod spl;
 use base64;
 pub use logs_parser::print_inner_instructions;
 use serde_json::Value;
