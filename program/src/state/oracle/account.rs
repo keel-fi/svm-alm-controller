@@ -7,7 +7,7 @@ use shank::ShankAccount;
 
 // Provides flexibility for future Oracle configurations or more complex types.
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub enum OracleConfig {
+pub enum  OracleConfig {
     PythFeed(PythConfig),
 }
 
@@ -27,4 +27,8 @@ pub struct Oracle {
 
 impl Discriminator for Oracle {
     const DISCRIMINATOR: u8 = AccountDiscriminators::Oracle as u8;
+}
+
+impl Oracle {
+    pub const LEN: usize = 96;
 }

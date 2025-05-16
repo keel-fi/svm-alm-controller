@@ -1,6 +1,7 @@
 pub mod airdrop_lamports;
 pub mod controller;
 pub mod integration;
+pub mod oracle;
 pub mod permission;
 pub mod reserve;
 pub mod spl_token;
