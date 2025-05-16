@@ -6,7 +6,7 @@ use crate::{
         get_mint_supply_or_zero,
     },
 };
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use litesvm::LiteSVM;
 use solana_keccak_hasher::hash;
 use solana_sdk::{
@@ -128,6 +128,12 @@ pub fn initialize_integration(
             .concat();
             let h = hash(b.as_slice()).to_bytes();
             (IntegrationType::LzBridge, h)
+        }
+        IntegrationConfig::AtomicSwap(_) => {
+            let mut serialized = Vec::with_capacity(std::mem::size_of::<IntegrationConfig>());
+            config.serialize(&mut serialized).unwrap();
+            let h = hash(serialized.as_slice()).to_bytes();
+            (IntegrationType::AtomicSwap, h)
         }
         _ => panic!("Not specified"),
     };
@@ -291,6 +297,23 @@ pub fn initialize_integration(
             },
             AccountMeta {
                 pubkey: c.program,
+                is_signer: false,
+                is_writable: false,
+            },
+        ],
+        IntegrationConfig::AtomicSwap(c) => &[
+            AccountMeta {
+                pubkey: c.input_token,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: c.output_token,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: c.oracle,
                 is_signer: false,
                 is_writable: false,
             },

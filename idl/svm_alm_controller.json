@@ -1937,6 +1937,9 @@
           },
           {
             "name": "LzBridge"
+          },
+          {
+            "name": "AtomicSwap"
           }
         ]
       }
@@ -2026,6 +2029,15 @@
               {
                 "name": "destination_eid",
                 "type": "u32"
+              }
+            ]
+          },
+          {
+            "name": "AtomicSwap",
+            "fields": [
+              {
+                "name": "max_slippage_bps",
+                "type": "u16"
               }
             ]
           }

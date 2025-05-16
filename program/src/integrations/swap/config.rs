@@ -12,5 +12,5 @@ pub struct AtomicSwapConfig {
     pub oracle: Pubkey,
     /// The max amount of slippage from the oracle's price.
     pub max_slippage_bps: u16,
-    pub padding: [u8; 96]
+    pub padding: [u8; 96],
 }

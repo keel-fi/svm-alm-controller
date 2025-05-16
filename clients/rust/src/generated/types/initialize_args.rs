@@ -30,4 +30,7 @@ pub enum InitializeArgs {
         desination_address: Pubkey,
         destination_eid: u32,
     },
+    AtomicSwap {
+        max_slippage_bps: u16,
+    },
 }

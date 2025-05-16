@@ -1,6 +1,7 @@
 use crate::integrations::{
     cctp_bridge::config::CctpBridgeConfig, lz_bridge::config::LzBridgeConfig,
-    spl_token_external::config::SplTokenExternalConfig, spl_token_swap::config::SplTokenSwapConfig, swap::config::AtomicSwapConfig,
+    spl_token_external::config::SplTokenExternalConfig, spl_token_swap::config::SplTokenSwapConfig,
+    swap::config::AtomicSwapConfig,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
@@ -14,7 +15,7 @@ pub enum IntegrationConfig {
     SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),
     LzBridge(LzBridgeConfig),
-    AtomicSwap(AtomicSwapConfig)
+    AtomicSwap(AtomicSwapConfig),
 }
 
 impl IntegrationConfig {

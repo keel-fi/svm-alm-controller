@@ -1,1 +1,1 @@
-pub mod test_initialize_swap_pair;
+pub mod test_initialize_swap_integration;

@@ -1,14 +1,28 @@
+use crate::{constants::ORACLE_SEED, state::nova_account::NovaAccount};
+
 use super::{
     super::discriminator::{AccountDiscriminators, Discriminator},
     pyth_config::PythConfig,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
+use pinocchio::{
+    program_error::ProgramError,
+    pubkey::{find_program_address, Pubkey},
+};
 use shank::ShankAccount;
 
 // Provides flexibility for future Oracle configurations or more complex types.
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum OracleConfig {
     PythFeed(PythConfig),
+}
+
+impl OracleConfig {
+    pub fn seeds(&self) -> [u8; 32] {
+        match self {
+            Self::PythFeed(pyth_config) => pyth_config.feed_id,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
@@ -29,6 +43,12 @@ impl Discriminator for Oracle {
     const DISCRIMINATOR: u8 = AccountDiscriminators::Oracle as u8;
 }
 
-impl Oracle {
-    pub const LEN: usize = 96;
+impl NovaAccount for Oracle {
+    const LEN: usize = 96;
+
+    fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
+        let (pda, bump) =
+            find_program_address(&[ORACLE_SEED, self.config.seeds().as_ref()], &crate::ID);
+        Ok((pda, bump))
+    }
 }
