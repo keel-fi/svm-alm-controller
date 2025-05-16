@@ -775,22 +775,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "SwapPair",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "inputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "outputMint",
-            "type": "publicKey"
-          }
-        ]
-      }
     }
   ],
   "types": [
@@ -1669,6 +1653,64 @@
       }
     },
     {
+      "name": "AtomicSwapConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "inputToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "outputToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracle",
+            "type": "publicKey"
+          },
+          {
+            "name": "maxSlippageBps",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                96
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AtomicSwapState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastBalanceA",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalanceB",
+            "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "DataSource",
       "type": {
         "kind": "struct",
@@ -1788,6 +1830,14 @@
                 "defined": "LzBridgeConfig"
               }
             ]
+          },
+          {
+            "name": "AtomicSwap",
+            "fields": [
+              {
+                "defined": "AtomicSwapConfig"
+              }
+            ]
           }
         ]
       }
@@ -1840,6 +1890,14 @@
             "fields": [
               {
                 "defined": "LzBridgeState"
+              }
+            ]
+          },
+          {
+            "name": "AtomicSwap",
+            "fields": [
+              {
+                "defined": "AtomicSwapState"
               }
             ]
           }

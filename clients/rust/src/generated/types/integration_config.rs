@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::types::AtomicSwapConfig;
 use crate::generated::types::CctpBridgeConfig;
 use crate::generated::types::LzBridgeConfig;
 use crate::generated::types::SplTokenExternalConfig;
@@ -23,4 +24,5 @@ pub enum IntegrationConfig {
     SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),
     LzBridge(LzBridgeConfig),
+    AtomicSwap(AtomicSwapConfig),
 }

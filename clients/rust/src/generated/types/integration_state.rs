@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::types::AtomicSwapState;
 use crate::generated::types::CctpBridgeState;
 use crate::generated::types::LzBridgeState;
 use crate::generated::types::SplTokenExternalState;
@@ -23,4 +24,5 @@ pub enum IntegrationState {
     SplTokenSwap(SplTokenSwapState),
     CctpBridge(CctpBridgeState),
     LzBridge(LzBridgeState),
+    AtomicSwap(AtomicSwapState),
 }
