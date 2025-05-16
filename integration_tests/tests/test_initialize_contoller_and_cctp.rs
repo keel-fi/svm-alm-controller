@@ -3,8 +3,7 @@ mod subs;
 use crate::helpers::constants::USDC_TOKEN_MINT_PUBKEY;
 use crate::subs::{
     airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_reserve, manage_permission,
-    push_integration,
+    initialize_reserve, manage_permission, push_integration,
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};

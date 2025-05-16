@@ -25,7 +25,9 @@ fn lite_svm_with_programs() -> LiteSVM {
 #[cfg(test)]
 mod tests {
     use solana_sdk::{signature::Keypair, signer::Signer};
-    use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionStatus, ReserveStatus};
+    use svm_alm_controller_client::generated::types::{
+        ControllerStatus, PermissionStatus, ReserveStatus,
+    };
 
     use crate::{
         helpers::{
@@ -34,7 +36,7 @@ mod tests {
         },
         subs::{
             edit_token_amount, get_token_balance_or_zero, initialize_contoller, initialize_reserve,
-            manage_permission, ReserveKeys,
+            manage_permission, oracle::set_oracle_price, ReserveKeys,
         },
     };
 
@@ -127,6 +129,10 @@ mod tests {
             1_000_000_000_000, // rate_limit_max_outflow
         )?;
         // TODO: stub the OracleAccount data
+        let oracle_pubkey = Pubkey::new_unique();
+        set_oracle_price(&mut svm, &oracle_pubkey, 1_000_000_000, 1_000_000_000)?;
+
+        // TODO: Create the SwapPair
 
         let coin_reserve_balance_before = get_token_balance_or_zero(&mut svm, &coin_reserve_vault);
 

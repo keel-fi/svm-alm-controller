@@ -1,9 +1,8 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    airdrop_lamports, initialize_contoller, initialize_integration,
-    initialize_mint, initialize_reserve, manage_permission,
-    mint_tokens, push_integration,
+    airdrop_lamports, initialize_contoller, initialize_integration, initialize_mint,
+    initialize_reserve, manage_permission, mint_tokens, push_integration,
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};

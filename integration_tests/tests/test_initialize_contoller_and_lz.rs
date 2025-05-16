@@ -2,8 +2,7 @@ mod helpers;
 mod subs;
 use crate::subs::{
     airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_reserve, manage_permission,
-    push_integration,
+    initialize_reserve, manage_permission, push_integration,
 };
 use crate::{
     helpers::constants::USDS_TOKEN_MINT_PUBKEY,
