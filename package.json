@@ -8,8 +8,8 @@
     "generate-idl": "shank idl -r program -o idl"
   },
   "devDependencies": {
-    "@codama/nodes-from-anchor": "^1.1.6",
-    "@codama/renderers": "^1.0.14",
-    "codama": "^1.2.6"
+    "@codama/nodes-from-anchor": "^1.1.14",
+    "@codama/renderers": "^1.0.22",
+    "codama": "^1.3.0"
   }
 }

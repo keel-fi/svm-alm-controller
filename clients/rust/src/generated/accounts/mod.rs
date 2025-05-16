@@ -7,10 +7,14 @@
 
 pub(crate) mod r#controller;
 pub(crate) mod r#integration;
+pub(crate) mod r#oracle;
 pub(crate) mod r#permission;
 pub(crate) mod r#reserve;
+pub(crate) mod r#swap_pair;
 
 pub use self::r#controller::*;
 pub use self::r#integration::*;
+pub use self::r#oracle::*;
 pub use self::r#permission::*;
 pub use self::r#reserve::*;
+pub use self::r#swap_pair::*;

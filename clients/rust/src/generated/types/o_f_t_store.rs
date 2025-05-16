@@ -5,7 +5,6 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::OFTType;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
@@ -13,7 +12,7 @@ use solana_program::pubkey::Pubkey;
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct OFTStore {
-    pub oft_type: OFTType,
+    pub oft_type: u8,
     pub ld2sd_rate: u64,
     #[cfg_attr(
         feature = "serde",
@@ -39,6 +38,4 @@ pub struct OFTStore {
     pub admin: Pubkey,
     pub default_fee_bps: u16,
     pub paused: bool,
-    pub pauser: Option<Pubkey>,
-    pub unpauser: Option<Pubkey>,
 }

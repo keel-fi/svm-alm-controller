@@ -7,7 +7,7 @@ use shank::ShankAccount;
 
 // Provides flexibility for future Oracle configurations or more complex types.
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub enum  OracleConfig {
+pub enum OracleConfig {
     PythFeed(PythConfig),
 }
 

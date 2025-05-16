@@ -11,7 +11,7 @@ mod tests {
         native_token::LAMPORTS_PER_SOL, pubkey::Pubkey, signature::Keypair, signer::Signer,
         system_instruction, transaction::Transaction,
     };
-    use svm_alm_controller_client::{
+    use svm_alm_controller_client::generated::{
         instructions::EmitEventBuilder, programs::SVM_ALM_CONTROLLER_ID,
     };
 

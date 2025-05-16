@@ -651,6 +651,32 @@
       }
     },
     {
+      "name": "Oracle",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastUpdatedBlock",
+            "type": "u64"
+          },
+          {
+            "name": "priceNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "priceDenominator",
+            "type": "u64"
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "OracleConfig"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "Permission",
       "type": {
         "kind": "struct",
@@ -746,6 +772,22 @@
           {
             "name": "lastRefreshSlot",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SwapPair",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "inputMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "outputMint",
+            "type": "publicKey"
           }
         ]
       }
@@ -931,6 +973,15 @@
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "controllerId",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
           {
             "name": "data",
             "type": "bytes"
@@ -1355,9 +1406,7 @@
         "fields": [
           {
             "name": "oftType",
-            "type": {
-              "defined": "OFTType"
-            }
+            "type": "u8"
           },
           {
             "name": "ld2sdRate",
@@ -1394,18 +1443,6 @@
           {
             "name": "paused",
             "type": "bool"
-          },
-          {
-            "name": "pauser",
-            "type": {
-              "option": "publicKey"
-            }
-          },
-          {
-            "name": "unpauser",
-            "type": {
-              "option": "publicKey"
-            }
           }
         ]
       }
@@ -1627,6 +1664,62 @@
           {
             "name": "poolFeeAccount",
             "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DataSource",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "emitterChainId",
+            "type": "u16"
+          },
+          {
+            "name": "emitterAddress",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PythConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feedId",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "minSignatures",
+            "type": "u8"
+          },
+          {
+            "name": "maxStalenessSeconds",
+            "type": "u32"
+          },
+          {
+            "name": "guardianSet",
+            "type": "publicKey"
+          },
+          {
+            "name": "transformations",
+            "type": {
+              "array": [
+                {
+                  "defined": "PythTransformation"
+                },
+                3
+              ]
+            }
           }
         ]
       }
@@ -1960,15 +2053,37 @@
       }
     },
     {
-      "name": "OFTType",
+      "name": "OracleConfig",
       "type": {
         "kind": "enum",
         "variants": [
           {
-            "name": "Native"
+            "name": "PythFeed",
+            "fields": [
+              {
+                "defined": "PythConfig"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "PythTransformation",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "None"
           },
           {
-            "name": "Adapter"
+            "name": "UsePrice"
+          },
+          {
+            "name": "UseEmaPrice"
+          },
+          {
+            "name": "InvertInput"
           }
         ]
       }

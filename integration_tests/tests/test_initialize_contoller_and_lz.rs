@@ -2,8 +2,8 @@ mod helpers;
 mod subs;
 use crate::subs::{
     airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_mint, initialize_reserve, manage_integration, manage_permission, manage_reserve,
-    mint_tokens, push_integration,
+    initialize_reserve, manage_permission,
+    push_integration,
 };
 use crate::{
     helpers::constants::USDS_TOKEN_MINT_PUBKEY,
@@ -11,17 +11,15 @@ use crate::{
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
-use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use svm_alm_controller_client::types::SplTokenExternalConfig;
-use svm_alm_controller_client::types::{
+use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
 };
-use svm_alm_controller_client::types::{InitializeArgs, PushArgs, ReserveStatus};
+use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
 
-    use svm_alm_controller_client::types::LzBridgeConfig;
+    use svm_alm_controller_client::generated::types::LzBridgeConfig;
 
     use crate::helpers::{
         cctp::evm_address_to_solana_pubkey,

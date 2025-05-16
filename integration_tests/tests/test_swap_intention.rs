@@ -11,7 +11,7 @@ fn lite_svm_with_programs() -> LiteSVM {
     // Add the CONTROLLER program
     let controller_program_bytes = include_bytes!("../../target/deploy/svm_alm_controller.so");
     svm.add_program(
-        svm_alm_controller_client::programs::SVM_ALM_CONTROLLER_ID,
+        svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
         controller_program_bytes,
     );
 
@@ -25,7 +25,7 @@ fn lite_svm_with_programs() -> LiteSVM {
 #[cfg(test)]
 mod tests {
     use solana_sdk::{signature::Keypair, signer::Signer};
-    use svm_alm_controller_client::types::{ControllerStatus, PermissionStatus, ReserveStatus};
+    use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionStatus, ReserveStatus};
 
     use crate::{
         helpers::{

@@ -26,7 +26,7 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     // Add the CONTROLLER program
     let controller_program_bytes = include_bytes!("../../../target/deploy/svm_alm_controller.so");
     svm.add_program(
-        svm_alm_controller_client::programs::SVM_ALM_CONTROLLER_ID,
+        svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
         controller_program_bytes,
     );
 

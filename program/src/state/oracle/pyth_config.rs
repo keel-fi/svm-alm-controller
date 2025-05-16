@@ -44,8 +44,6 @@ pub enum PythTransformation {
     InvertInput,
 }
 
-const MAX_PYTH_TRANSFORMATIONS: usize = 3;
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct PythConfig {
     /// FeedId of the Pyth price oracle
@@ -57,7 +55,7 @@ pub struct PythConfig {
     /// Guardian set
     pub guardian_set: Pubkey,
     /// Transformation logic
-    pub transformations: [PythTransformation; MAX_PYTH_TRANSFORMATIONS],
+    pub transformations: [PythTransformation; 3],
 }
 
 /// The data returned from the validation process

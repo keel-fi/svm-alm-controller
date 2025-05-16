@@ -15,7 +15,7 @@ use solana_sdk::{
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
-use svm_alm_controller_client::{
+use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
         InializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,

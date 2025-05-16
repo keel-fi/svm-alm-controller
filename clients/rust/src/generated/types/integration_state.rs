@@ -5,10 +5,10 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::CctpBridgeState;
-use crate::types::LzBridgeState;
-use crate::types::SplTokenExternalState;
-use crate::types::SplTokenSwapState;
+use crate::generated::types::CctpBridgeState;
+use crate::generated::types::LzBridgeState;
+use crate::generated::types::SplTokenExternalState;
+use crate::generated::types::SplTokenSwapState;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 

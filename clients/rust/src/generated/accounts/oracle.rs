@@ -5,40 +5,21 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::IntegrationConfig;
-use crate::generated::types::IntegrationState;
-use crate::generated::types::IntegrationStatus;
+use crate::generated::types::OracleConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Integration {
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub controller: Pubkey,
-    pub description: [u8; 32],
-    pub hash: [u8; 32],
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub lookup_table: Pubkey,
-    pub status: IntegrationStatus,
-    pub rate_limit_slope: u64,
-    pub rate_limit_max_outflow: u64,
-    pub rate_limit_amount_last_update: u64,
-    pub last_refresh_timestamp: i64,
-    pub last_refresh_slot: u64,
-    pub config: IntegrationConfig,
-    pub state: IntegrationState,
+pub struct Oracle {
+    pub last_updated_block: u64,
+    pub price_numerator: u64,
+    pub price_denominator: u64,
+    pub config: OracleConfig,
 }
 
-impl Integration {
-    pub const LEN: usize = 411;
+impl Oracle {
+    pub const LEN: usize = 97;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
@@ -47,7 +28,7 @@ impl Integration {
     }
 }
 
-impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Integration {
+impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Oracle {
     type Error = std::io::Error;
 
     fn try_from(
@@ -59,30 +40,30 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Integration
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_integration(
+pub fn fetch_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     address: &solana_program::pubkey::Pubkey,
-) -> Result<crate::shared::DecodedAccount<Integration>, std::io::Error> {
-    let accounts = fetch_all_integration(rpc, &[*address])?;
+) -> Result<crate::shared::DecodedAccount<Oracle>, std::io::Error> {
+    let accounts = fetch_all_oracle(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_integration(
+pub fn fetch_all_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     addresses: &[solana_program::pubkey::Pubkey],
-) -> Result<Vec<crate::shared::DecodedAccount<Integration>>, std::io::Error> {
+) -> Result<Vec<crate::shared::DecodedAccount<Oracle>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Integration>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Oracle>> = Vec::new();
     for i in 0..addresses.len() {
         let address = addresses[i];
         let account = accounts[i].as_ref().ok_or(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("Account not found: {}", address),
         ))?;
-        let data = Integration::from_bytes(&account.data)?;
+        let data = Oracle::from_bytes(&account.data)?;
         decoded_accounts.push(crate::shared::DecodedAccount {
             address,
             account: account.clone(),
@@ -93,27 +74,27 @@ pub fn fetch_all_integration(
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_maybe_integration(
+pub fn fetch_maybe_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     address: &solana_program::pubkey::Pubkey,
-) -> Result<crate::shared::MaybeAccount<Integration>, std::io::Error> {
-    let accounts = fetch_all_maybe_integration(rpc, &[*address])?;
+) -> Result<crate::shared::MaybeAccount<Oracle>, std::io::Error> {
+    let accounts = fetch_all_maybe_oracle(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_maybe_integration(
+pub fn fetch_all_maybe_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     addresses: &[solana_program::pubkey::Pubkey],
-) -> Result<Vec<crate::shared::MaybeAccount<Integration>>, std::io::Error> {
+) -> Result<Vec<crate::shared::MaybeAccount<Oracle>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Integration>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Oracle>> = Vec::new();
     for i in 0..addresses.len() {
         let address = addresses[i];
         if let Some(account) = accounts[i].as_ref() {
-            let data = Integration::from_bytes(&account.data)?;
+            let data = Oracle::from_bytes(&account.data)?;
             decoded_accounts.push(crate::shared::MaybeAccount::Exists(
                 crate::shared::DecodedAccount {
                     address,
@@ -129,26 +110,26 @@ pub fn fetch_all_maybe_integration(
 }
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::AccountDeserialize for Integration {
+impl anchor_lang::AccountDeserialize for Oracle {
     fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
     }
 }
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::AccountSerialize for Integration {}
+impl anchor_lang::AccountSerialize for Oracle {}
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::Owner for Integration {
+impl anchor_lang::Owner for Oracle {
     fn owner() -> Pubkey {
         crate::SVM_ALM_CONTROLLER_ID
     }
 }
 
 #[cfg(feature = "anchor-idl-build")]
-impl anchor_lang::IdlBuild for Integration {}
+impl anchor_lang::IdlBuild for Oracle {}
 
 #[cfg(feature = "anchor-idl-build")]
-impl anchor_lang::Discriminator for Integration {
+impl anchor_lang::Discriminator for Oracle {
     const DISCRIMINATOR: [u8; 8] = [0; 8];
 }

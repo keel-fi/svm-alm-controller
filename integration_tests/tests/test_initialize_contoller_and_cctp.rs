@@ -3,26 +3,24 @@ mod subs;
 use crate::helpers::constants::USDC_TOKEN_MINT_PUBKEY;
 use crate::subs::{
     airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_mint, initialize_reserve, manage_integration, manage_permission, manage_reserve,
-    mint_tokens, push_integration,
+    initialize_reserve, manage_permission,
+    push_integration,
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
-use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use svm_alm_controller_client::types::SplTokenExternalConfig;
-use svm_alm_controller_client::types::{
+use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
 };
-use svm_alm_controller_client::types::{InitializeArgs, PushArgs, ReserveStatus};
+use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
 
-    use svm_alm_controller_client::types::{CctpBridgeConfig, DepositForBurnArgs};
+    use svm_alm_controller_client::generated::types::CctpBridgeConfig;
 
     use crate::{
         helpers::{
-            cctp::{evm_address_to_solana_pubkey, CctpDepositForBurnPdas},
+            cctp::evm_address_to_solana_pubkey,
             constants::{
                 CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_REMOTE_DOMAIN_ETH,
                 CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
@@ -43,7 +41,7 @@ mod tests {
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
 
         // Create an ATA for the USDC account
-        let authority_usdc_ata = initialize_ata(
+        let _authority_usdc_ata = initialize_ata(
             &mut svm,
             &authority,
             &authority.pubkey(),
@@ -58,7 +56,7 @@ mod tests {
             1_000_000_000,
         )?;
 
-        let (controller_pk, authority_permission_pk) = initialize_contoller(
+        let (controller_pk, _) = initialize_contoller(
             &mut svm,
             &authority,
             &authority,
@@ -84,7 +82,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the token
-        let usdc_reserve_pk = initialize_reserve(
+        let _usdc_reserve_pk = initialize_reserve(
             &mut svm,
             &controller_pk,
             &USDC_TOKEN_MINT_PUBKEY, // mint
