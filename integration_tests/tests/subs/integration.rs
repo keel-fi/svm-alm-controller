@@ -130,16 +130,9 @@ pub fn initialize_integration(
             (IntegrationType::LzBridge, h)
         }
         IntegrationConfig::AtomicSwap(c) => {
-            let b: Vec<u8> = [
-                &[5u8][..],
-                &c.input_token.to_bytes()[..],
-                &c.output_token.to_bytes()[..],
-                &c.oracle.to_bytes()[..],
-                &c.max_slippage_bps.to_le_bytes()[..],
-                &c.padding[..],
-            ]
-            .concat();
-            let h = hash(b.as_slice()).to_bytes();
+            let mut serialized = Vec::with_capacity(std::mem::size_of::<IntegrationConfig>());
+            config.serialize(&mut serialized).unwrap();
+            let h = hash(serialized.as_slice()).to_bytes();
             (IntegrationType::AtomicSwap, h)
         }
         _ => panic!("Not specified"),
