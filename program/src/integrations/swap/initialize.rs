@@ -1,10 +1,7 @@
 use crate::{
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
-    integrations::{
-        lz_bridge::state::LzBridgeState,
-        swap::{config::AtomicSwapConfig, state::AtomicSwapState},
-    },
+    integrations::swap::{config::AtomicSwapConfig, state::AtomicSwapState},
     processor::InitializeIntegrationAccounts,
     state::{nova_account::NovaAccount, Oracle},
 };
@@ -17,8 +14,10 @@ pub struct InitializeAtomicSwapAccounts<'info> {
 }
 
 impl<'info> InitializeAtomicSwapAccounts<'info> {
+    // TODO: from_accounts could be a requirement for an Integration trait 
     pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 4 {
+        // TODO: ACCOUNT_LEN could be a requirement for an Integration trait 
+        if account_infos.len() != 3 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
@@ -69,7 +68,7 @@ pub fn process_initialize_atomic_swap(
         output_token: *inner_ctx.output_mint.key(),
         oracle: *inner_ctx.oracle.key(),
         max_slippage_bps: max_slippage_bps,
-        padding: [0u8; 96],
+        padding: [0u8; 94],
     });
 
     // Create the initial integration state

@@ -84,7 +84,7 @@ mod tests {
                 output_token: coin_token_mint,
                 oracle: oracle_pubkey,
                 max_slippage_bps: 123,
-                padding: [0u8; 96],
+                padding: [0u8; 94],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,

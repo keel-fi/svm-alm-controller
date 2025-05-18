@@ -11,11 +11,10 @@ use pinocchio::{
     instruction::Seed,
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::{find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
 use shank::ShankAccount;
-use solana_program::pubkey::Pubkey as SolanaPubkey;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -42,15 +41,15 @@ impl NovaAccount for Integration {
     const LEN: usize = 4 * 32 + 1 + 193 + 49 + 8 * 5;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = SolanaPubkey::find_program_address(
+        let (pda, bump) = find_program_address(
             &[
                 INTEGRATION_SEED,
                 self.controller.as_ref(),
                 self.hash.as_ref(),
             ],
-            &SolanaPubkey::from(crate::ID),
+            &crate::ID,
         );
-        Ok((pda.to_bytes(), bump))
+        Ok((pda, bump))
     }
 }
 
