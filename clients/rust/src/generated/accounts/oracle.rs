@@ -5,21 +5,24 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::OracleConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Oracle {
-    pub last_updated_block: u64,
-    pub price_numerator: u64,
-    pub price_denominator: u64,
-    pub config: OracleConfig,
+    pub oracle_type: u8,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub price_feed: Pubkey,
+    pub reserved: [u8; 32],
 }
 
 impl Oracle {
-    pub const LEN: usize = 97;
+    pub const LEN: usize = 65;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

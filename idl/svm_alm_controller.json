@@ -656,21 +656,20 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "lastUpdatedBlock",
-            "type": "u64"
+            "name": "oracleType",
+            "type": "u8"
           },
           {
-            "name": "priceNumerator",
-            "type": "u64"
+            "name": "priceFeed",
+            "type": "publicKey"
           },
           {
-            "name": "priceDenominator",
-            "type": "u64"
-          },
-          {
-            "name": "config",
+            "name": "reserved",
             "type": {
-              "defined": "OracleConfig"
+              "array": [
+                "u8",
+                32
+              ]
             }
           }
         ]
@@ -1711,62 +1710,6 @@
       }
     },
     {
-      "name": "DataSource",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "emitterChainId",
-            "type": "u16"
-          },
-          {
-            "name": "emitterAddress",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "PythConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "feedId",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "minSignatures",
-            "type": "u8"
-          },
-          {
-            "name": "maxStalenessSeconds",
-            "type": "u32"
-          },
-          {
-            "name": "guardianSet",
-            "type": "publicKey"
-          },
-          {
-            "name": "transformations",
-            "type": {
-              "array": [
-                {
-                  "defined": "PythTransformation"
-                },
-                3
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "ControllerStatus",
       "type": {
         "kind": "enum",
@@ -2118,42 +2061,6 @@
           },
           {
             "name": "LzBridge"
-          }
-        ]
-      }
-    },
-    {
-      "name": "OracleConfig",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "PythFeed",
-            "fields": [
-              {
-                "defined": "PythConfig"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "PythTransformation",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "None"
-          },
-          {
-            "name": "UsePrice"
-          },
-          {
-            "name": "UseEmaPrice"
-          },
-          {
-            "name": "InvertInput"
           }
         ]
       }

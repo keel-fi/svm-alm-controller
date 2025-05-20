@@ -1,9 +1,6 @@
 use crate::{constants::ORACLE_SEED, state::nova_account::NovaAccount};
 
-use super::{
-    super::discriminator::{AccountDiscriminators, Discriminator},
-    pyth_config::PythConfig,
-};
+use super::super::discriminator::{AccountDiscriminators, Discriminator};
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     program_error::ProgramError,
@@ -11,32 +8,15 @@ use pinocchio::{
 };
 use shank::ShankAccount;
 
-// Provides flexibility for future Oracle configurations or more complex types.
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub enum OracleConfig {
-    PythFeed(PythConfig),
-}
-
-impl OracleConfig {
-    pub fn seeds(&self) -> [u8; 32] {
-        match self {
-            Self::PythFeed(pyth_config) => pyth_config.feed_id,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Oracle {
-    /// The block the oracle information was last updated in.
-    pub last_updated_block: u64,
-    /// The up-to-date numerator for a price of a given asset
-    pub price_numerator: u64,
-    /// The up-to-date denonomiator for a price of a given asset. Use of denom numerator and
-    /// denominator make normalization and decimal handling easier.
-    pub price_denominator: u64,
-    /// The configuration for this oracle.
-    pub config: OracleConfig,
+    /// Type of Oracle (0 = Switchboard)
+    pub oracle_type: u8,
+    /// Address of price feed.
+    pub price_feed: Pubkey,
+    /// Reserved space.
+    pub reserved: [u8; 32],
 }
 
 impl Discriminator for Oracle {
@@ -48,7 +28,7 @@ impl NovaAccount for Oracle {
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) =
-            find_program_address(&[ORACLE_SEED, self.config.seeds().as_ref()], &crate::ID);
+            find_program_address(&[ORACLE_SEED, self.price_feed.as_ref()], &crate::ID);
         Ok((pda, bump))
     }
 }
