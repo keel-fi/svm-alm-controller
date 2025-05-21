@@ -1,4 +1,4 @@
-use crate::{instructions::InitializeOracleConfigArgs, state::Oracle};
+use crate::{instructions::InitializeOracleConfigArgs, state::OracleConfig};
 use borsh::BorshDeserialize;
 use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
@@ -46,7 +46,7 @@ pub fn process_initialize_oracle_config(
     let ctx = InitializeOracleConfig::from_accounts(accounts)?;
     let args = InitializeOracleConfigArgs::try_from_slice(instruction_data).unwrap();
 
-    Oracle::init_account(
+    OracleConfig::init_account(
         ctx.oracle_config,
         ctx.payer,
         ctx.price_feed,

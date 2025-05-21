@@ -15,7 +15,7 @@ use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
-pub struct Oracle {
+pub struct OracleConfig {
     /// Type of Oracle (0 = Switchboard)
     pub oracle_type: u8,
     /// Address of price feed.
@@ -24,11 +24,11 @@ pub struct Oracle {
     pub reserved: [u8; 64],
 }
 
-impl Discriminator for Oracle {
-    const DISCRIMINATOR: u8 = AccountDiscriminators::Oracle as u8;
+impl Discriminator for OracleConfig {
+    const DISCRIMINATOR: u8 = AccountDiscriminators::OracleConfig as u8;
 }
 
-impl NovaAccount for Oracle {
+impl NovaAccount for OracleConfig {
     const LEN: usize = 97;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
@@ -38,7 +38,7 @@ impl NovaAccount for Oracle {
     }
 }
 
-impl Oracle {
+impl OracleConfig {
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,
@@ -46,7 +46,7 @@ impl Oracle {
         oracle_type: u8,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the oracle_config
-        let oracle_config = Oracle {
+        let oracle_config = OracleConfig {
             oracle_type,
             price_feed: *price_feed.key(),
             reserved: [0; 64],

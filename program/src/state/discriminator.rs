@@ -14,7 +14,7 @@ pub enum AccountDiscriminators {
     IntegrationDiscriminator = 3,
     ReserveDiscriminator = 4,
     SwapPair = 5,
-    Oracle = 6,
+    OracleConfig = 6,
 }
 
 pub trait AccountSerialize: Discriminator {
