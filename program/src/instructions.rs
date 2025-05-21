@@ -107,6 +107,11 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, writable, name = "oracle")]
     #[account(3, name = "system_program")]
     InitializeOracle(InitializeOracleArgs),
+
+    /// RefreshOracle
+    #[account(0, name = "price_feed")]
+    #[account(1, writable, name = "oracle")]
+    RefreshOracle(),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

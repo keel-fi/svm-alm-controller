@@ -46,6 +46,16 @@ impl NovaAccount for Oracle {
 }
 
 impl Oracle {
+    pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
+        // Ensure account owner is the program
+        if !account_info.is_owned_by(&crate::ID) {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        oracle.verify_pda(account_info)?;
+        Ok(oracle)
+    }
+
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,
