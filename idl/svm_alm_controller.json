@@ -651,7 +651,7 @@
       }
     },
     {
-      "name": "Oracle",
+      "name": "OracleConfig",
       "type": {
         "kind": "struct",
         "fields": [
@@ -668,7 +668,7 @@
             "type": {
               "array": [
                 "u8",
-                32
+                64
               ]
             }
           }
@@ -1160,6 +1160,18 @@
             "type": {
               "option": "u64"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeOracleConfigArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": "u8"
           }
         ]
       }
@@ -1665,7 +1677,7 @@
             "type": "publicKey"
           },
           {
-            "name": "oracle",
+            "name": "oracleConfig",
             "type": "publicKey"
           },
           {
