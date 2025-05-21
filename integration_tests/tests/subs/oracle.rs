@@ -5,13 +5,7 @@ use litesvm::LiteSVM;
 use solana_sdk::{account::Account, clock::Clock, pubkey::Pubkey};
 
 use svm_alm_controller::state::AccountDiscriminators;
-use svm_alm_controller_client::{
-    generated::{
-        accounts::Oracle,
-        types::{OracleConfig, PythConfig, PythTransformation},
-    },
-    SVM_ALM_CONTROLLER_ID,
-};
+use svm_alm_controller_client::{generated::accounts::Oracle, SVM_ALM_CONTROLLER_ID};
 
 pub fn set_oracle_price(
     svm: &mut LiteSVM,
@@ -21,21 +15,12 @@ pub fn set_oracle_price(
 ) -> Result<(), Box<dyn Error>> {
     let clock: Clock = svm.get_sysvar();
     let oracle = Oracle {
-        last_updated_block: clock.slot,
-        price_numerator: numerator,
-        price_denominator: denominator,
-        config: OracleConfig::PythFeed(PythConfig {
-            feed_id: [0u8; 32],
-            min_signatures: 0,
-            max_staleness_seconds: 0,
-            guardian_set: Pubkey::new_unique(),
-            transformations: [
-                PythTransformation::None,
-                PythTransformation::None,
-                PythTransformation::None,
-            ],
-        }),
+        oracle_type: 0,
+        price_feed: Pubkey::new_unique(),
+        reserved: [0; 32],
     };
+
+    // TODO: Actually set price in underlying feed.
 
     // TODO: DRY This up with the generated client stuff
     let mut serialized = Vec::with_capacity(1 + Oracle::LEN);

@@ -3,7 +3,7 @@ use constants::{
     CCTP_REMOTE_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
     CCTP_TOKEN_MINTER, LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY,
     LZ_USDS_PEER_CONFIG_PUBKEY, NOVA_TOKEN_SWAP_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY,
-    USDS_TOKEN_MINT_PUBKEY, WORMHOLE_GUARDIAN_SET_4_PUBKEY,
+    USDS_TOKEN_MINT_PUBKEY,
 };
 use litesvm::LiteSVM;
 pub mod cctp;
@@ -33,11 +33,6 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     // Add the NOVA TOKEN SWAP program
     let nova_token_swap_program_bytes = include_bytes!("../../fixtures/nova_token_swap.so");
     svm.add_program(NOVA_TOKEN_SWAP_PROGRAM_ID, nova_token_swap_program_bytes);
-
-    // // Get the Account object
-    let gs4_account = get_account_data_from_json("./fixtures/wormhole_guardian_set_4.json");
-    svm.set_account(WORMHOLE_GUARDIAN_SET_4_PUBKEY, gs4_account)
-        .unwrap();
 
     // Add the CCTP Programs
     let cctp_message_transmitter_program =
