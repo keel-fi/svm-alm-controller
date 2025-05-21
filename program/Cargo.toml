@@ -26,5 +26,4 @@ borsh-derive = "0.10.3"
 num-derive = { workspace = true }
 num-traits = { workspace = true}
 solana-keccak-hasher = { workspace = true }
-wormhole-raw-vaas = { workspace = true }
 switchboard-on-demand = { workspace = true }

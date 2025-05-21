@@ -33,7 +33,7 @@ mod tests {
     fn test_happy_path_initialize_swap_integration() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
         let oracle_pubkey = Pubkey::new_unique();
-        set_oracle_price(&mut svm, &oracle_pubkey, 1_000_000_000, 1_000_000_000)?;
+        set_oracle_price(&mut svm, &oracle_pubkey, 1_000_000_000)?;
 
         let relayer_authority_kp = Keypair::new();
         svm.airdrop(&relayer_authority_kp.pubkey(), 100_000_000)

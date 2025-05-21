@@ -5296,7 +5296,6 @@ dependencies = [
  "solana-keccak-hasher",
  "solana-program",
  "switchboard-on-demand",
- "wormhole-raw-vaas",
 ]
 
 [[package]]
@@ -5334,6 +5333,7 @@ dependencies = [
  "static_assertions",
  "svm-alm-controller",
  "svm-alm-controller-client",
+ "switchboard-on-demand",
  "test-log",
 ]
 
@@ -6072,12 +6072,6 @@ dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
 ]
-
-[[package]]
-name = "wormhole-raw-vaas"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ceb9fca372420dc0084581fd9d5f74b30a7462719c9d241d1dd6ae9ddac4c40"
 
 [[package]]
 name = "write16"

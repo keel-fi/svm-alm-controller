@@ -130,7 +130,7 @@ mod tests {
         )?;
         // TODO: stub the OracleAccount data
         let oracle_pubkey = Pubkey::new_unique();
-        set_oracle_price(&mut svm, &oracle_pubkey, 1_000_000_000, 1_000_000_000)?;
+        set_oracle_price(&mut svm, &oracle_pubkey, 1_000_000_000)?;
 
         // TODO: Create the SwapPair
 

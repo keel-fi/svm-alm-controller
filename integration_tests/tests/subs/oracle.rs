@@ -1,31 +1,41 @@
 use std::error::Error;
 
 use borsh::BorshSerialize;
+use bytemuck::Zeroable;
 use litesvm::LiteSVM;
 use solana_sdk::{account::Account, clock::Clock, pubkey::Pubkey};
 
 use svm_alm_controller::state::AccountDiscriminators;
 use svm_alm_controller_client::{generated::accounts::Oracle, SVM_ALM_CONTROLLER_ID};
+use switchboard_on_demand::{Discriminator, OracleSubmission, PullFeedAccountData};
 
 pub fn set_oracle_price(
     svm: &mut LiteSVM,
     pubkey: &Pubkey,
-    numerator: u64,
-    denominator: u64,
+    price: i128,
 ) -> Result<(), Box<dyn Error>> {
     let clock: Clock = svm.get_sysvar();
-    let oracle = Oracle {
-        oracle_type: 0,
-        price_feed: Pubkey::new_unique(),
-        reserved: [0; 64],
+    let slot = clock.slot;
+
+    let mut feed_data = PullFeedAccountData::zeroed();
+    feed_data.authority = Pubkey::new_unique();
+    feed_data.queue = Pubkey::new_unique();
+    feed_data.min_responses = 1;
+    feed_data.min_sample_size = 1;
+    feed_data.max_staleness = 150u32;
+    feed_data.result.debug_only_force_override(price, slot);
+    feed_data.result.submission_idx = 0;
+    feed_data.submissions[0] = OracleSubmission {
+        oracle: Pubkey::new_unique(),
+        slot,
+        landed_at: slot,
+        value: price,
     };
+    feed_data.submission_timestamps[0] = clock.unix_timestamp;
 
-    // TODO: Actually set price in underlying feed.
-
-    // TODO: DRY This up with the generated client stuff
-    let mut serialized = Vec::with_capacity(1 + Oracle::LEN);
-    serialized.push(AccountDiscriminators::Oracle as u8);
-    BorshSerialize::serialize(&oracle, &mut serialized).unwrap();
+    let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>());
+    serialized.extend_from_slice(&PullFeedAccountData::DISCRIMINATOR);
+    serialized.extend_from_slice(bytemuck::bytes_of(&feed_data));
 
     svm.set_account(
         *pubkey,
@@ -37,5 +47,6 @@ pub fn set_oracle_price(
             rent_epoch: u64::MAX,
         },
     )?;
+
     Ok(())
 }
