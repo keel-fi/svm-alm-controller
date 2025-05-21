@@ -20,6 +20,13 @@ pub struct Oracle {
     pub oracle_type: u8,
     /// Address of price feed.
     pub price_feed: Pubkey,
+    /// Price stored with full precision.
+    pub value: i128,
+    /// Precision of value.
+    pub precision: u32,
+    /// Slot in which value was last updated in the oracle feed.
+    /// Note that this is not the slot in which prices were last refreshed.
+    pub last_update_slot: u64,
     /// Reserved space (e.g. for Pyth price update account)
     pub reserved: [u8; 64],
 }
@@ -29,7 +36,7 @@ impl Discriminator for Oracle {
 }
 
 impl NovaAccount for Oracle {
-    const LEN: usize = 97;
+    const LEN: usize = 125;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) =
@@ -49,6 +56,9 @@ impl Oracle {
         let oracle = Oracle {
             oracle_type,
             price_feed: *price_feed.key(),
+            value: 0,
+            precision: 0,
+            last_update_slot: 0,
             reserved: [0; 64],
         };
 

@@ -81,6 +81,10 @@ mod tests {
         let oracle = oracle.unwrap();
         assert_eq!(oracle.oracle_type, oracle_type);
         assert_eq!(oracle.price_feed, new_feed);
+        assert_eq!(oracle.value, 0);
+        assert_eq!(oracle.precision, 0);
+        assert_eq!(oracle.last_update_slot, 0);
+        assert_eq!(oracle.reserved, [0; 64]);
 
         Ok(())
     }

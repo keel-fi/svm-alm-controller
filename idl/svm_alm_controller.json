@@ -701,6 +701,18 @@
             "type": "publicKey"
           },
           {
+            "name": "value",
+            "type": "i128"
+          },
+          {
+            "name": "precision",
+            "type": "u32"
+          },
+          {
+            "name": "lastUpdateSlot",
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
