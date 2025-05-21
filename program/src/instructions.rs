@@ -159,6 +159,11 @@ pub struct ManageIntegrationArgs {
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct InitializeOracleConfigArgs {
+    pub oracle_type: u8,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum InitializeArgs {
     SplTokenExternal,
     SplTokenSwap,
