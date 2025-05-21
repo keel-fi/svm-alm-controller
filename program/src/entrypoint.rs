@@ -5,7 +5,7 @@ use pinocchio::{
 
 use crate::processor::{
     process_emit_event, process_initialize_controller, process_initialize_integration,
-    process_initialize_oracle_config, process_initialize_reserve, process_manage_integration,
+    process_initialize_oracle, process_initialize_reserve, process_manage_integration,
     process_manage_permission, process_manage_reserve, process_pull, process_push,
     process_sync_integration, process_sync_reserve,
 };
@@ -33,7 +33,7 @@ pub fn process_instruction(
         8 => process_sync_integration(program_id, accounts, instruction_data),
         9 => process_push(program_id, accounts, instruction_data),
         10 => process_pull(program_id, accounts, instruction_data),
-        11 => process_initialize_oracle_config(program_id, accounts, instruction_data),
+        11 => process_initialize_oracle(program_id, accounts, instruction_data),
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

@@ -15,7 +15,7 @@ use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
-pub struct OracleConfig {
+pub struct Oracle {
     /// Type of Oracle (0 = Switchboard)
     pub oracle_type: u8,
     /// Address of price feed.
@@ -24,11 +24,11 @@ pub struct OracleConfig {
     pub reserved: [u8; 64],
 }
 
-impl Discriminator for OracleConfig {
-    const DISCRIMINATOR: u8 = AccountDiscriminators::OracleConfig as u8;
+impl Discriminator for Oracle {
+    const DISCRIMINATOR: u8 = AccountDiscriminators::Oracle as u8;
 }
 
-impl NovaAccount for OracleConfig {
+impl NovaAccount for Oracle {
     const LEN: usize = 97;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
@@ -38,22 +38,22 @@ impl NovaAccount for OracleConfig {
     }
 }
 
-impl OracleConfig {
+impl Oracle {
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,
         price_feed: &AccountInfo,
         oracle_type: u8,
     ) -> Result<Self, ProgramError> {
-        // Create and serialize the oracle_config
-        let oracle_config = OracleConfig {
+        // Create and serialize the oracle
+        let oracle = Oracle {
             oracle_type,
             price_feed: *price_feed.key(),
             reserved: [0; 64],
         };
 
         // Derive the PDA
-        let (pda, bump) = oracle_config.derive_pda()?;
+        let (pda, bump) = oracle.derive_pda()?;
         if account_info.key().ne(&pda) {
             return Err(ProgramError::InvalidSeeds); // PDA was invalid
         }
@@ -76,7 +76,7 @@ impl OracleConfig {
         )?;
 
         // Commit the account on-chain
-        oracle_config.save(account_info)?;
-        Ok(oracle_config)
+        oracle.save(account_info)?;
+        Ok(oracle)
     }
 }

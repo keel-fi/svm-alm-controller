@@ -8,8 +8,8 @@ pub struct AtomicSwapConfig {
     pub input_token: Pubkey,
     /// The token being swapped for
     pub output_token: Pubkey,
-    /// The OracleConfig account that is used for this pair
-    pub oracle_config: Pubkey,
+    /// The Oracle account that is used for this pair
+    pub oracle: Pubkey,
     /// The max amount of slippage from the oracle's price.
     pub max_slippage_bps: u16,
     pub padding: [u8; 94],

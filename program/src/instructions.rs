@@ -159,7 +159,7 @@ pub struct ManageIntegrationArgs {
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct InitializeOracleConfigArgs {
+pub struct InitializeOracleArgs {
     pub oracle_type: u8,
 }
 

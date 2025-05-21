@@ -1,5 +1,5 @@
 pub mod emit_event;
-pub mod initalize_oracle_config;
+pub mod initalize_oracle;
 pub mod initialize_controller;
 pub mod initialize_integration;
 pub mod initialize_reserve;
@@ -12,7 +12,7 @@ pub mod sync_integration;
 pub mod sync_reserve;
 
 pub use emit_event::*;
-pub use initalize_oracle_config::*;
+pub use initalize_oracle::*;
 pub use initialize_controller::*;
 pub use initialize_integration::*;
 pub use initialize_reserve::*;
