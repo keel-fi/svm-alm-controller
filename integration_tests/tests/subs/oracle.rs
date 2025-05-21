@@ -17,7 +17,7 @@ pub fn set_oracle_price(
     let oracle = Oracle {
         oracle_type: 0,
         price_feed: Pubkey::new_unique(),
-        reserved: [0; 32],
+        reserved: [0; 64],
     };
 
     // TODO: Actually set price in underlying feed.

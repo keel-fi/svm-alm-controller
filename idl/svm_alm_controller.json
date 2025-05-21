@@ -553,6 +553,43 @@
         "type": "u8",
         "value": 10
       }
+    },
+    {
+      "name": "InitializeOracle",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeOracleArgs",
+          "type": {
+            "defined": "InitializeOracleArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 11
+      }
     }
   ],
   "accounts": [
@@ -651,7 +688,7 @@
       }
     },
     {
-      "name": "OracleConfig",
+      "name": "Oracle",
       "type": {
         "kind": "struct",
         "fields": [
@@ -1165,7 +1202,7 @@
       }
     },
     {
-      "name": "InitializeOracleConfigArgs",
+      "name": "InitializeOracleArgs",
       "type": {
         "kind": "struct",
         "fields": [
@@ -1677,7 +1714,7 @@
             "type": "publicKey"
           },
           {
-            "name": "oracleConfig",
+            "name": "oracle",
             "type": "publicKey"
           },
           {

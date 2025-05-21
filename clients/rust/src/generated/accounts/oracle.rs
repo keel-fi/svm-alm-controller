@@ -11,7 +11,7 @@ use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct OracleConfig {
+pub struct Oracle {
     pub oracle_type: u8,
     #[cfg_attr(
         feature = "serde",
@@ -22,7 +22,7 @@ pub struct OracleConfig {
     pub reserved: [u8; 64],
 }
 
-impl OracleConfig {
+impl Oracle {
     pub const LEN: usize = 97;
 
     #[inline(always)]
@@ -32,7 +32,7 @@ impl OracleConfig {
     }
 }
 
-impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for OracleConfig {
+impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Oracle {
     type Error = std::io::Error;
 
     fn try_from(
@@ -44,30 +44,30 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for OracleConfi
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_oracle_config(
+pub fn fetch_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     address: &solana_program::pubkey::Pubkey,
-) -> Result<crate::shared::DecodedAccount<OracleConfig>, std::io::Error> {
-    let accounts = fetch_all_oracle_config(rpc, &[*address])?;
+) -> Result<crate::shared::DecodedAccount<Oracle>, std::io::Error> {
+    let accounts = fetch_all_oracle(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_oracle_config(
+pub fn fetch_all_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     addresses: &[solana_program::pubkey::Pubkey],
-) -> Result<Vec<crate::shared::DecodedAccount<OracleConfig>>, std::io::Error> {
+) -> Result<Vec<crate::shared::DecodedAccount<Oracle>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<OracleConfig>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Oracle>> = Vec::new();
     for i in 0..addresses.len() {
         let address = addresses[i];
         let account = accounts[i].as_ref().ok_or(std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("Account not found: {}", address),
         ))?;
-        let data = OracleConfig::from_bytes(&account.data)?;
+        let data = Oracle::from_bytes(&account.data)?;
         decoded_accounts.push(crate::shared::DecodedAccount {
             address,
             account: account.clone(),
@@ -78,27 +78,27 @@ pub fn fetch_all_oracle_config(
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_maybe_oracle_config(
+pub fn fetch_maybe_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     address: &solana_program::pubkey::Pubkey,
-) -> Result<crate::shared::MaybeAccount<OracleConfig>, std::io::Error> {
-    let accounts = fetch_all_maybe_oracle_config(rpc, &[*address])?;
+) -> Result<crate::shared::MaybeAccount<Oracle>, std::io::Error> {
+    let accounts = fetch_all_maybe_oracle(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_maybe_oracle_config(
+pub fn fetch_all_maybe_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
     addresses: &[solana_program::pubkey::Pubkey],
-) -> Result<Vec<crate::shared::MaybeAccount<OracleConfig>>, std::io::Error> {
+) -> Result<Vec<crate::shared::MaybeAccount<Oracle>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<OracleConfig>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Oracle>> = Vec::new();
     for i in 0..addresses.len() {
         let address = addresses[i];
         if let Some(account) = accounts[i].as_ref() {
-            let data = OracleConfig::from_bytes(&account.data)?;
+            let data = Oracle::from_bytes(&account.data)?;
             decoded_accounts.push(crate::shared::MaybeAccount::Exists(
                 crate::shared::DecodedAccount {
                     address,
@@ -114,26 +114,26 @@ pub fn fetch_all_maybe_oracle_config(
 }
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::AccountDeserialize for OracleConfig {
+impl anchor_lang::AccountDeserialize for Oracle {
     fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
     }
 }
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::AccountSerialize for OracleConfig {}
+impl anchor_lang::AccountSerialize for Oracle {}
 
 #[cfg(feature = "anchor")]
-impl anchor_lang::Owner for OracleConfig {
+impl anchor_lang::Owner for Oracle {
     fn owner() -> Pubkey {
         crate::SVM_ALM_CONTROLLER_ID
     }
 }
 
 #[cfg(feature = "anchor-idl-build")]
-impl anchor_lang::IdlBuild for OracleConfig {}
+impl anchor_lang::IdlBuild for Oracle {}
 
 #[cfg(feature = "anchor-idl-build")]
-impl anchor_lang::Discriminator for OracleConfig {
+impl anchor_lang::Discriminator for Oracle {
     const DISCRIMINATOR: [u8; 8] = [0; 8];
 }

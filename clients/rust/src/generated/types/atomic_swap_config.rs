@@ -26,7 +26,7 @@ pub struct AtomicSwapConfig {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub oracle_config: Pubkey,
+    pub oracle: Pubkey,
     pub max_slippage_bps: u16,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
     pub padding: [u8; 94],

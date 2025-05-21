@@ -100,6 +100,13 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "reserve_a")]
     #[account(5, writable, name = "reserve_b")]
     Pull(PullArgs),
+
+    /// InitializeOracle
+    #[account(0, signer, writable, name = "payer")]
+    #[account(1, name = "price_feed")]
+    #[account(2, writable, name = "oracle")]
+    #[account(3, name = "system_program")]
+    InitializeOracle(InitializeOracleArgs),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
