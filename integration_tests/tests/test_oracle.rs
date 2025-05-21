@@ -1,8 +1,7 @@
 mod helpers;
 mod subs;
 
-use crate::subs::oracle::set_oracle_price;
-use borsh::BorshDeserialize;
+use crate::subs::oracle::*;
 use helpers::lite_svm_with_programs;
 use litesvm::LiteSVM;
 use solana_sdk::{
@@ -16,33 +15,6 @@ use svm_alm_controller_client::generated::{
     instructions::{InitializeOracleBuilder, RefreshOracleBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
 };
-
-pub fn derive_oracle_pda(feed: &Pubkey) -> Pubkey {
-    let (controller_pda, _controller_bump) = Pubkey::find_program_address(
-        &[b"oracle", &feed.to_bytes()],
-        &Pubkey::from(SVM_ALM_CONTROLLER_ID),
-    );
-    controller_pda
-}
-
-pub fn fetch_oracle_account(
-    svm: &LiteSVM,
-    oracle_pda: &Pubkey,
-) -> Result<Option<Oracle>, Box<dyn Error>> {
-    let oracle_info = svm.get_account(oracle_pda);
-    match oracle_info {
-        Some(info) => {
-            if info.data.is_empty() {
-                Ok(None)
-            } else {
-                Oracle::try_from_slice(&info.data[1..])
-                    .map(Some)
-                    .map_err(Into::into)
-            }
-        }
-        None => Ok(None),
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -70,22 +42,7 @@ mod tests {
         set_oracle_price(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        let ixn = InitializeOracleBuilder::new()
-            .oracle(oracle_pda)
-            .price_feed(new_feed)
-            .system_program(system_program::ID)
-            .payer(authority.pubkey())
-            .oracle_type(oracle_type)
-            .instruction();
-
-        let txn = Transaction::new_signed_with_payer(
-            &[ixn],
-            Some(&authority.pubkey()),
-            &[&authority],
-            svm.latest_blockhash(),
-        );
-        let tx_result = svm.send_transaction(txn);
-        assert!(tx_result.is_ok(), "Transaction failed to execute");
+        initalize_oracle(&mut svm, &authority, &new_feed, 0)?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
@@ -98,19 +55,7 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
 
         // Refresh Oracle account with price.
-        let ixn = RefreshOracleBuilder::new()
-            .oracle(oracle_pda)
-            .price_feed(new_feed)
-            .instruction();
-
-        let txn = Transaction::new_signed_with_payer(
-            &[ixn],
-            Some(&authority.pubkey()),
-            &[&authority],
-            svm.latest_blockhash(),
-        );
-        let tx_result = svm.send_transaction(txn);
-        assert!(tx_result.is_ok(), "Transaction failed to execute");
+        refresh_oracle(&mut svm, &authority, &new_feed)?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");

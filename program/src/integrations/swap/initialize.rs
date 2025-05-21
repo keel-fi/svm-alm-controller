@@ -53,13 +53,17 @@ pub fn process_initialize_atomic_swap(
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
-    let max_slippage_bps = match outer_args.inner_args {
-        InitializeArgs::AtomicSwap { max_slippage_bps } => max_slippage_bps,
+    let (max_slippage_bps, is_input_token_base_asset) = match outer_args.inner_args {
+        InitializeArgs::AtomicSwap {
+            max_slippage_bps,
+            is_input_token_base_asset,
+            ..
+        } => (max_slippage_bps, is_input_token_base_asset),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
-    let _oracle: Oracle =
-        NovaAccount::deserialize(&mut &*inner_ctx.oracle.try_borrow_data()?).map_err(|e| e)?;
+    // Check that Oracle is a valid account.
+    let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
 
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
@@ -67,7 +71,8 @@ pub fn process_initialize_atomic_swap(
         output_token: *inner_ctx.output_mint.key(),
         oracle: *inner_ctx.oracle.key(),
         max_slippage_bps,
-        padding: [0u8; 94],
+        is_input_token_base_asset,
+        padding: [0u8; 93],
     });
 
     // Create the initial integration state

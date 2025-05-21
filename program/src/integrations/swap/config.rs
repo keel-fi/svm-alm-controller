@@ -12,5 +12,10 @@ pub struct AtomicSwapConfig {
     pub oracle: Pubkey,
     /// The max amount of slippage from the oracle's price.
     pub max_slippage_bps: u16,
-    pub padding: [u8; 94],
+    /// Whether `input_token` is the base asset of the oracle price.
+    ///
+    /// For example, if oracle price of BTC/USDC is 100,000, and `input_token` is BTC,
+    /// `output_token` is USDC, then is_input_token_base_asset will be true.
+    pub is_input_token_base_asset: bool,
+    pub padding: [u8; 93],
 }

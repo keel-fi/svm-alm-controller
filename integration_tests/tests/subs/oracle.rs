@@ -1,13 +1,49 @@
 use std::error::Error;
 
-use borsh::BorshSerialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::Zeroable;
 use litesvm::LiteSVM;
-use solana_sdk::{account::Account, clock::Clock, pubkey::Pubkey};
+use solana_sdk::{
+    account::Account, clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer,
+    system_program, transaction::Transaction,
+};
 
 use svm_alm_controller::state::AccountDiscriminators;
-use svm_alm_controller_client::{generated::accounts::Oracle, SVM_ALM_CONTROLLER_ID};
+use svm_alm_controller_client::{
+    generated::{
+        accounts::Oracle,
+        instructions::{InitializeOracleBuilder, RefreshOracleBuilder},
+    },
+    SVM_ALM_CONTROLLER_ID,
+};
 use switchboard_on_demand::{Discriminator, OracleSubmission, PullFeedAccountData};
+
+pub fn derive_oracle_pda(feed: &Pubkey) -> Pubkey {
+    let (controller_pda, _controller_bump) = Pubkey::find_program_address(
+        &[b"oracle", &feed.to_bytes()],
+        &Pubkey::from(SVM_ALM_CONTROLLER_ID),
+    );
+    controller_pda
+}
+
+pub fn fetch_oracle_account(
+    svm: &LiteSVM,
+    oracle_pda: &Pubkey,
+) -> Result<Option<Oracle>, Box<dyn Error>> {
+    let oracle_info = svm.get_account(oracle_pda);
+    match oracle_info {
+        Some(info) => {
+            if info.data.is_empty() {
+                Ok(None)
+            } else {
+                Oracle::try_from_slice(&info.data[1..])
+                    .map(Some)
+                    .map_err(Into::into)
+            }
+        }
+        None => Ok(None),
+    }
+}
 
 pub fn set_oracle_price(
     svm: &mut LiteSVM,
@@ -47,6 +83,58 @@ pub fn set_oracle_price(
             rent_epoch: u64::MAX,
         },
     )?;
+
+    Ok(())
+}
+
+pub fn initalize_oracle(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    price_feed: &Pubkey,
+    oracle_type: u8,
+) -> Result<(), Box<dyn Error>> {
+    let oracle_pda = derive_oracle_pda(&price_feed);
+
+    // Initialize Oracle account
+    let ixn = InitializeOracleBuilder::new()
+        .oracle(oracle_pda)
+        .price_feed(*price_feed)
+        .system_program(system_program::ID)
+        .payer(payer.pubkey())
+        .oracle_type(oracle_type)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+    let tx_result = svm.send_transaction(txn);
+    assert!(tx_result.is_ok(), "Transaction failed to execute");
+    Ok(())
+}
+
+pub fn refresh_oracle(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    price_feed: &Pubkey,
+) -> Result<(), Box<dyn Error>> {
+    let oracle_pda = derive_oracle_pda(&price_feed);
+
+    let ixn = RefreshOracleBuilder::new()
+        .oracle(oracle_pda)
+        .price_feed(*price_feed)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+    let tx_result = svm.send_transaction(txn);
+    assert!(tx_result.is_ok(), "Transaction failed to execute");
 
     Ok(())
 }

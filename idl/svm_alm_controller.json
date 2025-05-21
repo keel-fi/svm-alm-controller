@@ -1754,11 +1754,15 @@
             "type": "u16"
           },
           {
+            "name": "isInputTokenBaseAsset",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                94
+                93
               ]
             }
           }
@@ -2062,6 +2066,10 @@
               {
                 "name": "max_slippage_bps",
                 "type": "u16"
+              },
+              {
+                "name": "is_input_token_base_asset",
+                "type": "bool"
               }
             ]
           }
