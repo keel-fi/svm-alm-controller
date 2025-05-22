@@ -597,6 +597,44 @@
       }
     },
     {
+      "name": "UpdateOracle",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "newAuthority",
+          "isMut": false,
+          "isSigner": true,
+          "isOptional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "updateOracleArgs",
+          "type": {
+            "defined": "UpdateOracleArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 12
+      }
+    },
+    {
       "name": "RefreshOracle",
       "accounts": [
         {
@@ -613,7 +651,7 @@
       "args": [],
       "discriminant": {
         "type": "u8",
-        "value": 12
+        "value": 13
       }
     }
   ],
@@ -1258,6 +1296,20 @@
           {
             "name": "nonce",
             "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateOracleArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": {
+              "option": "u8"
+            }
           }
         ]
       }

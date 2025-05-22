@@ -11,6 +11,7 @@ pub mod push;
 pub mod refresh_oracle;
 pub mod sync_integration;
 pub mod sync_reserve;
+pub mod update_oracle;
 
 pub use emit_event::*;
 pub use initalize_oracle::*;
@@ -21,6 +22,7 @@ pub use manage_integration::*;
 pub use manage_permission::*;
 pub use manage_reserve::*;
 pub use refresh_oracle::*;
+pub use update_oracle::*;
 
 pub use pull::*;
 pub use push::*;

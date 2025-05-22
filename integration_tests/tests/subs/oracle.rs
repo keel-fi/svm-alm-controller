@@ -12,7 +12,7 @@ use svm_alm_controller::state::AccountDiscriminators;
 use svm_alm_controller_client::{
     generated::{
         accounts::Oracle,
-        instructions::{InitializeOracleBuilder, RefreshOracleBuilder},
+        instructions::{InitializeOracleBuilder, RefreshOracleBuilder, UpdateOracleBuilder},
     },
     SVM_ALM_CONTROLLER_ID,
 };
@@ -97,8 +97,6 @@ pub fn initalize_oracle(
     oracle_type: u8,
 ) -> Result<(), Box<dyn Error>> {
     let oracle_pda = derive_oracle_pda(&nonce);
-
-    // Initialize Oracle account
     let ixn = InitializeOracleBuilder::new()
         .authority(authority.pubkey())
         .oracle(oracle_pda)
@@ -116,7 +114,6 @@ pub fn initalize_oracle(
         svm.latest_blockhash(),
     );
     let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
     Ok(())
 }
 
@@ -138,7 +135,49 @@ pub fn refresh_oracle(
         svm.latest_blockhash(),
     );
     let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
+    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
 
+    Ok(())
+}
+
+pub fn update_oracle(
+    svm: &mut LiteSVM,
+    authority: &Keypair,
+    oracle_pda: &Pubkey,
+    price_feed: &Pubkey,
+    oracle_type: Option<u8>,
+    new_authority: Option<&Keypair>,
+) -> Result<(), Box<dyn Error>> {
+    let new_authority_pubkey = new_authority.map(|k| k.pubkey());
+    let ixn = if let Some(oracle_type) = oracle_type {
+        UpdateOracleBuilder::new()
+            .authority(authority.pubkey())
+            .oracle(*oracle_pda)
+            .price_feed(*price_feed)
+            .oracle_type(oracle_type)
+            .new_authority(new_authority_pubkey)
+            .instruction()
+    } else {
+        UpdateOracleBuilder::new()
+            .authority(authority.pubkey())
+            .oracle(*oracle_pda)
+            .price_feed(*price_feed)
+            .new_authority(new_authority_pubkey)
+            .instruction()
+    };
+
+    let signing_keypairs: Vec<&Keypair> = match new_authority {
+        Some(new_auth) => vec![authority, new_auth],
+        None => vec![authority],
+    };
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&authority.pubkey()),
+        &signing_keypairs.to_vec(),
+        svm.latest_blockhash(),
+    );
+    let tx_result = svm.send_transaction(txn);
+    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
     Ok(())
 }

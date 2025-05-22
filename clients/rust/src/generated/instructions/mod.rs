@@ -23,6 +23,7 @@ pub(crate) mod r#refresh_oracle;
 pub(crate) mod r#reserve_update;
 pub(crate) mod r#sync;
 pub(crate) mod r#sync_reserve;
+pub(crate) mod r#update_oracle;
 
 pub use self::r#accounting_event::*;
 pub use self::r#controller_update::*;
@@ -42,3 +43,4 @@ pub use self::r#refresh_oracle::*;
 pub use self::r#reserve_update::*;
 pub use self::r#sync::*;
 pub use self::r#sync_reserve::*;
+pub use self::r#update_oracle::*;

@@ -109,6 +109,13 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, name = "system_program")]
     InitializeOracle(InitializeOracleArgs),
 
+    /// UpdateOracle
+    #[account(0, signer, name = "authority")]
+    #[account(1, name = "price_feed")]
+    #[account(2, writable, name = "oracle")]
+    #[account(3, optional, signer, name = "new_authority")]
+    UpdateOracle(UpdateOracleArgs),
+
     /// RefreshOracle
     #[account(0, name = "price_feed")]
     #[account(1, writable, name = "oracle")]
@@ -175,6 +182,11 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct UpdateOracleArgs {
+    pub oracle_type: Option<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
