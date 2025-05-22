@@ -54,7 +54,7 @@ pub fn process_update_oracle(
     let args = UpdateOracleArgs::try_from_slice(instruction_data).unwrap();
 
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
-    if oracle.authority != *ctx.authority.key() {
+    if oracle.authority.ne(ctx.authority.key()) {
         return Err(ProgramError::IncorrectAuthority);
     }
 

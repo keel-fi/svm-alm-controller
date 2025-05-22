@@ -13,7 +13,10 @@ use pinocchio::{
     sysvars::{rent::Rent, Sysvar},
 };
 use shank::ShankAccount;
-use switchboard_on_demand::{PullFeedAccountData, SWITCHBOARD_ON_DEMAND_PROGRAM_ID};
+use switchboard_on_demand::{
+    Discriminator as SwitchboardDiscriminator, PullFeedAccountData,
+    SWITCHBOARD_ON_DEMAND_PROGRAM_ID,
+};
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -60,8 +63,13 @@ impl Oracle {
                 if !price_feed.is_owned_by(&SWITCHBOARD_ON_DEMAND_PROGRAM_ID.to_bytes()) {
                     return Err(SvmAlmControllerErrors::InvalidAccountData.into());
                 }
+
                 let feed_account = price_feed.try_borrow_data()?;
+                if !feed_account.starts_with(&PullFeedAccountData::discriminator()) {
+                    return Err(ProgramError::InvalidAccountData);
+                };
                 let _feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+
                 Ok(())
             }
             _ => Err(SvmAlmControllerErrors::UnsupportedOracleType.into()),

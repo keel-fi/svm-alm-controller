@@ -39,6 +39,9 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
     let ctx = RefreshOracle::from_accounts(accounts)?;
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
 
+    if ctx.price_feed.key().ne(&oracle.price_feed) {
+        return Err(ProgramError::InvalidAccountData);
+    }
     let feed_account = ctx.price_feed.try_borrow_data()?;
     let clock = Clock::get()?;
 
