@@ -52,7 +52,8 @@ pub fn process_initialize_oracle(
     let ctx = InitializeOracle::from_accounts(accounts)?;
     let args = InitializeOracleArgs::try_from_slice(instruction_data).unwrap();
 
-    // TODO: Validate that oracle_type matches price feed.
+    // Validate that oracle_type matches price feed.
+    Oracle::verify_oracle_type(args.oracle_type, ctx.price_feed)?;
 
     Oracle::init_account(
         ctx.oracle,

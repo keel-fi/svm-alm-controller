@@ -1,5 +1,6 @@
 use crate::{
-    constants::ORACLE_SEED, processor::shared::create_pda_account, state::nova_account::NovaAccount,
+    constants::ORACLE_SEED, error::SvmAlmControllerErrors, processor::shared::create_pda_account,
+    state::nova_account::NovaAccount,
 };
 
 use super::super::discriminator::{AccountDiscriminators, Discriminator};
@@ -12,6 +13,7 @@ use pinocchio::{
     sysvars::{rent::Rent, Sysvar},
 };
 use shank::ShankAccount;
+use switchboard_on_demand::{PullFeedAccountData, SWITCHBOARD_ON_DEMAND_PROGRAM_ID};
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -49,6 +51,23 @@ impl NovaAccount for Oracle {
 }
 
 impl Oracle {
+    pub fn verify_oracle_type(
+        oracle_type: u8,
+        price_feed: &AccountInfo,
+    ) -> Result<(), ProgramError> {
+        match oracle_type {
+            0 => {
+                if !price_feed.is_owned_by(&SWITCHBOARD_ON_DEMAND_PROGRAM_ID.to_bytes()) {
+                    return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+                }
+                let feed_account = price_feed.try_borrow_data()?;
+                let _feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+                Ok(())
+            }
+            _ => Err(SvmAlmControllerErrors::UnsupportedOracleType.into()),
+        }
+    }
+
     pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {

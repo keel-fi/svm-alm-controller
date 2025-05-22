@@ -11,7 +11,7 @@ mod tests {
         helpers::spl::setup_token_mint,
         subs::{
             initialize_contoller, initialize_integration, manage_permission,
-            oracle::{derive_oracle_pda, initalize_oracle, set_oracle_price},
+            oracle::{derive_oracle_pda, initalize_oracle, set_price_feed},
         },
     };
 
@@ -42,7 +42,7 @@ mod tests {
         svm.warp_to_slot(update_slot);
         let nonce = Pubkey::new_unique();
         let price_feed = Pubkey::new_unique();
-        set_oracle_price(&mut svm, &price_feed, 1_000_000_000)?;
+        set_price_feed(&mut svm, &price_feed, 1_000_000_000)?;
         initalize_oracle(&mut svm, &relayer_authority_kp, &nonce, &price_feed, 0)?;
 
         let coin_token_mint = Pubkey::new_unique();

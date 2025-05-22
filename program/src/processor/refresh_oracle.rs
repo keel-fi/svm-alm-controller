@@ -40,11 +40,11 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
 
     let feed_account = ctx.price_feed.try_borrow_data()?;
-    let feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
     let clock = Clock::get()?;
 
     match oracle.oracle_type {
         0 => {
+            let feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
             let price = feed.result.value;
             let update_slot = feed.result.slot;
 

@@ -16,7 +16,9 @@ use svm_alm_controller_client::{
     },
     SVM_ALM_CONTROLLER_ID,
 };
-use switchboard_on_demand::{Discriminator, OracleSubmission, PullFeedAccountData};
+use switchboard_on_demand::{
+    Discriminator, OracleSubmission, PullFeedAccountData, ON_DEMAND_MAINNET_PID,
+};
 
 pub fn derive_oracle_pda(nonce: &Pubkey) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
@@ -45,7 +47,7 @@ pub fn fetch_oracle_account(
     }
 }
 
-pub fn set_oracle_price(
+pub fn set_price_feed(
     svm: &mut LiteSVM,
     pubkey: &Pubkey,
     price: i128,
@@ -78,7 +80,7 @@ pub fn set_oracle_price(
         Account {
             lamports: 1_000_000_000,
             data: serialized,
-            owner: SVM_ALM_CONTROLLER_ID,
+            owner: ON_DEMAND_MAINNET_PID,
             executable: false,
             rent_epoch: u64::MAX,
         },

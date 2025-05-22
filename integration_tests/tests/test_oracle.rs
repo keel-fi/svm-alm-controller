@@ -40,7 +40,7 @@ mod tests {
         let update_slot = 1000_000;
         let update_price = 1_000_000_000;
         svm.warp_to_slot(update_slot);
-        set_oracle_price(&mut svm, &new_feed, update_price)?;
+        set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
         initalize_oracle(&mut svm, &authority, &nonce, &new_feed, 0)?;
