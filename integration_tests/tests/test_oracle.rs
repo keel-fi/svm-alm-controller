@@ -23,7 +23,7 @@ mod tests {
     use super::*;
 
     #[test_log::test]
-    fn initialize_and_refresh_oracle() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_oracle_init_refresh_and_update_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
