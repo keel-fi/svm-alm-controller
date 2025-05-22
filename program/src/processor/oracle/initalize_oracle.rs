@@ -36,6 +36,14 @@ impl<'info> InitializeOracle<'info> {
         if !ctx.oracle.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
+        if !ctx.oracle.data_is_empty() {
+            msg! {"Oracle: not empty"};
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if !ctx.oracle.is_owned_by(&pinocchio_system::id()) {
+            msg! {"Oracle: wrong owner"};
+            return Err(ProgramError::InvalidAccountOwner);
+        }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
             return Err(ProgramError::IncorrectProgramId);
         }
