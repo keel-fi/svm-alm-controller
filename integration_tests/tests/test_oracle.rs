@@ -31,8 +31,9 @@ mod tests {
         // Airdrop to payer
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
 
+        let nonce = Pubkey::new_unique();
         let new_feed = Pubkey::new_unique();
-        let oracle_pda = derive_oracle_pda(&new_feed);
+        let oracle_pda = derive_oracle_pda(&nonce);
         let oracle_type = 0;
 
         // Stub price feed data
@@ -42,7 +43,7 @@ mod tests {
         set_oracle_price(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        initalize_oracle(&mut svm, &authority, &new_feed, 0)?;
+        initalize_oracle(&mut svm, &authority, &nonce, &new_feed, 0)?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
@@ -55,12 +56,14 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
 
         // Refresh Oracle account with price.
-        refresh_oracle(&mut svm, &authority, &new_feed)?;
+        refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed)?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
         let oracle = oracle.unwrap();
         assert_eq!(oracle.oracle_type, oracle_type);
+        assert_eq!(oracle.authority, authority.pubkey());
+        assert_eq!(oracle.nonce, nonce);
         assert_eq!(oracle.price_feed, new_feed);
         assert_eq!(oracle.value, update_price);
         assert_eq!(oracle.precision, PRECISION);

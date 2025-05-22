@@ -7,11 +7,14 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use solana_program::pubkey::Pubkey;
 
 /// Accounts.
 #[derive(Debug)]
 pub struct InitializeOracle {
     pub payer: solana_program::pubkey::Pubkey,
+
+    pub authority: solana_program::pubkey::Pubkey,
 
     pub price_feed: solana_program::pubkey::Pubkey,
 
@@ -34,9 +37,13 @@ impl InitializeOracle {
         args: InitializeOracleInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.authority,
+            true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.price_feed,
@@ -85,6 +92,7 @@ impl Default for InitializeOracleInstructionData {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InitializeOracleInstructionArgs {
     pub oracle_type: u8,
+    pub nonce: Pubkey,
 }
 
 /// Instruction builder for `InitializeOracle`.
@@ -92,16 +100,19 @@ pub struct InitializeOracleInstructionArgs {
 /// ### Accounts:
 ///
 ///   0. `[writable, signer]` payer
-///   1. `[]` price_feed
-///   2. `[writable]` oracle
-///   3. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   1. `[signer]` authority
+///   2. `[]` price_feed
+///   3. `[writable]` oracle
+///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeOracleBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
+    authority: Option<solana_program::pubkey::Pubkey>,
     price_feed: Option<solana_program::pubkey::Pubkey>,
     oracle: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
     oracle_type: Option<u8>,
+    nonce: Option<Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -112,6 +123,11 @@ impl InitializeOracleBuilder {
     #[inline(always)]
     pub fn payer(&mut self, payer: solana_program::pubkey::Pubkey) -> &mut Self {
         self.payer = Some(payer);
+        self
+    }
+    #[inline(always)]
+    pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.authority = Some(authority);
         self
     }
     #[inline(always)]
@@ -133,6 +149,11 @@ impl InitializeOracleBuilder {
     #[inline(always)]
     pub fn oracle_type(&mut self, oracle_type: u8) -> &mut Self {
         self.oracle_type = Some(oracle_type);
+        self
+    }
+    #[inline(always)]
+    pub fn nonce(&mut self, nonce: Pubkey) -> &mut Self {
+        self.nonce = Some(nonce);
         self
     }
     /// Add an additional account to the instruction.
@@ -157,6 +178,7 @@ impl InitializeOracleBuilder {
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
         let accounts = InitializeOracle {
             payer: self.payer.expect("payer is not set"),
+            authority: self.authority.expect("authority is not set"),
             price_feed: self.price_feed.expect("price_feed is not set"),
             oracle: self.oracle.expect("oracle is not set"),
             system_program: self
@@ -165,6 +187,7 @@ impl InitializeOracleBuilder {
         };
         let args = InitializeOracleInstructionArgs {
             oracle_type: self.oracle_type.clone().expect("oracle_type is not set"),
+            nonce: self.nonce.clone().expect("nonce is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -174,6 +197,8 @@ impl InitializeOracleBuilder {
 /// `initialize_oracle` CPI accounts.
 pub struct InitializeOracleCpiAccounts<'a, 'b> {
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub price_feed: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -188,6 +213,8 @@ pub struct InitializeOracleCpi<'a, 'b> {
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub price_feed: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -207,6 +234,7 @@ impl<'a, 'b> InitializeOracleCpi<'a, 'b> {
         Self {
             __program: program,
             payer: accounts.payer,
+            authority: accounts.authority,
             price_feed: accounts.price_feed,
             oracle: accounts.oracle,
             system_program: accounts.system_program,
@@ -247,9 +275,13 @@ impl<'a, 'b> InitializeOracleCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
+            true,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.authority.key,
             true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -280,9 +312,10 @@ impl<'a, 'b> InitializeOracleCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
+        account_infos.push(self.authority.clone());
         account_infos.push(self.price_feed.clone());
         account_infos.push(self.oracle.clone());
         account_infos.push(self.system_program.clone());
@@ -303,9 +336,10 @@ impl<'a, 'b> InitializeOracleCpi<'a, 'b> {
 /// ### Accounts:
 ///
 ///   0. `[writable, signer]` payer
-///   1. `[]` price_feed
-///   2. `[writable]` oracle
-///   3. `[]` system_program
+///   1. `[signer]` authority
+///   2. `[]` price_feed
+///   3. `[writable]` oracle
+///   4. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct InitializeOracleCpiBuilder<'a, 'b> {
     instruction: Box<InitializeOracleCpiBuilderInstruction<'a, 'b>>,
@@ -316,10 +350,12 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
         let instruction = Box::new(InitializeOracleCpiBuilderInstruction {
             __program: program,
             payer: None,
+            authority: None,
             price_feed: None,
             oracle: None,
             system_program: None,
             oracle_type: None,
+            nonce: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -327,6 +363,14 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn payer(&mut self, payer: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.payer = Some(payer);
+        self
+    }
+    #[inline(always)]
+    pub fn authority(
+        &mut self,
+        authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.authority = Some(authority);
         self
     }
     #[inline(always)]
@@ -356,6 +400,11 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn oracle_type(&mut self, oracle_type: u8) -> &mut Self {
         self.instruction.oracle_type = Some(oracle_type);
+        self
+    }
+    #[inline(always)]
+    pub fn nonce(&mut self, nonce: Pubkey) -> &mut Self {
+        self.instruction.nonce = Some(nonce);
         self
     }
     /// Add an additional account to the instruction.
@@ -405,11 +454,14 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
                 .oracle_type
                 .clone()
                 .expect("oracle_type is not set"),
+            nonce: self.instruction.nonce.clone().expect("nonce is not set"),
         };
         let instruction = InitializeOracleCpi {
             __program: self.instruction.__program,
 
             payer: self.instruction.payer.expect("payer is not set"),
+
+            authority: self.instruction.authority.expect("authority is not set"),
 
             price_feed: self.instruction.price_feed.expect("price_feed is not set"),
 
@@ -432,10 +484,12 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
 struct InitializeOracleCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     price_feed: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     oracle: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     oracle_type: Option<u8>,
+    nonce: Option<Pubkey>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

@@ -563,6 +563,11 @@
           "isSigner": true
         },
         {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "priceFeed",
           "isMut": false,
           "isSigner": false
@@ -713,8 +718,16 @@
         "kind": "struct",
         "fields": [
           {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
             "name": "oracleType",
             "type": "u8"
+          },
+          {
+            "name": "nonce",
+            "type": "publicKey"
           },
           {
             "name": "priceFeed",
@@ -1241,6 +1254,10 @@
           {
             "name": "oracleType",
             "type": "u8"
+          },
+          {
+            "name": "nonce",
+            "type": "publicKey"
           }
         ]
       }

@@ -40,9 +40,10 @@ mod tests {
         // Initialize price feed and oracle.
         let update_slot = 1000_000;
         svm.warp_to_slot(update_slot);
+        let nonce = Pubkey::new_unique();
         let price_feed = Pubkey::new_unique();
         set_oracle_price(&mut svm, &price_feed, 1_000_000_000)?;
-        initalize_oracle(&mut svm, &relayer_authority_kp, &price_feed, 0)?;
+        initalize_oracle(&mut svm, &relayer_authority_kp, &nonce, &price_feed, 0)?;
 
         let coin_token_mint = Pubkey::new_unique();
         let pc_token_mint = Pubkey::new_unique();
@@ -87,7 +88,7 @@ mod tests {
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: pc_token_mint,
                 output_token: coin_token_mint,
-                oracle: derive_oracle_pda(&price_feed),
+                oracle: derive_oracle_pda(&nonce),
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
                 padding: [0u8; 93],

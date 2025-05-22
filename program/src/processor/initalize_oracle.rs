@@ -6,6 +6,7 @@ use pinocchio::{
 
 pub struct InitializeOracle<'info> {
     pub payer: &'info AccountInfo,
+    pub authority: &'info AccountInfo,
     pub price_feed: &'info AccountInfo,
     pub oracle: &'info AccountInfo,
     pub system_program: &'info AccountInfo,
@@ -13,14 +14,15 @@ pub struct InitializeOracle<'info> {
 
 impl<'info> InitializeOracle<'info> {
     pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 3 {
+        if accounts.len() < 5 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
             payer: &accounts[0],
-            price_feed: &accounts[1],
-            oracle: &accounts[2],
-            system_program: &accounts[3],
+            authority: &accounts[1],
+            price_feed: &accounts[2],
+            oracle: &accounts[3],
+            system_program: &accounts[4],
         };
         if !ctx.payer.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
@@ -28,7 +30,12 @@ impl<'info> InitializeOracle<'info> {
         if !ctx.payer.is_writable() {
             return Err(ProgramError::InvalidAccountData);
         }
-        // TODO: Check price feed here?
+        if !ctx.authority.is_signer() {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+        if !ctx.oracle.is_writable() {
+            return Err(ProgramError::InvalidAccountData);
+        }
         if ctx.system_program.key().ne(&pinocchio_system::id()) {
             return Err(ProgramError::IncorrectProgramId);
         }
@@ -42,11 +49,19 @@ pub fn process_initialize_oracle(
     instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("initialize_oracle");
-    // TODO: Check signer?
     let ctx = InitializeOracle::from_accounts(accounts)?;
     let args = InitializeOracleArgs::try_from_slice(instruction_data).unwrap();
 
-    Oracle::init_account(ctx.oracle, ctx.payer, ctx.price_feed, args.oracle_type)?;
+    // TODO: Validate that oracle_type matches price feed.
+
+    Oracle::init_account(
+        ctx.oracle,
+        ctx.authority,
+        ctx.payer,
+        ctx.price_feed,
+        args.oracle_type,
+        &args.nonce,
+    )?;
 
     Ok(())
 }

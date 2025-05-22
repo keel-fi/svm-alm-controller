@@ -18,9 +18,9 @@ use svm_alm_controller_client::{
 };
 use switchboard_on_demand::{Discriminator, OracleSubmission, PullFeedAccountData};
 
-pub fn derive_oracle_pda(feed: &Pubkey) -> Pubkey {
+pub fn derive_oracle_pda(nonce: &Pubkey) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
-        &[b"oracle", &feed.to_bytes()],
+        &[b"oracle", &nonce.to_bytes()],
         &Pubkey::from(SVM_ALM_CONTROLLER_ID),
     );
     controller_pda
@@ -89,25 +89,28 @@ pub fn set_oracle_price(
 
 pub fn initalize_oracle(
     svm: &mut LiteSVM,
-    payer: &Keypair,
+    authority: &Keypair,
+    nonce: &Pubkey,
     price_feed: &Pubkey,
     oracle_type: u8,
 ) -> Result<(), Box<dyn Error>> {
-    let oracle_pda = derive_oracle_pda(&price_feed);
+    let oracle_pda = derive_oracle_pda(&nonce);
 
     // Initialize Oracle account
     let ixn = InitializeOracleBuilder::new()
+        .authority(authority.pubkey())
         .oracle(oracle_pda)
         .price_feed(*price_feed)
         .system_program(system_program::ID)
-        .payer(payer.pubkey())
+        .payer(authority.pubkey())
         .oracle_type(oracle_type)
+        .nonce(*nonce)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
         &[ixn],
-        Some(&payer.pubkey()),
-        &[&payer],
+        Some(&authority.pubkey()),
+        &[&authority],
         svm.latest_blockhash(),
     );
     let tx_result = svm.send_transaction(txn);
@@ -118,12 +121,11 @@ pub fn initalize_oracle(
 pub fn refresh_oracle(
     svm: &mut LiteSVM,
     payer: &Keypair,
+    oracle_pda: &Pubkey,
     price_feed: &Pubkey,
 ) -> Result<(), Box<dyn Error>> {
-    let oracle_pda = derive_oracle_pda(&price_feed);
-
     let ixn = RefreshOracleBuilder::new()
-        .oracle(oracle_pda)
+        .oracle(*oracle_pda)
         .price_feed(*price_feed)
         .instruction();
 

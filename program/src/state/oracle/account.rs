@@ -16,8 +16,12 @@ use shank::ShankAccount;
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Oracle {
+    /// Authority required for update operations.
+    pub authority: Pubkey,
     /// Type of Oracle (0 = Switchboard)
     pub oracle_type: u8,
+    /// Nonce used as part of PDA seed.
+    pub nonce: Pubkey,
     /// Address of price feed.
     pub price_feed: Pubkey,
     /// Price stored with full precision.
@@ -36,11 +40,10 @@ impl Discriminator for Oracle {
 }
 
 impl NovaAccount for Oracle {
-    const LEN: usize = 125;
+    const LEN: usize = 189;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) =
-            find_program_address(&[ORACLE_SEED, self.price_feed.as_ref()], &crate::ID);
+        let (pda, bump) = find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID);
         Ok((pda, bump))
     }
 }
@@ -58,13 +61,17 @@ impl Oracle {
 
     pub fn init_account(
         account_info: &AccountInfo,
+        authority_info: &AccountInfo,
         payer_info: &AccountInfo,
         price_feed: &AccountInfo,
         oracle_type: u8,
+        nonce: &Pubkey,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the oracle
         let oracle = Oracle {
+            authority: *authority_info.key(),
             oracle_type,
+            nonce: *nonce,
             price_feed: *price_feed.key(),
             value: 0,
             precision: 0,
@@ -83,7 +90,7 @@ impl Oracle {
         let bump_seed = [bump];
         let signer_seeds = [
             Seed::from(ORACLE_SEED),
-            Seed::from(price_feed.key()),
+            Seed::from(nonce),
             Seed::from(&bump_seed),
         ];
         create_pda_account(
