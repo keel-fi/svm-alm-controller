@@ -40,6 +40,8 @@ impl<'info> InitializeAtomicSwapAccounts<'info> {
             msg! {"oracle: not owned by program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
+        // Check that Oracle is a valid account.
+        let _oracle: Oracle = NovaAccount::deserialize(&ctx.oracle.try_borrow_data()?)?;
 
         Ok(ctx)
     }
@@ -62,9 +64,7 @@ pub fn process_initialize_atomic_swap(
         _ => return Err(ProgramError::InvalidArgument),
     };
 
-    // Check that Oracle is a valid account.
-    let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
-
+    // TODO: Add an order expiry date
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
         input_token: *inner_ctx.input_mint.key(),
