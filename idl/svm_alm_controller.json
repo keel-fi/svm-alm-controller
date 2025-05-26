@@ -748,7 +748,14 @@
           "isSigner": false
         }
       ],
-      "args": [],
+      "args": [
+        {
+          "name": "atomicSwapBorrowArgs",
+          "type": {
+            "defined": "AtomicSwapBorrowArgs"
+          }
+        }
+      ],
       "discriminant": {
         "type": "u8",
         "value": 15

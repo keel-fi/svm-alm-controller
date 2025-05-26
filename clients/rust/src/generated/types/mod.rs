@@ -6,7 +6,6 @@
 //!
 
 pub(crate) mod r#accounting_action;
-pub(crate) mod r#atomic_swap_borrow_args;
 pub(crate) mod r#atomic_swap_config;
 pub(crate) mod r#atomic_swap_repay_args;
 pub(crate) mod r#atomic_swap_state;
@@ -39,7 +38,6 @@ pub(crate) mod r#swap_v1_subset;
 pub(crate) mod r#withdraw_single_token_type_exact_amount_out_args;
 
 pub use self::r#accounting_action::*;
-pub use self::r#atomic_swap_borrow_args::*;
 pub use self::r#atomic_swap_config::*;
 pub use self::r#atomic_swap_repay_args::*;
 pub use self::r#atomic_swap_state::*;

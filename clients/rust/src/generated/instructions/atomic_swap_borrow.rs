@@ -33,13 +33,17 @@ pub struct AtomicSwapBorrow {
 }
 
 impl AtomicSwapBorrow {
-    pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        self.instruction_with_remaining_accounts(&[])
+    pub fn instruction(
+        &self,
+        args: AtomicSwapBorrowInstructionArgs,
+    ) -> solana_program::instruction::Instruction {
+        self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
+        args: AtomicSwapBorrowInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
@@ -84,7 +88,9 @@ impl AtomicSwapBorrow {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let data = borsh::to_vec(&AtomicSwapBorrowInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&AtomicSwapBorrowInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&args).unwrap();
+        data.append(&mut args);
 
         solana_program::instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -110,6 +116,12 @@ impl Default for AtomicSwapBorrowInstructionData {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AtomicSwapBorrowInstructionArgs {
+    pub amount: u64,
 }
 
 /// Instruction builder for `AtomicSwapBorrow`.
@@ -138,6 +150,7 @@ pub struct AtomicSwapBorrowBuilder {
     vault_b: Option<solana_program::pubkey::Pubkey>,
     recipient_token_account: Option<solana_program::pubkey::Pubkey>,
     token_program: Option<solana_program::pubkey::Pubkey>,
+    amount: Option<u64>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -199,6 +212,11 @@ impl AtomicSwapBorrowBuilder {
         self.token_program = Some(token_program);
         self
     }
+    #[inline(always)]
+    pub fn amount(&mut self, amount: u64) -> &mut Self {
+        self.amount = Some(amount);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -235,8 +253,11 @@ impl AtomicSwapBorrowBuilder {
                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
             )),
         };
+        let args = AtomicSwapBorrowInstructionArgs {
+            amount: self.amount.clone().expect("amount is not set"),
+        };
 
-        accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
+        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
     }
 }
 
@@ -287,12 +308,15 @@ pub struct AtomicSwapBorrowCpi<'a, 'b> {
     pub recipient_token_account: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+    /// The arguments for the instruction.
+    pub __args: AtomicSwapBorrowInstructionArgs,
 }
 
 impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
         accounts: AtomicSwapBorrowCpiAccounts<'a, 'b>,
+        args: AtomicSwapBorrowInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -306,6 +330,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             vault_b: accounts.vault_b,
             recipient_token_account: accounts.recipient_token_account,
             token_program: accounts.token_program,
+            __args: args,
         }
     }
     #[inline(always)]
@@ -390,7 +415,9 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = borsh::to_vec(&AtomicSwapBorrowInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&AtomicSwapBorrowInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&self.__args).unwrap();
+        data.append(&mut args);
 
         let instruction = solana_program::instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -454,6 +481,7 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
             vault_b: None,
             recipient_token_account: None,
             token_program: None,
+            amount: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -538,6 +566,11 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
         self.instruction.token_program = Some(token_program);
         self
     }
+    #[inline(always)]
+    pub fn amount(&mut self, amount: u64) -> &mut Self {
+        self.instruction.amount = Some(amount);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -579,6 +612,9 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
+        let args = AtomicSwapBorrowInstructionArgs {
+            amount: self.instruction.amount.clone().expect("amount is not set"),
+        };
         let instruction = AtomicSwapBorrowCpi {
             __program: self.instruction.__program,
 
@@ -610,6 +646,7 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
                 .instruction
                 .token_program
                 .expect("token_program is not set"),
+            __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -631,6 +668,7 @@ struct AtomicSwapBorrowCpiBuilderInstruction<'a, 'b> {
     vault_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     recipient_token_account: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    amount: Option<u64>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,
