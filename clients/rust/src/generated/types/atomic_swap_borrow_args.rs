@@ -10,9 +10,6 @@ use borsh::BorshSerialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AtomicSwapState {
-    pub last_balance_a: u64,
-    pub last_balance_b: u64,
-    pub swap_started: bool,
-    pub padding: [u8; 31],
+pub struct AtomicSwapBorrowArgs {
+    pub amount: u64,
 }
