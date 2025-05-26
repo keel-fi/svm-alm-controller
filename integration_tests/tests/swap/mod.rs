@@ -1,1 +1,1 @@
-pub mod test_initialize_swap_integration;
+pub mod test_atomic_swap;

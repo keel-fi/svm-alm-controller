@@ -92,9 +92,6 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
-    let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
-    let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
-
     let controller = Controller::load_and_check(ctx.controller)?;
 
     // Check that Integration account is valid and matches controller.
@@ -107,13 +104,18 @@ pub fn process_atomic_swap_borrow(
             return Err(SvmAlmControllerErrors::InvalidAccountData.into());
         }
 
-        // Cache vault balances in Integration state and set swap_started flag to true.
-        state.last_balance_a = vault_a.amount();
-        state.last_balance_b = vault_b.amount();
-        state.swap_started = true;
+        {
+            let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
+            let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
 
-        if args.amount > vault_a.amount() {
-            return Err(ProgramError::InsufficientFunds);
+            // Cache vault balances in Integration state and set swap_started flag to true.
+            state.last_balance_a = vault_a.amount();
+            state.last_balance_b = vault_b.amount();
+            state.swap_started = true;
+
+            if args.amount > vault_a.amount() {
+                return Err(ProgramError::InsufficientFunds);
+            }
         }
 
         // Transfer bprrow amount of tokens from vault to recipient.

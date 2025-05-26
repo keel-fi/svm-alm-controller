@@ -1,4 +1,5 @@
 pub mod airdrop_lamports;
+pub mod atomic_swap;
 pub mod controller;
 pub mod integration;
 pub mod oracle;
@@ -8,6 +9,7 @@ pub mod spl_token;
 pub mod token_swap;
 
 pub use airdrop_lamports::*;
+pub use atomic_swap::*;
 pub use controller::*;
 pub use integration::*;
 pub use permission::*;
