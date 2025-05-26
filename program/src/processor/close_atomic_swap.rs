@@ -69,7 +69,9 @@ pub fn process_close_atomic_swap(_program_id: &Pubkey, accounts: &[AccountInfo])
     }
 
     // Check that Integration account is valid and matches controller.
-    let _integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
+    let integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
+    // TODO: Check that integration is atomic swap type
+    // TODO: Check that swap_started is false.
 
     // Close account and transfer rent to payer.
     let payer_lamports = ctx.payer.lamports();

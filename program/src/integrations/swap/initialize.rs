@@ -79,7 +79,8 @@ pub fn process_initialize_atomic_swap(
     let state = IntegrationState::AtomicSwap(AtomicSwapState {
         last_balance_a: 0,
         last_balance_b: 0,
-        _padding: [0u8; 32],
+        swap_started: false,
+        _padding: [0u8; 31],
     });
 
     Ok((config, state))

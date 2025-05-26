@@ -197,6 +197,10 @@ impl Permission {
         self.status == PermissionStatus::Active && self.can_manage_integrations
     }
 
+    pub fn can_execute_swap(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_execute_swap
+    }
+
     pub fn can_reallocate(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_reallocate
     }

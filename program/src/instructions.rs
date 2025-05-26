@@ -129,6 +129,19 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, name = "system_program")]
     CloseAtomicSwap(),
+
+    /// Atomic swap borrow
+    #[account(0, name = "controller")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "permission")]
+    #[account(3, writable, name = "integration")]
+    #[account(4, name = "reserve_a")]
+    #[account(5, writable, name = "vault_a")]
+    #[account(6, name = "reserve_b")]
+    #[account(7, name = "vault_b")]
+    #[account(8, writable, name = "recipient_token_account")]
+    #[account(9, name = "token_program")]
+    AtomicSwapBorrow(),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -236,4 +249,9 @@ pub enum PullArgs {
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge,
     LzBridge,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct AtomicSwapBorrowArgs {
+    pub amount: u64,
 }

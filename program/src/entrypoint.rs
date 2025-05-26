@@ -4,11 +4,11 @@ use pinocchio::{
 };
 
 use crate::processor::{
-    process_close_atomic_swap, process_emit_event, process_initialize_controller,
-    process_initialize_integration, process_initialize_oracle, process_initialize_reserve,
-    process_manage_integration, process_manage_permission, process_manage_reserve, process_pull,
-    process_push, process_refresh_oracle, process_sync_integration, process_sync_reserve,
-    process_update_oracle,
+    process_atomic_swap_borrow, process_close_atomic_swap, process_emit_event,
+    process_initialize_controller, process_initialize_integration, process_initialize_oracle,
+    process_initialize_reserve, process_manage_integration, process_manage_permission,
+    process_manage_reserve, process_pull, process_push, process_refresh_oracle,
+    process_sync_integration, process_sync_reserve, process_update_oracle,
 };
 
 entrypoint!(process_instruction);
@@ -38,6 +38,7 @@ pub fn process_instruction(
         12 => process_update_oracle(program_id, accounts, instruction_data),
         13 => process_refresh_oracle(program_id, accounts),
         14 => process_close_atomic_swap(program_id, accounts),
+        15 => process_atomic_swap_borrow(program_id, accounts, instruction_data),
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }
