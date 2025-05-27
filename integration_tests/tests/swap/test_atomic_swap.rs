@@ -47,7 +47,7 @@ mod tests {
     }
 
     #[test_log::test]
-    fn test_happy_path_init_and_cancel_swap() -> Result<(), Box<dyn std::error::Error>> {
+    fn init_and_cancel_atomic_swap() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let relayer_authority_kp = Keypair::new();
@@ -108,11 +108,13 @@ mod tests {
                 oracle: derive_oracle_pda(&nonce),
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
-                padding: [0u8; 93],
+                max_staleness: 100,
+                padding: [0u8; 85],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
+                max_staleness: 100,
             },
         )?;
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
@@ -135,7 +137,7 @@ mod tests {
     }
 
     #[test_log::test]
-    fn test_happy_path_atomic_swap() -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let relayer_authority_kp = Keypair::new();
@@ -226,11 +228,13 @@ mod tests {
                 oracle: derive_oracle_pda(&nonce),
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
-                padding: [0u8; 93],
+                max_staleness: 100,
+                padding: [0u8; 85],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
+                max_staleness: 100,
             },
         )?;
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
