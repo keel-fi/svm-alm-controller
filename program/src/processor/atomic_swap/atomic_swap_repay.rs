@@ -86,7 +86,6 @@ pub fn process_atomic_swap_repay(
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
     // Check that super authority has permission and the permission is active
-    // TODO: Verify that this is the right permission to check
     if !permission.can_execute_swap() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }

@@ -2044,11 +2044,23 @@
             "type": "u64"
           },
           {
+            "name": "inputMintDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "outputMintDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "expiryTimestamp",
+            "type": "i64"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                85
+                75
               ]
             }
           }
@@ -2364,6 +2376,10 @@
               {
                 "name": "max_staleness",
                 "type": "u64"
+              },
+              {
+                "name": "expiry_timestamp",
+                "type": "i64"
               }
             ]
           }

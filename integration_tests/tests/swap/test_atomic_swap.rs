@@ -9,7 +9,7 @@ mod tests {
         },
     };
     use litesvm::LiteSVM;
-    use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+    use solana_sdk::{clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer};
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller_client::generated::types::{
         AtomicSwapConfig, ControllerStatus, InitializeArgs, IntegrationConfig, IntegrationStatus,
@@ -46,6 +46,7 @@ mod tests {
         coin_token_mint: &Pubkey,
         pc_token_mint: &Pubkey,
         mint_authority: &Keypair,
+        expiry_timestamp: i64,
     ) -> Result<
         (
             Pubkey,
@@ -113,12 +114,16 @@ mod tests {
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
                 max_staleness: 100,
-                padding: [0u8; 85],
+                input_mint_decimals: 6,
+                output_mint_decimals: 6,
+                expiry_timestamp,
+                padding: [0u8; 75],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
                 max_staleness: 100,
+                expiry_timestamp,
             },
         )?;
 
@@ -220,6 +225,7 @@ mod tests {
         let coin_token_mint = Pubkey::new_unique();
         let pc_token_mint = Pubkey::new_unique();
         let mint_authority = Keypair::new();
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
 
         let (
             controller_pk,
@@ -238,6 +244,7 @@ mod tests {
             &coin_token_mint,
             &pc_token_mint,
             &mint_authority,
+            expiry_timestamp,
         )?;
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
         assert!(integration.is_some(), "Integration account is not found");
@@ -268,6 +275,7 @@ mod tests {
         let pc_token_mint = Pubkey::new_unique();
         let mint_authority = Keypair::new();
         let oracle = derive_oracle_pda(&nonce);
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
 
         let (
             controller_pk,
@@ -286,6 +294,7 @@ mod tests {
             &coin_token_mint,
             &pc_token_mint,
             &mint_authority,
+            expiry_timestamp,
         )?;
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
         assert!(integration.is_some(), "Integration account is not found");
