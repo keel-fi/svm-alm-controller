@@ -23,5 +23,7 @@ pub struct AtomicSwapConfig {
     pub input_mint_decimals: u8,
     /// Ouput token mint's decimals
     pub output_mint_decimals: u8,
-    pub padding: [u8; 83],
+    /// Expiry time of swap
+    pub expiry_timestamp: i64,
+    pub padding: [u8; 75],
 }

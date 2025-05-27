@@ -61,24 +61,25 @@ pub fn process_initialize_atomic_swap(
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
-    let (max_slippage_bps, is_input_token_base_asset, max_staleness) = match outer_args.inner_args {
-        InitializeArgs::AtomicSwap {
-            max_slippage_bps,
-            is_input_token_base_asset,
-            max_staleness,
-            ..
-        } => (max_slippage_bps, is_input_token_base_asset, max_staleness),
-        _ => return Err(ProgramError::InvalidArgument),
+    let InitializeArgs::AtomicSwap {
+        max_slippage_bps,
+        is_input_token_base_asset,
+        max_staleness,
+        expiry_timestamp,
+        ..
+    } = outer_args.inner_args
+    else {
+        return Err(ProgramError::InvalidArgument);
     };
 
-    if max_staleness >= Clock::get()?.slot {
+    let clock = Clock::get()?;
+    if max_staleness >= clock.slot || expiry_timestamp <= clock.unix_timestamp {
         return Err(ProgramError::InvalidArgument);
     }
 
     let input_mint = Mint::from_account_info(inner_ctx.input_mint)?;
     let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
 
-    // TODO: Add an order expiry date
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
         input_token: *inner_ctx.input_mint.key(),
@@ -89,7 +90,8 @@ pub fn process_initialize_atomic_swap(
         max_staleness,
         input_mint_decimals: input_mint.decimals(),
         output_mint_decimals: output_mint.decimals(),
-        padding: [0u8; 83],
+        expiry_timestamp,
+        padding: [0u8; 75],
     });
 
     // Create the initial integration state

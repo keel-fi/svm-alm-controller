@@ -4,7 +4,11 @@ use pinocchio::{
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
-    sysvars::instructions::{Instructions, INSTRUCTIONS_ID},
+    sysvars::{
+        clock::Clock,
+        instructions::{Instructions, INSTRUCTIONS_ID},
+        Sysvar,
+    },
     ProgramResult,
 };
 use pinocchio_token::state::TokenAccount;
@@ -161,6 +165,10 @@ pub fn process_atomic_swap_borrow(
 
         if state.has_swap_started() {
             return Err(SvmAlmControllerErrors::SwapHasStarted.into());
+        }
+
+        if Clock::get()?.unix_timestamp >= cfg.expiry_timestamp {
+            return Err(SvmAlmControllerErrors::SwapHasExpired.into());
         }
 
         {
