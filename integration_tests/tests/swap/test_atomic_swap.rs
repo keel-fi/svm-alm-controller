@@ -3,9 +3,10 @@ mod tests {
     use crate::{
         helpers::spl::setup_token_account,
         subs::{
-            atomic_swap_borrow, cancel_atomic_swap, derive_permission_pda,
-            fetch_integration_account, fetch_token_account, initialize_reserve, transfer_tokens,
-            ReserveKeys,
+            atomic_swap_borrow, atomic_swap_repay, cancel_atomic_swap, derive_permission_pda,
+            fetch_integration_account, fetch_token_account, initialize_reserve,
+            oracle::{self, refresh_oracle},
+            transfer_tokens, ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -152,6 +153,8 @@ mod tests {
         set_price_feed(&mut svm, &price_feed, 1_000_000_000)?;
         initalize_oracle(&mut svm, &relayer_authority_kp, &nonce, &price_feed, 0)?;
 
+        let oracle = derive_oracle_pda(&nonce);
+
         let coin_token_mint = Pubkey::new_unique();
         let pc_token_mint = Pubkey::new_unique();
         let mint_authority = Keypair::new();
@@ -225,7 +228,7 @@ mod tests {
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: pc_token_mint,
                 output_token: coin_token_mint,
-                oracle: derive_oracle_pda(&nonce),
+                oracle,
                 max_slippage_bps: 123,
                 is_input_token_base_asset: true,
                 max_staleness: 100,
@@ -286,23 +289,74 @@ mod tests {
             600_000_000,
         )?;
 
+        let vault_a_before = fetch_token_account(&mut svm, &pc_reserve_vault);
+        let vault_b_before = fetch_token_account(&mut svm, &coin_reserve_vault);
+        let relayer_a_before = fetch_token_account(&mut svm, &relayer_pc);
+        let relayer_b_before = fetch_token_account(&mut svm, &relayer_coin);
+
         let calling_permission_pda =
             derive_permission_pda(&controller_pk, &relayer_authority_kp.pubkey());
 
-        // atomic_swap_borrow(
-        //     &mut svm,
-        //     &relayer_authority_kp,
-        //     controller_pk,
-        //     calling_permission_pda,
-        //     atomic_swap_integration_pk,
-        //     pc_token_mint,
-        //     coin_token_mint,
-        //     relayer_pc,
-        //     100,
-        // )?;
-        // let ta = fetch_token_account(&mut svm, &relayer_pc);
-        // println!("amount: {:?}", ta.amount);
-        // assert!(false);
+        let borrow_amount = 100;
+        let repay_amount = 300;
+        atomic_swap_borrow(
+            &mut svm,
+            &relayer_authority_kp,
+            controller_pk,
+            calling_permission_pda,
+            atomic_swap_integration_pk,
+            pc_token_mint,
+            coin_token_mint,
+            relayer_pc,
+            borrow_amount,
+        )?;
+
+        refresh_oracle(&mut svm, &relayer_authority_kp, &oracle, &price_feed)?;
+
+        atomic_swap_repay(
+            &mut svm,
+            &relayer_authority_kp,
+            controller_pk,
+            calling_permission_pda,
+            atomic_swap_integration_pk,
+            pc_token_mint,
+            coin_token_mint,
+            oracle,
+            relayer_coin,
+            repay_amount,
+        )?;
+
+        let vault_a_after = fetch_token_account(&mut svm, &pc_reserve_vault);
+        let vault_b_after = fetch_token_account(&mut svm, &coin_reserve_vault);
+        let relayer_a_after = fetch_token_account(&mut svm, &relayer_pc);
+        let relayer_b_after = fetch_token_account(&mut svm, &relayer_coin);
+
+        let vault_a_decrease = vault_a_before
+            .amount
+            .checked_sub(vault_a_after.amount)
+            .unwrap();
+        let vault_b_increase = vault_b_after
+            .amount
+            .checked_sub(vault_b_before.amount)
+            .unwrap();
+        let relayer_b_decrease = relayer_b_before
+            .amount
+            .checked_sub(relayer_b_after.amount)
+            .unwrap();
+        let relayer_a_increase = relayer_a_after
+            .amount
+            .checked_sub(relayer_a_before.amount)
+            .unwrap();
+
+        // Check that token balances are changed as expected.
+        assert_eq!(vault_a_decrease, borrow_amount);
+        assert_eq!(relayer_a_increase, borrow_amount);
+        assert_eq!(vault_b_increase, repay_amount);
+        assert_eq!(relayer_b_decrease, repay_amount);
+
+        // Check that integration is closed
+        let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
+        assert!(integration.is_none(), "Integration account is found");
 
         Ok(())
     }

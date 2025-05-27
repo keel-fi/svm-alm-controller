@@ -8,7 +8,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
-    state::{Controller, Integration, Permission, Reserve},
+    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
 };
 
 pub struct AtomicSwapBorrow<'info> {
@@ -95,10 +95,10 @@ pub fn process_atomic_swap_borrow(
     let controller = Controller::load_and_check(ctx.controller)?;
 
     // Check that Integration account is valid and matches controller.
-    let integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
-    if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(mut state)) =
-        (&integration.config, integration.state)
+    if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
+        (&integration.config, &mut integration.state)
     {
         if cfg.input_token != reserve_a.mint || cfg.output_token != reserve_b.mint {
             return Err(SvmAlmControllerErrors::InvalidAccountData.into());
@@ -123,6 +123,7 @@ pub fn process_atomic_swap_borrow(
             state.last_balance_a = vault_a.amount();
             state.last_balance_b = vault_b.amount();
             state.amount_borrowed = args.amount;
+            integration.save(ctx.integration)?;
         }
 
         // Transfer bprrow amount of tokens from vault to recipient.
