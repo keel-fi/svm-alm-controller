@@ -33,7 +33,7 @@ pub struct AtomicSwapBorrow<'info> {
 impl<'info> AtomicSwapBorrow<'info> {
     // TODO: Let Reserve be mutable to enforce rate limits?
     pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 5 {
+        if accounts.len() < 11 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {

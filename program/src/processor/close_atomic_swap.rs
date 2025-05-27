@@ -19,7 +19,7 @@ pub struct CloseAtomicSwap<'info> {
 
 impl<'info> CloseAtomicSwap<'info> {
     pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 5 {
+        if accounts.len() < 6 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
