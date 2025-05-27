@@ -30,6 +30,8 @@ pub struct AtomicSwapBorrow {
     pub recipient_token_account: solana_program::pubkey::Pubkey,
 
     pub token_program: solana_program::pubkey::Pubkey,
+
+    pub sysvar_instruction: solana_program::pubkey::Pubkey,
 }
 
 impl AtomicSwapBorrow {
@@ -46,7 +48,7 @@ impl AtomicSwapBorrow {
         args: AtomicSwapBorrowInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(11 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
@@ -85,6 +87,10 @@ impl AtomicSwapBorrow {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.token_program,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.sysvar_instruction,
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
@@ -138,6 +144,7 @@ pub struct AtomicSwapBorrowInstructionArgs {
 ///   7. `[]` vault_b
 ///   8. `[writable]` recipient_token_account
 ///   9. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///   10. `[optional]` sysvar_instruction (default to `Sysvar1nstructions1111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct AtomicSwapBorrowBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
@@ -150,6 +157,7 @@ pub struct AtomicSwapBorrowBuilder {
     vault_b: Option<solana_program::pubkey::Pubkey>,
     recipient_token_account: Option<solana_program::pubkey::Pubkey>,
     token_program: Option<solana_program::pubkey::Pubkey>,
+    sysvar_instruction: Option<solana_program::pubkey::Pubkey>,
     amount: Option<u64>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -212,6 +220,15 @@ impl AtomicSwapBorrowBuilder {
         self.token_program = Some(token_program);
         self
     }
+    /// `[optional account, default to 'Sysvar1nstructions1111111111111111111111111']`
+    #[inline(always)]
+    pub fn sysvar_instruction(
+        &mut self,
+        sysvar_instruction: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.sysvar_instruction = Some(sysvar_instruction);
+        self
+    }
     #[inline(always)]
     pub fn amount(&mut self, amount: u64) -> &mut Self {
         self.amount = Some(amount);
@@ -252,6 +269,9 @@ impl AtomicSwapBorrowBuilder {
             token_program: self.token_program.unwrap_or(solana_program::pubkey!(
                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
             )),
+            sysvar_instruction: self.sysvar_instruction.unwrap_or(solana_program::pubkey!(
+                "Sysvar1nstructions1111111111111111111111111"
+            )),
         };
         let args = AtomicSwapBorrowInstructionArgs {
             amount: self.amount.clone().expect("amount is not set"),
@@ -282,6 +302,8 @@ pub struct AtomicSwapBorrowCpiAccounts<'a, 'b> {
     pub recipient_token_account: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub sysvar_instruction: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 /// `atomic_swap_borrow` CPI instruction.
@@ -308,6 +330,8 @@ pub struct AtomicSwapBorrowCpi<'a, 'b> {
     pub recipient_token_account: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub sysvar_instruction: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: AtomicSwapBorrowInstructionArgs,
 }
@@ -330,6 +354,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             vault_b: accounts.vault_b,
             recipient_token_account: accounts.recipient_token_account,
             token_program: accounts.token_program,
+            sysvar_instruction: accounts.sysvar_instruction,
             __args: args,
         }
     }
@@ -367,7 +392,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(10 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(11 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
@@ -408,6 +433,10 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             *self.token_program.key,
             false,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.sysvar_instruction.key,
+            false,
+        ));
         remaining_accounts.iter().for_each(|remaining_account| {
             accounts.push(solana_program::instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
@@ -424,7 +453,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(11 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(12 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.authority.clone());
@@ -436,6 +465,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
         account_infos.push(self.vault_b.clone());
         account_infos.push(self.recipient_token_account.clone());
         account_infos.push(self.token_program.clone());
+        account_infos.push(self.sysvar_instruction.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -462,6 +492,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
 ///   7. `[]` vault_b
 ///   8. `[writable]` recipient_token_account
 ///   9. `[]` token_program
+///   10. `[]` sysvar_instruction
 #[derive(Clone, Debug)]
 pub struct AtomicSwapBorrowCpiBuilder<'a, 'b> {
     instruction: Box<AtomicSwapBorrowCpiBuilderInstruction<'a, 'b>>,
@@ -481,6 +512,7 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
             vault_b: None,
             recipient_token_account: None,
             token_program: None,
+            sysvar_instruction: None,
             amount: None,
             __remaining_accounts: Vec::new(),
         });
@@ -567,6 +599,14 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
+    pub fn sysvar_instruction(
+        &mut self,
+        sysvar_instruction: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.sysvar_instruction = Some(sysvar_instruction);
+        self
+    }
+    #[inline(always)]
     pub fn amount(&mut self, amount: u64) -> &mut Self {
         self.instruction.amount = Some(amount);
         self
@@ -646,6 +686,11 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
                 .instruction
                 .token_program
                 .expect("token_program is not set"),
+
+            sysvar_instruction: self
+                .instruction
+                .sysvar_instruction
+                .expect("sysvar_instruction is not set"),
             __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
@@ -668,6 +713,7 @@ struct AtomicSwapBorrowCpiBuilderInstruction<'a, 'b> {
     vault_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     recipient_token_account: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    sysvar_instruction: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     amount: Option<u64>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

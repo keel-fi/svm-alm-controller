@@ -117,7 +117,7 @@ pub fn atomic_swap_borrow_repay(
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
-        &[refresh_ix, borrow_ix, repay_ix],
+        &[borrow_ix, refresh_ix, repay_ix],
         Some(&authority.pubkey()),
         &[&authority],
         svm.latest_blockhash(),

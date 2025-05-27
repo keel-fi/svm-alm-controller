@@ -746,6 +746,11 @@
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "sysvarInstruction",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [

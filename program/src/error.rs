@@ -17,6 +17,7 @@ pub enum SvmAlmControllerErrors {
     SwapNotStarted,
     SwapHasStarted,
     InvalidSwapState,
+    InvalidInstructions,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

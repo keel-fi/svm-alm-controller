@@ -141,6 +141,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(7, name = "vault_b")]
     #[account(8, writable, name = "recipient_token_account")]
     #[account(9, name = "token_program")]
+    #[account(10, name = "sysvar_instruction")]
     AtomicSwapBorrow(AtomicSwapBorrowArgs),
 
     /// Atomic swap repay

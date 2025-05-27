@@ -1,6 +1,11 @@
 use borsh::BorshDeserialize;
 use pinocchio::{
-    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+    account_info::AccountInfo,
+    msg,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvars::instructions::{Instructions, INSTRUCTIONS_ID},
+    ProgramResult,
 };
 use pinocchio_token::state::TokenAccount;
 
@@ -22,6 +27,7 @@ pub struct AtomicSwapBorrow<'info> {
     pub vault_b: &'info AccountInfo,
     pub recipient_token_account: &'info AccountInfo,
     pub token_program: &'info AccountInfo,
+    pub sysvar_instruction: &'info AccountInfo,
 }
 
 impl<'info> AtomicSwapBorrow<'info> {
@@ -41,6 +47,7 @@ impl<'info> AtomicSwapBorrow<'info> {
             vault_b: &accounts[7],
             recipient_token_account: &accounts[8],
             token_program: &accounts[9],
+            sysvar_instruction: &accounts[10],
         };
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
@@ -59,8 +66,56 @@ impl<'info> AtomicSwapBorrow<'info> {
             msg! {"token_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
+        if ctx.sysvar_instruction.key().ne(&INSTRUCTIONS_ID) {
+            msg! {"sysvar_instruction: invalid address"};
+            return Err(ProgramError::IncorrectProgramId);
+        }
         Ok(ctx)
     }
+}
+
+/// Checks that repay ix for the same atomic swap is the last instruction in the same transaction.
+pub fn verify_repay_ix_in_tx(
+    sysvar_instruction: &AccountInfo,
+    integration: &Pubkey,
+) -> ProgramResult {
+    // Get number of instructions in current transaction.
+    let data = sysvar_instruction.try_borrow_data()?;
+    if data.len() < 2 {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+    let ix_len = u16::from_le_bytes([data[0], data[1]]);
+
+    let instructions = Instructions::try_from(sysvar_instruction)?;
+
+    // Check that current ix is before the last ix.
+    let curr_ix = instructions.load_current_index();
+    if curr_ix >= ix_len - 1 {
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+
+    // Load last instruction in transaction.
+    let last_ix = instructions.load_instruction_at((ix_len - 1).into())?;
+    if last_ix.get_program_id().ne(&crate::ID) {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    // Check that ix discriminator matches known atomic_swap_repay discriminator.
+    let (discriminator, _) = last_ix
+        .get_instruction_data()
+        .split_first()
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    if *discriminator != 16 {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    // Check that atomic_swap_repay is for the same integration account.
+    let integration_acc = last_ix.get_account_meta_at(4)?;
+    if integration_acc.key.ne(integration) {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    Ok(())
 }
 
 pub fn process_atomic_swap_borrow(
@@ -137,7 +192,7 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
 
-    // TODO: Uses transaction introspection to confirm that the last ixn in the txn is SwapRepay.
-    // Needs to check that its SwapRepay for the same integration.
+    verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
+
     Ok(())
 }
