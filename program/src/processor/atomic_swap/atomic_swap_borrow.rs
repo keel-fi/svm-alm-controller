@@ -181,7 +181,7 @@ pub fn process_atomic_swap_borrow(
             integration.save(ctx.integration)?;
         }
 
-        // Transfer bprrow amount of tokens from vault to recipient.
+        // Transfer borrow amount of tokens from vault to recipient.
         controller.transfer_tokens(
             ctx.controller,
             ctx.vault_a,

@@ -18,6 +18,7 @@ pub enum SvmAlmControllerErrors {
     SwapHasStarted,
     InvalidSwapState,
     InvalidInstructions,
+    SlippageExceeded,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

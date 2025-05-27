@@ -5,7 +5,13 @@ use crate::{
     processor::InitializeIntegrationAccounts,
     state::{nova_account::NovaAccount, Oracle},
 };
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError};
+use pinocchio::{
+    account_info::AccountInfo,
+    msg,
+    program_error::ProgramError,
+    sysvars::{clock::Clock, Sysvar},
+};
+use pinocchio_token::state::Mint;
 
 pub struct InitializeAtomicSwapAccounts<'info> {
     pub input_mint: &'info AccountInfo,
@@ -65,6 +71,13 @@ pub fn process_initialize_atomic_swap(
         _ => return Err(ProgramError::InvalidArgument),
     };
 
+    if max_staleness >= Clock::get()?.slot {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let input_mint = Mint::from_account_info(inner_ctx.input_mint)?;
+    let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
+
     // TODO: Add an order expiry date
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
@@ -74,7 +87,9 @@ pub fn process_initialize_atomic_swap(
         max_slippage_bps,
         is_input_token_base_asset,
         max_staleness,
-        padding: [0u8; 85],
+        input_mint_decimals: input_mint.decimals(),
+        output_mint_decimals: output_mint.decimals(),
+        padding: [0u8; 83],
     });
 
     // Create the initial integration state

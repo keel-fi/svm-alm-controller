@@ -19,5 +19,9 @@ pub struct AtomicSwapConfig {
     pub is_input_token_base_asset: bool,
     /// Max allowed staleness of oracle's last_update_slot from clock slot.
     pub max_staleness: u64,
-    pub padding: [u8; 85],
+    /// Input token mint's decimals
+    pub input_mint_decimals: u8,
+    /// Ouput token mint's decimals
+    pub output_mint_decimals: u8,
+    pub padding: [u8; 83],
 }

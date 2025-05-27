@@ -10,6 +10,7 @@ use pinocchio::{
 use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 
 use crate::{
+    constants::BPS_DENOMINATOR,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapRepayArgs,
@@ -151,7 +152,16 @@ pub fn process_atomic_swap_repay(
             return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
         }
 
-        // TODO: Check that swap_price is within accepted slippage.
+        // Check that swap is within accepted slippage of oracle price.
+        check_swap_slippage(
+            state.amount_borrowed,
+            cfg.input_mint_decimals,
+            args.amount,
+            cfg.output_mint_decimals,
+            cfg.max_slippage_bps,
+            cfg.is_input_token_base_asset,
+            &oracle,
+        )?;
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
@@ -165,4 +175,79 @@ pub fn process_atomic_swap_repay(
     ctx.integration.close()?;
 
     Ok(())
+}
+
+fn pow10(decimals: u32) -> Option<i128> {
+    10_i128.checked_pow(decimals)
+}
+
+pub fn check_swap_slippage(
+    input_amount: u64,
+    input_decimals: u8,
+    output_amount: u64,
+    output_decimals: u8,
+    max_slippage_bps: u16,
+    is_input_token_base_asset: bool,
+    oracle: &Oracle,
+) -> ProgramResult {
+    if input_amount == 0 || output_amount == 0 {
+        return Err(ProgramError::InvalidArgument);
+    }
+    let in_factor = pow10(input_decimals.into()).unwrap();
+    let out_factor = pow10(output_decimals.into()).unwrap();
+    let prec_factor = pow10(oracle.precision).unwrap();
+
+    if is_input_token_base_asset {
+        // swap_price = (output_amount / out_factor) / (input_amount / in_factor)
+        let swap_price = i128::from(output_amount)
+            .checked_mul(in_factor)
+            .unwrap()
+            .checked_mul(prec_factor)
+            .unwrap()
+            .checked_div(input_amount.into())
+            .unwrap()
+            .checked_div(out_factor)
+            .unwrap();
+
+        // min_swap_price = oracle.value * (100-max_slippage)%
+        let min_swap_price = oracle
+            .value
+            .checked_mul(BPS_DENOMINATOR.saturating_sub(max_slippage_bps).into())
+            .unwrap()
+            .checked_div(BPS_DENOMINATOR.into())
+            .unwrap();
+
+        if swap_price < min_swap_price {
+            return Err(SvmAlmControllerErrors::SlippageExceeded.into());
+        }
+        Ok(())
+    } else {
+        // swap_price = (input_amount / in_factor) / (output_amount / out_factor)
+        let swap_price = i128::from(input_amount)
+            .checked_mul(out_factor)
+            .unwrap()
+            .checked_mul(prec_factor)
+            .unwrap()
+            .checked_div(output_amount.into())
+            .unwrap()
+            .checked_div(in_factor)
+            .unwrap();
+
+        // max_swap_price = oracle.value * (100+max_slippage)%
+        let max_swap_price = oracle
+            .value
+            .checked_mul(
+                (BPS_DENOMINATOR as u32)
+                    .saturating_add(max_slippage_bps.into())
+                    .into(),
+            )
+            .unwrap()
+            .checked_div(BPS_DENOMINATOR.into())
+            .unwrap();
+
+        if swap_price > max_swap_price {
+            return Err(SvmAlmControllerErrors::SlippageExceeded.into());
+        }
+        Ok(())
+    }
 }
