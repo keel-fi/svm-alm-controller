@@ -3,18 +3,9 @@ mod subs;
 
 use crate::subs::oracle::*;
 use helpers::lite_svm_with_programs;
-use litesvm::LiteSVM;
-use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
-};
-use std::error::Error;
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use subs::airdrop_lamports;
-use svm_alm_controller::processor::InitializeOracle;
-use svm_alm_controller_client::generated::{
-    accounts::Oracle,
-    instructions::{InitializeOracleBuilder, RefreshOracleBuilder},
-    programs::SVM_ALM_CONTROLLER_ID,
-};
+use svm_alm_controller_client::generated::accounts::Oracle;
 
 #[cfg(test)]
 mod tests {
