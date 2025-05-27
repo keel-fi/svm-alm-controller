@@ -1,4 +1,5 @@
 pub mod atomic_swap_borrow;
+pub mod atomic_swap_repay;
 pub mod close_atomic_swap;
 pub mod emit_event;
 pub mod initialize_controller;
@@ -14,6 +15,7 @@ pub mod sync_integration;
 pub mod sync_reserve;
 
 pub use atomic_swap_borrow::*;
+pub use atomic_swap_repay::*;
 pub use close_atomic_swap::*;
 pub use emit_event::*;
 pub use initialize_controller::*;

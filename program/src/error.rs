@@ -14,6 +14,9 @@ pub enum SvmAlmControllerErrors {
     ReserveStatusDoesNotPermitAction,
     StaleOraclePrice,
     UnsupportedOracleType,
+    SwapNotStarted,
+    SwapHasStarted,
+    InvalidSwapState,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

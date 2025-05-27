@@ -76,6 +76,16 @@ impl Oracle {
         }
     }
 
+    pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
+        // Ensure account owner is the program
+        if !account_info.is_owned_by(&crate::ID) {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        oracle.verify_pda(account_info)?;
+        Ok(oracle)
+    }
+
     pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {

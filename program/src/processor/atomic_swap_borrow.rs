@@ -104,18 +104,25 @@ pub fn process_atomic_swap_borrow(
             return Err(SvmAlmControllerErrors::InvalidAccountData.into());
         }
 
+        if state.has_swap_started() {
+            return Err(SvmAlmControllerErrors::SwapHasStarted.into());
+        }
+
         {
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
 
-            // Cache vault balances in Integration state and set swap_started flag to true.
-            state.last_balance_a = vault_a.amount();
-            state.last_balance_b = vault_b.amount();
-            state.swap_started = true;
-
             if args.amount > vault_a.amount() {
                 return Err(ProgramError::InsufficientFunds);
             }
+            if args.amount == 0 {
+                return Err(ProgramError::InvalidArgument);
+            }
+
+            // Cache vault balances and amount borrowed in Integration state.
+            state.last_balance_a = vault_a.amount();
+            state.last_balance_b = vault_b.amount();
+            state.amount_borrowed = args.amount;
         }
 
         // Transfer bprrow amount of tokens from vault to recipient.
