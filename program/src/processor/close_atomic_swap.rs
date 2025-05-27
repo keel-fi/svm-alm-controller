@@ -3,6 +3,7 @@ use pinocchio::{
 };
 
 use crate::{
+    enums::IntegrationState,
     error::SvmAlmControllerErrors,
     state::{Integration, Permission},
 };
@@ -70,8 +71,15 @@ pub fn process_close_atomic_swap(_program_id: &Pubkey, accounts: &[AccountInfo])
 
     // Check that Integration account is valid and matches controller.
     let integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
-    // TODO: Check that integration is atomic swap type
-    // TODO: Check that swap_started is false.
+
+    // Check that Integration is for atomic swap and swap has not started.
+    if let IntegrationState::AtomicSwap(state) = &integration.state {
+        if state.has_swap_started() {
+            return Err(SvmAlmControllerErrors::SwapHasStarted.into());
+        }
+    } else {
+        return Err(SvmAlmControllerErrors::Invalid.into());
+    }
 
     // Close account and transfer rent to payer.
     let payer_lamports = ctx.payer.lamports();
