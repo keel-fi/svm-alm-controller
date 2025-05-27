@@ -55,12 +55,13 @@ pub fn process_initialize_atomic_swap(
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
-    let (max_slippage_bps, is_input_token_base_asset) = match outer_args.inner_args {
+    let (max_slippage_bps, is_input_token_base_asset, max_staleness) = match outer_args.inner_args {
         InitializeArgs::AtomicSwap {
             max_slippage_bps,
             is_input_token_base_asset,
+            max_staleness,
             ..
-        } => (max_slippage_bps, is_input_token_base_asset),
+        } => (max_slippage_bps, is_input_token_base_asset, max_staleness),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -72,7 +73,8 @@ pub fn process_initialize_atomic_swap(
         oracle: *inner_ctx.oracle.key(),
         max_slippage_bps,
         is_input_token_base_asset,
-        padding: [0u8; 93],
+        max_staleness,
+        padding: [0u8; 85],
     });
 
     // Create the initial integration state

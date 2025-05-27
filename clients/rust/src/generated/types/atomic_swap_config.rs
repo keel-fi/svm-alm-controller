@@ -29,6 +29,7 @@ pub struct AtomicSwapConfig {
     pub oracle: Pubkey,
     pub max_slippage_bps: u16,
     pub is_input_token_base_asset: bool,
+    pub max_staleness: u64,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 93],
+    pub padding: [u8; 85],
 }

@@ -241,6 +241,7 @@ pub enum InitializeArgs {
     AtomicSwap {
         max_slippage_bps: u16,
         is_input_token_base_asset: bool,
+        max_staleness: u64,
     },
 }
 

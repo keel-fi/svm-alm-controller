@@ -13,6 +13,6 @@ use borsh::BorshSerialize;
 pub struct AtomicSwapState {
     pub last_balance_a: u64,
     pub last_balance_b: u64,
-    pub swap_started: bool,
-    pub padding: [u8; 31],
+    pub amount_borrowed: u64,
+    pub padding: [u8; 24],
 }

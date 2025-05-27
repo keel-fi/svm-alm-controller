@@ -760,6 +760,83 @@
         "type": "u8",
         "value": 15
       }
+    },
+    {
+      "name": "AtomicSwapRepay",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "vaultA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserveB",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "vaultB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "payerTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "atomicSwapRepayArgs",
+          "type": {
+            "defined": "AtomicSwapRepayArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 16
+      }
     }
   ],
   "accounts": [
@@ -1958,11 +2035,15 @@
             "type": "bool"
           },
           {
+            "name": "maxStaleness",
+            "type": "u64"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                93
+                85
               ]
             }
           }
@@ -1983,15 +2064,15 @@
             "type": "u64"
           },
           {
-            "name": "swapStarted",
-            "type": "bool"
+            "name": "amountBorrowed",
+            "type": "u64"
           },
           {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                31
+                24
               ]
             }
           }
@@ -2274,6 +2355,10 @@
               {
                 "name": "is_input_token_base_asset",
                 "type": "bool"
+              },
+              {
+                "name": "max_staleness",
+                "type": "u64"
               }
             ]
           }

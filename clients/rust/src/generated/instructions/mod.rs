@@ -7,6 +7,7 @@
 
 pub(crate) mod r#accounting_event;
 pub(crate) mod r#atomic_swap_borrow;
+pub(crate) mod r#atomic_swap_repay;
 pub(crate) mod r#close_atomic_swap;
 pub(crate) mod r#controller_update;
 pub(crate) mod r#emit_event;
@@ -29,6 +30,7 @@ pub(crate) mod r#update_oracle;
 
 pub use self::r#accounting_event::*;
 pub use self::r#atomic_swap_borrow::*;
+pub use self::r#atomic_swap_repay::*;
 pub use self::r#close_atomic_swap::*;
 pub use self::r#controller_update::*;
 pub use self::r#emit_event::*;

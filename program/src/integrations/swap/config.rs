@@ -17,5 +17,7 @@ pub struct AtomicSwapConfig {
     /// For example, if oracle price of BTC/USDC is 100,000, and `input_token` is BTC,
     /// `output_token` is USDC, then is_input_token_base_asset will be true.
     pub is_input_token_base_asset: bool,
-    pub padding: [u8; 93],
+    /// Max allowed staleness of oracle's last_update_slot from clock slot.
+    pub max_staleness: u64,
+    pub padding: [u8; 85],
 }
