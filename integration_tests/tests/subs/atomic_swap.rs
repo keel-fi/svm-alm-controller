@@ -65,6 +65,8 @@ pub fn atomic_swap_borrow_repay(
     price_feed: Pubkey,
     recipient_token_account: Pubkey,
     payer_token_account: Pubkey,
+    token_program_a: Pubkey,
+    token_program_b: Pubkey,
     borrow_amount: u64,
     repay_amount: u64,
 ) -> Result<(), Box<dyn Error>> {
@@ -96,7 +98,7 @@ pub fn atomic_swap_borrow_repay(
         .reserve_b(reserve_b)
         .vault_b(vault_b)
         .recipient_token_account(recipient_token_account)
-        .token_program(pinocchio_token::ID.into())
+        .token_program(token_program_a)
         .amount(borrow_amount)
         .instruction();
 
@@ -112,7 +114,7 @@ pub fn atomic_swap_borrow_repay(
         .vault_b(vault_b)
         .oracle(oracle)
         .payer_token_account(payer_token_account)
-        .token_program(pinocchio_token::ID.into())
+        .token_program(token_program_b)
         .amount(repay_amount)
         .instruction();
 
