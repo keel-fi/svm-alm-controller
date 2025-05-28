@@ -322,8 +322,8 @@ mod tests {
             price_feed,
             relayer_pc,   // recipient
             relayer_coin, // payer
-            pinocchio_token::ID,
-            pinocchio_token::ID,
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
             borrow_amount,
             repay_amount,
         )?;
