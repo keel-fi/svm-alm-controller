@@ -19,16 +19,26 @@ use switchboard_on_demand::{
 };
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
-#[repr(C)]
-pub struct Oracle {
-    /// Authority required for update operations.
-    pub authority: Pubkey,
-    /// Type of Oracle (0 = Switchboard)
-    pub oracle_type: u8,
-    /// Nonce used as part of PDA seed.
-    pub nonce: Pubkey,
+pub struct Feed {
     /// Address of price feed.
     pub price_feed: Pubkey,
+    /// Type of Oracle (0 = Switchboard)
+    pub oracle_type: u8,
+    /// Transformations to apply
+    pub invert_price: bool,
+    /// Reserved space (for additional context, transformations and operations).
+    pub reserved: [u8; 62],
+}
+
+#[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
+#[repr(C)]
+pub struct Oracle {
+    /// Version of account layout (defaults to 1)
+    pub version: u8,
+    /// Authority required for update operations.
+    pub authority: Pubkey,
+    /// Nonce used as part of PDA seed.
+    pub nonce: Pubkey,
     /// Price stored with full precision.
     pub value: i128,
     /// Precision of value.
@@ -36,8 +46,10 @@ pub struct Oracle {
     /// Slot in which value was last updated in the oracle feed.
     /// Note that this is not the slot in which prices were last refreshed.
     pub last_update_slot: u64,
-    /// Reserved space (e.g. for Pyth price update account)
+    /// Extra space reserved before feeds array.
     pub reserved: [u8; 64],
+    /// Price feeds.
+    pub feeds: [Feed; 1],
 }
 
 impl Discriminator for Oracle {
@@ -45,7 +57,7 @@ impl Discriminator for Oracle {
 }
 
 impl NovaAccount for Oracle {
-    const LEN: usize = 189;
+    const LEN: usize = 253;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID);
@@ -100,20 +112,26 @@ impl Oracle {
         account_info: &AccountInfo,
         authority_info: &AccountInfo,
         payer_info: &AccountInfo,
-        price_feed: &AccountInfo,
-        oracle_type: u8,
         nonce: &Pubkey,
+        oracle_type: u8,
+        price_feed: &AccountInfo,
+        invert_price: bool,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the oracle
         let oracle = Oracle {
+            version: 1,
             authority: *authority_info.key(),
-            oracle_type,
             nonce: *nonce,
-            price_feed: *price_feed.key(),
             value: 0,
             precision: 0,
             last_update_slot: 0,
             reserved: [0; 64],
+            feeds: [Feed {
+                oracle_type,
+                price_feed: *price_feed.key(),
+                invert_price,
+                reserved: [0; 62],
+            }],
         };
 
         // Derive the PDA

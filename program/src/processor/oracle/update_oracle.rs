@@ -59,11 +59,12 @@ pub fn process_update_oracle(
     }
 
     // Update oracle_type and price_feed, if present.
-    if let Some(oracle_type) = args.oracle_type {
+    if let Some(feed_args) = args.feed_args {
         // Validate that new oracle_type matches price feed.
-        Oracle::verify_oracle_type(oracle_type, ctx.price_feed)?;
-        oracle.oracle_type = oracle_type;
-        oracle.price_feed = *ctx.price_feed.key();
+        Oracle::verify_oracle_type(feed_args.oracle_type, ctx.price_feed)?;
+        oracle.feeds[0].oracle_type = feed_args.oracle_type;
+        oracle.feeds[0].price_feed = *ctx.price_feed.key();
+        oracle.feeds[0].invert_price = feed_args.invert_price;
         oracle.value = 0;
         oracle.precision = 0;
         oracle.last_update_slot = 0;

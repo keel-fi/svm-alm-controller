@@ -8,11 +8,12 @@ use solana_sdk::{
     system_program, transaction::Transaction,
 };
 
-use svm_alm_controller::state::AccountDiscriminators;
+use svm_alm_controller::state::{AccountDiscriminators, Feed};
 use svm_alm_controller_client::{
     generated::{
         accounts::Oracle,
         instructions::{InitializeOracleBuilder, RefreshOracleBuilder, UpdateOracleBuilder},
+        types::FeedArgs,
     },
     SVM_ALM_CONTROLLER_ID,
 };
@@ -95,6 +96,7 @@ pub fn initalize_oracle(
     nonce: &Pubkey,
     price_feed: &Pubkey,
     oracle_type: u8,
+    invert_price: bool,
 ) -> Result<(), Box<dyn Error>> {
     let oracle_pda = derive_oracle_pda(&nonce);
     let ixn = InitializeOracleBuilder::new()
@@ -105,6 +107,7 @@ pub fn initalize_oracle(
         .payer(authority.pubkey())
         .oracle_type(oracle_type)
         .nonce(*nonce)
+        .invert_price(invert_price)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
@@ -145,16 +148,16 @@ pub fn update_oracle(
     authority: &Keypair,
     oracle_pda: &Pubkey,
     price_feed: &Pubkey,
-    oracle_type: Option<u8>,
+    feed_args: Option<FeedArgs>,
     new_authority: Option<&Keypair>,
 ) -> Result<(), Box<dyn Error>> {
     let new_authority_pubkey = new_authority.map(|k| k.pubkey());
-    let ixn = if let Some(oracle_type) = oracle_type {
+    let ixn = if let Some(feed_args) = feed_args {
         UpdateOracleBuilder::new()
             .authority(authority.pubkey())
             .oracle(*oracle_pda)
             .price_feed(*price_feed)
-            .oracle_type(oracle_type)
+            .feed_args(feed_args)
             .new_authority(new_authority_pubkey)
             .instruction()
     } else {

@@ -940,12 +940,12 @@
       }
     },
     {
-      "name": "Oracle",
+      "name": "Feed",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "authority",
+            "name": "priceFeed",
             "type": "publicKey"
           },
           {
@@ -953,11 +953,36 @@
             "type": "u8"
           },
           {
-            "name": "nonce",
+            "name": "invertPrice",
+            "type": "bool"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                62
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Oracle",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "authority",
             "type": "publicKey"
           },
           {
-            "name": "priceFeed",
+            "name": "nonce",
             "type": "publicKey"
           },
           {
@@ -978,6 +1003,17 @@
               "array": [
                 "u8",
                 64
+              ]
+            }
+          },
+          {
+            "name": "feeds",
+            "type": {
+              "array": [
+                {
+                  "defined": "Feed"
+                },
+                1
               ]
             }
           }
@@ -1485,6 +1521,10 @@
           {
             "name": "nonce",
             "type": "publicKey"
+          },
+          {
+            "name": "invertPrice",
+            "type": "bool"
           }
         ]
       }
@@ -1495,10 +1535,28 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "oracleType",
+            "name": "feedArgs",
             "type": {
-              "option": "u8"
+              "option": {
+                "defined": "FeedArgs"
+              }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeedArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "invertPrice",
+            "type": "bool"
           }
         ]
       }

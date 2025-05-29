@@ -9,6 +9,7 @@ use svm_alm_controller_client::generated::accounts::Oracle;
 
 #[cfg(test)]
 mod tests {
+    use svm_alm_controller_client::generated::types::FeedArgs;
     use switchboard_on_demand::PRECISION;
 
     use super::*;
@@ -36,17 +37,18 @@ mod tests {
         set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        initalize_oracle(&mut svm, &authority, &nonce, &new_feed, 0)?;
+        initalize_oracle(&mut svm, &authority, &nonce, &new_feed, 0, false)?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
         let oracle = oracle.unwrap();
-        assert_eq!(oracle.oracle_type, oracle_type);
-        assert_eq!(oracle.price_feed, new_feed);
+        assert_eq!(oracle.version, 1);
         assert_eq!(oracle.value, 0);
         assert_eq!(oracle.precision, 0);
         assert_eq!(oracle.last_update_slot, 0);
         assert_eq!(oracle.reserved, [0; 64]);
+        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(oracle.feeds[0].price_feed, new_feed);
 
         // Refresh Oracle account with price.
         refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed)?;
@@ -54,14 +56,15 @@ mod tests {
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
         let oracle = oracle.unwrap();
-        assert_eq!(oracle.oracle_type, oracle_type);
+        assert_eq!(oracle.version, 1);
         assert_eq!(oracle.authority, authority.pubkey());
         assert_eq!(oracle.nonce, nonce);
-        assert_eq!(oracle.price_feed, new_feed);
         assert_eq!(oracle.value, update_price);
         assert_eq!(oracle.precision, PRECISION);
         assert_eq!(oracle.last_update_slot, update_slot);
         assert_eq!(oracle.reserved, [0; 64]);
+        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(oracle.feeds[0].price_feed, new_feed);
 
         // Update Oracle account with new authority.
         update_oracle(
@@ -77,14 +80,15 @@ mod tests {
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
         let oracle = oracle.unwrap();
-        assert_eq!(oracle.oracle_type, oracle_type);
+        assert_eq!(oracle.version, 1);
         assert_eq!(oracle.authority, authority2.pubkey());
         assert_eq!(oracle.nonce, nonce);
-        assert_eq!(oracle.price_feed, new_feed);
         assert_eq!(oracle.value, update_price);
         assert_eq!(oracle.precision, PRECISION);
         assert_eq!(oracle.last_update_slot, update_slot);
         assert_eq!(oracle.reserved, [0; 64]);
+        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(oracle.feeds[0].price_feed, new_feed);
 
         // Update Oracle account with new feed.
         let new_feed2 = Pubkey::new_unique();
@@ -95,7 +99,10 @@ mod tests {
             &authority2,
             &oracle_pda,
             &new_feed2,
-            Some(oracle_type),
+            Some(FeedArgs {
+                oracle_type,
+                invert_price: false,
+            }),
             None,
         )?;
 
@@ -103,14 +110,15 @@ mod tests {
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
         let oracle = oracle.unwrap();
-        assert_eq!(oracle.oracle_type, oracle_type);
+        assert_eq!(oracle.version, 1);
         assert_eq!(oracle.authority, authority2.pubkey());
         assert_eq!(oracle.nonce, nonce);
-        assert_eq!(oracle.price_feed, new_feed2);
         assert_eq!(oracle.value, 0);
         assert_eq!(oracle.precision, 0);
         assert_eq!(oracle.last_update_slot, 0);
         assert_eq!(oracle.reserved, [0; 64]);
+        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(oracle.feeds[0].price_feed, new_feed2);
 
         Ok(())
     }

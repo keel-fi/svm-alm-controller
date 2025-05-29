@@ -39,24 +39,38 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
     let ctx = RefreshOracle::from_accounts(accounts)?;
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
 
-    if ctx.price_feed.key().ne(&oracle.price_feed) {
+    // Read only from first feed in current implementation.
+    let feed = &oracle.feeds[0];
+    if ctx.price_feed.key().ne(&feed.price_feed) {
         return Err(ProgramError::InvalidAccountData);
     }
     let feed_account = ctx.price_feed.try_borrow_data()?;
     let clock = Clock::get()?;
 
-    match oracle.oracle_type {
+    match feed.oracle_type {
         0 => {
-            let feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
-            let price = feed.result.value;
-            let update_slot = feed.result.slot;
+            let data_source: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+            let price = data_source.result.value;
+            let update_slot = data_source.result.slot;
 
-            if update_slot < clock.slot - feed.max_staleness as u64 {
+            if update_slot < clock.slot - data_source.max_staleness as u64 {
                 log!("update slot {} < current slot {}", update_slot, clock.slot);
                 return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
             }
 
-            oracle.value = price;
+            // Let P = precision of price and X = Price in decimals
+            // Price is stored in data feed as X * (10^P).
+            // By inverting, we want to get 1/X * (10^P)
+            // = 10^P / X = 10^(2*P) / (X * 10^P)
+            if feed.invert_price {
+                oracle.value = 10_i128
+                    .checked_pow(PRECISION * 2)
+                    .unwrap()
+                    .checked_div(price)
+                    .unwrap();
+            } else {
+                oracle.value = price;
+            }
             oracle.precision = PRECISION;
             oracle.last_update_slot = update_slot;
         }

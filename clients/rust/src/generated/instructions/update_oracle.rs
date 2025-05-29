@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::types::FeedArgs;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
@@ -92,7 +93,7 @@ impl Default for UpdateOracleInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UpdateOracleInstructionArgs {
-    pub oracle_type: Option<u8>,
+    pub feed_args: Option<FeedArgs>,
 }
 
 /// Instruction builder for `UpdateOracle`.
@@ -109,7 +110,7 @@ pub struct UpdateOracleBuilder {
     price_feed: Option<solana_program::pubkey::Pubkey>,
     oracle: Option<solana_program::pubkey::Pubkey>,
     new_authority: Option<solana_program::pubkey::Pubkey>,
-    oracle_type: Option<u8>,
+    feed_args: Option<FeedArgs>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -143,8 +144,8 @@ impl UpdateOracleBuilder {
     }
     /// `[optional argument]`
     #[inline(always)]
-    pub fn oracle_type(&mut self, oracle_type: u8) -> &mut Self {
-        self.oracle_type = Some(oracle_type);
+    pub fn feed_args(&mut self, feed_args: FeedArgs) -> &mut Self {
+        self.feed_args = Some(feed_args);
         self
     }
     /// Add an additional account to the instruction.
@@ -174,7 +175,7 @@ impl UpdateOracleBuilder {
             new_authority: self.new_authority,
         };
         let args = UpdateOracleInstructionArgs {
-            oracle_type: self.oracle_type.clone(),
+            feed_args: self.feed_args.clone(),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -338,7 +339,7 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
             price_feed: None,
             oracle: None,
             new_authority: None,
-            oracle_type: None,
+            feed_args: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -378,8 +379,8 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
     }
     /// `[optional argument]`
     #[inline(always)]
-    pub fn oracle_type(&mut self, oracle_type: u8) -> &mut Self {
-        self.instruction.oracle_type = Some(oracle_type);
+    pub fn feed_args(&mut self, feed_args: FeedArgs) -> &mut Self {
+        self.instruction.feed_args = Some(feed_args);
         self
     }
     /// Add an additional account to the instruction.
@@ -424,7 +425,7 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
         let args = UpdateOracleInstructionArgs {
-            oracle_type: self.instruction.oracle_type.clone(),
+            feed_args: self.instruction.feed_args.clone(),
         };
         let instruction = UpdateOracleCpi {
             __program: self.instruction.__program,
@@ -452,7 +453,7 @@ struct UpdateOracleCpiBuilderInstruction<'a, 'b> {
     price_feed: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     oracle: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     new_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    oracle_type: Option<u8>,
+    feed_args: Option<FeedArgs>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

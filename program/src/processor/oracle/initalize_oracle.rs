@@ -67,9 +67,10 @@ pub fn process_initialize_oracle(
         ctx.oracle,
         ctx.authority,
         ctx.payer,
-        ctx.price_feed,
-        args.oracle_type,
         &args.nonce,
+        args.oracle_type,
+        ctx.price_feed,
+        args.invert_price,
     )?;
 
     Ok(())

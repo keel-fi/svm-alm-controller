@@ -220,11 +220,18 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
+    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct UpdateOracleArgs {
-    pub oracle_type: Option<u8>,
+    pub feed_args: Option<FeedArgs>,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct FeedArgs {
+    pub oracle_type: u8,
+    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

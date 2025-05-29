@@ -67,7 +67,7 @@ mod tests {
         let update_slot = 1000_000;
         svm.warp_to_slot(update_slot);
         set_price_feed(svm, price_feed, 1_000_000_000)?;
-        initalize_oracle(svm, &relayer_authority_kp, nonce, price_feed, 0)?;
+        initalize_oracle(svm, &relayer_authority_kp, nonce, price_feed, 0, false)?;
 
         setup_token_mint(svm, &coin_token_mint, 6, &mint_authority.pubkey());
         setup_token_mint(svm, &pc_token_mint, 6, &mint_authority.pubkey());
