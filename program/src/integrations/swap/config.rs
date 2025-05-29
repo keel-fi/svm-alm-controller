@@ -10,7 +10,7 @@ pub struct AtomicSwapConfig {
     pub output_token: Pubkey,
     /// The Oracle account that is used for this pair
     pub oracle: Pubkey,
-    /// The max amount of slippage from the oracle's price.
+    /// The max amount of slippage from the oracle's price accepted.
     pub max_slippage_bps: u16,
     /// Max allowed staleness of oracle's last_update_slot from clock slot.
     pub max_staleness: u64,

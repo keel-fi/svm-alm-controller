@@ -103,7 +103,7 @@ pub fn process_atomic_swap_repay(
     // Check that Integration account is valid and matches controller.
     let integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
-    if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(mut state)) =
+    if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, integration.state)
     {
         if cfg.input_token != reserve_a.mint
@@ -158,8 +158,8 @@ pub fn process_atomic_swap_repay(
             args.amount,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
-            cfg.is_input_token_base_asset,
-            &oracle,
+            oracle.value,
+            oracle.precision,
         )?;
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
@@ -180,73 +180,102 @@ fn pow10(decimals: u32) -> Option<i128> {
     10_i128.checked_pow(decimals)
 }
 
-pub fn check_swap_slippage(
+fn check_swap_slippage(
     input_amount: u64,
     input_decimals: u8,
     output_amount: u64,
     output_decimals: u8,
     max_slippage_bps: u16,
-    is_input_token_base_asset: bool,
-    oracle: &Oracle,
+    oracle_price: i128,
+    precision: u32,
 ) -> ProgramResult {
     if input_amount == 0 || output_amount == 0 {
         return Err(ProgramError::InvalidArgument);
     }
     let in_factor = pow10(input_decimals.into()).unwrap();
     let out_factor = pow10(output_decimals.into()).unwrap();
-    let prec_factor = pow10(oracle.precision).unwrap();
+    let prec_factor = pow10(precision).unwrap();
 
-    if is_input_token_base_asset {
-        // swap_price = (output_amount / out_factor) / (input_amount / in_factor)
-        let swap_price = i128::from(output_amount)
-            .checked_mul(in_factor)
-            .unwrap()
-            .checked_mul(prec_factor)
-            .unwrap()
-            .checked_div(input_amount.into())
-            .unwrap()
-            .checked_div(out_factor)
-            .unwrap();
+    // swap_price = (output_amount / out_factor) / (input_amount / in_factor)
+    let swap_price = i128::from(output_amount)
+        .checked_mul(in_factor)
+        .unwrap()
+        .checked_mul(prec_factor)
+        .unwrap()
+        .checked_div(input_amount.into())
+        .unwrap()
+        .checked_div(out_factor)
+        .unwrap();
 
-        // min_swap_price = oracle.value * (100-max_slippage)%
-        let min_swap_price = oracle
-            .value
-            .checked_mul(BPS_DENOMINATOR.saturating_sub(max_slippage_bps).into())
-            .unwrap()
-            .checked_div(BPS_DENOMINATOR.into())
-            .unwrap();
+    // min_swap_price = oracle.value * (100-max_slippage)%
+    let min_swap_price = oracle_price
+        .checked_mul(BPS_DENOMINATOR.saturating_sub(max_slippage_bps).into())
+        .unwrap()
+        .checked_div(BPS_DENOMINATOR.into())
+        .unwrap();
 
-        if swap_price < min_swap_price {
-            return Err(SvmAlmControllerErrors::SlippageExceeded.into());
-        }
-        Ok(())
-    } else {
-        // swap_price = (input_amount / in_factor) / (output_amount / out_factor)
-        let swap_price = i128::from(input_amount)
-            .checked_mul(out_factor)
-            .unwrap()
-            .checked_mul(prec_factor)
-            .unwrap()
-            .checked_div(output_amount.into())
-            .unwrap()
-            .checked_div(in_factor)
-            .unwrap();
+    if swap_price < min_swap_price {
+        return Err(SvmAlmControllerErrors::SlippageExceeded.into());
+    }
+    Ok(())
+}
 
-        // max_swap_price = oracle.value * (100+max_slippage)%
-        let max_swap_price = oracle
-            .value
-            .checked_mul(
-                (BPS_DENOMINATOR as u32)
-                    .saturating_add(max_slippage_bps.into())
-                    .into(),
-            )
-            .unwrap()
-            .checked_div(BPS_DENOMINATOR.into())
-            .unwrap();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        if swap_price > max_swap_price {
-            return Err(SvmAlmControllerErrors::SlippageExceeded.into());
-        }
-        Ok(())
+    #[test]
+    fn test_swap_base_asset_slippage_pass() {
+        // Swap Price: $200, Min Oracle Price = $190.935
+        let res = check_swap_slippage(
+            2_000_000, // input: 2 base token
+            6,
+            400_000_000, // output: $400
+            6,
+            1000, // 10%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_swap_base_asset_slippage_fail() {
+        // Swap Price: $200, Min Oracle Price = $200.1285
+        let res = check_swap_slippage(
+            2_000_000, // input: 2 base token
+            6,
+            400_000_000, // output: $400
+            6,
+            100, // 1%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_swap_zero_input_or_output() {
+        let res = check_swap_slippage(
+            0,
+            6,
+            400_000_000, // output: $400
+            6,
+            100, // 1%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_err());
+
+        let res = check_swap_slippage(
+            2_000_000,
+            6,
+            0,
+            6,
+            100, // 1%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_err());
     }
 }
