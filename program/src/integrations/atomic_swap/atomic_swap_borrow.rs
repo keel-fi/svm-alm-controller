@@ -227,6 +227,8 @@ pub fn process_atomic_swap_borrow(
     reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
     reserve_a.save(ctx.reserve_a)?;
 
+    // Update rate limit to track outflow of input_tokens for integration.
+    integration.update_rate_limit_for_outflow(clock, args.amount)?;
     integration.save(ctx.integration)?;
 
     Ok(())
