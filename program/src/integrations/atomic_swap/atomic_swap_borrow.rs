@@ -14,7 +14,10 @@ use pinocchio::{
 use pinocchio_token::state::TokenAccount;
 
 use crate::{
-    enums::{IntegrationConfig, IntegrationState, ReserveStatus},
+    constants::ATOMIC_SWAP_REPAY_IX_DISC,
+    enums::{
+        ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
+    },
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
     state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
@@ -57,6 +60,9 @@ impl<'info> AtomicSwapBorrow<'info> {
             return Err(ProgramError::MissingRequiredSignature);
         }
         if !ctx.integration.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
+        if !ctx.reserve_a.is_writable() {
             return Err(ProgramError::Immutable);
         }
         if !ctx.vault_a.is_writable() {
@@ -109,7 +115,7 @@ pub fn verify_repay_ix_in_tx(
         .get_instruction_data()
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
-    if *discriminator != 15 {
+    if *discriminator != ATOMIC_SWAP_REPAY_IX_DISC {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 
@@ -132,6 +138,12 @@ pub fn process_atomic_swap_borrow(
     let args: AtomicSwapBorrowArgs =
         AtomicSwapBorrowArgs::try_from_slice(instruction_data).unwrap();
 
+    // Load in controller state
+    let controller = Controller::load_and_check(ctx.controller)?;
+    if controller.status != ControllerStatus::Active {
+        return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
+    }
+
     // Load in the super permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
@@ -140,14 +152,17 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
+    let clock = Clock::get()?;
+
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
+    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.vault != *ctx.vault_a.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     if reserve_a.status != ReserveStatus::Active {
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
+    reserve_a.refresh_rate_limit(clock)?;
 
     let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
@@ -157,10 +172,11 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    let controller = Controller::load_and_check(ctx.controller)?;
-
     // Check that Integration account is valid and matches controller.
-    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    if integration.status != IntegrationStatus::Active {
+        return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
+    }
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
@@ -173,7 +189,7 @@ pub fn process_atomic_swap_borrow(
             return Err(SvmAlmControllerErrors::SwapHasStarted.into());
         }
 
-        if Clock::get()?.unix_timestamp >= cfg.expiry_timestamp {
+        if clock.unix_timestamp >= cfg.expiry_timestamp {
             return Err(SvmAlmControllerErrors::SwapHasExpired.into());
         }
 
@@ -192,7 +208,6 @@ pub fn process_atomic_swap_borrow(
             state.last_balance_a = vault_a.amount();
             state.last_balance_b = vault_b.amount();
             state.amount_borrowed = args.amount;
-            integration.save(ctx.integration)?;
         }
 
         // Transfer borrow amount of tokens from vault to recipient.
@@ -207,6 +222,12 @@ pub fn process_atomic_swap_borrow(
     }
 
     verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
+
+    // Sync reserve_a balance at end of borrow to ensure that outflow doesn't exceed rate limit.
+    reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
+    reserve_a.save(ctx.reserve_a)?;
+
+    integration.save(ctx.integration)?;
 
     Ok(())
 }

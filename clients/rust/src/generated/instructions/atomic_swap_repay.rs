@@ -78,7 +78,7 @@ impl AtomicSwapRepay {
             self.vault_a,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             self.reserve_b,
             false,
         ));
@@ -146,7 +146,7 @@ pub struct AtomicSwapRepayInstructionArgs {
 ///   4. `[writable]` integration
 ///   5. `[]` reserve_a
 ///   6. `[]` vault_a
-///   7. `[]` reserve_b
+///   7. `[writable]` reserve_b
 ///   8. `[writable]` vault_b
 ///   9. `[]` oracle
 ///   10. `[writable]` payer_token_account
@@ -433,7 +433,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             *self.vault_a.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             *self.reserve_b.key,
             false,
         ));
@@ -506,7 +506,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
 ///   4. `[writable]` integration
 ///   5. `[]` reserve_a
 ///   6. `[]` vault_a
-///   7. `[]` reserve_b
+///   7. `[writable]` reserve_b
 ///   8. `[writable]` vault_b
 ///   9. `[]` oracle
 ///   10. `[writable]` payer_token_account

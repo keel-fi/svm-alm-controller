@@ -13,3 +13,5 @@ pub const ADDRESS_LOOKUP_TABLE_PROGRAM_ID: Pubkey =
 
 pub const SECONDS_PER_DAY: u64 = 86_400;
 pub const BPS_DENOMINATOR: u16 = 10_000;
+
+pub const ATOMIC_SWAP_REPAY_IX_DISC: u8 = 15;

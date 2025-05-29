@@ -65,7 +65,7 @@ impl AtomicSwapBorrow {
             self.integration,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             self.reserve_a,
             false,
         ));
@@ -138,7 +138,7 @@ pub struct AtomicSwapBorrowInstructionArgs {
 ///   1. `[signer]` authority
 ///   2. `[]` permission
 ///   3. `[writable]` integration
-///   4. `[]` reserve_a
+///   4. `[writable]` reserve_a
 ///   5. `[writable]` vault_a
 ///   6. `[]` reserve_b
 ///   7. `[]` vault_b
@@ -409,7 +409,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             *self.integration.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             *self.reserve_a.key,
             false,
         ));
@@ -486,7 +486,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
 ///   1. `[signer]` authority
 ///   2. `[]` permission
 ///   3. `[writable]` integration
-///   4. `[]` reserve_a
+///   4. `[writable]` reserve_a
 ///   5. `[writable]` vault_a
 ///   6. `[]` reserve_b
 ///   7. `[]` vault_b

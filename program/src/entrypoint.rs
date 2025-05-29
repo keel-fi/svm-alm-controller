@@ -4,6 +4,7 @@ use pinocchio::{
 };
 
 use crate::{
+    constants::ATOMIC_SWAP_REPAY_IX_DISC,
     integrations::atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
     processor::{
         process_emit_event, process_initialize_controller, process_initialize_integration,
@@ -41,7 +42,9 @@ pub fn process_instruction(
         12 => process_update_oracle(program_id, accounts, instruction_data),
         13 => process_refresh_oracle(program_id, accounts),
         14 => process_atomic_swap_borrow(program_id, accounts, instruction_data),
-        15 => process_atomic_swap_repay(program_id, accounts, instruction_data),
+        &ATOMIC_SWAP_REPAY_IX_DISC => {
+            process_atomic_swap_repay(program_id, accounts, instruction_data)
+        } // 15
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

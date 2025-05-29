@@ -14,7 +14,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapRepayArgs,
-    state::{Integration, Oracle, Permission, Reserve},
+    state::{nova_account::NovaAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
 pub struct AtomicSwapRepay<'info> {
@@ -58,6 +58,9 @@ impl<'info> AtomicSwapRepay<'info> {
         if !ctx.integration.is_writable() {
             return Err(ProgramError::Immutable);
         }
+        if !ctx.reserve_b.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
         if !ctx.vault_b.is_writable() {
             return Err(ProgramError::Immutable);
         }
@@ -81,6 +84,10 @@ pub fn process_atomic_swap_repay(
     msg!("atomic_swap_repay");
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
     let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data).unwrap();
+    let clock = Clock::get()?;
+
+    // Load in controller state
+    let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in the super permission account
     let permission =
@@ -95,13 +102,16 @@ pub fn process_atomic_swap_repay(
     if reserve_a.vault != *ctx.vault_a.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
-    let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
+    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
+    // Sync reserve_b balance before repay to ensure any prior changes doesn't exceed rate limit.
+    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
+
     // Check that Integration account is valid and matches controller.
-    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
@@ -134,19 +144,9 @@ pub fn process_atomic_swap_repay(
             }
         }
 
-        // Transfer amount from payer_token_account to vault_b.
-        Transfer {
-            from: ctx.payer_token_account,
-            to: ctx.vault_b,
-            authority: ctx.payer,
-            amount: args.amount,
-        }
-        .invoke()?;
-
         let oracle = Oracle::load_and_check(ctx.oracle)?;
 
         // Check that oracle was last refreshed within acceptable staleness.
-        let clock = Clock::get()?;
         if oracle.last_update_slot < clock.slot - cfg.max_staleness {
             return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
         }
@@ -162,6 +162,15 @@ pub fn process_atomic_swap_repay(
             oracle.precision,
         )?;
 
+        // Transfer amount from payer_token_account to vault_b.
+        Transfer {
+            from: ctx.payer_token_account,
+            to: ctx.vault_b,
+            authority: ctx.payer,
+            amount: args.amount,
+        }
+        .invoke()?;
+
         // Reset state
         state.last_balance_a = 0;
         state.last_balance_b = 0;
@@ -169,6 +178,11 @@ pub fn process_atomic_swap_repay(
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
+
+    reserve_b.update_for_inflow(clock, args.amount)?;
+    reserve_b.save(ctx.reserve_a)?;
+
+    integration.save(ctx.integration)?;
 
     Ok(())
 }
