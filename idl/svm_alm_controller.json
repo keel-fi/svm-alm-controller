@@ -553,6 +553,106 @@
         "type": "u8",
         "value": 10
       }
+    },
+    {
+      "name": "InitializeOracle",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeOracleArgs",
+          "type": {
+            "defined": "InitializeOracleArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 11
+      }
+    },
+    {
+      "name": "UpdateOracle",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "newAuthority",
+          "isMut": false,
+          "isSigner": true,
+          "isOptional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "updateOracleArgs",
+          "type": {
+            "defined": "UpdateOracleArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 12
+      }
+    },
+    {
+      "name": "RefreshOracle",
+      "accounts": [
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 13
+      }
     }
   ],
   "accounts": [
@@ -656,21 +756,40 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "lastUpdatedBlock",
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "nonce",
+            "type": "publicKey"
+          },
+          {
+            "name": "priceFeed",
+            "type": "publicKey"
+          },
+          {
+            "name": "value",
+            "type": "i128"
+          },
+          {
+            "name": "precision",
+            "type": "u32"
+          },
+          {
+            "name": "lastUpdateSlot",
             "type": "u64"
           },
           {
-            "name": "priceNumerator",
-            "type": "u64"
-          },
-          {
-            "name": "priceDenominator",
-            "type": "u64"
-          },
-          {
-            "name": "config",
+            "name": "reserved",
             "type": {
-              "defined": "OracleConfig"
+              "array": [
+                "u8",
+                64
+              ]
             }
           }
         ]
@@ -1160,6 +1279,36 @@
             "name": "rateLimitMaxOutflow",
             "type": {
               "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeOracleArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "nonce",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateOracleArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": {
+              "option": "u8"
             }
           }
         ]
@@ -1674,11 +1823,15 @@
             "type": "u16"
           },
           {
+            "name": "isInputTokenBaseAsset",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                94
+                93
               ]
             }
           }
@@ -1704,62 +1857,6 @@
               "array": [
                 "u8",
                 32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "DataSource",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "emitterChainId",
-            "type": "u16"
-          },
-          {
-            "name": "emitterAddress",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "PythConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "feedId",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "minSignatures",
-            "type": "u8"
-          },
-          {
-            "name": "maxStalenessSeconds",
-            "type": "u32"
-          },
-          {
-            "name": "guardianSet",
-            "type": "publicKey"
-          },
-          {
-            "name": "transformations",
-            "type": {
-              "array": [
-                {
-                  "defined": "PythTransformation"
-                },
-                3
               ]
             }
           }
@@ -2038,6 +2135,10 @@
               {
                 "name": "max_slippage_bps",
                 "type": "u16"
+              },
+              {
+                "name": "is_input_token_base_asset",
+                "type": "bool"
               }
             ]
           }
@@ -2118,42 +2219,6 @@
           },
           {
             "name": "LzBridge"
-          }
-        ]
-      }
-    },
-    {
-      "name": "OracleConfig",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "PythFeed",
-            "fields": [
-              {
-                "defined": "PythConfig"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "PythTransformation",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "None"
-          },
-          {
-            "name": "UsePrice"
-          },
-          {
-            "name": "UseEmaPrice"
-          },
-          {
-            "name": "InvertInput"
           }
         ]
       }

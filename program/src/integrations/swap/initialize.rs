@@ -14,9 +14,9 @@ pub struct InitializeAtomicSwapAccounts<'info> {
 }
 
 impl<'info> InitializeAtomicSwapAccounts<'info> {
-    // TODO: from_accounts could be a requirement for an Integration trait 
+    // TODO: from_accounts could be a requirement for an Integration trait
     pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        // TODO: ACCOUNT_LEN could be a requirement for an Integration trait 
+        // TODO: ACCOUNT_LEN could be a requirement for an Integration trait
         if account_infos.len() != 3 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
@@ -53,22 +53,26 @@ pub fn process_initialize_atomic_swap(
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
-    let max_slippage_bps = match outer_args.inner_args {
-        InitializeArgs::AtomicSwap { max_slippage_bps } => max_slippage_bps,
+    let (max_slippage_bps, is_input_token_base_asset) = match outer_args.inner_args {
+        InitializeArgs::AtomicSwap {
+            max_slippage_bps,
+            is_input_token_base_asset,
+            ..
+        } => (max_slippage_bps, is_input_token_base_asset),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
-    // Make sure the Oracle account is a proper Oracle account
-    let _oracle: Oracle =
-        NovaAccount::deserialize(&mut &*inner_ctx.oracle.try_borrow_data()?).map_err(|e| e)?;
+    // Check that Oracle is a valid account.
+    let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
 
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
         input_token: *inner_ctx.input_mint.key(),
         output_token: *inner_ctx.output_mint.key(),
         oracle: *inner_ctx.oracle.key(),
-        max_slippage_bps: max_slippage_bps,
-        padding: [0u8; 94],
+        max_slippage_bps,
+        is_input_token_base_asset,
+        padding: [0u8; 93],
     });
 
     // Create the initial integration state

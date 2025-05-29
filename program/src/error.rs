@@ -12,6 +12,8 @@ pub enum SvmAlmControllerErrors {
     PermissionStatusDoesNotPermitAction,
     IntegrationStatusDoesNotPermitAction,
     ReserveStatusDoesNotPermitAction,
+    StaleOraclePrice,
+    UnsupportedOracleType,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

@@ -11,7 +11,7 @@ mod tests {
         helpers::spl::setup_token_mint,
         subs::{
             initialize_contoller, initialize_integration, manage_permission,
-            oracle::set_oracle_price,
+            oracle::{derive_oracle_pda, initalize_oracle, set_price_feed},
         },
     };
 
@@ -32,12 +32,18 @@ mod tests {
     #[test_log::test]
     fn test_happy_path_initialize_swap_integration() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
-        let oracle_pubkey = Pubkey::new_unique();
-        set_oracle_price(&mut svm, &oracle_pubkey, 1_000_000_000, 1_000_000_000)?;
 
         let relayer_authority_kp = Keypair::new();
         svm.airdrop(&relayer_authority_kp.pubkey(), 100_000_000)
             .unwrap();
+
+        // Initialize price feed and oracle.
+        let update_slot = 1000_000;
+        svm.warp_to_slot(update_slot);
+        let nonce = Pubkey::new_unique();
+        let price_feed = Pubkey::new_unique();
+        set_price_feed(&mut svm, &price_feed, 1_000_000_000)?;
+        initalize_oracle(&mut svm, &relayer_authority_kp, &nonce, &price_feed, 0)?;
 
         let coin_token_mint = Pubkey::new_unique();
         let pc_token_mint = Pubkey::new_unique();
@@ -82,12 +88,14 @@ mod tests {
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: pc_token_mint,
                 output_token: coin_token_mint,
-                oracle: oracle_pubkey,
+                oracle: derive_oracle_pda(&nonce),
                 max_slippage_bps: 123,
-                padding: [0u8; 94],
+                is_input_token_base_asset: true,
+                padding: [0u8; 93],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
+                is_input_token_base_asset: true,
             },
         )?;
 

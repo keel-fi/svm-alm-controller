@@ -100,6 +100,26 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "reserve_a")]
     #[account(5, writable, name = "reserve_b")]
     Pull(PullArgs),
+
+    /// InitializeOracle
+    #[account(0, signer, writable, name = "payer")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "price_feed")]
+    #[account(3, writable, name = "oracle")]
+    #[account(4, name = "system_program")]
+    InitializeOracle(InitializeOracleArgs),
+
+    /// UpdateOracle
+    #[account(0, signer, name = "authority")]
+    #[account(1, name = "price_feed")]
+    #[account(2, writable, name = "oracle")]
+    #[account(3, optional, signer, name = "new_authority")]
+    UpdateOracle(UpdateOracleArgs),
+
+    /// RefreshOracle
+    #[account(0, name = "price_feed")]
+    #[account(1, writable, name = "oracle")]
+    RefreshOracle(),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -159,6 +179,17 @@ pub struct ManageIntegrationArgs {
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct InitializeOracleArgs {
+    pub oracle_type: u8,
+    pub nonce: Pubkey,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct UpdateOracleArgs {
+    pub oracle_type: Option<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum InitializeArgs {
     SplTokenExternal,
     SplTokenSwap,
@@ -172,6 +203,7 @@ pub enum InitializeArgs {
     },
     AtomicSwap {
         max_slippage_bps: u16,
+        is_input_token_base_asset: bool,
     },
 }
 

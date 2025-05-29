@@ -6,7 +6,7 @@ pub const PERMISSION_SEED: &[u8] = b"permission";
 pub const RESERVE_SEED: &[u8] = b"reserve";
 pub const INTEGRATION_SEED: &[u8] = b"integration";
 pub const SPL_TOKEN_VAULT_SEED: &[u8] = b"vault";
-pub const ORACLE_SEED: &[u8] = b"permission";
+pub const ORACLE_SEED: &[u8] = b"oracle";
 
 pub const ADDRESS_LOOKUP_TABLE_PROGRAM_ID: Pubkey =
     pubkey!("AddressLookupTab1e1111111111111111111111111");
