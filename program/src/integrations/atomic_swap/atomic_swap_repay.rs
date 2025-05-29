@@ -101,10 +101,10 @@ pub fn process_atomic_swap_repay(
     }
 
     // Check that Integration account is valid and matches controller.
-    let integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
-        (&integration.config, integration.state)
+        (&integration.config, &mut integration.state)
     {
         if cfg.input_token != reserve_a.mint
             || cfg.output_token != reserve_b.mint
@@ -161,17 +161,14 @@ pub fn process_atomic_swap_repay(
             oracle.value,
             oracle.precision,
         )?;
+
+        // Reset state
+        state.last_balance_a = 0;
+        state.last_balance_b = 0;
+        state.amount_borrowed = 0;
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
-
-    // Close integration account and transfer rent to payer.
-    let payer_lamports = ctx.payer.lamports();
-    *ctx.payer.try_borrow_mut_lamports().unwrap() = payer_lamports
-        .checked_add(ctx.integration.lamports())
-        .unwrap();
-    *ctx.integration.try_borrow_mut_lamports().unwrap() = 0;
-    ctx.integration.close()?;
 
     Ok(())
 }

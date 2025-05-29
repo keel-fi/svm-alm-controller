@@ -121,15 +121,6 @@ pub enum SvmAlmControllerInstruction {
     #[account(1, writable, name = "oracle")]
     RefreshOracle(),
 
-    /// Close atomic swap integration
-    #[account(0, writable, signer, name = "payer")]
-    #[account(1, name = "controller")]
-    #[account(2, signer, name = "authority")]
-    #[account(3, name = "permission")]
-    #[account(4, writable, name = "integration")]
-    #[account(5, name = "system_program")]
-    CloseAtomicSwap(),
-
     /// Atomic swap borrow
     #[account(0, name = "controller")]
     #[account(1, signer, name = "authority")]

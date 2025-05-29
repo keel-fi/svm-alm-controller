@@ -109,7 +109,7 @@ pub fn verify_repay_ix_in_tx(
         .get_instruction_data()
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
-    if *discriminator != 16 {
+    if *discriminator != 15 {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 

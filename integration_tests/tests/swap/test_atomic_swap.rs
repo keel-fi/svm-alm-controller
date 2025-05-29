@@ -3,9 +3,8 @@ mod tests {
     use crate::{
         helpers::spl::setup_token_account,
         subs::{
-            atomic_swap_borrow_repay, cancel_atomic_swap, derive_permission_pda,
-            fetch_integration_account, fetch_token_account, initialize_reserve, transfer_tokens,
-            ReserveKeys,
+            atomic_swap_borrow_repay, derive_permission_pda, fetch_integration_account,
+            fetch_token_account, initialize_reserve, transfer_tokens, ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -214,7 +213,7 @@ mod tests {
     }
 
     #[test_log::test]
-    fn init_and_cancel_atomic_swap() -> Result<(), Box<dyn std::error::Error>> {
+    fn init_atomic_swap() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let relayer_authority_kp = Keypair::new();
@@ -246,19 +245,6 @@ mod tests {
         )?;
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
         assert!(integration.is_some(), "Integration account is not found");
-
-        let calling_permission_pda =
-            derive_permission_pda(&controller_pk, &relayer_authority_kp.pubkey());
-
-        cancel_atomic_swap(
-            &mut svm,
-            &relayer_authority_kp,
-            controller_pk,
-            calling_permission_pda,
-            atomic_swap_integration_pk,
-        )?;
-        let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
-        assert!(integration.is_none(), "Integration account is found");
 
         Ok(())
     }
@@ -354,9 +340,8 @@ mod tests {
         assert_eq!(vault_b_increase, repay_amount);
         assert_eq!(relayer_b_decrease, repay_amount);
 
-        // Check that integration is closed
+        // TODO: Check that state is reset.
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;
-        assert!(integration.is_none(), "Integration account is found");
 
         Ok(())
     }

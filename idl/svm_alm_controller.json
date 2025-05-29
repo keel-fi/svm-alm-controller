@@ -655,46 +655,6 @@
       }
     },
     {
-      "name": "CloseAtomicSwap",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "controller",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "permission",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "integration",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [],
-      "discriminant": {
-        "type": "u8",
-        "value": 14
-      }
-    },
-    {
       "name": "AtomicSwapBorrow",
       "accounts": [
         {
@@ -763,7 +723,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 15
+        "value": 14
       }
     },
     {
@@ -840,7 +800,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 16
+        "value": 15
       }
     }
   ],
@@ -1600,6 +1560,84 @@
       }
     },
     {
+      "name": "AtomicSwapConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "inputToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "outputToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracle",
+            "type": "publicKey"
+          },
+          {
+            "name": "maxSlippageBps",
+            "type": "u16"
+          },
+          {
+            "name": "maxStaleness",
+            "type": "u64"
+          },
+          {
+            "name": "inputMintDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "outputMintDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "expiryTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                76
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AtomicSwapState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastBalanceA",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalanceB",
+            "type": "u64"
+          },
+          {
+            "name": "amountBorrowed",
+            "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "LocalToken",
       "type": {
         "kind": "struct",
@@ -2068,84 +2106,6 @@
           {
             "name": "poolFeeAccount",
             "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "AtomicSwapConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "inputToken",
-            "type": "publicKey"
-          },
-          {
-            "name": "outputToken",
-            "type": "publicKey"
-          },
-          {
-            "name": "oracle",
-            "type": "publicKey"
-          },
-          {
-            "name": "maxSlippageBps",
-            "type": "u16"
-          },
-          {
-            "name": "maxStaleness",
-            "type": "u64"
-          },
-          {
-            "name": "inputMintDecimals",
-            "type": "u8"
-          },
-          {
-            "name": "outputMintDecimals",
-            "type": "u8"
-          },
-          {
-            "name": "expiryTimestamp",
-            "type": "i64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                76
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "AtomicSwapState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "lastBalanceA",
-            "type": "u64"
-          },
-          {
-            "name": "lastBalanceB",
-            "type": "u64"
-          },
-          {
-            "name": "amountBorrowed",
-            "type": "u64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                24
-              ]
-            }
           }
         ]
       }
