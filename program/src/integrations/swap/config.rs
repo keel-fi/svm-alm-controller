@@ -12,11 +12,6 @@ pub struct AtomicSwapConfig {
     pub oracle: Pubkey,
     /// The max amount of slippage from the oracle's price.
     pub max_slippage_bps: u16,
-    /// Whether `input_token` is the base asset of the oracle price.
-    ///
-    /// For example, if oracle price of BTC/USDC is 100,000, and `input_token` is BTC,
-    /// `output_token` is USDC, then is_input_token_base_asset will be true.
-    pub is_input_token_base_asset: bool,
     /// Max allowed staleness of oracle's last_update_slot from clock slot.
     pub max_staleness: u64,
     /// Input token mint's decimals
@@ -25,5 +20,5 @@ pub struct AtomicSwapConfig {
     pub output_mint_decimals: u8,
     /// Expiry time of swap
     pub expiry_timestamp: i64,
-    pub padding: [u8; 75],
+    pub padding: [u8; 76],
 }

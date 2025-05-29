@@ -63,7 +63,6 @@ pub fn process_initialize_atomic_swap(
 
     let InitializeArgs::AtomicSwap {
         max_slippage_bps,
-        is_input_token_base_asset,
         max_staleness,
         expiry_timestamp,
         ..
@@ -86,12 +85,11 @@ pub fn process_initialize_atomic_swap(
         output_token: *inner_ctx.output_mint.key(),
         oracle: *inner_ctx.oracle.key(),
         max_slippage_bps,
-        is_input_token_base_asset,
         max_staleness,
         input_mint_decimals: input_mint.decimals(),
         output_mint_decimals: output_mint.decimals(),
         expiry_timestamp,
-        padding: [0u8; 75],
+        padding: [0u8; 76],
     });
 
     // Create the initial integration state

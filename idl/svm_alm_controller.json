@@ -2094,10 +2094,6 @@
             "type": "u16"
           },
           {
-            "name": "isInputTokenBaseAsset",
-            "type": "bool"
-          },
-          {
             "name": "maxStaleness",
             "type": "u64"
           },
@@ -2118,7 +2114,7 @@
             "type": {
               "array": [
                 "u8",
-                75
+                76
               ]
             }
           }
@@ -2426,10 +2422,6 @@
               {
                 "name": "max_slippage_bps",
                 "type": "u16"
-              },
-              {
-                "name": "is_input_token_base_asset",
-                "type": "bool"
               },
               {
                 "name": "max_staleness",
