@@ -14,7 +14,7 @@ use pinocchio::{
 use pinocchio_token::state::TokenAccount;
 
 use crate::{
-    enums::{IntegrationConfig, IntegrationState},
+    enums::{IntegrationConfig, IntegrationState, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
     state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
@@ -145,9 +145,16 @@ pub fn process_atomic_swap_borrow(
     if reserve_a.vault != *ctx.vault_a.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
+    if reserve_a.status != ReserveStatus::Active {
+        return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
+    }
+
     let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+    }
+    if reserve_b.status != ReserveStatus::Active {
+        return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
     let controller = Controller::load_and_check(ctx.controller)?;

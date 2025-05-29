@@ -3,12 +3,17 @@ use pinocchio::{
     ProgramResult,
 };
 
-use crate::processor::{
-    process_atomic_swap_borrow, process_atomic_swap_repay, process_close_atomic_swap,
-    process_emit_event, process_initialize_controller, process_initialize_integration,
-    process_initialize_oracle, process_initialize_reserve, process_manage_integration,
-    process_manage_permission, process_manage_reserve, process_pull, process_push,
-    process_refresh_oracle, process_sync_integration, process_sync_reserve, process_update_oracle,
+use crate::{
+    integrations::atomic_swap::{
+        process_atomic_swap_borrow, process_atomic_swap_repay, process_close_atomic_swap,
+    },
+    processor::{
+        process_emit_event, process_initialize_controller, process_initialize_integration,
+        process_initialize_oracle, process_initialize_reserve, process_manage_integration,
+        process_manage_permission, process_manage_reserve, process_pull, process_push,
+        process_refresh_oracle, process_sync_integration, process_sync_reserve,
+        process_update_oracle,
+    },
 };
 
 entrypoint!(process_instruction);

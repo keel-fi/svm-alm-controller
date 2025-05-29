@@ -1,7 +1,7 @@
 use crate::{
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
-    integrations::swap::{config::AtomicSwapConfig, state::AtomicSwapState},
+    integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
     processor::InitializeIntegrationAccounts,
     state::{nova_account::NovaAccount, Oracle},
 };

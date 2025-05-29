@@ -1,7 +1,7 @@
 use crate::integrations::{
-    cctp_bridge::config::CctpBridgeConfig, lz_bridge::config::LzBridgeConfig,
-    spl_token_external::config::SplTokenExternalConfig, spl_token_swap::config::SplTokenSwapConfig,
-    swap::config::AtomicSwapConfig,
+    atomic_swap::config::AtomicSwapConfig, cctp_bridge::config::CctpBridgeConfig,
+    lz_bridge::config::LzBridgeConfig, spl_token_external::config::SplTokenExternalConfig,
+    spl_token_swap::config::SplTokenSwapConfig,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;

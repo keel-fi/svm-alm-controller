@@ -1,4 +1,3 @@
-pub mod atomic_swap;
 pub mod emit_event;
 pub mod initialize_controller;
 pub mod initialize_integration;
@@ -12,7 +11,6 @@ pub mod push;
 pub mod sync_integration;
 pub mod sync_reserve;
 
-pub use atomic_swap::*;
 pub use emit_event::*;
 pub use initialize_controller::*;
 pub use initialize_integration::*;
