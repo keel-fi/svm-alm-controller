@@ -173,6 +173,10 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
+    // Sync reserve balances and rate limits
+    reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
+    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
+
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
     if integration.status != IntegrationStatus::Active {
@@ -198,6 +202,8 @@ pub fn process_atomic_swap_borrow(
         {
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
+            let recipient_token_account =
+                TokenAccount::from_account_info(ctx.recipient_token_account)?;
 
             if args.amount > vault_a.amount() {
                 return Err(ProgramError::InsufficientFunds);
@@ -206,10 +212,12 @@ pub fn process_atomic_swap_borrow(
                 return Err(ProgramError::InvalidArgument);
             }
 
-            // Cache vault balances and amount borrowed in Integration state.
+            // Cache token balances and amount borrowed in Integration state.
             state.last_balance_a = vault_a.amount();
             state.last_balance_b = vault_b.amount();
             state.amount_borrowed = args.amount;
+            state.recipient_token_a_pre = recipient_token_account.amount();
+            state.repay_excess_token_a = args.repay_excess_token_a;
         }
 
         // Transfer borrow amount of tokens from vault to recipient.
@@ -225,12 +233,8 @@ pub fn process_atomic_swap_borrow(
 
     verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
 
-    // Sync reserve_a balance at end of borrow to ensure that outflow doesn't exceed rate limit.
-    reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
+    reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
-
-    // Also sync reserve_b balance to ensure any prior changes doesn't exceed rate limit.
-    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
     reserve_b.save(ctx.reserve_b)?;
 
     // Update rate limit to track outflow of input_tokens for integration.

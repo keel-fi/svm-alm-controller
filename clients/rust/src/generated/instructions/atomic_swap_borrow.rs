@@ -128,6 +128,7 @@ impl Default for AtomicSwapBorrowInstructionData {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AtomicSwapBorrowInstructionArgs {
     pub amount: u64,
+    pub repay_excess_token_a: bool,
 }
 
 /// Instruction builder for `AtomicSwapBorrow`.
@@ -159,6 +160,7 @@ pub struct AtomicSwapBorrowBuilder {
     token_program: Option<solana_program::pubkey::Pubkey>,
     sysvar_instruction: Option<solana_program::pubkey::Pubkey>,
     amount: Option<u64>,
+    repay_excess_token_a: Option<bool>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -234,6 +236,11 @@ impl AtomicSwapBorrowBuilder {
         self.amount = Some(amount);
         self
     }
+    #[inline(always)]
+    pub fn repay_excess_token_a(&mut self, repay_excess_token_a: bool) -> &mut Self {
+        self.repay_excess_token_a = Some(repay_excess_token_a);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -275,6 +282,10 @@ impl AtomicSwapBorrowBuilder {
         };
         let args = AtomicSwapBorrowInstructionArgs {
             amount: self.amount.clone().expect("amount is not set"),
+            repay_excess_token_a: self
+                .repay_excess_token_a
+                .clone()
+                .expect("repay_excess_token_a is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -514,6 +525,7 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
             token_program: None,
             sysvar_instruction: None,
             amount: None,
+            repay_excess_token_a: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -611,6 +623,11 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
         self.instruction.amount = Some(amount);
         self
     }
+    #[inline(always)]
+    pub fn repay_excess_token_a(&mut self, repay_excess_token_a: bool) -> &mut Self {
+        self.instruction.repay_excess_token_a = Some(repay_excess_token_a);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -654,6 +671,11 @@ impl<'a, 'b> AtomicSwapBorrowCpiBuilder<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         let args = AtomicSwapBorrowInstructionArgs {
             amount: self.instruction.amount.clone().expect("amount is not set"),
+            repay_excess_token_a: self
+                .instruction
+                .repay_excess_token_a
+                .clone()
+                .expect("repay_excess_token_a is not set"),
         };
         let instruction = AtomicSwapBorrowCpi {
             __program: self.instruction.__program,
@@ -715,6 +737,7 @@ struct AtomicSwapBorrowCpiBuilderInstruction<'a, 'b> {
     token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     sysvar_instruction: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     amount: Option<u64>,
+    repay_excess_token_a: Option<bool>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

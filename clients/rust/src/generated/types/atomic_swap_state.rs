@@ -14,5 +14,7 @@ pub struct AtomicSwapState {
     pub last_balance_a: u64,
     pub last_balance_b: u64,
     pub amount_borrowed: u64,
-    pub padding: [u8; 24],
+    pub recipient_token_a_pre: u64,
+    pub repay_excess_token_a: bool,
+    pub padding: [u8; 15],
 }

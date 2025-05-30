@@ -116,6 +116,7 @@ pub fn process_atomic_swap_repay(
 
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut excess_token_a = 0;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
@@ -136,7 +137,6 @@ pub fn process_atomic_swap_repay(
             // Check that vault_a and vault_b amounts remain same as after atomic borrow.
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
-            let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
             let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
 
             // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
@@ -146,14 +146,37 @@ pub fn process_atomic_swap_repay(
                 return Err(SvmAlmControllerErrors::InvalidSwapState.into());
             }
 
-            if args.amount_a > payer_account_a.amount() || args.amount_b > payer_account_b.amount()
-            {
-                return Err(ProgramError::InsufficientFunds);
+            if state.repay_excess_token_a {
+                let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
+                excess_token_a = payer_account_a
+                    .amount()
+                    .saturating_sub(state.recipient_token_a_pre);
+                final_input_amount = final_input_amount.checked_sub(excess_token_a).unwrap();
             }
 
-            // Reduce input amount by token_a that is being repaid.
-            final_input_amount = final_input_amount.checked_sub(args.amount_a).unwrap();
+            if args.amount > payer_account_b.amount() {
+                return Err(ProgramError::InsufficientFunds);
+            }
         }
+
+        // Transfer tokens to vault for repayment.
+        if excess_token_a > 0 {
+            Transfer {
+                from: ctx.payer_account_a,
+                to: ctx.vault_a,
+                authority: ctx.payer,
+                amount: excess_token_a,
+            }
+            .invoke()?;
+        }
+
+        Transfer {
+            from: ctx.payer_account_b,
+            to: ctx.vault_b,
+            authority: ctx.payer,
+            amount: args.amount,
+        }
+        .invoke()?;
 
         let oracle = Oracle::load_and_check(ctx.oracle)?;
 
@@ -166,46 +189,26 @@ pub fn process_atomic_swap_repay(
         check_swap_slippage(
             final_input_amount,
             cfg.input_mint_decimals,
-            args.amount_b,
+            args.amount,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
             oracle.value,
             oracle.precision,
         )?;
 
-        // Transfer amount_a and amount_b from payer to vault.
-        if args.amount_a > 0 {
-            Transfer {
-                from: ctx.payer_account_a,
-                to: ctx.vault_a,
-                authority: ctx.payer,
-                amount: args.amount_a,
-            }
-            .invoke()?;
-        }
-        Transfer {
-            from: ctx.payer_account_b,
-            to: ctx.vault_b,
-            authority: ctx.payer,
-            amount: args.amount_b,
-        }
-        .invoke()?;
-
-        // Reset state
-        state.last_balance_a = 0;
-        state.last_balance_b = 0;
-        state.amount_borrowed = 0;
+        // Reset state after repayment.
+        state.reset();
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
 
-    reserve_a.update_for_inflow(clock, args.amount_a)?;
+    // Update for rate limits and save.
+    reserve_a.update_for_inflow(clock, excess_token_a)?;
     reserve_a.save(ctx.reserve_a)?;
-
-    reserve_b.update_for_inflow(clock, args.amount_b)?;
+    reserve_b.update_for_inflow(clock, args.amount)?;
     reserve_b.save(ctx.reserve_b)?;
 
-    integration.update_rate_limit_for_inflow(clock, args.amount_a)?;
+    integration.update_rate_limit_for_inflow(clock, excess_token_a)?;
     integration.save(ctx.integration)?;
 
     Ok(())

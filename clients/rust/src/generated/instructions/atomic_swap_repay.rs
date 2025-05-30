@@ -138,8 +138,7 @@ impl Default for AtomicSwapRepayInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AtomicSwapRepayInstructionArgs {
-    pub amount_a: u64,
-    pub amount_b: u64,
+    pub amount: u64,
 }
 
 /// Instruction builder for `AtomicSwapRepay`.
@@ -174,8 +173,7 @@ pub struct AtomicSwapRepayBuilder {
     payer_account_a: Option<solana_program::pubkey::Pubkey>,
     payer_account_b: Option<solana_program::pubkey::Pubkey>,
     token_program: Option<solana_program::pubkey::Pubkey>,
-    amount_a: Option<u64>,
-    amount_b: Option<u64>,
+    amount: Option<u64>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -256,13 +254,8 @@ impl AtomicSwapRepayBuilder {
         self
     }
     #[inline(always)]
-    pub fn amount_a(&mut self, amount_a: u64) -> &mut Self {
-        self.amount_a = Some(amount_a);
-        self
-    }
-    #[inline(always)]
-    pub fn amount_b(&mut self, amount_b: u64) -> &mut Self {
-        self.amount_b = Some(amount_b);
+    pub fn amount(&mut self, amount: u64) -> &mut Self {
+        self.amount = Some(amount);
         self
     }
     /// Add an additional account to the instruction.
@@ -303,8 +296,7 @@ impl AtomicSwapRepayBuilder {
             )),
         };
         let args = AtomicSwapRepayInstructionArgs {
-            amount_a: self.amount_a.clone().expect("amount_a is not set"),
-            amount_b: self.amount_b.clone().expect("amount_b is not set"),
+            amount: self.amount.clone().expect("amount is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -567,8 +559,7 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
             payer_account_a: None,
             payer_account_b: None,
             token_program: None,
-            amount_a: None,
-            amount_b: None,
+            amount: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -675,13 +666,8 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn amount_a(&mut self, amount_a: u64) -> &mut Self {
-        self.instruction.amount_a = Some(amount_a);
-        self
-    }
-    #[inline(always)]
-    pub fn amount_b(&mut self, amount_b: u64) -> &mut Self {
-        self.instruction.amount_b = Some(amount_b);
+    pub fn amount(&mut self, amount: u64) -> &mut Self {
+        self.instruction.amount = Some(amount);
         self
     }
     /// Add an additional account to the instruction.
@@ -726,16 +712,7 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
         let args = AtomicSwapRepayInstructionArgs {
-            amount_a: self
-                .instruction
-                .amount_a
-                .clone()
-                .expect("amount_a is not set"),
-            amount_b: self
-                .instruction
-                .amount_b
-                .clone()
-                .expect("amount_b is not set"),
+            amount: self.instruction.amount.clone().expect("amount is not set"),
         };
         let instruction = AtomicSwapRepayCpi {
             __program: self.instruction.__program,
@@ -802,8 +779,7 @@ struct AtomicSwapRepayCpiBuilderInstruction<'a, 'b> {
     payer_account_a: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     payer_account_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    amount_a: Option<u64>,
-    amount_b: Option<u64>,
+    amount: Option<u64>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

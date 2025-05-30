@@ -41,9 +41,9 @@ pub fn atomic_swap_borrow_repay_ixs(
     payer_account_b: Pubkey,
     token_program_a: Pubkey,
     token_program_b: Pubkey,
+    repay_excess_token_a: bool,
     borrow_amount: u64,
-    repay_amount_a: u64,
-    repay_amount_b: u64,
+    repay_amount: u64,
 ) -> [Instruction; 3] {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
@@ -74,6 +74,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         .vault_b(vault_b)
         .recipient_token_account(payer_account_a)
         .token_program(token_program_a)
+        .repay_excess_token_a(repay_excess_token_a)
         .amount(borrow_amount)
         .instruction();
 
@@ -91,8 +92,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         .payer_account_a(payer_account_a)
         .payer_account_b(payer_account_b)
         .token_program(token_program_b)
-        .amount_a(repay_amount_a)
-        .amount_b(repay_amount_b)
+        .amount(repay_amount)
         .instruction();
     [borrow_ix, refresh_ix, repay_ix]
 }
@@ -111,9 +111,9 @@ pub fn atomic_swap_borrow_repay(
     payer_account_b: Pubkey,
     token_program_a: Pubkey,
     token_program_b: Pubkey,
+    repay_excess_token_a: bool,
     borrow_amount: u64,
-    repay_amount_a: u64,
-    repay_amount_b: u64,
+    repay_amount: u64,
 ) -> TransactionResult {
     let instructions = atomic_swap_borrow_repay_ixs(
         svm,
@@ -129,9 +129,9 @@ pub fn atomic_swap_borrow_repay(
         payer_account_b,
         token_program_a,
         token_program_b,
+        repay_excess_token_a,
         borrow_amount,
-        repay_amount_a,
-        repay_amount_b,
+        repay_amount,
     );
     let txn = Transaction::new_signed_with_payer(
         &instructions,

@@ -97,7 +97,9 @@ pub fn process_initialize_atomic_swap(
         last_balance_a: 0,
         last_balance_b: 0,
         amount_borrowed: 0,
-        _padding: [0u8; 24],
+        recipient_token_a_pre: 0,
+        repay_excess_token_a: false,
+        _padding: [0u8; 15],
     });
 
     Ok((config, state))

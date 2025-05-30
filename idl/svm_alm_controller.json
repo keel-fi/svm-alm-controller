@@ -1548,6 +1548,10 @@
           {
             "name": "amount",
             "type": "u64"
+          },
+          {
+            "name": "repayExcessTokenA",
+            "type": "bool"
           }
         ]
       }
@@ -1558,11 +1562,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "amountA",
-            "type": "u64"
-          },
-          {
-            "name": "amountB",
+            "name": "amount",
             "type": "u64"
           }
         ]
@@ -1635,11 +1635,19 @@
             "type": "u64"
           },
           {
+            "name": "recipientTokenAPre",
+            "type": "u64"
+          },
+          {
+            "name": "repayExcessTokenA",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                24
+                15
               ]
             }
           }
