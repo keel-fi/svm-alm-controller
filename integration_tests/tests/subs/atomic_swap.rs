@@ -3,6 +3,7 @@ use std::error::Error;
 use litesvm::{types::TransactionResult, LiteSVM};
 use pinocchio_token::state::TokenAccount;
 use solana_sdk::{
+    address_lookup_table::instruction,
     instruction::Instruction,
     program_pack::Pack,
     pubkey::Pubkey,
@@ -26,7 +27,7 @@ pub fn fetch_token_account(svm: &mut LiteSVM, token_account: &Pubkey) -> Account
     Account::unpack(&info.data[..Account::LEN]).unwrap()
 }
 
-pub fn atomic_swap_borrow_repay(
+pub fn atomic_swap_borrow_repay_ixs(
     svm: &mut LiteSVM,
     authority: &Keypair,
     controller: Pubkey,
@@ -43,7 +44,7 @@ pub fn atomic_swap_borrow_repay(
     borrow_amount: u64,
     repay_amount_a: u64,
     repay_amount_b: u64,
-) -> TransactionResult {
+) -> [Instruction; 3] {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
     let vault_a = get_associated_token_address_with_program_id(
@@ -93,9 +94,47 @@ pub fn atomic_swap_borrow_repay(
         .amount_a(repay_amount_a)
         .amount_b(repay_amount_b)
         .instruction();
+    [borrow_ix, refresh_ix, repay_ix]
+}
 
+pub fn atomic_swap_borrow_repay(
+    svm: &mut LiteSVM,
+    authority: &Keypair,
+    controller: Pubkey,
+    permission: Pubkey,
+    integration: Pubkey,
+    mint_a: Pubkey,
+    mint_b: Pubkey,
+    oracle: Pubkey,
+    price_feed: Pubkey,
+    payer_account_a: Pubkey,
+    payer_account_b: Pubkey,
+    token_program_a: Pubkey,
+    token_program_b: Pubkey,
+    borrow_amount: u64,
+    repay_amount_a: u64,
+    repay_amount_b: u64,
+) -> TransactionResult {
+    let instructions = atomic_swap_borrow_repay_ixs(
+        svm,
+        authority,
+        controller,
+        permission,
+        integration,
+        mint_a,
+        mint_b,
+        oracle,
+        price_feed,
+        payer_account_a,
+        payer_account_b,
+        token_program_a,
+        token_program_b,
+        borrow_amount,
+        repay_amount_a,
+        repay_amount_b,
+    );
     let txn = Transaction::new_signed_with_payer(
-        &[borrow_ix, refresh_ix, repay_ix],
+        &instructions,
         Some(&authority.pubkey()),
         &[&authority],
         svm.latest_blockhash(),
