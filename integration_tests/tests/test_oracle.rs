@@ -92,7 +92,7 @@ mod tests {
 
         // Update Oracle account with new feed.
         let new_feed2 = Pubkey::new_unique();
-        let update_price = 1_234_000_000;
+        let update_price = 2_500_000_000_000_000_000; // 2.5 (in 18 precision)
         set_price_feed(&mut svm, &new_feed2, update_price)?;
         update_oracle(
             &mut svm,
@@ -101,7 +101,7 @@ mod tests {
             &new_feed2,
             Some(FeedArgs {
                 oracle_type,
-                invert_price: false,
+                invert_price: true,
             }),
             None,
         )?;
@@ -119,6 +119,16 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed2);
+
+        // Check that price is inverted after refresh
+        refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed2)?;
+
+        let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
+        assert!(oracle.is_some(), "Oracle account is not found");
+        let oracle = oracle.unwrap();
+        assert_eq!(oracle.value, 400_000_000_000_000_000); // 0.4 in 18 prec
+        assert_eq!(oracle.precision, PRECISION);
+        assert_eq!(oracle.last_update_slot, update_slot);
 
         Ok(())
     }
