@@ -85,7 +85,7 @@ mod tests {
         // Initialize price feed and oracle.
         let update_slot = 1000_000;
         svm.warp_to_slot(update_slot);
-        set_price_feed(svm, &price_feed, 1_000_000_000)?;
+        set_price_feed(svm, &price_feed, 1_000_000_000_000)?; // $1
         initalize_oracle(svm, &relayer_authority_kp, &nonce, &price_feed, 0, false)?;
 
         setup_token_mint(svm, &coin_token_mint, 6, &mint_authority.pubkey());
@@ -364,6 +364,64 @@ mod tests {
         } else {
             assert!(false)
         }
+
+        // Swap with repaying of token_a
+        let borrow_amount = 100;
+        let repay_amount_a = 30;
+        let repay_amount_b = 300;
+
+        let vault_a_before = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
+        let vault_b_before = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
+        let relayer_a_before = fetch_token_account(&mut svm, &swap_env.relayer_pc);
+        let relayer_b_before = fetch_token_account(&mut svm, &swap_env.relayer_coin);
+
+        atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            borrow_amount,
+            repay_amount_a,
+            repay_amount_b,
+        )
+        .unwrap();
+
+        let vault_a_after = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
+        let vault_b_after = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
+        let relayer_a_after = fetch_token_account(&mut svm, &swap_env.relayer_pc);
+        let relayer_b_after = fetch_token_account(&mut svm, &swap_env.relayer_coin);
+
+        let vault_a_decrease = vault_a_before
+            .amount
+            .checked_sub(vault_a_after.amount)
+            .unwrap();
+        let vault_b_increase = vault_b_after
+            .amount
+            .checked_sub(vault_b_before.amount)
+            .unwrap();
+        let relayer_b_decrease = relayer_b_before
+            .amount
+            .checked_sub(relayer_b_after.amount)
+            .unwrap();
+        let relayer_a_increase = relayer_a_after
+            .amount
+            .checked_sub(relayer_a_before.amount)
+            .unwrap();
+
+        // Check that token balances are changed as expected.
+        assert_eq!(vault_a_decrease, borrow_amount - repay_amount_a);
+        assert_eq!(relayer_a_increase, borrow_amount - repay_amount_a);
+        assert_eq!(vault_b_increase, repay_amount_b);
+        assert_eq!(relayer_b_decrease, repay_amount_b);
 
         Ok(())
     }
