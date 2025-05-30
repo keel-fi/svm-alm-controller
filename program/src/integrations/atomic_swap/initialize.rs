@@ -20,10 +20,8 @@ pub struct InitializeAtomicSwapAccounts<'info> {
 }
 
 impl<'info> InitializeAtomicSwapAccounts<'info> {
-    // TODO: from_accounts could be a requirement for an Integration trait
     pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        // TODO: ACCOUNT_LEN could be a requirement for an Integration trait
-        if account_infos.len() != 3 {
+        if account_infos.len() < 3 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
@@ -36,7 +34,6 @@ impl<'info> InitializeAtomicSwapAccounts<'info> {
             msg! {"mint: not owned by token program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        // TODO: Valdiate mint structure?
         if !ctx.output_mint.is_owned_by(&pinocchio_token::ID) {
             // TODO: Allow token 2022
             msg! {"mint: not owned by token program"};

@@ -282,7 +282,7 @@ mod tests {
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
         let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
 
-        let integration =
+        let _integration =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
 
         let vault_a_before = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
@@ -607,7 +607,7 @@ mod tests {
             swap_env.relayer_coin, // payer_account_b
             pinocchio_token::ID.into(),
             pinocchio_token::ID.into(),
-            false,
+            repay_excess_token_a,
             borrow_amount,
             repay_amount,
         );
@@ -685,7 +685,7 @@ mod tests {
             swap_env.relayer_coin, // payer_account_b
             pinocchio_token::ID.into(),
             pinocchio_token::ID.into(),
-            false,
+            repay_excess_token_a,
             borrow_amount,
             repay_amount,
         );
