@@ -178,6 +178,7 @@ pub fn process_atomic_swap_borrow(
     if integration.status != IntegrationStatus::Active {
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
     }
+    integration.refresh_rate_limit(clock)?;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)

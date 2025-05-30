@@ -205,6 +205,7 @@ pub fn process_atomic_swap_repay(
     reserve_b.update_for_inflow(clock, args.amount_b)?;
     reserve_b.save(ctx.reserve_b)?;
 
+    integration.update_rate_limit_for_inflow(clock, args.amount_a)?;
     integration.save(ctx.integration)?;
 
     Ok(())
