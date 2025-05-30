@@ -36,12 +36,13 @@ pub fn atomic_swap_borrow_repay(
     mint_b: Pubkey,
     oracle: Pubkey,
     price_feed: Pubkey,
-    recipient_token_account: Pubkey,
-    payer_token_account: Pubkey,
+    payer_account_a: Pubkey,
+    payer_account_b: Pubkey,
     token_program_a: Pubkey,
     token_program_b: Pubkey,
     borrow_amount: u64,
-    repay_amount: u64,
+    repay_amount_a: u64,
+    repay_amount_b: u64,
 ) -> Result<(), Box<dyn Error>> {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
@@ -70,7 +71,7 @@ pub fn atomic_swap_borrow_repay(
         .vault_a(vault_a)
         .reserve_b(reserve_b)
         .vault_b(vault_b)
-        .recipient_token_account(recipient_token_account)
+        .recipient_token_account(payer_account_a)
         .token_program(token_program_a)
         .amount(borrow_amount)
         .instruction();
@@ -86,9 +87,11 @@ pub fn atomic_swap_borrow_repay(
         .reserve_b(reserve_b)
         .vault_b(vault_b)
         .oracle(oracle)
-        .payer_token_account(payer_token_account)
+        .payer_account_a(payer_account_a)
+        .payer_account_b(payer_account_b)
         .token_program(token_program_b)
-        .amount(repay_amount)
+        .amount_a(repay_amount_a)
+        .amount_b(repay_amount_b)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(

@@ -689,7 +689,7 @@
         },
         {
           "name": "reserveB",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -756,12 +756,12 @@
         },
         {
           "name": "reserveA",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
           "name": "vaultA",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -780,7 +780,12 @@
           "isSigner": false
         },
         {
-          "name": "payerTokenAccount",
+          "name": "payerAccountA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "payerAccountB",
           "isMut": true,
           "isSigner": false
         },
@@ -1553,7 +1558,11 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "amount",
+            "name": "amountA",
+            "type": "u64"
+          },
+          {
+            "name": "amountB",
             "type": "u64"
           }
         ]

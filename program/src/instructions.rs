@@ -128,7 +128,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, writable, name = "integration")]
     #[account(4, writable, name = "reserve_a")]
     #[account(5, writable, name = "vault_a")]
-    #[account(6, name = "reserve_b")]
+    #[account(6, writable, name = "reserve_b")]
     #[account(7, name = "vault_b")]
     #[account(8, writable, name = "recipient_token_account")]
     #[account(9, name = "token_program")]
@@ -141,13 +141,14 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
-    #[account(5, name = "reserve_a")]
-    #[account(6, name = "vault_a")]
+    #[account(5, writable, name = "reserve_a")]
+    #[account(6, writable, name = "vault_a")]
     #[account(7, writable, name = "reserve_b")]
     #[account(8, writable, name = "vault_b")]
     #[account(9, name = "oracle")]
-    #[account(10, writable, name = "payer_token_account")]
-    #[account(11, name = "token_program")]
+    #[account(10, writable, name = "payer_account_a")]
+    #[account(11, writable, name = "payer_account_b")]
+    #[account(12, name = "token_program")]
     AtomicSwapRepay(AtomicSwapRepayArgs),
 }
 
@@ -273,5 +274,6 @@ pub struct AtomicSwapBorrowArgs {
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct AtomicSwapRepayArgs {
-    pub amount: u64,
+    pub amount_a: u64,
+    pub amount_b: u64,
 }

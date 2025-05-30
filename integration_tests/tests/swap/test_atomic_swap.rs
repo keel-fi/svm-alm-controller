@@ -292,7 +292,8 @@ mod tests {
             derive_permission_pda(&controller_pk, &relayer_authority_kp.pubkey());
 
         let borrow_amount = 100;
-        let repay_amount = 300;
+        let repay_amount_a = 0;
+        let repay_amount_b = 300;
 
         atomic_swap_borrow_repay(
             &mut svm,
@@ -304,12 +305,13 @@ mod tests {
             coin_token_mint,
             oracle,
             price_feed,
-            relayer_pc,   // recipient
-            relayer_coin, // payer
+            relayer_pc,   // payer_account_a
+            relayer_coin, // payer_account_b
             pinocchio_token::ID.into(),
             pinocchio_token::ID.into(),
             borrow_amount,
-            repay_amount,
+            repay_amount_a,
+            repay_amount_b,
         )?;
 
         let vault_a_after = fetch_token_account(&mut svm, &pc_reserve_vault);
@@ -337,8 +339,8 @@ mod tests {
         // Check that token balances are changed as expected.
         assert_eq!(vault_a_decrease, borrow_amount);
         assert_eq!(relayer_a_increase, borrow_amount);
-        assert_eq!(vault_b_increase, repay_amount);
-        assert_eq!(relayer_b_decrease, repay_amount);
+        assert_eq!(vault_b_increase, repay_amount_b);
+        assert_eq!(relayer_b_decrease, repay_amount_b);
 
         // TODO: Check that state is reset.
         let integration = fetch_integration_account(&mut svm, &atomic_swap_integration_pk)?;

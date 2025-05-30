@@ -73,7 +73,7 @@ impl AtomicSwapBorrow {
             self.vault_a,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             self.reserve_b,
             false,
         ));
@@ -140,7 +140,7 @@ pub struct AtomicSwapBorrowInstructionArgs {
 ///   3. `[writable]` integration
 ///   4. `[writable]` reserve_a
 ///   5. `[writable]` vault_a
-///   6. `[]` reserve_b
+///   6. `[writable]` reserve_b
 ///   7. `[]` vault_b
 ///   8. `[writable]` recipient_token_account
 ///   9. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
@@ -417,7 +417,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
             *self.vault_a.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             *self.reserve_b.key,
             false,
         ));
@@ -488,7 +488,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
 ///   3. `[writable]` integration
 ///   4. `[writable]` reserve_a
 ///   5. `[writable]` vault_a
-///   6. `[]` reserve_b
+///   6. `[writable]` reserve_b
 ///   7. `[]` vault_b
 ///   8. `[writable]` recipient_token_account
 ///   9. `[]` token_program

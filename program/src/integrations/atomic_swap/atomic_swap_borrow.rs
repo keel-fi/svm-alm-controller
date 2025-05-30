@@ -67,6 +67,9 @@ impl<'info> AtomicSwapBorrow<'info> {
         if !ctx.vault_a.is_writable() {
             return Err(ProgramError::Immutable);
         }
+        if !ctx.reserve_b.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
         if !ctx.recipient_token_account.is_writable() {
             return Err(ProgramError::Immutable);
         }
@@ -161,9 +164,8 @@ pub fn process_atomic_swap_borrow(
     if reserve_a.status != ReserveStatus::Active {
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
-    reserve_a.refresh_rate_limit(clock)?;
 
-    let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
+    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -225,6 +227,10 @@ pub fn process_atomic_swap_borrow(
     // Sync reserve_a balance at end of borrow to ensure that outflow doesn't exceed rate limit.
     reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
     reserve_a.save(ctx.reserve_a)?;
+
+    // Also sync reserve_b balance to ensure any prior changes doesn't exceed rate limit.
+    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
+    reserve_b.save(ctx.reserve_b)?;
 
     // Update rate limit to track outflow of input_tokens for integration.
     integration.update_rate_limit_for_outflow(clock, args.amount)?;

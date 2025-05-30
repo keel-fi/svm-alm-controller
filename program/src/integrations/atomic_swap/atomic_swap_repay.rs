@@ -14,7 +14,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapRepayArgs,
-    state::{nova_account::NovaAccount, Controller, Integration, Oracle, Permission, Reserve},
+    state::{nova_account::NovaAccount, Integration, Oracle, Permission, Reserve},
 };
 
 pub struct AtomicSwapRepay<'info> {
@@ -28,13 +28,14 @@ pub struct AtomicSwapRepay<'info> {
     pub reserve_b: &'info AccountInfo,
     pub vault_b: &'info AccountInfo,
     pub oracle: &'info AccountInfo,
-    pub payer_token_account: &'info AccountInfo,
+    pub payer_account_a: &'info AccountInfo,
+    pub payer_account_b: &'info AccountInfo,
     pub token_program: &'info AccountInfo,
 }
 
 impl<'info> AtomicSwapRepay<'info> {
     pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 12 {
+        if accounts.len() < 13 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
@@ -48,13 +49,20 @@ impl<'info> AtomicSwapRepay<'info> {
             reserve_b: &accounts[7],
             vault_b: &accounts[8],
             oracle: &accounts[9],
-            payer_token_account: &accounts[10],
-            token_program: &accounts[11],
+            payer_account_a: &accounts[10],
+            payer_account_b: &accounts[11],
+            token_program: &accounts[12],
         };
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
         if !ctx.integration.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
+        if !ctx.reserve_a.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
+        if !ctx.vault_a.is_writable() {
             return Err(ProgramError::Immutable);
         }
         if !ctx.reserve_b.is_writable() {
@@ -63,7 +71,10 @@ impl<'info> AtomicSwapRepay<'info> {
         if !ctx.vault_b.is_writable() {
             return Err(ProgramError::Immutable);
         }
-        if !ctx.payer_token_account.is_writable() {
+        if !ctx.payer_account_a.is_writable() {
+            return Err(ProgramError::Immutable);
+        }
+        if !ctx.payer_account_b.is_writable() {
             return Err(ProgramError::Immutable);
         }
         if ctx.token_program.key().ne(&pinocchio_token::ID) {
@@ -85,9 +96,6 @@ pub fn process_atomic_swap_repay(
     let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data).unwrap();
     let clock = Clock::get()?;
 
-    // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
-
     // Load in the super permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
@@ -97,7 +105,7 @@ pub fn process_atomic_swap_repay(
     }
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
+    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.vault != *ctx.vault_a.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -105,9 +113,6 @@ pub fn process_atomic_swap_repay(
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
-
-    // Sync reserve_b balance before repay to ensure any prior changes doesn't exceed rate limit.
-    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
 
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
@@ -126,21 +131,28 @@ pub fn process_atomic_swap_repay(
             return Err(SvmAlmControllerErrors::SwapNotStarted.into());
         }
 
+        let mut final_input_amount = state.amount_borrowed;
         {
             // Check that vault_a and vault_b amounts remain same as after atomic borrow.
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
-            let payer_token_account = TokenAccount::from_account_info(ctx.payer_token_account)?;
+            let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
+            let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
 
+            // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
             if vault_a.amount().checked_add(state.amount_borrowed).unwrap() != state.last_balance_a
                 || vault_b.amount() != state.last_balance_b
             {
                 return Err(SvmAlmControllerErrors::InvalidSwapState.into());
             }
 
-            if args.amount > payer_token_account.amount() {
+            if args.amount_a > payer_account_a.amount() || args.amount_b > payer_account_b.amount()
+            {
                 return Err(ProgramError::InsufficientFunds);
             }
+
+            // Reduce input amount by token_a that is being repaid.
+            final_input_amount = final_input_amount.checked_sub(args.amount_a).unwrap();
         }
 
         let oracle = Oracle::load_and_check(ctx.oracle)?;
@@ -152,21 +164,30 @@ pub fn process_atomic_swap_repay(
 
         // Check that swap is within accepted slippage of oracle price.
         check_swap_slippage(
-            state.amount_borrowed,
+            final_input_amount,
             cfg.input_mint_decimals,
-            args.amount,
+            args.amount_b,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
             oracle.value,
             oracle.precision,
         )?;
 
-        // Transfer amount from payer_token_account to vault_b.
+        // Transfer amount_a and amount_b from payer to vault.
+        if args.amount_a > 0 {
+            Transfer {
+                from: ctx.payer_account_a,
+                to: ctx.vault_a,
+                authority: ctx.payer,
+                amount: args.amount_a,
+            }
+            .invoke()?;
+        }
         Transfer {
-            from: ctx.payer_token_account,
+            from: ctx.payer_account_b,
             to: ctx.vault_b,
             authority: ctx.payer,
-            amount: args.amount,
+            amount: args.amount_b,
         }
         .invoke()?;
 
@@ -178,8 +199,11 @@ pub fn process_atomic_swap_repay(
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
 
-    reserve_b.update_for_inflow(clock, args.amount)?;
-    reserve_b.save(ctx.reserve_a)?;
+    reserve_a.update_for_inflow(clock, args.amount_a)?;
+    reserve_a.save(ctx.reserve_a)?;
+
+    reserve_b.update_for_inflow(clock, args.amount_b)?;
+    reserve_b.save(ctx.reserve_b)?;
 
     integration.save(ctx.integration)?;
 
