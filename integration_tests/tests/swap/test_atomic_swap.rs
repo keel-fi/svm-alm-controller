@@ -1,15 +1,19 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        helpers::spl::setup_token_account,
+        helpers::{assert::assert_custom_error, spl::setup_token_account},
         subs::{
             atomic_swap_borrow_repay, derive_permission_pda, fetch_integration_account,
             fetch_token_account, initialize_reserve, transfer_tokens, ReserveKeys,
         },
     };
-    use litesvm::LiteSVM;
-    use solana_sdk::{clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer};
+    use litesvm::{types::FailedTransactionMetadata, LiteSVM};
+    use solana_sdk::{
+        clock::Clock, instruction::InstructionError, pubkey::Pubkey, signature::Keypair,
+        signer::Signer, transaction::TransactionError,
+    };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::generated::types::{
         AtomicSwapConfig, ControllerStatus, InitializeArgs, IntegrationConfig, IntegrationState,
         IntegrationStatus, PermissionStatus, ReserveStatus,
@@ -299,7 +303,8 @@ mod tests {
             borrow_amount,
             repay_amount_a,
             repay_amount_b,
-        )?;
+        )
+        .unwrap();
 
         let vault_a_after = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
         let vault_b_after = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
@@ -352,6 +357,69 @@ mod tests {
             assert!(false)
         }
 
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn atomic_swap_fails_after_expiry() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+
+        let integration =
+            fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
+
+        let borrow_amount = 100;
+        let repay_amount_a = 0;
+        let repay_amount_b = 300;
+
+        // Do one round of swap first
+        atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            borrow_amount,
+            repay_amount_a,
+            repay_amount_b,
+        )
+        .unwrap();
+
+        let mut clock = svm.get_sysvar::<Clock>();
+        clock.unix_timestamp = expiry_timestamp + 1;
+        svm.set_sysvar::<Clock>(&clock);
+
+        // Expect failure after expiry
+        let res = atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            borrow_amount + 10,
+            repay_amount_a,
+            repay_amount_b,
+        );
+
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::SwapHasExpired);
         Ok(())
     }
 }

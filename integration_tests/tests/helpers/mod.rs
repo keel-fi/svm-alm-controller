@@ -6,6 +6,7 @@ use constants::{
     USDS_TOKEN_MINT_PUBKEY,
 };
 use litesvm::LiteSVM;
+pub mod assert;
 pub mod cctp;
 pub mod constants;
 pub mod logs_parser;

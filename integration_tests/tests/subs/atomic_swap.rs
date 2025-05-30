@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use litesvm::LiteSVM;
+use litesvm::{types::TransactionResult, LiteSVM};
 use pinocchio_token::state::TokenAccount;
 use solana_sdk::{
     instruction::Instruction,
@@ -43,7 +43,7 @@ pub fn atomic_swap_borrow_repay(
     borrow_amount: u64,
     repay_amount_a: u64,
     repay_amount_b: u64,
-) -> Result<(), Box<dyn Error>> {
+) -> TransactionResult {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
     let vault_a = get_associated_token_address_with_program_id(
@@ -100,8 +100,6 @@ pub fn atomic_swap_borrow_repay(
         &[&authority],
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
 
-    Ok(())
+    svm.send_transaction(txn)
 }
