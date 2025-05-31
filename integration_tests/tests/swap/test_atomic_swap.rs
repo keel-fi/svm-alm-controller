@@ -8,7 +8,7 @@ mod tests {
         subs::{
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs, derive_permission_pda,
             fetch_integration_account, fetch_token_account, initialize_ata, initialize_reserve,
-            oracle::update_oracle, transfer_tokens, ReserveKeys,
+            transfer_tokens, ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -449,6 +449,108 @@ mod tests {
         assert_eq!(relayer_a_increase, 0);
         assert_eq!(vault_b_increase, repay_amount);
         assert_eq!(relayer_b_decrease, repay_amount);
+
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn atomic_swap_slippage_checks() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+
+        let _integration =
+            fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
+
+        let vault_a_before = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
+        let vault_b_before = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
+        let relayer_a_before = fetch_token_account(&mut svm, &swap_env.relayer_pc);
+        let relayer_b_before = fetch_token_account(&mut svm, &swap_env.relayer_coin);
+
+        let repay_excess_token_a = false;
+        let borrow_amount = 100;
+        let repay_amount = 300; // At rate of 3.0
+
+        set_price_feed(&mut svm, &swap_env.price_feed, 3_300_000_000_000_000_000)?; // rate of 3.3
+
+        // Should fail when slippage is exceeded (since min price of 3.3*(1-0.0123) < 3.0)
+        let res = atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            repay_excess_token_a,
+            borrow_amount,
+            repay_amount,
+        );
+        assert_custom_error(&res, 2, SvmAlmControllerErrors::SlippageExceeded);
+
+        // Swap Price (after excess repaid) = 300/50 = 6
+        let repay_excess_token_a = true;
+        let spent_a = 50;
+        let borrow_amount = 100;
+        let repay_amount = 300;
+
+        set_price_feed(&mut svm, &swap_env.price_feed, 6_100_000_000_000_000_000)?; // rate of 6.1
+
+        // Should fail when slippage is exceeded (since min price of 6.1*(1-0.0123) < 6.0)
+
+        let [borrow_ix, refresh_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            repay_excess_token_a,
+            borrow_amount,
+            repay_amount,
+        );
+
+        // Create a random user
+        let random_user = Pubkey::new_unique();
+        let random_user_pc_token = initialize_ata(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            &random_user,
+            &swap_env.pc_token_mint,
+        )?;
+
+        // Transfer tokens out of relayer_pc to simulate spending.
+        let transfer_ix = spl_token::instruction::transfer(
+            &spl_token::id(),
+            &swap_env.relayer_pc,
+            &random_user_pc_token,
+            &swap_env.relayer_authority_kp.pubkey(),
+            &[&swap_env.relayer_authority_kp.pubkey()],
+            spent_a,
+        )?;
+
+        let txn = Transaction::new_signed_with_payer(
+            &[borrow_ix, refresh_ix, transfer_ix, repay_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        );
+        let res = svm.send_transaction(txn);
+        assert_custom_error(&res, 3, SvmAlmControllerErrors::SlippageExceeded);
 
         Ok(())
     }
