@@ -53,6 +53,9 @@ impl<'info> AtomicSwapRepay<'info> {
             payer_account_b: &accounts[11],
             token_program: &accounts[12],
         };
+        if !ctx.payer.is_signer() {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
         if !ctx.authority.is_signer() {
             return Err(ProgramError::MissingRequiredSignature);
         }
