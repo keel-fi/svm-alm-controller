@@ -10,7 +10,7 @@ use pinocchio::{
 use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 
 use crate::{
-    constants::BPS_DENOMINATOR,
+    constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, BPS_DENOMINATOR},
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapRepayArgs,
@@ -43,7 +43,7 @@ impl<'info> AtomicSwapRepay<'info> {
             controller: &accounts[1],
             authority: &accounts[2],
             permission: &accounts[3],
-            integration: &accounts[4],
+            integration: &accounts[ATOMIC_SWAP_REPAY_INTEGRATION_IDX as usize],
             reserve_a: &accounts[5],
             vault_a: &accounts[6],
             reserve_b: &accounts[7],

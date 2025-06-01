@@ -14,7 +14,7 @@ use pinocchio::{
 use pinocchio_token::state::TokenAccount;
 
 use crate::{
-    constants::ATOMIC_SWAP_REPAY_IX_DISC,
+    constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC},
     enums::{
         ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
     },
@@ -122,7 +122,8 @@ pub fn verify_repay_ix_in_tx(
     }
 
     // Check that atomic_swap_repay is for the same integration account.
-    let integration_acc = last_ix.get_account_meta_at(4)?;
+    let integration_acc =
+        last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_INTEGRATION_IDX as usize)?;
     if integration_acc.key.ne(integration) {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
