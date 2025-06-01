@@ -2,6 +2,7 @@ use super::discriminator::{AccountDiscriminators, Discriminator};
 use crate::{
     constants::{INTEGRATION_SEED, SECONDS_PER_DAY},
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
+    error::SvmAlmControllerErrors,
     processor::shared::create_pda_account,
     state::nova_account::NovaAccount,
 };
@@ -250,7 +251,7 @@ impl Integration {
         self.rate_limit_amount_last_update = self
             .rate_limit_amount_last_update
             .checked_sub(outflow)
-            .unwrap();
+            .ok_or(SvmAlmControllerErrors::RateLimited)?;
         Ok(())
     }
 }

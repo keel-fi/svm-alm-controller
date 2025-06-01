@@ -20,6 +20,7 @@ pub enum SvmAlmControllerErrors {
     InvalidInstructions,
     SlippageExceeded,
     SwapHasExpired,
+    RateLimited,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

@@ -128,7 +128,7 @@ mod tests {
             &relayer_pc,
             &pc_token_mint,
             &relayer_authority_kp.pubkey(),
-            1000_000_000,
+            1_000_000_000_000,
             &pinocchio_token::ID.into(),
             None,
         );
@@ -157,8 +157,8 @@ mod tests {
             &relayer_authority_kp, // payer
             &relayer_authority_kp, // authority
             ReserveStatus::Active,
-            1_000_000_000_000, // rate_limit_slope
-            1_000_000_000_000, // rate_limit_max_outflow
+            1_000_000_000, // rate_limit_slope
+            1_000_000_000, // rate_limit_max_outflow
         )?;
 
         let ReserveKeys {
@@ -204,8 +204,8 @@ mod tests {
             &relayer_authority_kp, // authority
             "Pc to Coin swap",
             IntegrationStatus::Active,
-            1_000_000_000, // rate_limit_slope
-            1_000_000_000, // rate_limit_max_outflow
+            1_000_000, // rate_limit_slope
+            1_000_000, // rate_limit_max_outflow
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: pc_token_mint,
                 output_token: coin_token_mint,
@@ -934,7 +934,7 @@ mod tests {
         let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
 
         let repay_excess_token_a = false;
-        let borrow_amount = 10_000_000;
+        let borrow_amount = 5_00_000;
         let repay_amount = 30_000_000;
 
         let integration_pre =
@@ -1075,7 +1075,7 @@ mod tests {
             &swap_env.controller_pk,
             &swap_env.relayer_authority_kp, // payer
             &swap_env.relayer_authority_kp, // authority
-            "Pc to Coin swap",
+            "Coin to PC swap",
             IntegrationStatus::Active,
             1_000_000_000, // rate_limit_slope
             1_000_000_000, // rate_limit_max_outflow
@@ -1149,6 +1149,103 @@ mod tests {
                 - reserve_pc_post2.rate_limit_amount_last_update,
             repay_amount
         );
+
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn atomic_swap_rate_limit_violation() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+
+        let repay_excess_token_a = false;
+        let repay_amount = 30_000_000;
+
+        let integration_pre =
+            fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
+        let reserve_pc_pre = fetch_reserve_account(&mut svm, &swap_env.pc_reserve_pubkey)?.unwrap();
+        let reserve_coin_pre =
+            fetch_reserve_account(&mut svm, &swap_env.coin_reserve_pubkey)?.unwrap();
+
+        let res = atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            repay_excess_token_a,
+            integration_pre.rate_limit_max_outflow + 1,
+            repay_amount,
+        );
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::RateLimited);
+
+        // Initialize a different AtomicSwap integration with higher rate limit than reserve.
+        let integration_pk2 = initialize_integration(
+            &mut svm,
+            &swap_env.controller_pk,
+            &swap_env.relayer_authority_kp, // payer
+            &swap_env.relayer_authority_kp, // authority
+            "Pc to Coin swap",
+            IntegrationStatus::Active,
+            1_000_000_000,                             // rate_limit_slope
+            reserve_pc_pre.rate_limit_max_outflow * 2, // rate_limit_max_outflow
+            &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
+                input_token: swap_env.pc_token_mint,
+                output_token: swap_env.coin_token_mint,
+                oracle: swap_env.oracle,
+                max_slippage_bps: 100,
+                max_staleness: 100,
+                input_mint_decimals: 6,
+                output_mint_decimals: 6,
+                expiry_timestamp,
+                padding: [0u8; 76],
+            }),
+            &InitializeArgs::AtomicSwap {
+                max_slippage_bps: 100,
+                max_staleness: 100,
+                expiry_timestamp,
+            },
+        )?;
+
+        // Transfer funds into the reserve
+        transfer_tokens(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            &swap_env.relayer_authority_kp,
+            &swap_env.pc_token_mint,
+            &swap_env.controller_pk,
+            reserve_pc_pre.rate_limit_max_outflow * 2,
+        )?;
+
+        let res = atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            integration_pk2,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            pinocchio_token::ID.into(),
+            pinocchio_token::ID.into(),
+            repay_excess_token_a,
+            reserve_pc_pre.rate_limit_max_outflow + 1,
+            repay_amount,
+        );
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::RateLimited);
 
         Ok(())
     }
