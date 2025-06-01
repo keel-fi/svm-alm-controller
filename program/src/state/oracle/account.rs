@@ -53,7 +53,7 @@ pub struct Oracle {
 }
 
 impl Discriminator for Oracle {
-    const DISCRIMINATOR: u8 = AccountDiscriminators::Oracle as u8;
+    const DISCRIMINATOR: u8 = AccountDiscriminators::OracleDiscriminator as u8;
 }
 
 impl NovaAccount for Oracle {
