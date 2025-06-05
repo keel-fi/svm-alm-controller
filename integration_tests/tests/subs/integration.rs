@@ -1,17 +1,36 @@
 use super::{fetch_reserve_account, get_token_balance_or_zero};
 use crate::{
-    helpers::{cctp::CctpDepositForBurnPdas, constants::NOVA_TOKEN_SWAP_FEE_OWNER},
+    helpers::{
+        cctp::CctpDepositForBurnPdas,
+        constants::{
+            DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER,
+        },
+    },
     subs::{
         derive_permission_pda, derive_reserve_pda, derive_swap_authority_pda_and_bump,
         get_mint_supply_or_zero,
     },
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use litesvm::LiteSVM;
+use litesvm::{types::TransactionResult, LiteSVM};
+use oft_client::{
+    instructions::SendInstructionArgs,
+    oft302::{
+        Oft302, Oft302Accounts, Oft302Programs, Oft302QuoteParams, Oft302SendAccounts,
+        Oft302SendPrograms,
+    },
+};
+use solana_client::rpc_client::RpcClient;
 use solana_keccak_hasher::hash;
+use solana_program::pubkey;
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, instruction::AccountMeta, pubkey::Pubkey,
-    signature::Keypair, signer::Signer, system_program, sysvar, transaction::Transaction,
+    compute_budget::ComputeBudgetInstruction,
+    instruction::{AccountMeta, Instruction},
+    msg,
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_program, sysvar,
+    transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
@@ -451,18 +470,21 @@ pub fn manage_integration(
     Ok(())
 }
 
-pub fn push_integration(
+pub async fn push_integration(
     svm: &mut LiteSVM,
     controller: &Pubkey,
     integration: &Pubkey,
     authority: &Keypair,
     push_args: &PushArgs,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<TransactionResult, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
 
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
         .unwrap();
+
+    // Ixns to postpend to transaction.
+    let mut post_ixns: Vec<Instruction> = vec![];
 
     // To support checks after
     let integration_before = fetch_integration_account(svm, &integration)
@@ -827,6 +849,76 @@ pub fn push_integration(
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
+            let amount = match push_args {
+                PushArgs::LzBridge { amount } => *amount,
+                _ => panic!("No push args"),
+            };
+
+            let oft302: Oft302 = Oft302::new(c.program, DEVNET_RPC.to_owned());
+            let quote_accounts = Oft302Accounts {
+                // dummy payer for devnet fetch
+                payer: pubkey!("Fty7h4FYAN7z8yjqaJExMHXbUoJYMcRjWYmggSxLbHp8"),
+                token_mint: c.mint,
+                token_escrow: LZ_USDS_ESCROW,
+                peer_address: None,
+            };
+            let quote_params = Oft302QuoteParams {
+                dst_eid: c.destination_eid,
+                to: c.destination_address.to_bytes(),
+                amount_ld: amount,
+                min_amount_ld: amount,
+            };
+            let quote = oft302
+                .quote(
+                    quote_accounts.clone(),
+                    quote_params.clone(),
+                    Oft302Programs { endpoint: None },
+                    vec![],
+                )
+                .await
+                .unwrap();
+
+            let send_accs = Oft302SendAccounts {
+                payer: authority.pubkey(),
+                token_mint: c.mint,
+                token_escrow: LZ_USDS_ESCROW,
+                token_source: authority_token_account,
+                peer_address: None,
+            };
+            let send_params = SendInstructionArgs {
+                dst_eid: c.destination_eid,
+                to: c.destination_address.to_bytes(),
+                amount_ld: quote_params.amount_ld,
+                min_amount_ld: quote_params.min_amount_ld,
+                options: vec![],
+                compose_msg: None,
+                native_fee: quote.native_fee,
+                lz_token_fee: quote.lz_token_fee,
+            };
+            let send_programs = Oft302SendPrograms {
+                endpoint: Some(LZ_ENDPOINT_PROGRAM_ID),
+                token: Some(pinocchio_token::ID.into()),
+            };
+            let send_ix = oft302
+                .send(send_accs, send_params, send_programs, vec![])
+                .await?;
+
+            // Loaded required Layer Zero accounts from devnet into litesvm environment.
+            let rpc = RpcClient::new(DEVNET_RPC);
+            for acc in send_ix.accounts.clone() {
+                match rpc.get_account(&acc.pubkey) {
+                    Ok(account) => {
+                        if !account.executable {
+                            svm.set_account(acc.pubkey, account)?
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to fetch account {}: {:?}", acc.pubkey, e);
+                    }
+                }
+            }
+            post_ixns.push(send_ix.clone());
+
             (
                 reserve_pda,
                 reserve_pda, // repeat since only one required
@@ -891,8 +983,12 @@ pub fn push_integration(
     signers.extend([authority]);
     signers.extend(additional_signers.iter());
 
+    let mut ixns = vec![cu_limit_ixn, cu_price_ixn, main_ixn];
+    if !post_ixns.is_empty() {
+        ixns.append(&mut post_ixns);
+    }
     let txn = Transaction::new_signed_with_payer(
-        &[cu_limit_ixn, cu_price_ixn, main_ixn],
+        &ixns.to_vec(),
         Some(&authority.pubkey()),
         &signers,
         svm.latest_blockhash(),
@@ -900,7 +996,7 @@ pub fn push_integration(
 
     let tx_result = svm.send_transaction(txn);
     if tx_result.is_err() {
-        println!("{:#?}", tx_result.unwrap().logs);
+        println!("{:#?}", tx_result.clone().unwrap().logs);
     } else {
         assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
@@ -1025,7 +1121,7 @@ pub fn push_integration(
         _ => panic!("Not configured"),
     };
 
-    Ok(())
+    Ok(tx_result)
 }
 
 pub fn pull_integration(
