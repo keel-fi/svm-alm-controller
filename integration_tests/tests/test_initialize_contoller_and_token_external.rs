@@ -19,9 +19,10 @@ mod tests {
 
     use super::*;
 
-    #[test_log::test]
-    fn initialize_controller_and_token_external_success() -> Result<(), Box<dyn std::error::Error>>
-    {
+    #[tokio::test]
+
+    async fn initialize_controller_and_token_external_success(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -164,7 +165,8 @@ mod tests {
             &usdc_external_integration_pk,
             &authority,
             &PushArgs::SplTokenExternal { amount: 1_000_000 },
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
