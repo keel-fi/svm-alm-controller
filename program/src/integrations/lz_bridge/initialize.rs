@@ -31,6 +31,7 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
             lz_program: &account_infos[3],
             token_escrow: &account_infos[4],
         };
+        // TODO: Do we need to check LZ program against a const?
         if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
             msg! {"oft_store: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);

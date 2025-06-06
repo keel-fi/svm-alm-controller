@@ -1,5 +1,4 @@
 use crate::{
-    constants::LZ_OFT_SEND_IX_DISC,
     enums::IntegrationConfig,
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -12,6 +11,7 @@ use pinocchio::{
     account_info::AccountInfo,
     msg,
     program_error::ProgramError,
+    pubkey::Pubkey,
     sysvars::{
         clock::Clock,
         instructions::{Instructions, INSTRUCTIONS_ID},
@@ -89,8 +89,10 @@ impl<'info> PushLzBridgeAccounts<'info> {
 
 /// Checks that LZ OFT send ix is the last instruction in the same transaction.
 pub fn verify_send_ix_in_tx(
+    authority: &Pubkey,
     accounts: &PushLzBridgeAccounts,
     config: &LzBridgeConfig,
+    amount: u64,
 ) -> ProgramResult {
     // Get number of instructions in current transaction.
     let sysvar_data = accounts.sysvar_instruction.try_borrow_data()?;
@@ -107,33 +109,39 @@ pub fn verify_send_ix_in_tx(
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
-    // Load last instruction in transaction.
+    // Load last instruction in transaction and check that its for OFT program.
     let last_ix = instructions.load_instruction_at((ix_len - 1).into())?;
     if last_ix.get_program_id().ne(&config.program) {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 
-    // Check that ix discriminator matches known send_ix discriminator.
-    let ix_data = last_ix.get_instruction_data();
-    let discriminator = ix_data
-        .get(0..8)
-        .ok_or(ProgramError::InvalidInstructionData)?;
-    if discriminator != LZ_OFT_SEND_IX_DISC {
-        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
-    }
+    // Deserializes and checks that ix discriminator matches known send_ix discriminator.
+    let send_args = OftSendParams::deserialize(last_ix.get_instruction_data())?;
 
-    let send_args = OftSendParams::deserialize(ix_data.get(8..).unwrap())?;
-    // assert_eq!(send_args.amount_ld, )
-
+    let signer = last_ix.get_account_meta_at(0)?.key;
+    let peer_config = last_ix.get_account_meta_at(1)?.key;
     let oft_store = last_ix.get_account_meta_at(2)?.key;
     let token_source = last_ix.get_account_meta_at(3)?.key;
     let token_escrow = last_ix.get_account_meta_at(4)?.key;
     let token_mint = last_ix.get_account_meta_at(5)?.key;
     let token_program = last_ix.get_account_meta_at(6)?.key;
-    if token_program.ne(accounts.token_program.key())
-        || token_mint.ne(accounts.mint.key())
-        || token_source.ne(accounts.authority_token_account.key())
+
+    // Check that accounts for send_ix matches known accounts.
+    if signer.ne(authority)
+        || peer_config.ne(&config.peer_config)
         || oft_store.ne(&config.oft_store)
+        || token_source.ne(accounts.authority_token_account.key())
+        || token_escrow.ne(&config.token_escrow)
+        || token_mint.ne(accounts.mint.key())
+        || token_program.ne(accounts.token_program.key())
+    {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    // Check that ix args for send_ix matches known values.
+    if send_args.amount_ld != amount
+        || send_args.to != config.destination_address
+        || send_args.dst_eid != config.destination_eid
     {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
@@ -179,7 +187,7 @@ pub fn process_push_lz_bridge(
         IntegrationConfig::LzBridge(config) => config,
         _ => return Err(ProgramError::InvalidAccountData),
     };
-    // verify_send_ix_in_tx(&inner_ctx, &config)?;
+    verify_send_ix_in_tx(outer_ctx.authority.key(), &inner_ctx, &config, amount)?;
 
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve.vault) {
@@ -195,74 +203,7 @@ pub fn process_push_lz_bridge(
     reserve.sync_balance(inner_ctx.vault, outer_ctx.controller, controller)?;
     let post_sync_balance = reserve.last_balance;
 
-    ///////// CORE LOGIC ///////
-
-    // TODO: Implement this once Pinocchio has transaction introspection capabilities
-
-    // // 1. Check this instruction is at the first instruction of the transaction    <---- TBD if this step is necessary
-    // let current_idx = load_current_index_checked(&inner_ctx.sysvar_instruction)?;
-    // // if current_idx != 0 {
-    // //     msg!{"current ixn is not first"}
-    // //     return Err(ProgramError::InvalidInstructionData)
-    // // };
-
-    // // 2. Check the subsequent instruction is the OFT send instruction
-    // let subsequent_ixn = load_instruction_at_checked(current_idx+1, &inner_ctx.sysvar_instruction)?;
-    // if subsequent_ixn.program_id.ne(lz_program) {
-    //     msg!{"subsequent ixn is to the wrong program"}
-    //     return Err(ProgramError::IncorrectProgramId)
-    // };
-
-    // // 3. Decode the OFT send instruction data and assert the amount, destination_address and destination_eid
-    // let send_params = OftSendParams::deserialize(&mut &subsequent_ixn.data[..]).unwrap();
-
-    // // TODO: Calculate amount_ld from amount and OFTStore decimals
-    // // TODO: Calculate min_amount_ld from amount and OFTStore decimals
-
-    // if send_params.amount_ld != amount_ld {
-    //     msg!{"subsequent ixn's amount does not match"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // };
-    // if send_params.min_amount_ld != mint_amount_ld {
-    //     msg!{"subsequent ixn's amount does not match"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // };
-    // if send_params.dst_eid != config.destination_eid {
-    //     msg!{"subsequent ixn's destination_eid does not match"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // };
-    // if send_params.to.ne(config.destination_address) {
-    //     msg!{"subsequent ixn's destination_address does not match"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // };
-
-    // // 4. check the accounts of OFT Send instruction
-    // // the signer of OFT Send instruction is the authority
-    // if subsequent_ixn.accounts[0].pubkey.ne(outer_ctx.authority.key()) {
-    //     msg!{"subsequent ixn's sender is not the authority"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // }
-
-    // // check that the peer_config account matches that in the integration config
-    // if subsequent_ixn.accounts[1].pubkey.ne(config.peer_config) {
-    //     msg!{"subsequent ixn's peer_config does not match the integration config"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // }
-
-    // // the token source account of OFT Send instruction is the token destination of this instruction
-    // if subsequent_ixn.accounts[2].pubkey.ne(config.oft_store) {
-    //     msg!{"subsequent ixn's oft_store does not match the integration config"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // }
-
-    // // check the token mint of OFT Send instruction is the token mint of this instruction
-    // if subsequent_ixn.accounts[5].pubkey.ne(inner_ctx.mint.key()) {
-    //     msg!{"subsequent ixn's sender is not the authority"}
-    //     return Err(ProgramError::InvalidInstructionData)
-    // }
-
-    // Creates the authority token_account, if necessary,
-    //  or validates it
+    // Creates the authority token_account, if necessary, or validates it
     CreateIdempotent {
         funding_account: outer_ctx.authority,
         account: inner_ctx.authority_token_account,

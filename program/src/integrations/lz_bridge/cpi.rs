@@ -1,4 +1,4 @@
-use borsh::{maybestd::vec::Vec, BorshDeserialize};
+use borsh::BorshDeserialize;
 use pinocchio::program_error::ProgramError;
 
 #[derive(Debug, Default, PartialEq, BorshDeserialize)]
@@ -7,10 +7,10 @@ pub struct OftSendParams {
     pub to: [u8; 32],
     pub amount_ld: u64,
     pub min_amount_ld: u64,
-    pub options: Vec<u8>,
-    pub compose_msg: Option<Vec<u8>>,
-    pub native_fee: u64,
-    pub lz_token_fee: u64,
+    // pub options: Vec<u8>, // Skip check
+    // pub compose_msg: Option<Vec<u8>>, // Skip check
+    // pub native_fee: u64, // Skip check
+    // pub lz_token_fee: u64, // Skip check
 }
 
 impl OftSendParams {
@@ -22,7 +22,7 @@ impl OftSendParams {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        Self::try_from_slice(&data[9..Self::TRUNCATED_LEN + 8])
+        Self::try_from_slice(&data[8..Self::TRUNCATED_LEN + 8])
             .map_err(|_| ProgramError::InvalidAccountData)
     }
 }
