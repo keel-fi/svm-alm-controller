@@ -100,8 +100,8 @@ pub fn process_initialize_lz_bridge(
         oft_store: Pubkey::from(*inner_ctx.oft_store.key()),
         peer_config: Pubkey::from(*inner_ctx.peer_config.key()),
         destination_address: Pubkey::from(desination_address),
-        destination_eid: destination_eid,
-        _padding: [0u8; 28],
+        destination_eid,
+        _padding: [0u8; 60],
     });
 
     // Create the initial integration state

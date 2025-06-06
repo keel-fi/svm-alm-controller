@@ -161,6 +161,7 @@ mod tests {
                 mint_b: susds_mint,
                 lp_mint: usds_susds_lp_mint_pk,
                 lp_token_account: usds_susds_lp_vault_pk,
+                padding: [0; 32],
             }),
             &InitializeArgs::SplTokenSwap,
         )?;

@@ -2,7 +2,6 @@ use borsh::{maybestd::vec::Vec, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{AccountMeta, Instruction, Signer},
-    msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,

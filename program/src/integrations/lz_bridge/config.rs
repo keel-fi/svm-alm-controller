@@ -10,5 +10,5 @@ pub struct LzBridgeConfig {
     pub peer_config: Pubkey,
     pub destination_address: Pubkey,
     pub destination_eid: u32,
-    pub _padding: [u8; 28],
+    pub _padding: [u8; 60],
 }

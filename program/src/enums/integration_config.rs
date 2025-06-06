@@ -10,7 +10,7 @@ use solana_keccak_hasher::hash;
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 #[repr(u8)]
 pub enum IntegrationConfig {
-    Undefined { _padding: [u8; 192] },
+    Undefined { _padding: [u8; 224] },
     SplTokenExternal(SplTokenExternalConfig),
     SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),

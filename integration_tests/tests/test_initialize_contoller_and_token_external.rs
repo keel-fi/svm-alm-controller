@@ -132,7 +132,7 @@ mod tests {
                 mint: usdc_mint,
                 recipient: external.pubkey(),
                 token_account: external_usdc_ata,
-                padding: [0; 64],
+                padding: [0; 96],
             }),
             &InitializeArgs::SplTokenExternal,
         )?;

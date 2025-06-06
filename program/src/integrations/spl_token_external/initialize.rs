@@ -94,7 +94,7 @@ pub fn process_initialize_spl_token_external(
         mint: Pubkey::from(*inner_ctx.mint.key()),
         recipient: Pubkey::from(*inner_ctx.recipient.key()),
         token_account: Pubkey::from(*inner_ctx.token_account.key()),
-        _padding: [0u8; 64],
+        _padding: [0u8; 96],
     });
 
     // Create the initial integration state

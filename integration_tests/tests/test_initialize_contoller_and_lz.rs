@@ -129,7 +129,7 @@ mod tests {
                 destination_eid: LZ_DESTINATION_DOMAIN_EID,
                 oft_store: LZ_USDS_OFT_STORE_PUBKEY,
                 peer_config: LZ_USDS_PEER_CONFIG_PUBKEY,
-                padding: [0; 28],
+                padding: [0; 60],
             }),
             &InitializeArgs::LzBridge {
                 desination_address: destination_address,
