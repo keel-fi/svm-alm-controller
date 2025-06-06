@@ -91,7 +91,6 @@ pub fn verify_repay_ix_in_tx(
     sysvar_instruction: &AccountInfo,
     integration: &Pubkey,
 ) -> ProgramResult {
-    // Get number of instructions in current transaction.
     let data = sysvar_instruction.try_borrow_data()?;
     if data.len() < 2 {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
@@ -197,7 +196,7 @@ pub fn process_atomic_swap_borrow(
         }
 
         if clock.unix_timestamp >= cfg.expiry_timestamp {
-            return Err(SvmAlmControllerErrors::SwapHasExpired.into());
+            return Err(SvmAlmControllerErrors::IntegrationHasExpired.into());
         }
 
         {
