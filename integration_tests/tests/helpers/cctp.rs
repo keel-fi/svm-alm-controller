@@ -83,10 +83,11 @@ impl CctpDepositForBurnPdas {
 
 /// Converts an Ethereum address from hexadecimal to a base58-encoded string.
 pub fn evm_address_to_solana_pubkey(evm_address: &str) -> Pubkey {
-    let mut bytes = hex::decode(evm_address.trim_start_matches("0x")).expect("Invalid hex string");
-    // Ensure the byte array is 32 bytes long by padding with leading zeros
-    bytes.resize(32, 0);
-    Pubkey::from(<[u8; 32]>::try_from(bytes.as_slice()).expect("Invalid length"))
+    let mut addr = hex::decode(evm_address.trim_start_matches("0x")).expect("Invalid hex string");
+    assert_eq!(addr.len(), 20, "Expected 20-byte Ethereum address");
+    let mut bytes = [0u8; 32];
+    bytes[12..].copy_from_slice(&addr); // left-pad with zeros
+    Pubkey::new_from_array(bytes)
 }
 
 /// Converts an Ethereum address to a 32-byte hexadecimal string.
