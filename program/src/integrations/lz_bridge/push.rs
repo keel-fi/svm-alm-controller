@@ -2,7 +2,6 @@ use crate::{
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::lz_bridge::cpi::OftSendParams,
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };

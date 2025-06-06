@@ -27,6 +27,7 @@ svm-alm-controller = { path = "program" }
 svm-alm-controller-client = { path = "clients/rust" }
 solana-program = "2.1.13"
 solana-sdk = "2.1.13"
+solana-client = "2.1.13"
 bs58 = "0.4"
 bytemuck = { version = "1.14", features = ["derive"] }
 num-derive = "0.4.2"
@@ -44,3 +45,6 @@ static_assertions = "1.1.0"
 base64 = "0.22.1"
 hex = "0.4"
 switchboard-on-demand = "0.3.8"
+oft-client = { git = "https://github.com/nova-dot-gg/lz-rust-client", branch = "mods", package = "oft-client" }
+endpoint-client = { git = "https://github.com/nova-dot-gg/lz-rust-client", branch = "mods", package = "endpoint-client" }
+uln-client = { git = "https://github.com/nova-dot-gg/lz-rust-client", branch = "mods", package = "uln-client" }
