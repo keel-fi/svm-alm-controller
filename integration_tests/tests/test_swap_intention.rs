@@ -43,7 +43,6 @@ mod tests {
     use super::*;
 
     #[test_log::test]
-    #[ignore]
     fn test_basic_swap_through_raydium_v4() -> Result<(), Box<dyn std::error::Error>> {
         let coin_liquidity: u64 = 10_000_000;
         let pc_liquidity: u64 = 10_000_000;
