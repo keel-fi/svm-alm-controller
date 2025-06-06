@@ -29,8 +29,8 @@ mod tests {
     use crate::helpers::{
         cctp::evm_address_to_solana_pubkey,
         constants::{
-            LZ_DESTINATION_DOMAIN_EID, LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY,
-            LZ_USDS_PEER_CONFIG_PUBKEY,
+            LZ_DESTINATION_DOMAIN_EID, LZ_USDS_ESCROW, LZ_USDS_OFT_PROGRAM_ID,
+            LZ_USDS_OFT_STORE_PUBKEY, LZ_USDS_PEER_CONFIG_PUBKEY,
         },
     };
 
@@ -127,9 +127,10 @@ mod tests {
                 mint: USDS_TOKEN_MINT_PUBKEY,
                 destination_address: destination_address,
                 destination_eid: LZ_DESTINATION_DOMAIN_EID,
+                token_escrow: LZ_USDS_ESCROW,
                 oft_store: LZ_USDS_OFT_STORE_PUBKEY,
                 peer_config: LZ_USDS_PEER_CONFIG_PUBKEY,
-                padding: [0; 60],
+                padding: [0; 28],
             }),
             &InitializeArgs::LzBridge {
                 desination_address: destination_address,

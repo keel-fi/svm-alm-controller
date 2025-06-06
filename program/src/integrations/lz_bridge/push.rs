@@ -1,7 +1,10 @@
 use crate::{
+    constants::LZ_OFT_SEND_IX_DISC,
     enums::IntegrationConfig,
+    error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
+    integrations::lz_bridge::{config::LzBridgeConfig, cpi::OftSendParams},
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
@@ -9,7 +12,12 @@ use pinocchio::{
     account_info::AccountInfo,
     msg,
     program_error::ProgramError,
-    sysvars::{clock::Clock, Sysvar},
+    sysvars::{
+        clock::Clock,
+        instructions::{Instructions, INSTRUCTIONS_ID},
+        Sysvar,
+    },
+    ProgramResult,
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token::{self, state::TokenAccount};
@@ -70,14 +78,67 @@ impl<'info> PushLzBridgeAccounts<'info> {
             msg! {"system_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        // TODO: Validate SysvarInstruction account
-        // if ctx.sysvar_instruction.key().ne() {
-        //     msg!{"sysvar_instruction: invalid address"};
-        //     return Err(ProgramError::IncorrectProgramId);
-        // }
+        if ctx.sysvar_instruction.key().ne(&INSTRUCTIONS_ID) {
+            msg! {"sysvar_instruction: invalid address"};
+            return Err(ProgramError::IncorrectProgramId);
+        }
 
         Ok(ctx)
     }
+}
+
+/// Checks that LZ OFT send ix is the last instruction in the same transaction.
+pub fn verify_send_ix_in_tx(
+    accounts: &PushLzBridgeAccounts,
+    config: &LzBridgeConfig,
+) -> ProgramResult {
+    // Get number of instructions in current transaction.
+    let sysvar_data = accounts.sysvar_instruction.try_borrow_data()?;
+    if sysvar_data.len() < 2 {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+    let ix_len = u16::from_le_bytes([sysvar_data[0], sysvar_data[1]]);
+
+    let instructions = Instructions::try_from(accounts.sysvar_instruction)?;
+
+    // Check that current ix is before the last ix.
+    let curr_ix = instructions.load_current_index();
+    if curr_ix >= ix_len - 1 {
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+
+    // Load last instruction in transaction.
+    let last_ix = instructions.load_instruction_at((ix_len - 1).into())?;
+    if last_ix.get_program_id().ne(&config.program) {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    // Check that ix discriminator matches known send_ix discriminator.
+    let ix_data = last_ix.get_instruction_data();
+    let discriminator = ix_data
+        .get(0..8)
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    if discriminator != LZ_OFT_SEND_IX_DISC {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    let send_args = OftSendParams::deserialize(ix_data.get(8..).unwrap())?;
+    // assert_eq!(send_args.amount_ld, )
+
+    let oft_store = last_ix.get_account_meta_at(2)?.key;
+    let token_source = last_ix.get_account_meta_at(3)?.key;
+    let token_escrow = last_ix.get_account_meta_at(4)?.key;
+    let token_mint = last_ix.get_account_meta_at(5)?.key;
+    let token_program = last_ix.get_account_meta_at(6)?.key;
+    if token_program.ne(accounts.token_program.key())
+        || token_mint.ne(accounts.mint.key())
+        || token_source.ne(accounts.authority_token_account.key())
+        || oft_store.ne(&config.oft_store)
+    {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    Ok(())
 }
 
 pub fn process_push_lz_bridge(
@@ -118,6 +179,7 @@ pub fn process_push_lz_bridge(
         IntegrationConfig::LzBridge(config) => config,
         _ => return Err(ProgramError::InvalidAccountData),
     };
+    // verify_send_ix_in_tx(&inner_ctx, &config)?;
 
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve.vault) {

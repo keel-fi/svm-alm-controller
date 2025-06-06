@@ -1810,6 +1810,10 @@
             "type": "publicKey"
           },
           {
+            "name": "tokenEscrow",
+            "type": "publicKey"
+          },
+          {
             "name": "destinationAddress",
             "type": "publicKey"
           },
@@ -1822,7 +1826,7 @@
             "type": {
               "array": [
                 "u8",
-                60
+                28
               ]
             }
           }
@@ -1853,6 +1857,24 @@
           },
           {
             "name": "minAmountLd",
+            "type": "u64"
+          },
+          {
+            "name": "options",
+            "type": "bytes"
+          },
+          {
+            "name": "composeMsg",
+            "type": {
+              "option": "bytes"
+            }
+          },
+          {
+            "name": "nativeFee",
+            "type": "u64"
+          },
+          {
+            "name": "lzTokenFee",
             "type": "u64"
           }
         ]

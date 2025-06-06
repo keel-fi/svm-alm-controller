@@ -1,4 +1,4 @@
-use borsh::BorshDeserialize;
+use borsh::{maybestd::vec::Vec, BorshDeserialize};
 use pinocchio::program_error::ProgramError;
 
 #[derive(Debug, Default, PartialEq, BorshDeserialize)]
@@ -7,10 +7,10 @@ pub struct OftSendParams {
     pub to: [u8; 32],
     pub amount_ld: u64,
     pub min_amount_ld: u64,
-    // pub options: Vec<u8>,              // <- Verify empty? TBD
-    // pub compose_msg: Option<Vec<u8>>,  // <- Verify this is empty
-    // pub native_fee: u64,               // <- No risk
-    // pub lz_token_fee: u64,             // <- No risk
+    pub options: Vec<u8>,
+    pub compose_msg: Option<Vec<u8>>,
+    pub native_fee: u64,
+    pub lz_token_fee: u64,
 }
 
 impl OftSendParams {

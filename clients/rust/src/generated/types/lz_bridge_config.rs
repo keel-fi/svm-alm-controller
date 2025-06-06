@@ -36,8 +36,12 @@ pub struct LzBridgeConfig {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
+    pub token_escrow: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
     pub destination_address: Pubkey,
     pub destination_eid: u32,
-    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 60],
+    pub padding: [u8; 28],
 }

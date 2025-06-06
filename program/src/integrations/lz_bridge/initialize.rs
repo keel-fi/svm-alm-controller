@@ -16,11 +16,12 @@ pub struct InitializeLzBridgeAccounts<'info> {
     pub oft_store: &'info AccountInfo,
     pub peer_config: &'info AccountInfo,
     pub lz_program: &'info AccountInfo,
+    pub token_escrow: &'info AccountInfo,
 }
 
 impl<'info> InitializeLzBridgeAccounts<'info> {
     pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 4 {
+        if account_infos.len() != 5 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
         let ctx = Self {
@@ -28,6 +29,7 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
             oft_store: &account_infos[1],
             peer_config: &account_infos[2],
             lz_program: &account_infos[3],
+            token_escrow: &account_infos[4],
         };
         if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
             msg! {"oft_store: not owned by cctp_program"};
@@ -99,9 +101,10 @@ pub fn process_initialize_lz_bridge(
         mint: Pubkey::from(*inner_ctx.mint.key()),
         oft_store: Pubkey::from(*inner_ctx.oft_store.key()),
         peer_config: Pubkey::from(*inner_ctx.peer_config.key()),
+        token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
         destination_address: Pubkey::from(desination_address),
         destination_eid,
-        _padding: [0u8; 60],
+        _padding: [0u8; 28],
     });
 
     // Create the initial integration state
