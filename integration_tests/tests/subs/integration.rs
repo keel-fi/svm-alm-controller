@@ -114,6 +114,7 @@ pub fn initialize_integration(
                 &c.mint_b.to_bytes()[..],
                 &c.lp_mint.to_bytes()[..],
                 &c.lp_token_account.to_bytes()[..],
+                &c.padding[..],
             ]
             .concat();
             let h = hash(b.as_slice()).to_bytes();
