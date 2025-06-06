@@ -157,7 +157,7 @@ mod tests {
         Ok((controller_pk, lz_usds_eth_bridge_integration_pk, authority))
     }
 
-    async fn setup_main_ix(
+    fn setup_main_ix(
         controller: &Pubkey,
         integration: &Pubkey,
         authority: &Keypair,
@@ -308,7 +308,7 @@ mod tests {
         );
         let amount = 2000;
 
-        let main_ixn = setup_main_ix(&controller, &integration, &authority).await?;
+        let main_ixn = setup_main_ix(&controller, &integration, &authority)?;
         let send_ixn = setup_send_ix(
             &controller,
             &integration,
