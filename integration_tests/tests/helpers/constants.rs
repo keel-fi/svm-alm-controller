@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use solana_sdk::{pubkey, pubkey::Pubkey};
 
 // Nova Token Swap
@@ -23,9 +25,20 @@ pub const CCTP_REMOTE_TOKEN_MESSENGER: Pubkey =
 
 // Layer Zero OFT
 pub const USDS_TOKEN_MINT_PUBKEY: Pubkey = pubkey!("AtGakZsHVY1BkinHEFMEJxZYhwA9KnuLD8QRmGjSAZEC");
-pub const LZ_USDS_OFT_PROGRAM_ID: Pubkey = pubkey!("E2R6qMMzLBjCwXs66MPEg2zKfpt5AMxWNgSULsLYfPS2");
 pub const LZ_USDS_PEER_CONFIG_PUBKEY: Pubkey =
     pubkey!("EZ4hoYu18tVZBYjw7rdVGahHbyuwakukw2zHNvvMHyjR");
 pub const LZ_USDS_OFT_STORE_PUBKEY: Pubkey =
     pubkey!("HUPW9dJZxxSafEVovebGxgbac3JamjMHXiThBxY5u43M");
 pub const LZ_DESTINATION_DOMAIN_EID: u32 = 40106u32;
+pub const LZ_USDS_ESCROW: Pubkey = pubkey!("HwpzV5qt9QzYRuWkHqTRuhbqtaMhapSNuriS5oMynkny");
+pub const LZ_MSG_LIB: Pubkey = pubkey!("2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ");
+
+// LZ Required Programs
+pub const LZ_USDS_OFT_PROGRAM_ID: Pubkey = pubkey!("E2R6qMMzLBjCwXs66MPEg2zKfpt5AMxWNgSULsLYfPS2");
+pub const LZ_ENDPOINT_PROGRAM_ID: Pubkey = pubkey!("76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6");
+pub const LZ_ULN302: Pubkey = pubkey!("7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH");
+pub const LZ_EXECUTOR_PROGRAM_ID: Pubkey = pubkey!("6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn");
+pub const LZ_R1_PROGRAM_ID: Pubkey = pubkey!("8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP");
+pub const LZ_R2_PROGRAM_ID: Pubkey = pubkey!("HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW");
+
+pub const DEVNET_RPC: &str = "https://api.devnet.solana.com";
