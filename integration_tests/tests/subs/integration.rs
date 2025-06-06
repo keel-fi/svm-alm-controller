@@ -114,6 +114,7 @@ pub fn initialize_integration(
                 &c.mint_b.to_bytes()[..],
                 &c.lp_mint.to_bytes()[..],
                 &c.lp_token_account.to_bytes()[..],
+                &c.padding[..],
             ]
             .concat();
             let h = hash(b.as_slice()).to_bytes();
@@ -140,6 +141,7 @@ pub fn initialize_integration(
                 &c.mint.to_bytes()[..],
                 &c.oft_store.to_bytes()[..],
                 &c.peer_config.to_bytes()[..],
+                &c.token_escrow.to_bytes()[..],
                 &c.destination_address.to_bytes()[..],
                 &c.destination_eid.to_le_bytes()[..],
                 &c.padding[..],
@@ -316,6 +318,11 @@ pub fn initialize_integration(
             },
             AccountMeta {
                 pubkey: c.program,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: c.token_escrow,
                 is_signer: false,
                 is_writable: false,
             },
