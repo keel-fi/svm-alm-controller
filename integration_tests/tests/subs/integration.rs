@@ -903,7 +903,7 @@ pub async fn push_integration(
                 .send(send_accs, send_params, send_programs, vec![])
                 .await?;
 
-            // Loaded required Layer Zero accounts from devnet into litesvm environment.
+            // Load required Layer Zero accounts from devnet into litesvm environment.
             let rpc = RpcClient::new(DEVNET_RPC);
             for acc in send_ix.accounts.clone() {
                 match rpc.get_account(&acc.pubkey) {
