@@ -197,7 +197,7 @@ pub fn process_atomic_swap_borrow(
         }
 
         if clock.unix_timestamp >= cfg.expiry_timestamp {
-            return Err(SvmAlmControllerErrors::SwapHasExpired.into());
+            return Err(SvmAlmControllerErrors::IntegrationHasExpired.into());
         }
 
         {

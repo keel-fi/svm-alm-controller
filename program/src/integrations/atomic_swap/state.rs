@@ -3,9 +3,9 @@ use shank::ShankType;
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 pub struct AtomicSwapState {
-    // Amount of token a in reserve before swap.
+    // Amount of token a in reserve before borrow step in atomic swap.
     pub last_balance_a: u64,
-    // Amount of token b in reserve before swap.
+    // Amount of token b in reserve before borrow step in atomic swap.
     pub last_balance_b: u64,
     // Amount of token a borrowed
     pub amount_borrowed: u64,

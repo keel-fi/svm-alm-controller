@@ -344,6 +344,23 @@ pub fn initialize_integration(
                 is_writable: false,
             },
         ],
+        IntegrationConfig::AtomicSwap(c) => &[
+            AccountMeta {
+                pubkey: c.input_token,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: c.output_token,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: c.oracle,
+                is_signer: false,
+                is_writable: false,
+            },
+        ],
         _ => panic!("Not specified"),
     };
 
