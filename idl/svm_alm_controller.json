@@ -1854,28 +1854,6 @@
           {
             "name": "amountLd",
             "type": "u64"
-          },
-          {
-            "name": "minAmountLd",
-            "type": "u64"
-          },
-          {
-            "name": "options",
-            "type": "bytes"
-          },
-          {
-            "name": "composeMsg",
-            "type": {
-              "option": "bytes"
-            }
-          },
-          {
-            "name": "nativeFee",
-            "type": "u64"
-          },
-          {
-            "name": "lzTokenFee",
-            "type": "u64"
           }
         ]
       }
