@@ -221,6 +221,38 @@ fn pow10(decimals: u32) -> Option<i128> {
     10_i128.checked_pow(decimals)
 }
 
+fn calc_swap_price(
+    in_factor: i128,
+    out_factor: i128,
+    prec_factor: i128,
+    output_amount: i128,
+    input_amount: i128,
+) -> Result<i128, ProgramError> {
+    // swap_price = (output_amount / out_factor) / (input_amount / in_factor) * prec_factor
+    //            = (output_amount * in_factor * prec_factor) / (input_amount * out_factor)
+
+    // Splitting numerator computation into 2 steps to avoid overflow while ensuring max retention
+    // of precision.
+    let step1 = output_amount.checked_mul(in_factor).unwrap();
+    let step2 = step1.checked_mul(prec_factor);
+
+    if let Some(numerator) = step2 {
+        Ok(numerator
+            .checked_div(input_amount)
+            .unwrap()
+            .checked_div(out_factor)
+            .unwrap())
+    } else {
+        Ok(step1
+            .checked_div(out_factor)
+            .unwrap()
+            .checked_mul(prec_factor)
+            .unwrap()
+            .checked_div(input_amount)
+            .unwrap())
+    }
+}
+
 fn check_swap_slippage(
     input_amount: u64,
     input_decimals: u8,
@@ -233,20 +265,13 @@ fn check_swap_slippage(
     if input_amount == 0 || output_amount == 0 {
         return Err(ProgramError::InvalidArgument);
     }
-    let in_factor = pow10(input_decimals.into()).unwrap();
-    let out_factor = pow10(output_decimals.into()).unwrap();
-    let prec_factor = pow10(precision).unwrap();
-
-    // swap_price = (output_amount / out_factor) / (input_amount / in_factor)
-    let swap_price = i128::from(output_amount)
-        .checked_mul(in_factor)
-        .unwrap()
-        .checked_mul(prec_factor)
-        .unwrap()
-        .checked_div(input_amount.into())
-        .unwrap()
-        .checked_div(out_factor)
-        .unwrap();
+    let swap_price = calc_swap_price(
+        pow10(input_decimals.into()).unwrap(),
+        pow10(output_decimals.into()).unwrap(),
+        pow10(precision).unwrap(),
+        output_amount.into(),
+        input_amount.into(),
+    )?;
 
     // min_swap_price = oracle.value * (100-max_slippage)%
     let min_swap_price = oracle_price
@@ -318,5 +343,47 @@ mod tests {
             6,
         );
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_calc_swap_price() {
+        let in_factor = 1_000_000; // 1e6
+        let out_factor = 1_000_000_000_000; // 1e12
+        let prec_factor = 1_000_000_000_000_000_000; // 1e18
+        let input_amount = 2_000_000_000_000; // 2e12
+        let output_amount = 4_000_000_000_000; // 4e12
+        let price = calc_swap_price(
+            in_factor,
+            out_factor,
+            prec_factor,
+            output_amount,
+            input_amount,
+        )
+        .unwrap();
+
+        // Numerator does not exceed i128.
+        // (4e12 * 1e6 * 1e18) / (2e12 * 1e12) = 2e12
+        assert_eq!(price, 2_000_000_000_000);
+    }
+
+    #[test]
+    fn test_calc_swap_price_large() {
+        let in_factor = 1_000_000_000_000; // 1e12
+        let out_factor = 1_000_000_000_000; // 1e12
+        let prec_factor = 1_000_000_000_000_000_000; // 1e18
+        let input_amount = 2_000_000_000_000; // 2e12
+        let output_amount = 4_000_000_000_000; // 4e12
+        let price = calc_swap_price(
+            in_factor,
+            out_factor,
+            prec_factor,
+            output_amount,
+            input_amount,
+        )
+        .unwrap();
+
+        // Numerator exceeds i128, but handled by division order.
+        // (4e12 * 1e12 * 1e18) / (2e12 * 1e12) = 2e18
+        assert_eq!(price, 2_000_000_000_000_000_000);
     }
 }

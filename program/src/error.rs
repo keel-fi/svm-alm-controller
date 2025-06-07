@@ -19,7 +19,7 @@ pub enum SvmAlmControllerErrors {
     InvalidSwapState,
     InvalidInstructions,
     SlippageExceeded,
-    SwapHasExpired,
+    IntegrationHasExpired,
     RateLimited,
 }
 

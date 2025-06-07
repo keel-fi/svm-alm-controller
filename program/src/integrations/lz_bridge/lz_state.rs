@@ -1,6 +1,5 @@
 use borsh::BorshDeserialize;
-use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
-use pinocchio_log::log;
+use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
 pub const OFT_PEER_CONFIG_SEED: &[u8] = b"Peer";
 
@@ -34,8 +33,6 @@ impl OFTStore {
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        msg!("a2");
-        log!("{}", data.len() as u16);
         Self::try_from_slice(&data[8..Self::TRUNCATED_LEN + 8])
             .map_err(|_| ProgramError::InvalidAccountData)
     }
@@ -56,11 +53,9 @@ impl PeerConfig {
     const TRUNCATED_LEN: usize = 32;
 
     pub fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
-        msg!("b1");
         if data[0..8] != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
-        msg!("b2");
         Self::try_from_slice(&data[8..Self::TRUNCATED_LEN + 8])
             .map_err(|_| ProgramError::InvalidAccountData)
     }

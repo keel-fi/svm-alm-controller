@@ -465,11 +465,6 @@ mod tests {
         let _integration =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
 
-        let vault_a_before = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
-        let vault_b_before = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
-        let relayer_a_before = fetch_token_account(&mut svm, &swap_env.relayer_pc);
-        let relayer_b_before = fetch_token_account(&mut svm, &swap_env.relayer_coin);
-
         let repay_excess_token_a = false;
         let borrow_amount = 100;
         let repay_amount = 300; // At rate of 3.0
@@ -613,7 +608,7 @@ mod tests {
             repay_amount,
         );
 
-        assert_custom_error(&res, 0, SvmAlmControllerErrors::SwapHasExpired);
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::IntegrationHasExpired);
         Ok(())
     }
 
