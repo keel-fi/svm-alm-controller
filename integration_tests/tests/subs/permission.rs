@@ -4,7 +4,7 @@ use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
 };
 use std::error::Error;
-use svm_alm_controller_client::{
+use svm_alm_controller_client::generated::{
     accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID,
     types::PermissionStatus,
 };

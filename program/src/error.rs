@@ -12,6 +12,15 @@ pub enum SvmAlmControllerErrors {
     PermissionStatusDoesNotPermitAction,
     IntegrationStatusDoesNotPermitAction,
     ReserveStatusDoesNotPermitAction,
+    StaleOraclePrice,
+    UnsupportedOracleType,
+    SwapNotStarted,
+    SwapHasStarted,
+    InvalidSwapState,
+    InvalidInstructions,
+    SlippageExceeded,
+    IntegrationHasExpired,
+    RateLimited,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

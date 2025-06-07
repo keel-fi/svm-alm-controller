@@ -8,11 +8,11 @@ use crate::subs::{
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use svm_alm_controller_client::types::SplTokenExternalConfig;
-use svm_alm_controller_client::types::{
+use svm_alm_controller_client::generated::types::SplTokenExternalConfig;
+use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
 };
-use svm_alm_controller_client::types::{InitializeArgs, PushArgs, ReserveStatus};
+use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
@@ -34,7 +34,7 @@ mod tests {
         // Initialize a mint
         let usdc_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
 
-        let authority_usdc_ata =
+        let _authority_usdc_ata =
             initialize_ata(&mut svm, &authority, &authority.pubkey(), &usdc_mint)?;
 
         mint_tokens(
@@ -46,7 +46,7 @@ mod tests {
             1_000_000,
         )?;
 
-        let (controller_pk, authority_permission_pk) = initialize_contoller(
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
             &authority,
@@ -72,7 +72,7 @@ mod tests {
         )?;
 
         // Create a new permission for an allocator
-        let allocator_permission_pk = manage_permission(
+        let _allocator_permission_pk = manage_permission(
             &mut svm,
             &controller_pk,
             &authority,          // payer
@@ -89,7 +89,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the token
-        let usdc_reserve_pk = initialize_reserve(
+        let _usdc_reserve_pk = initialize_reserve(
             &mut svm,
             &controller_pk,
             &usdc_mint, // mint

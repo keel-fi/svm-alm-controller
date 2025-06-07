@@ -6,6 +6,7 @@ use super::{
 use crate::{
     constants::RESERVE_SEED,
     enums::ReserveStatus,
+    error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     processor::shared::create_pda_account,
 };
@@ -222,7 +223,7 @@ impl Reserve {
         self.rate_limit_amount_last_update = self
             .rate_limit_amount_last_update
             .checked_sub(outflow)
-            .unwrap();
+            .ok_or(SvmAlmControllerErrors::RateLimited)?;
         self.last_balance = self.last_balance.checked_sub(outflow).unwrap();
         Ok(())
     }

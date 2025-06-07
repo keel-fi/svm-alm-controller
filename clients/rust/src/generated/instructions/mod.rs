@@ -6,10 +6,13 @@
 //!
 
 pub(crate) mod r#accounting_event;
+pub(crate) mod r#atomic_swap_borrow;
+pub(crate) mod r#atomic_swap_repay;
 pub(crate) mod r#controller_update;
 pub(crate) mod r#emit_event;
 pub(crate) mod r#inialize_integration;
 pub(crate) mod r#initialize_controller;
+pub(crate) mod r#initialize_oracle;
 pub(crate) mod r#initialize_reserve;
 pub(crate) mod r#integration_update;
 pub(crate) mod r#manage_integration;
@@ -18,15 +21,20 @@ pub(crate) mod r#manage_reserve;
 pub(crate) mod r#permission_update;
 pub(crate) mod r#pull;
 pub(crate) mod r#push;
+pub(crate) mod r#refresh_oracle;
 pub(crate) mod r#reserve_update;
 pub(crate) mod r#sync;
 pub(crate) mod r#sync_reserve;
+pub(crate) mod r#update_oracle;
 
 pub use self::r#accounting_event::*;
+pub use self::r#atomic_swap_borrow::*;
+pub use self::r#atomic_swap_repay::*;
 pub use self::r#controller_update::*;
 pub use self::r#emit_event::*;
 pub use self::r#inialize_integration::*;
 pub use self::r#initialize_controller::*;
+pub use self::r#initialize_oracle::*;
 pub use self::r#initialize_reserve::*;
 pub use self::r#integration_update::*;
 pub use self::r#manage_integration::*;
@@ -35,6 +43,8 @@ pub use self::r#manage_reserve::*;
 pub use self::r#permission_update::*;
 pub use self::r#pull::*;
 pub use self::r#push::*;
+pub use self::r#refresh_oracle::*;
 pub use self::r#reserve_update::*;
 pub use self::r#sync::*;
 pub use self::r#sync_reserve::*;
+pub use self::r#update_oracle::*;

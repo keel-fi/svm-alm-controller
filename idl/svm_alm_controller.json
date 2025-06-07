@@ -553,6 +553,260 @@
         "type": "u8",
         "value": 10
       }
+    },
+    {
+      "name": "InitializeOracle",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "initializeOracleArgs",
+          "type": {
+            "defined": "InitializeOracleArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 11
+      }
+    },
+    {
+      "name": "UpdateOracle",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "newAuthority",
+          "isMut": false,
+          "isSigner": true,
+          "isOptional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "updateOracleArgs",
+          "type": {
+            "defined": "UpdateOracleArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 12
+      }
+    },
+    {
+      "name": "RefreshOracle",
+      "accounts": [
+        {
+          "name": "priceFeed",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 13
+      }
+    },
+    {
+      "name": "AtomicSwapBorrow",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultB",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "recipientTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sysvarInstruction",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "atomicSwapBorrowArgs",
+          "type": {
+            "defined": "AtomicSwapBorrowArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 14
+      }
+    },
+    {
+      "name": "AtomicSwapRepay",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "payerAccountA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "payerAccountB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "atomicSwapRepayArgs",
+          "type": {
+            "defined": "AtomicSwapRepayArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 15
+      }
     }
   ],
   "accounts": [
@@ -645,6 +899,87 @@
             "name": "state",
             "type": {
               "defined": "IntegrationState"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Feed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "priceFeed",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "invertPrice",
+            "type": "bool"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                62
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Oracle",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "nonce",
+            "type": "publicKey"
+          },
+          {
+            "name": "value",
+            "type": "i128"
+          },
+          {
+            "name": "precision",
+            "type": "u32"
+          },
+          {
+            "name": "lastUpdateSlot",
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "feeds",
+            "type": {
+              "array": [
+                {
+                  "defined": "Feed"
+                },
+                1
+              ]
             }
           }
         ]
@@ -932,6 +1267,15 @@
         "kind": "struct",
         "fields": [
           {
+            "name": "controllerId",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
             "name": "data",
             "type": "bytes"
           }
@@ -1131,6 +1475,58 @@
       }
     },
     {
+      "name": "InitializeOracleArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "nonce",
+            "type": "publicKey"
+          },
+          {
+            "name": "invertPrice",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateOracleArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feedArgs",
+            "type": {
+              "option": {
+                "defined": "FeedArgs"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeedArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "invertPrice",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
       "name": "SyncReserveArgs",
       "type": {
         "kind": "struct",
@@ -1142,6 +1538,120 @@
       "type": {
         "kind": "struct",
         "fields": []
+      }
+    },
+    {
+      "name": "AtomicSwapBorrowArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "repayExcessTokenA",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AtomicSwapRepayArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AtomicSwapConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "inputToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "outputToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracle",
+            "type": "publicKey"
+          },
+          {
+            "name": "maxSlippageBps",
+            "type": "u16"
+          },
+          {
+            "name": "maxStaleness",
+            "type": "u64"
+          },
+          {
+            "name": "inputMintDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "outputMintDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "expiryTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                76
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AtomicSwapState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastBalanceA",
+            "type": "u64"
+          },
+          {
+            "name": "lastBalanceB",
+            "type": "u64"
+          },
+          {
+            "name": "amountBorrowed",
+            "type": "u64"
+          },
+          {
+            "name": "recipientTokenAPre",
+            "type": "u64"
+          },
+          {
+            "name": "repayExcessTokenA",
+            "type": "bool"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                15
+              ]
+            }
+          }
+        ]
       }
     },
     {
@@ -1355,9 +1865,7 @@
         "fields": [
           {
             "name": "oftType",
-            "type": {
-              "defined": "OFTType"
-            }
+            "type": "u8"
           },
           {
             "name": "ld2sdRate",
@@ -1394,18 +1902,6 @@
           {
             "name": "paused",
             "type": "bool"
-          },
-          {
-            "name": "pauser",
-            "type": {
-              "option": "publicKey"
-            }
-          },
-          {
-            "name": "unpauser",
-            "type": {
-              "option": "publicKey"
-            }
           }
         ]
       }
@@ -1695,6 +2191,14 @@
                 "defined": "LzBridgeConfig"
               }
             ]
+          },
+          {
+            "name": "AtomicSwap",
+            "fields": [
+              {
+                "defined": "AtomicSwapConfig"
+              }
+            ]
           }
         ]
       }
@@ -1749,6 +2253,14 @@
                 "defined": "LzBridgeState"
               }
             ]
+          },
+          {
+            "name": "AtomicSwap",
+            "fields": [
+              {
+                "defined": "AtomicSwapState"
+              }
+            ]
           }
         ]
       }
@@ -1786,6 +2298,9 @@
           },
           {
             "name": "LzBridge"
+          },
+          {
+            "name": "AtomicSwap"
           }
         ]
       }
@@ -1877,6 +2392,23 @@
                 "type": "u32"
               }
             ]
+          },
+          {
+            "name": "AtomicSwap",
+            "fields": [
+              {
+                "name": "max_slippage_bps",
+                "type": "u16"
+              },
+              {
+                "name": "max_staleness",
+                "type": "u64"
+              },
+              {
+                "name": "expiry_timestamp",
+                "type": "i64"
+              }
+            ]
           }
         ]
       }
@@ -1955,20 +2487,6 @@
           },
           {
             "name": "LzBridge"
-          }
-        ]
-      }
-    },
-    {
-      "name": "OFTType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Native"
-          },
-          {
-            "name": "Adapter"
           }
         ]
       }

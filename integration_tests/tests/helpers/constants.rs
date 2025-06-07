@@ -6,11 +6,6 @@ pub const NOVA_TOKEN_SWAP_PROGRAM_ID: Pubkey =
 pub const NOVA_TOKEN_SWAP_FEE_OWNER: Pubkey =
     pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
 
-// Pyth (Wormhole) - for Nova Token Swap
-pub const WORMHOLE_PROGRAM_ID: Pubkey = pubkey!("HDwcJBJXjL9FpJ7UBsYBtaDjsBUhuLCUYoz3zr8SWWaQ");
-pub const WORMHOLE_GUARDIAN_SET_4_PUBKEY: Pubkey =
-    pubkey!("5gxPdahvSzcKySxXxPuRXZZ9s6h8hZ88XDVKavWpaQGn");
-
 // CCTP
 pub const CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID: Pubkey =
     pubkey!("CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd");

@@ -5,6 +5,7 @@ use crate::{
     events::{IntegrationUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeIntegrationArgs,
     integrations::{
+        atomic_swap::initialize::process_initialize_atomic_swap,
         cctp_bridge::initialize::process_initialize_cctp_bridge,
         lz_bridge::initialize::process_initialize_lz_bridge,
         spl_token_external::initialize::process_initialize_spl_token_external,
@@ -115,6 +116,7 @@ pub fn process_initialize_integration(
         IntegrationType::SplTokenSwap => process_initialize_spl_token_swap(&ctx, &args)?,
         IntegrationType::CctpBridge => process_initialize_cctp_bridge(&ctx, &args)?,
         IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
+        IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };

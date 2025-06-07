@@ -5,10 +5,11 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::types::CctpBridgeConfig;
-use crate::types::LzBridgeConfig;
-use crate::types::SplTokenExternalConfig;
-use crate::types::SplTokenSwapConfig;
+use crate::generated::types::AtomicSwapConfig;
+use crate::generated::types::CctpBridgeConfig;
+use crate::generated::types::LzBridgeConfig;
+use crate::generated::types::SplTokenExternalConfig;
+use crate::generated::types::SplTokenSwapConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
@@ -23,4 +24,5 @@ pub enum IntegrationConfig {
     SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),
     LzBridge(LzBridgeConfig),
+    AtomicSwap(AtomicSwapConfig),
 }

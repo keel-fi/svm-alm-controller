@@ -6,11 +6,14 @@
 //!
 
 pub(crate) mod r#accounting_action;
+pub(crate) mod r#atomic_swap_config;
+pub(crate) mod r#atomic_swap_state;
 pub(crate) mod r#cctp_bridge_config;
 pub(crate) mod r#cctp_bridge_state;
 pub(crate) mod r#controller_status;
 pub(crate) mod r#deposit_for_burn_args;
 pub(crate) mod r#deposit_single_token_type_exact_amount_in_args;
+pub(crate) mod r#feed_args;
 pub(crate) mod r#initialize_args;
 pub(crate) mod r#integration_config;
 pub(crate) mod r#integration_state;
@@ -20,7 +23,6 @@ pub(crate) mod r#local_token;
 pub(crate) mod r#lz_bridge_config;
 pub(crate) mod r#lz_bridge_state;
 pub(crate) mod r#o_f_t_store;
-pub(crate) mod r#o_f_t_type;
 pub(crate) mod r#oft_send_params;
 pub(crate) mod r#peer_config;
 pub(crate) mod r#permission_status;
@@ -36,11 +38,14 @@ pub(crate) mod r#swap_v1_subset;
 pub(crate) mod r#withdraw_single_token_type_exact_amount_out_args;
 
 pub use self::r#accounting_action::*;
+pub use self::r#atomic_swap_config::*;
+pub use self::r#atomic_swap_state::*;
 pub use self::r#cctp_bridge_config::*;
 pub use self::r#cctp_bridge_state::*;
 pub use self::r#controller_status::*;
 pub use self::r#deposit_for_burn_args::*;
 pub use self::r#deposit_single_token_type_exact_amount_in_args::*;
+pub use self::r#feed_args::*;
 pub use self::r#initialize_args::*;
 pub use self::r#integration_config::*;
 pub use self::r#integration_state::*;
@@ -50,7 +55,6 @@ pub use self::r#local_token::*;
 pub use self::r#lz_bridge_config::*;
 pub use self::r#lz_bridge_state::*;
 pub use self::r#o_f_t_store::*;
-pub use self::r#o_f_t_type::*;
 pub use self::r#oft_send_params::*;
 pub use self::r#peer_config::*;
 pub use self::r#permission_status::*;

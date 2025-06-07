@@ -100,6 +100,56 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "reserve_a")]
     #[account(5, writable, name = "reserve_b")]
     Pull(PullArgs),
+
+    /// InitializeOracle
+    #[account(0, signer, writable, name = "payer")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "price_feed")]
+    #[account(3, writable, name = "oracle")]
+    #[account(4, name = "system_program")]
+    InitializeOracle(InitializeOracleArgs),
+
+    /// UpdateOracle
+    #[account(0, signer, name = "authority")]
+    #[account(1, name = "price_feed")]
+    #[account(2, writable, name = "oracle")]
+    #[account(3, optional, signer, name = "new_authority")]
+    UpdateOracle(UpdateOracleArgs),
+
+    /// RefreshOracle
+    #[account(0, name = "price_feed")]
+    #[account(1, writable, name = "oracle")]
+    RefreshOracle(),
+
+    /// Atomic swap borrow
+    #[account(0, name = "controller")]
+    #[account(1, signer, name = "authority")]
+    #[account(2, name = "permission")]
+    #[account(3, writable, name = "integration")]
+    #[account(4, writable, name = "reserve_a")]
+    #[account(5, writable, name = "vault_a")]
+    #[account(6, writable, name = "reserve_b")]
+    #[account(7, name = "vault_b")]
+    #[account(8, writable, name = "recipient_token_account")]
+    #[account(9, name = "token_program")]
+    #[account(10, name = "sysvar_instruction")]
+    AtomicSwapBorrow(AtomicSwapBorrowArgs),
+
+    /// Atomic swap repay
+    #[account(0, signer, writable, name = "payer")]
+    #[account(1, name = "controller")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, writable, name = "integration")]
+    #[account(5, writable, name = "reserve_a")]
+    #[account(6, writable, name = "vault_a")]
+    #[account(7, writable, name = "reserve_b")]
+    #[account(8, writable, name = "vault_b")]
+    #[account(9, name = "oracle")]
+    #[account(10, writable, name = "payer_account_a")]
+    #[account(11, writable, name = "payer_account_b")]
+    #[account(12, name = "token_program")]
+    AtomicSwapRepay(AtomicSwapRepayArgs),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -159,6 +209,24 @@ pub struct ManageIntegrationArgs {
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct InitializeOracleArgs {
+    pub oracle_type: u8,
+    pub nonce: Pubkey,
+    pub invert_price: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct UpdateOracleArgs {
+    pub feed_args: Option<FeedArgs>,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct FeedArgs {
+    pub oracle_type: u8,
+    pub invert_price: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum InitializeArgs {
     SplTokenExternal,
     SplTokenSwap,
@@ -169,6 +237,11 @@ pub enum InitializeArgs {
     LzBridge {
         desination_address: Pubkey,
         destination_eid: u32,
+    },
+    AtomicSwap {
+        max_slippage_bps: u16,
+        max_staleness: u64,
+        expiry_timestamp: i64,
     },
 }
 
@@ -192,4 +265,15 @@ pub enum PullArgs {
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge,
     LzBridge,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct AtomicSwapBorrowArgs {
+    pub amount: u64,
+    pub repay_excess_token_a: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct AtomicSwapRepayArgs {
+    pub amount: u64,
 }

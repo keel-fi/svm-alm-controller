@@ -232,18 +232,27 @@ pub fn edit_ata_amount(
 ) -> Result<(), Box<dyn Error>> {
     let ata_pk = get_associated_token_address_with_program_id(&owner, mint, &spl_token::id());
 
-    let mut ata_ai = svm.get_account(&ata_pk).unwrap();
-
-    let mut ata = Account::unpack(&ata_ai.data)
-        .map_err(|e| format!("Failed to unpack ata: {:?}", e))
-        .unwrap();
-    ata.amount = amount;
-    Account::pack(ata, &mut ata_ai.data)?;
-    svm.set_account(ata_pk, ata_ai)?;
+    edit_token_amount(svm, &ata_pk, amount)?;
 
     let balance_after = get_token_balance_or_zero(svm, &ata_pk);
 
     assert_eq!(balance_after, amount, "balance_after is incorrect");
 
+    Ok(())
+}
+
+pub fn edit_token_amount(
+    svm: &mut LiteSVM,
+    pubkey: &Pubkey,
+    amount: u64,
+) -> Result<(), Box<dyn Error>> {
+    let mut account_info = svm.get_account(&pubkey).unwrap();
+
+    let mut account = Account::unpack(&account_info.data)
+        .map_err(|e| format!("Failed to unpack ata: {:?}", e))
+        .unwrap();
+    account.amount = amount;
+    Account::pack(account, &mut account_info.data)?;
+    svm.set_account(*pubkey, account_info)?;
     Ok(())
 }

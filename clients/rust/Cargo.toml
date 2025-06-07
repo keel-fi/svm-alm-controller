@@ -6,7 +6,13 @@ edition = { workspace = true }
 
 [lib]
 name = "svm_alm_controller_client"
-path = "src/generated/mod.rs"
+path = "src/lib.rs"
+
+[features]
+serde = []
+fetch = []
+anchor = []
+anchor-idl-build = []
 
 [dependencies]
 borsh = { workspace = true }

@@ -21,6 +21,7 @@ impl EmitEvent {
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
@@ -66,6 +67,7 @@ impl Default for EmitEventInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EmitEventInstructionArgs {
+    pub controller_id: [u8; 2],
     pub data: Vec<u8>,
 }
 
@@ -77,6 +79,7 @@ pub struct EmitEventInstructionArgs {
 #[derive(Clone, Debug, Default)]
 pub struct EmitEventBuilder {
     authority: Option<solana_program::pubkey::Pubkey>,
+    controller_id: Option<[u8; 2]>,
     data: Option<Vec<u8>>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -88,6 +91,11 @@ impl EmitEventBuilder {
     #[inline(always)]
     pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
         self.authority = Some(authority);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_id(&mut self, controller_id: [u8; 2]) -> &mut Self {
+        self.controller_id = Some(controller_id);
         self
     }
     #[inline(always)]
@@ -119,6 +127,10 @@ impl EmitEventBuilder {
             authority: self.authority.expect("authority is not set"),
         };
         let args = EmitEventInstructionArgs {
+            controller_id: self
+                .controller_id
+                .clone()
+                .expect("controller_id is not set"),
             data: self.data.clone().expect("data is not set"),
         };
 
@@ -175,6 +187,7 @@ impl<'a, 'b> EmitEventCpi<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed_with_remaining_accounts(
@@ -237,6 +250,7 @@ impl<'a, 'b> EmitEventCpiBuilder<'a, 'b> {
         let instruction = Box::new(EmitEventCpiBuilderInstruction {
             __program: program,
             authority: None,
+            controller_id: None,
             data: None,
             __remaining_accounts: Vec::new(),
         });
@@ -248,6 +262,11 @@ impl<'a, 'b> EmitEventCpiBuilder<'a, 'b> {
         authority: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.authority = Some(authority);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_id(&mut self, controller_id: [u8; 2]) -> &mut Self {
+        self.instruction.controller_id = Some(controller_id);
         self
     }
     #[inline(always)]
@@ -297,6 +316,11 @@ impl<'a, 'b> EmitEventCpiBuilder<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
         let args = EmitEventInstructionArgs {
+            controller_id: self
+                .instruction
+                .controller_id
+                .clone()
+                .expect("controller_id is not set"),
             data: self.instruction.data.clone().expect("data is not set"),
         };
         let instruction = EmitEventCpi {
@@ -316,6 +340,7 @@ impl<'a, 'b> EmitEventCpiBuilder<'a, 'b> {
 struct EmitEventCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    controller_id: Option<[u8; 2]>,
     data: Option<Vec<u8>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

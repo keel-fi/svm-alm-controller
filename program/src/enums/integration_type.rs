@@ -10,4 +10,5 @@ pub enum IntegrationType {
     CctpBridge,
     SwapIntent,
     LzBridge,
+    AtomicSwap,
 }

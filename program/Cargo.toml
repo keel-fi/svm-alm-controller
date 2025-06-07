@@ -11,6 +11,7 @@ no-entrypoint = []
 idl = []
 
 [dependencies]
+byteorder = { workspace = true }
 pinocchio = { workspace = true }
 pinocchio-log = { workspace = true }
 pinocchio-pubkey = { workspace = true }
@@ -24,4 +25,6 @@ borsh = "0.10.3"
 borsh-derive = "0.10.3"
 num-derive = { workspace = true }
 num-traits = { workspace = true}
-solana-keccak-hasher = { workspace = true}
+solana-keccak-hasher = { workspace = true }
+switchboard-on-demand = { workspace = true }
+bytemuck = { workspace = true }

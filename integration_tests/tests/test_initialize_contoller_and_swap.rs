@@ -1,23 +1,21 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_mint, initialize_reserve, manage_integration, manage_permission, manage_reserve,
-    mint_tokens, push_integration,
+    airdrop_lamports, initialize_contoller, initialize_integration, initialize_mint,
+    initialize_reserve, manage_permission, mint_tokens, push_integration,
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use svm_alm_controller_client::types::SplTokenExternalConfig;
-use svm_alm_controller_client::types::{
+use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus, SplTokenSwapConfig,
 };
-use svm_alm_controller_client::types::{InitializeArgs, PushArgs, ReserveStatus};
+use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
 
-    use svm_alm_controller_client::types::PullArgs;
+    use svm_alm_controller_client::generated::types::PullArgs;
 
     use crate::{
         helpers::constants::NOVA_TOKEN_SWAP_PROGRAM_ID,
@@ -41,7 +39,7 @@ mod tests {
         // Initialize a mint
         let susds_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
 
-        let (controller_pk, authority_permission_pk) = initialize_contoller(
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
             &authority,
@@ -67,7 +65,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the USDS token
-        let usds_reserve_pk = initialize_reserve(
+        let _usds_reserve_pk = initialize_reserve(
             &mut svm,
             &controller_pk,
             &usds_mint, // mint
@@ -79,7 +77,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the sUSDS token
-        let susds_reserve_pk = initialize_reserve(
+        let _susds_reserve_pk = initialize_reserve(
             &mut svm,
             &controller_pk,
             &susds_mint, // mint

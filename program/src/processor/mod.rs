@@ -5,6 +5,7 @@ pub mod initialize_reserve;
 pub mod manage_integration;
 pub mod manage_permission;
 pub mod manage_reserve;
+pub mod oracle;
 pub mod pull;
 pub mod push;
 pub mod sync_integration;
@@ -17,6 +18,7 @@ pub use initialize_reserve::*;
 pub use manage_integration::*;
 pub use manage_permission::*;
 pub use manage_reserve::*;
+pub use oracle::*;
 
 pub use pull::*;
 pub use push::*;
