@@ -26,6 +26,11 @@ base64 = { workspace = true }
 hex = { workspace = true }
 static_assertions = { workspace = true }
 switchboard-on-demand = { workspace = true }
+oft-client = { workspace = true }
+endpoint-client = { workspace = true }
+uln-client = { workspace = true }
+solana-client = { workspace = true }
 
 [dev-dependencies]
 test-log = "0.2.17"
+tokio = "1.38"

@@ -1,6 +1,5 @@
 use borsh::BorshDeserialize;
-use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
-use pinocchio_log::log;
+use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
 #[derive(Debug, Default, PartialEq, BorshDeserialize)]
 pub struct LocalToken {

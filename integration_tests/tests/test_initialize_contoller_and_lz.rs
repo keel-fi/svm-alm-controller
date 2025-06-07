@@ -8,7 +8,11 @@ use crate::{
     helpers::constants::USDS_TOKEN_MINT_PUBKEY,
     subs::{edit_ata_amount, transfer_tokens},
 };
+use borsh::BorshDeserialize;
+use bytemuck::checked::try_from_bytes;
+use endpoint_client::types::MessagingReceipt;
 use helpers::lite_svm_with_programs;
+use solana_program::pubkey;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
@@ -17,6 +21,8 @@ use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, Rese
 
 #[cfg(test)]
 mod tests {
+
+    use std::ptr::null;
 
     use svm_alm_controller_client::generated::types::LzBridgeConfig;
 
@@ -30,8 +36,8 @@ mod tests {
 
     use super::*;
 
-    #[test_log::test]
-    fn initialize_controller_and_lz() -> Result<(), Box<dyn std::error::Error>> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn initialize_controller_and_lz() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -103,10 +109,10 @@ mod tests {
         )?;
 
         // Serialize the destination address appropriately
-        let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
+        let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
-        // // Initialize an integration
+        // Initialize an integration
         let lz_usds_eth_bridge_integration_pk = initialize_integration(
             &mut svm,
             &controller_pk,
@@ -132,13 +138,24 @@ mod tests {
         )?;
 
         // Push the integration -- i.e. bridge using LZ OFT
-        push_integration(
+        let amount = 2000;
+        let result = push_integration(
             &mut svm,
             &controller_pk,
             &lz_usds_eth_bridge_integration_pk,
             &authority,
-            &PushArgs::LzBridge { amount: 1_000_000 },
-        )?;
+            &PushArgs::LzBridge { amount },
+        )
+        .await?;
+
+        // Check that OFT return data exists and amount matches.
+        let return_data = result.unwrap().return_data.data;
+        let (messaging_receipt, oft_receipt) =
+            <(MessagingReceipt, oft_client::types::OFTReceipt)>::try_from_slice(&return_data)
+                .map_err(|err| format!("Failed to parse result: {}", err))
+                .unwrap();
+        assert_eq!(oft_receipt.amount_sent_ld, amount);
+        assert_eq!(oft_receipt.amount_received_ld, amount);
 
         Ok(())
     }

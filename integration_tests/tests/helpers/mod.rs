@@ -20,6 +20,11 @@ use solana_sdk::pubkey::Pubkey;
 use std::env;
 use std::{fs, str::FromStr};
 
+use crate::helpers::constants::{
+    LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302,
+    LZ_USDS_ESCROW,
+};
+
 /// Get LiteSvm with myproject loaded.
 pub fn lite_svm_with_programs() -> LiteSVM {
     let mut svm = LiteSVM::new();
@@ -76,8 +81,6 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     .unwrap();
 
     // Layer Zero
-    let usds_oft_program = include_bytes!("../../fixtures/oft.so");
-    svm.add_program(LZ_USDS_OFT_PROGRAM_ID, usds_oft_program);
     let usds_mint_account = get_account_data_from_json("./fixtures/usds_mint.json");
     svm.set_account(USDS_TOKEN_MINT_PUBKEY, usds_mint_account)
         .unwrap();
@@ -88,6 +91,18 @@ pub fn lite_svm_with_programs() -> LiteSVM {
         get_account_data_from_json("./fixtures/lz_usds_eth_peer_config.json");
     svm.set_account(LZ_USDS_PEER_CONFIG_PUBKEY, lz_usds_eth_peer_config_account)
         .unwrap();
+    let usds_oft_program = include_bytes!("../../fixtures/lz_oft.so");
+    svm.add_program(LZ_USDS_OFT_PROGRAM_ID, usds_oft_program);
+    let lz_endpoint_program = include_bytes!("../../fixtures/lz_endpoint.so");
+    svm.add_program(LZ_ENDPOINT_PROGRAM_ID, lz_endpoint_program);
+    let lz_send_program = include_bytes!("../../fixtures/lz_send.so");
+    svm.add_program(LZ_ULN302, lz_send_program);
+    let lz_r1_program = include_bytes!("../../fixtures/lz_r1.so");
+    svm.add_program(LZ_R1_PROGRAM_ID, lz_r1_program);
+    let lz_r2_program = include_bytes!("../../fixtures/lz_r2.so");
+    svm.add_program(LZ_R2_PROGRAM_ID, lz_r2_program);
+    let lz_executor_program = include_bytes!("../../fixtures/lz_executor.so");
+    svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
 
     svm
 }

@@ -24,8 +24,9 @@ mod tests {
 
     use super::*;
 
-    #[test_log::test]
-    fn initialize_controller_and_token_swap() -> Result<(), Box<dyn std::error::Error>> {
+    #[tokio::test]
+
+    async fn initialize_controller_and_token_swap() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -174,7 +175,8 @@ mod tests {
                 amount_a: 100_000_000,
                 amount_b: 120_000_000,
             },
-        )?;
+        )
+        .await?;
 
         // Pull the integration -- Withdraw liquidity from the swap pool
         pull_integration(

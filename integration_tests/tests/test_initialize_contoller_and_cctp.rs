@@ -30,8 +30,9 @@ mod tests {
 
     use super::*;
 
-    #[test_log::test]
-    fn initialize_controller_and_cctp() -> Result<(), Box<dyn std::error::Error>> {
+    #[tokio::test]
+
+    async fn initialize_controller_and_cctp() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -137,7 +138,8 @@ mod tests {
             &cctp_usdc_eth_bridge_integration_pk,
             &authority,
             &PushArgs::CctpBridge { amount: 1_000_000 },
-        )?;
+        )
+        .await?;
 
         Ok(())
     }

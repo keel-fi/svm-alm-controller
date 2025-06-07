@@ -9,7 +9,6 @@ use crate::{
     processor::InitializeIntegrationAccounts,
 };
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
-use pinocchio_log::log;
 
 pub struct InitializeCctpBridgeAccounts<'info> {
     pub mint: &'info AccountInfo,
