@@ -3,7 +3,7 @@ use crate::{
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
     processor::InitializeIntegrationAccounts,
-    state::{nova_account::NovaAccount, Oracle},
+    wrapper::{MintAccount, OracleAccount, WrappedAccount},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -11,12 +11,11 @@ use pinocchio::{
     program_error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::state::Mint;
 
 pub struct InitializeAtomicSwapAccounts<'info> {
-    pub input_mint: &'info AccountInfo,
-    pub output_mint: &'info AccountInfo,
-    pub oracle: &'info AccountInfo,
+    pub input_mint: MintAccount<'info>,
+    pub output_mint: MintAccount<'info>,
+    pub oracle: OracleAccount<'info>,
 }
 
 impl<'info> InitializeAtomicSwapAccounts<'info> {
@@ -24,28 +23,12 @@ impl<'info> InitializeAtomicSwapAccounts<'info> {
         if account_infos.len() < 3 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
-        let ctx = Self {
-            input_mint: &account_infos[0],
-            output_mint: &account_infos[1],
-            oracle: &account_infos[2],
-        };
-        if !ctx.input_mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.output_mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.oracle.is_owned_by(&crate::ID) {
-            msg! {"oracle: not owned by program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        // Check that Oracle is a valid account.
-        let _oracle: Oracle = NovaAccount::deserialize(&ctx.oracle.try_borrow_data()?)?;
 
+        let ctx = Self {
+            input_mint: MintAccount::new(&account_infos[0])?,
+            output_mint: MintAccount::new(&account_infos[1])?,
+            oracle: OracleAccount::new(&account_infos[2])?,
+        };
         Ok(ctx)
     }
 }
@@ -73,9 +56,6 @@ pub fn process_initialize_atomic_swap(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let input_mint = Mint::from_account_info(inner_ctx.input_mint)?;
-    let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
-
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
         input_token: *inner_ctx.input_mint.key(),
@@ -83,8 +63,8 @@ pub fn process_initialize_atomic_swap(
         oracle: *inner_ctx.oracle.key(),
         max_slippage_bps,
         max_staleness,
-        input_mint_decimals: input_mint.decimals(),
-        output_mint_decimals: output_mint.decimals(),
+        input_mint_decimals: inner_ctx.input_mint.inner().decimals(),
+        output_mint_decimals: inner_ctx.output_mint.inner().decimals(),
         expiry_timestamp,
         padding: [0u8; 76],
     });

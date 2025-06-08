@@ -11,6 +11,7 @@ pub mod integrations;
 pub mod macros;
 pub mod processor;
 pub mod state;
+pub mod wrapper;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;

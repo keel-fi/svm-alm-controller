@@ -20,17 +20,21 @@ use crate::{
     },
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{nova_account::NovaAccount, Integration, Permission, Reserve},
+    wrapper::{
+        ControllerAccount, PermissionAccount, PermissionArgs, ReserveAccount, ReserveArgs,
+        WrappedAccount,
+    },
 };
 
 pub struct AtomicSwapBorrow<'info> {
-    pub controller: &'info AccountInfo,
+    pub controller: ControllerAccount<'info>,
     pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
+    pub permission: PermissionAccount<'info>,
     pub integration: &'info AccountInfo,
-    pub reserve_a: &'info AccountInfo,
+    pub reserve_a: &'info mut ReserveAccount<'info>,
     pub vault_a: &'info AccountInfo,
-    pub reserve_b: &'info AccountInfo,
+    pub reserve_b: &'info ReserveAccount<'info>,
     pub vault_b: &'info AccountInfo,
     pub recipient_token_account: &'info AccountInfo,
     pub token_program: &'info AccountInfo,
@@ -42,14 +46,33 @@ impl<'info> AtomicSwapBorrow<'info> {
         if accounts.len() < 11 {
             return Err(ProgramError::NotEnoughAccountKeys);
         }
+        let controller = ControllerAccount::new(&accounts[0])?;
+        let controller_key = controller.info().key();
+        let authority = &accounts[0];
         let ctx = Self {
-            controller: &accounts[0],
+            controller,
             authority: &accounts[1],
-            permission: &accounts[2],
+            permission: PermissionAccount::new_with_args(
+                &accounts[2],
+                PermissionArgs {
+                    controller: controller_key,
+                    authority: authority.key(),
+                },
+            )?,
             integration: &accounts[3],
-            reserve_a: &accounts[4],
+            reserve_a: &mut ReserveAccount::new_with_args_mut(
+                &accounts[4],
+                ReserveArgs {
+                    controller: controller_key,
+                },
+            )?,
             vault_a: &accounts[5],
-            reserve_b: &accounts[6],
+            reserve_b: &mut ReserveAccount::new_with_args_mut(
+                &accounts[6],
+                ReserveArgs {
+                    controller: controller_key,
+                },
+            )?,
             vault_b: &accounts[7],
             recipient_token_account: &accounts[8],
             token_program: &accounts[9],
@@ -61,13 +84,13 @@ impl<'info> AtomicSwapBorrow<'info> {
         if !ctx.integration.is_writable() {
             return Err(ProgramError::Immutable);
         }
-        if !ctx.reserve_a.is_writable() {
+        if !ctx.reserve_a.info().is_writable() {
             return Err(ProgramError::Immutable);
         }
         if !ctx.vault_a.is_writable() {
             return Err(ProgramError::Immutable);
         }
-        if !ctx.reserve_b.is_writable() {
+        if !ctx.reserve_b.info().is_writable() {
             return Err(ProgramError::Immutable);
         }
         if !ctx.recipient_token_account.is_writable() {
@@ -141,16 +164,17 @@ pub fn process_atomic_swap_borrow(
     let args: AtomicSwapBorrowArgs =
         AtomicSwapBorrowArgs::try_from_slice(instruction_data).unwrap();
 
+    let controller = ctx.controller.inner();
+    let permission = ctx.permission.inner();
+    let reserve_a = ctx.reserve_a.inner();
+    let reserve_b = ctx.reserve_b.inner();
+
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
     if controller.status != ControllerStatus::Active {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
 
-    // Load in the super permission account
-    let permission =
-        Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
+    // Check permission
     if !permission.can_execute_swap() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
@@ -158,7 +182,6 @@ pub fn process_atomic_swap_borrow(
     let clock = Clock::get()?;
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.vault != *ctx.vault_a.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -166,7 +189,6 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -175,8 +197,8 @@ pub fn process_atomic_swap_borrow(
     }
 
     // Sync reserve balances and rate limits
-    reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
-    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
+    reserve_a.sync_balance(ctx.vault_a, ctx.controller.info(), controller)?;
+    reserve_b.sync_balance(ctx.vault_b, ctx.controller.info(), controller)?;
 
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
@@ -223,7 +245,7 @@ pub fn process_atomic_swap_borrow(
 
         // Transfer borrow amount of tokens from vault to recipient.
         controller.transfer_tokens(
-            ctx.controller,
+            ctx.controller.info(),
             ctx.vault_a,
             ctx.recipient_token_account,
             args.amount,
@@ -235,8 +257,8 @@ pub fn process_atomic_swap_borrow(
     verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
 
     reserve_a.update_for_outflow(clock, args.amount)?;
-    reserve_a.save(ctx.reserve_a)?;
-    reserve_b.save(ctx.reserve_b)?;
+    reserve_a.save(ctx.reserve_a.info())?;
+    reserve_b.save(ctx.reserve_b.info())?;
 
     // Update rate limit to track outflow of input_tokens for integration.
     integration.update_rate_limit_for_outflow(clock, args.amount)?;
