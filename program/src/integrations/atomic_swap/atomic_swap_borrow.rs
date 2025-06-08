@@ -15,6 +15,7 @@ use pinocchio_token::state::TokenAccount;
 
 use crate::{
     constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC},
+    define_account_struct,
     enums::{
         ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
     },
@@ -23,66 +24,19 @@ use crate::{
     state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
 };
 
-pub struct AtomicSwapBorrow<'info> {
-    pub controller: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub integration: &'info AccountInfo,
-    pub reserve_a: &'info AccountInfo,
-    pub vault_a: &'info AccountInfo,
-    pub reserve_b: &'info AccountInfo,
-    pub vault_b: &'info AccountInfo,
-    pub recipient_token_account: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub sysvar_instruction: &'info AccountInfo,
-}
-
-impl<'info> AtomicSwapBorrow<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 11 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            controller: &accounts[0],
-            authority: &accounts[1],
-            permission: &accounts[2],
-            integration: &accounts[3],
-            reserve_a: &accounts[4],
-            vault_a: &accounts[5],
-            reserve_b: &accounts[6],
-            vault_b: &accounts[7],
-            recipient_token_account: &accounts[8],
-            token_program: &accounts[9],
-            sysvar_instruction: &accounts[10],
-        };
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.integration.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.reserve_a.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.vault_a.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.reserve_b.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.recipient_token_account.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if ctx.token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.sysvar_instruction.key().ne(&INSTRUCTIONS_ID) {
-            msg! {"sysvar_instruction: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct AtomicSwapBorrow<'info> {
+        controller;
+        authority: signer;
+        permission;
+        integration: mut;
+        reserve_a: mut;
+        vault_a: mut;
+        reserve_b: mut;
+        vault_b;
+        recipient_token_account: mut;
+        token_program: @check(pinocchio_token::ID);
+        sysvar_instruction: @check(INSTRUCTIONS_ID);
     }
 }
 

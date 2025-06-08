@@ -11,3 +11,56 @@ macro_rules! key_as_str {
         bs58::encode($key).into_string().as_str()
     };
 }
+#[macro_export]
+macro_rules! define_account_struct {
+    (
+        $vis:vis struct $name:ident < $lt:lifetime > {
+            $(
+                $field:ident $( : $( $attr:ident ),* )? $( @check ( $check_value:expr ) )?;
+            )* $(;)?
+        }
+    ) => {
+        $vis struct $name<$lt> {
+            $(
+                pub $field: & $lt pinocchio::account_info::AccountInfo,
+            )*
+        }
+
+        impl<$lt> $name<$lt> {
+            pub fn from_accounts(
+                accounts: & $lt [pinocchio::account_info::AccountInfo],
+            ) -> Result<Self, pinocchio::program_error::ProgramError> {
+                use pinocchio::program_error::ProgramError;
+
+                let mut iter = accounts.iter();
+                $(
+                    let $field = iter.next().ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+                    $(
+                        $(
+                            if stringify!($attr) == "mut" && !$field.is_writable() {
+                                return Err(ProgramError::Immutable);
+                            }
+                            if stringify!($attr) == "signer" && !$field.is_signer() {
+                                return Err(ProgramError::MissingRequiredSignature);
+                            }
+                        )*
+                    )?
+
+                    $(
+                        if $field.key() != &$check_value {
+                            pinocchio_log::log!("{}: invalid pubkey", stringify!($field));
+                            return Err(ProgramError::IncorrectProgramId);
+                        }
+                    )?
+                )*
+
+                Ok(Self {
+                    $(
+                        $field,
+                    )*
+                })
+            }
+        }
+    };
+}
