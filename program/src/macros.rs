@@ -16,7 +16,7 @@ macro_rules! define_account_struct {
     (
         $vis:vis struct $name:ident < $lt:lifetime > {
             $(
-                $field:ident $( : $( $attr:ident ),* )? $( @check ( $check_value:expr ) )?;
+                $field:ident $( : $( $attr:ident ),* )? $( @pubkey ( $check_value:expr ) )?;
             )* $(;)?
         }
     ) => {
