@@ -1,82 +1,28 @@
 use crate::{
+    define_account_struct,
     error::SvmAlmControllerErrors,
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeReserveArgs,
     state::{nova_account::NovaAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{
-    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
-};
+use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token::state::Mint;
 
-pub struct InitializeReserveAccounts<'info> {
-    pub payer: &'info AccountInfo,
-    pub controller: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub reserve: &'info AccountInfo,
-    pub mint: &'info AccountInfo,
-    pub vault: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub associated_token_program: &'info AccountInfo,
-    pub system_program: &'info AccountInfo,
-}
-
-impl<'info> InitializeReserveAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() < 7 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            payer: &account_infos[0],
-            controller: &account_infos[1],
-            authority: &account_infos[2],
-            permission: &account_infos[3],
-            reserve: &account_infos[4],
-            mint: &account_infos[5],
-            vault: &account_infos[6],
-            token_program: &account_infos[7],
-            associated_token_program: &account_infos[8],
-            system_program: &account_infos[9],
-        };
-        if !ctx.payer.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.payer.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.controller.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.permission.is_owned_by(&crate::ID) {
-            msg! {"permission: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        // New Integration AccountInfo must be mutable
-        if !ctx.reserve.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.reserve.is_owned_by(&pinocchio_system::id()) {
-            msg! {"reserve: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.reserve.data_is_empty() {
-            msg! {"reserve: not empty"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if ctx.system_program.key().ne(&pinocchio_system::id()) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-
-        // TODO: Finish checks
-
-        Ok(ctx)
-    }
+define_account_struct! {
+  pub struct InitializeReserveAccounts<'info> {
+      payer: signer, mut;
+      controller: @owner(crate::ID);
+      authority: signer;
+      permission: @owner(crate::ID);
+      reserve: mut, empty, @owner(pinocchio_system::ID);
+      mint;
+      vault;
+      token_program: @pubkey(pinocchio_token::ID);
+      associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
+      system_program: @pubkey(pinocchio_system::ID);
+  }
 }
 
 pub fn process_initialize_reserve(

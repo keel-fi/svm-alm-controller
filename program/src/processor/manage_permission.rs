@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     error::SvmAlmControllerErrors,
     events::{PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::ManagePermissionArgs,
@@ -10,55 +11,25 @@ use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
-pub struct ManagePermissionAccounts<'info> {
-    pub payer: &'info AccountInfo,
-    pub controller: &'info AccountInfo,
-    pub super_authority: &'info AccountInfo,
-    pub super_permission: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub system_program: &'info AccountInfo,
+define_account_struct! {
+    pub struct ManagePermissionAccounts<'info> {
+        payer: signer, mut;
+        controller: @owner(crate::ID);
+        super_authority: signer;
+        super_permission: @owner(crate::ID);
+        authority;
+        permission: mut;
+        system_program: @pubkey(pinocchio_system::ID);
+    }
 }
 
 impl<'info> ManagePermissionAccounts<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() != 7 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            payer: &accounts[0],
-            controller: &accounts[1],
-            super_authority: &accounts[2],
-            super_permission: &accounts[3],
-            authority: &accounts[4],
-            permission: &accounts[5],
-            system_program: &accounts[6],
-        };
-        if !ctx.payer.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.payer.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.controller.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.super_authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.super_permission.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.permission.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
+    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
+        let ctx = Self::from_accounts(accounts)?;
         if !(ctx.permission.is_owned_by(&pinocchio_system::id()) && !ctx.permission.data_is_empty())
             && !ctx.super_permission.is_owned_by(&crate::ID)
         {
             return Err(ProgramError::InvalidAccountOwner);
-        }
-        if ctx.system_program.key().ne(&pinocchio_system::id()) {
-            return Err(ProgramError::IncorrectProgramId);
         }
         Ok(ctx)
     }
@@ -71,7 +42,7 @@ pub fn process_manage_permission(
 ) -> ProgramResult {
     msg!("manage_permission");
 
-    let ctx = ManagePermissionAccounts::from_accounts(accounts)?;
+    let ctx = ManagePermissionAccounts::checked_from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManagePermissionArgs::try_from_slice(instruction_data).unwrap();
 
