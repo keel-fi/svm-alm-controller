@@ -10,82 +10,29 @@ use pinocchio::{
 use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 
 use crate::{
-    constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, BPS_DENOMINATOR},
+    constants::BPS_DENOMINATOR,
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapRepayArgs,
     state::{nova_account::NovaAccount, Integration, Oracle, Permission, Reserve},
 };
 
-pub struct AtomicSwapRepay<'info> {
-    pub payer: &'info AccountInfo,
-    pub controller: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub integration: &'info AccountInfo,
-    pub reserve_a: &'info AccountInfo,
-    pub vault_a: &'info AccountInfo,
-    pub reserve_b: &'info AccountInfo,
-    pub vault_b: &'info AccountInfo,
-    pub oracle: &'info AccountInfo,
-    pub payer_account_a: &'info AccountInfo,
-    pub payer_account_b: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-}
-
-impl<'info> AtomicSwapRepay<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 13 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            payer: &accounts[0],
-            controller: &accounts[1],
-            authority: &accounts[2],
-            permission: &accounts[3],
-            integration: &accounts[ATOMIC_SWAP_REPAY_INTEGRATION_IDX as usize],
-            reserve_a: &accounts[5],
-            vault_a: &accounts[6],
-            reserve_b: &accounts[7],
-            vault_b: &accounts[8],
-            oracle: &accounts[9],
-            payer_account_a: &accounts[10],
-            payer_account_b: &accounts[11],
-            token_program: &accounts[12],
-        };
-        if !ctx.payer.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.integration.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.reserve_a.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.vault_a.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.reserve_b.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.vault_b.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.payer_account_a.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if !ctx.payer_account_b.is_writable() {
-            return Err(ProgramError::Immutable);
-        }
-        if ctx.token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct AtomicSwapRepay<'info> {
+        payer: signer;
+        controller;
+        authority: signer;
+        permission;
+        integration: mut;
+        reserve_a: mut;
+        vault_a: mut;
+        reserve_b: mut;
+        vault_b: mut;
+        oracle;
+        payer_account_a: mut;
+        payer_account_b: mut;
+        token_program: @pubkey(pinocchio_token::ID);
     }
 }
 
