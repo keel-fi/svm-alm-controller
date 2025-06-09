@@ -9,7 +9,7 @@ use crate::{
     },
     processor::InitializeIntegrationAccounts,
 };
-use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
 define_account_struct! {
   pub struct InitializeCctpBridgeAccounts<'info> {
@@ -21,29 +21,38 @@ define_account_struct! {
   }
 }
 
+impl<'info> InitializeCctpBridgeAccounts<'info> {
+    pub fn checked_from_accounts(
+        account_infos: &'info [AccountInfo],
+    ) -> Result<Self, ProgramError> {
+        let ctx = InitializeCctpBridgeAccounts::from_accounts(account_infos)?;
+        if !ctx
+            .local_token
+            .is_owned_by(ctx.cctp_token_messenger_minter.key())
+        {
+            msg! {"local_mint: not owned by cctp_program"};
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+        if !ctx
+            .remote_token_messenger
+            .is_owned_by(ctx.cctp_token_messenger_minter.key())
+        {
+            msg! {"remote_token_messenger: not owned by cctp_program"};
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+
+        Ok(ctx)
+    }
+}
+
 pub fn process_initialize_cctp_bridge(
     outer_ctx: &InitializeIntegrationAccounts,
     outer_args: &InitializeIntegrationArgs,
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_cctp_bridge");
 
-    let inner_ctx = InitializeCctpBridgeAccounts::from_accounts(outer_ctx.remaining_accounts)?;
-
-    // Additional checks
-    if !inner_ctx
-        .local_token
-        .is_owned_by(inner_ctx.cctp_token_messenger_minter.key())
-    {
-        msg! {"local_mint: not owned by cctp_program"};
-        return Err(ProgramError::InvalidAccountOwner);
-    }
-    if !inner_ctx
-        .remote_token_messenger
-        .is_owned_by(inner_ctx.cctp_token_messenger_minter.key())
-    {
-        msg! {"remote_token_messenger: not owned by cctp_program"};
-        return Err(ProgramError::InvalidAccountOwner);
-    }
+    let inner_ctx =
+        InitializeCctpBridgeAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
     let (desination_address, desination_domain) = match outer_args.inner_args {
         InitializeArgs::CctpBridge {
