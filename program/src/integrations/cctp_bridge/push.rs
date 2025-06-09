@@ -1,5 +1,6 @@
 use crate::{
     constants::CONTROLLER_SEED,
+    define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
@@ -19,21 +20,23 @@ use pinocchio::{
 };
 use pinocchio_token::{self, state::TokenAccount};
 
-pub struct PushCctpBridgeAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub vault: &'info AccountInfo,
-    pub sender_authority_pda: &'info AccountInfo,
-    pub message_transmitter: &'info AccountInfo,
-    pub token_messenger: &'info AccountInfo,
-    pub remote_token_messenger: &'info AccountInfo,
-    pub token_minter: &'info AccountInfo,
-    pub local_token: &'info AccountInfo,
-    pub message_sent_event_data: &'info AccountInfo,
-    pub cctp_message_transmitter: &'info AccountInfo,
-    pub cctp_token_messenger_minter: &'info AccountInfo,
-    pub event_authority: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub system_program: &'info AccountInfo,
+define_account_struct! {
+    pub struct PushCctpBridgeAccounts<'info> {
+        mint: @owner(pinocchio_token::ID);
+        vault;
+        sender_authority_pda;
+        message_transmitter;
+        token_messenger;
+        remote_token_messenger;
+        token_minter;
+        local_token;
+        message_sent_event_data;
+        cctp_message_transmitter;
+        cctp_token_messenger_minter;
+        event_authority;
+        token_program: @pubkey(pinocchio_token::ID);
+        system_program: @pubkey(pinocchio_system::ID);
+    }
 }
 
 impl<'info> PushCctpBridgeAccounts<'info> {
@@ -41,25 +44,7 @@ impl<'info> PushCctpBridgeAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 14 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            vault: &account_infos[1],
-            sender_authority_pda: &account_infos[2],
-            message_transmitter: &account_infos[3],
-            token_messenger: &account_infos[4],
-            remote_token_messenger: &account_infos[5],
-            token_minter: &account_infos[6],
-            local_token: &account_infos[7],
-            message_sent_event_data: &account_infos[8],
-            cctp_message_transmitter: &account_infos[9],
-            cctp_token_messenger_minter: &account_infos[10],
-            event_authority: &account_infos[11],
-            token_program: &account_infos[12],
-            system_program: &account_infos[13],
-        };
+        let ctx = PushCctpBridgeAccounts::from_accounts(account_infos)?;
         let config = match config {
             IntegrationConfig::CctpBridge(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
@@ -67,11 +52,6 @@ impl<'info> PushCctpBridgeAccounts<'info> {
         if ctx.mint.key().ne(&config.mint) {
             msg! {"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token_program"};
-            return Err(ProgramError::InvalidAccountOwner);
         }
         if ctx
             .cctp_token_messenger_minter
@@ -92,15 +72,6 @@ impl<'info> PushCctpBridgeAccounts<'info> {
         if ctx.mint.key().ne(&config.mint) {
             msg! {"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
-        }
-        if ctx.token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.system_program.key().ne(&pinocchio_system::ID) {
-            msg! {"system_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
         }
 
         Ok(ctx)
