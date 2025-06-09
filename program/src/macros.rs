@@ -15,19 +15,22 @@ macro_rules! key_as_str {
 #[macro_export]
 macro_rules! define_account_struct {
     (
-         $vis:vis struct $name:ident < $lt:lifetime > {
+        $vis:vis struct $name:ident < $lt:lifetime > {
             $(
                 $field:ident
                 $( : $( $attr:ident ),* $(,)? )?
                 $( @pubkey ( $check_pubkey:expr ) )?
                 $( @owner  ( $check_owner:expr ) )?
-            ; )*
+                ;
+            )*
+            $( @remaining_accounts as $rem_ident:ident ; )?
         }
     ) => {
         $vis struct $name<$lt> {
             $(
                 pub $field: & $lt pinocchio::account_info::AccountInfo,
             )*
+            $( pub $rem_ident: & $lt [pinocchio::account_info::AccountInfo], )?
         }
 
         impl<$lt> $name<$lt> {
@@ -69,10 +72,13 @@ macro_rules! define_account_struct {
                     )?
                 )*
 
+                $( let $rem_ident = iter.as_slice(); )?
+
                 Ok(Self {
                     $(
                         $field,
                     )*
+                    $( $rem_ident, )?
                 })
             }
         }
