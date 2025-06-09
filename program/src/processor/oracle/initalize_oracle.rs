@@ -1,53 +1,14 @@
-use crate::{instructions::InitializeOracleArgs, state::Oracle};
+use crate::{define_account_struct, instructions::InitializeOracleArgs, state::Oracle};
 use borsh::BorshDeserialize;
-use pinocchio::{
-    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
-};
+use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 
-pub struct InitializeOracle<'info> {
-    pub payer: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub price_feed: &'info AccountInfo,
-    pub oracle: &'info AccountInfo,
-    pub system_program: &'info AccountInfo,
-}
-
-impl<'info> InitializeOracle<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            payer: &accounts[0],
-            authority: &accounts[1],
-            price_feed: &accounts[2],
-            oracle: &accounts[3],
-            system_program: &accounts[4],
-        };
-        if !ctx.payer.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.payer.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.oracle.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.oracle.data_is_empty() {
-            msg! {"Oracle: not empty"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.oracle.is_owned_by(&pinocchio_system::id()) {
-            msg! {"Oracle: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if ctx.system_program.key().ne(&pinocchio_system::id()) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct InitializeOracle<'info> {
+        payer: signer, mut;
+        authority: signer;
+        price_feed;
+        oracle: mut, empty, @owner(pinocchio_system::ID);
+        system_program: @pubkey(pinocchio_system::ID);
     }
 }
 

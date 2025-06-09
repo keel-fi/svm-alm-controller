@@ -15,11 +15,12 @@ macro_rules! key_as_str {
 #[macro_export]
 macro_rules! define_account_struct {
     (
-        $vis:vis struct $name:ident < $lt:lifetime > {
+         $vis:vis struct $name:ident < $lt:lifetime > {
             $(
-                $field:ident $( : $( $attr:ident ),* )?
+                $field:ident
+                $( : $( $attr:ident ),* $(,)? )?
                 $( @pubkey ( $check_pubkey:expr ) )?
-                $( @owner ( $check_owner:expr ) )?
+                $( @owner  ( $check_owner:expr ) )?
             ; )*
         }
     ) => {
@@ -46,6 +47,9 @@ macro_rules! define_account_struct {
                             }
                             if stringify!($attr) == "signer" && !$field.is_signer() {
                                 return Err(ProgramError::MissingRequiredSignature);
+                            }
+                            if stringify!($attr) == "empty" && !$field.data_is_empty() {
+                                return Err(ProgramError::AccountAlreadyInitialized);
                             }
                         )*
                     )?

@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     error::SvmAlmControllerErrors,
     state::{nova_account::NovaAccount, Oracle},
 };
@@ -13,24 +14,10 @@ use pinocchio::{
 use pinocchio_log::log;
 use switchboard_on_demand::{PullFeedAccountData, PRECISION};
 
-pub struct RefreshOracle<'info> {
-    pub price_feed: &'info AccountInfo,
-    pub oracle: &'info AccountInfo,
-}
-
-impl<'info> RefreshOracle<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 2 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            price_feed: &accounts[0],
-            oracle: &accounts[1],
-        };
-        if !ctx.oracle.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct RefreshOracle<'info> {
+        price_feed;
+        oracle: mut;
     }
 }
 
