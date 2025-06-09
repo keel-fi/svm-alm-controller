@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::InitializeIntegrationArgs,
     integrations::spl_token_swap::{
@@ -15,41 +16,28 @@ use pinocchio_token::{
     self,
     state::{Mint, TokenAccount},
 };
-
-pub struct InitializeSplTokenSwapAccounts<'info> {
-    pub swap: &'info AccountInfo,
-    pub mint_a: &'info AccountInfo,
-    pub mint_b: &'info AccountInfo,
-    pub lp_mint: &'info AccountInfo,
-    pub lp_token_account: &'info AccountInfo,
-    pub mint_a_token_program: &'info AccountInfo,
-    pub mint_b_token_program: &'info AccountInfo,
-    pub lp_mint_token_program: &'info AccountInfo,
-    pub swap_token_a: &'info AccountInfo,
-    pub swap_token_b: &'info AccountInfo,
-    pub swap_program: &'info AccountInfo,
-    pub associated_token_program: &'info AccountInfo,
+define_account_struct! {
+    pub struct InitializeSplTokenSwapAccounts<'info> {
+        swap;
+        mint_a;
+        mint_b;
+        lp_mint;
+        lp_token_account: mut;
+        mint_a_token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
+        mint_b_token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
+        lp_mint_token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
+        swap_token_a;
+        swap_token_b;
+        swap_program;
+        associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
+    }
 }
 
 impl<'info> InitializeSplTokenSwapAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 12 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            swap: &account_infos[0],
-            mint_a: &account_infos[1],
-            mint_b: &account_infos[2],
-            lp_mint: &account_infos[3],
-            lp_token_account: &account_infos[4],
-            mint_a_token_program: &account_infos[5],
-            mint_b_token_program: &account_infos[6],
-            lp_mint_token_program: &account_infos[7],
-            swap_token_a: &account_infos[8],
-            swap_token_b: &account_infos[9],
-            swap_program: &account_infos[10],
-            associated_token_program: &account_infos[11],
-        };
+    pub fn checked_from_accounts(
+        account_infos: &'info [AccountInfo],
+    ) -> Result<Self, ProgramError> {
+        let ctx = Self::from_accounts(account_infos)?;
         if !ctx.swap.is_owned_by(ctx.swap_program.key()) {
             msg! {"pool: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -66,33 +54,6 @@ impl<'info> InitializeSplTokenSwapAccounts<'info> {
         if !ctx.lp_mint.is_owned_by(ctx.lp_mint_token_program.key()) {
             msg! {"lp_mint: not owned by lp_mint_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
-        }
-        if ctx.mint_a_token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint_a_token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.mint_b_token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint_b_token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.lp_mint_token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"lp_mint_token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx
-            .associated_token_program
-            .key()
-            .ne(&pinocchio_associated_token_account::ID)
-        {
-            msg! {"associated_token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if !ctx.lp_token_account.is_writable() {
-            msg! {"lp_token_account: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
         }
         if !ctx
             .lp_token_account
@@ -120,7 +81,8 @@ pub fn process_initialize_spl_token_swap(
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_spl_token_swap");
 
-    let inner_ctx = InitializeSplTokenSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
+    let inner_ctx =
+        InitializeSplTokenSwapAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
     // Load in the mint accounts, validating it in the process
     Mint::from_account_info(inner_ctx.mint_a).unwrap();

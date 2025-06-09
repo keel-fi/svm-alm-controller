@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
@@ -15,14 +16,16 @@ use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_log::log;
 use pinocchio_token::{self, state::TokenAccount};
 
-pub struct PushSplTokenExternalAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub vault: &'info AccountInfo,
-    pub recipient: &'info AccountInfo,
-    pub recipient_token_account: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub associated_token_program: &'info AccountInfo,
-    pub system_program: &'info AccountInfo,
+define_account_struct! {
+  pub struct PushSplTokenExternalAccounts<'info> {
+      mint;
+      vault;
+      recipient;
+      recipient_token_account: mut;
+      token_program;
+      associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
+      system_program: @pubkey(pinocchio_system::ID);
+  }
 }
 
 impl<'info> PushSplTokenExternalAccounts<'info> {
@@ -30,18 +33,7 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 7 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            vault: &account_infos[1],
-            recipient: &account_infos[2],
-            recipient_token_account: &account_infos[3],
-            token_program: &account_infos[4],
-            associated_token_program: &account_infos[5],
-            system_program: &account_infos[6],
-        };
+        let ctx = Self::from_accounts(account_infos)?;
         let config = match config {
             IntegrationConfig::SplTokenExternal(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
@@ -62,10 +54,6 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
             msg! {"recipient_token_account: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if !ctx.recipient_token_account.is_writable() {
-            msg! {"recipient_token_account: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
         if !ctx
             .recipient_token_account
             .is_owned_by(ctx.token_program.key())
@@ -77,20 +65,7 @@ impl<'info> PushSplTokenExternalAccounts<'info> {
             return Err(ProgramError::InvalidAccountOwner);
         }
         if ctx.token_program.key().ne(&config.program) {
-            // TODO: Allow token 2022
             msg! {"token_program: does not match config"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx
-            .associated_token_program
-            .key()
-            .ne(&pinocchio_associated_token_account::ID)
-        {
-            msg! {"associated_token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.system_program.key().ne(&pinocchio_system::ID) {
-            msg! {"system_program: invalid address"};
             return Err(ProgramError::IncorrectProgramId);
         }
 

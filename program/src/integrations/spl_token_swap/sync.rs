@@ -1,5 +1,6 @@
 use super::swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET};
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     processor::SyncIntegrationAccounts,
@@ -12,12 +13,14 @@ use pinocchio_token::{
     state::{Mint, TokenAccount},
 };
 
-pub struct SyncSplTokenSwapAccounts<'info> {
-    pub swap: &'info AccountInfo,
-    pub lp_mint: &'info AccountInfo,
-    pub lp_token_account: &'info AccountInfo,
-    pub swap_token_a: &'info AccountInfo,
-    pub swap_token_b: &'info AccountInfo,
+define_account_struct! {
+    pub struct SyncSplTokenSwapAccounts<'info> {
+        swap;
+        lp_mint;
+        lp_token_account;
+        swap_token_a;
+        swap_token_b;
+    }
 }
 
 impl<'info> SyncSplTokenSwapAccounts<'info> {
@@ -26,16 +29,7 @@ impl<'info> SyncSplTokenSwapAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            swap: &account_infos[0],
-            lp_mint: &account_infos[1],
-            lp_token_account: &account_infos[2],
-            swap_token_a: &account_infos[3],
-            swap_token_b: &account_infos[4],
-        };
+        let ctx = Self::from_accounts(account_infos)?;
         let config = match config {
             IntegrationConfig::SplTokenSwap(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
