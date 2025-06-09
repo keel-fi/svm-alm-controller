@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::cctp_bridge::{
@@ -8,50 +9,16 @@ use crate::{
     },
     processor::InitializeIntegrationAccounts,
 };
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 
-pub struct InitializeCctpBridgeAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub local_token: &'info AccountInfo,
-    pub remote_token_messenger: &'info AccountInfo,
-    pub cctp_message_transmitter: &'info AccountInfo,
-    pub cctp_token_messenger_minter: &'info AccountInfo,
-}
-
-impl<'info> InitializeCctpBridgeAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            local_token: &account_infos[1],
-            remote_token_messenger: &account_infos[2],
-            cctp_message_transmitter: &account_infos[3],
-            cctp_token_messenger_minter: &account_infos[4],
-        };
-        if !ctx
-            .local_token
-            .is_owned_by(ctx.cctp_token_messenger_minter.key())
-        {
-            msg! {"local_mint: not owned by cctp_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx
-            .remote_token_messenger
-            .is_owned_by(ctx.cctp_token_messenger_minter.key())
-        {
-            msg! {"remote_token_messenger: not owned by cctp_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-
-        Ok(ctx)
-    }
+define_account_struct! {
+  pub struct InitializeCctpBridgeAccounts<'info> {
+      mint: @owner(pinocchio_token::ID);
+      local_token;
+      remote_token_messenger;
+      cctp_message_transmitter;
+      cctp_token_messenger_minter;
+  }
 }
 
 pub fn process_initialize_cctp_bridge(
@@ -61,6 +28,22 @@ pub fn process_initialize_cctp_bridge(
     msg!("process_initialize_cctp_bridge");
 
     let inner_ctx = InitializeCctpBridgeAccounts::from_accounts(outer_ctx.remaining_accounts)?;
+
+    // Additional checks
+    if !inner_ctx
+        .local_token
+        .is_owned_by(inner_ctx.cctp_token_messenger_minter.key())
+    {
+        msg! {"local_mint: not owned by cctp_program"};
+        return Err(ProgramError::InvalidAccountOwner);
+    }
+    if !inner_ctx
+        .remote_token_messenger
+        .is_owned_by(inner_ctx.cctp_token_messenger_minter.key())
+    {
+        msg! {"remote_token_messenger: not owned by cctp_program"};
+        return Err(ProgramError::InvalidAccountOwner);
+    }
 
     let (desination_address, desination_domain) = match outer_args.inner_args {
         InitializeArgs::CctpBridge {
