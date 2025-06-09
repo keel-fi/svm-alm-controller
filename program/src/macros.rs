@@ -11,13 +11,16 @@ macro_rules! key_as_str {
         bs58::encode($key).into_string().as_str()
     };
 }
+
 #[macro_export]
 macro_rules! define_account_struct {
     (
         $vis:vis struct $name:ident < $lt:lifetime > {
             $(
-                $field:ident $( : $( $attr:ident ),* )? $( @pubkey ( $check_value:expr ) )?;
-            )* $(;)?
+                $field:ident $( : $( $attr:ident ),* )?
+                $( @pubkey ( $check_pubkey:expr ) )?
+                $( @owner ( $check_owner:expr ) )?
+            ; )*
         }
     ) => {
         $vis struct $name<$lt> {
@@ -48,9 +51,16 @@ macro_rules! define_account_struct {
                     )?
 
                     $(
-                        if $field.key() != &$check_value {
+                        if $field.key() != &$check_pubkey {
                             pinocchio_log::log!("{}: invalid pubkey", stringify!($field));
                             return Err(ProgramError::IncorrectProgramId);
+                        }
+                    )?
+
+                    $(
+                        if !$field.is_owned_by(&$check_owner) {
+                            pinocchio_log::log!("{}: invalid owner", stringify!($field));
+                            return Err(ProgramError::InvalidAccountOwner);
                         }
                     )?
                 )*
