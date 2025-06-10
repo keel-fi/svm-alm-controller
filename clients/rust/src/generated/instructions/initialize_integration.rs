@@ -13,7 +13,7 @@ use borsh::BorshSerialize;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct InializeIntegration {
+pub struct InitializeIntegration {
     pub payer: solana_program::pubkey::Pubkey,
 
     pub controller: solana_program::pubkey::Pubkey,
@@ -29,10 +29,10 @@ pub struct InializeIntegration {
     pub system_program: solana_program::pubkey::Pubkey,
 }
 
-impl InializeIntegration {
+impl InitializeIntegration {
     pub fn instruction(
         &self,
-        args: InializeIntegrationInstructionArgs,
+        args: InitializeIntegrationInstructionArgs,
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
@@ -40,7 +40,7 @@ impl InializeIntegration {
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: InializeIntegrationInstructionArgs,
+        args: InitializeIntegrationInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
@@ -72,7 +72,7 @@ impl InializeIntegration {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&InializeIntegrationInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&InitializeIntegrationInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
@@ -86,17 +86,17 @@ impl InializeIntegration {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InializeIntegrationInstructionData {
+pub struct InitializeIntegrationInstructionData {
     discriminator: u8,
 }
 
-impl InializeIntegrationInstructionData {
+impl InitializeIntegrationInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 5 }
     }
 }
 
-impl Default for InializeIntegrationInstructionData {
+impl Default for InitializeIntegrationInstructionData {
     fn default() -> Self {
         Self::new()
     }
@@ -104,7 +104,7 @@ impl Default for InializeIntegrationInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct InializeIntegrationInstructionArgs {
+pub struct InitializeIntegrationInstructionArgs {
     pub integration_type: IntegrationType,
     pub status: IntegrationStatus,
     pub description: [u8; 32],
@@ -113,7 +113,7 @@ pub struct InializeIntegrationInstructionArgs {
     pub inner_args: InitializeArgs,
 }
 
-/// Instruction builder for `InializeIntegration`.
+/// Instruction builder for `InitializeIntegration`.
 ///
 /// ### Accounts:
 ///
@@ -125,7 +125,7 @@ pub struct InializeIntegrationInstructionArgs {
 ///   5. `[]` lookup_table
 ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct InializeIntegrationBuilder {
+pub struct InitializeIntegrationBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
     controller: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
@@ -142,7 +142,7 @@ pub struct InializeIntegrationBuilder {
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl InializeIntegrationBuilder {
+impl InitializeIntegrationBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -232,7 +232,7 @@ impl InializeIntegrationBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = InializeIntegration {
+        let accounts = InitializeIntegration {
             payer: self.payer.expect("payer is not set"),
             controller: self.controller.expect("controller is not set"),
             authority: self.authority.expect("authority is not set"),
@@ -243,7 +243,7 @@ impl InializeIntegrationBuilder {
                 .system_program
                 .unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
         };
-        let args = InializeIntegrationInstructionArgs {
+        let args = InitializeIntegrationInstructionArgs {
             integration_type: self
                 .integration_type
                 .clone()
@@ -265,8 +265,8 @@ impl InializeIntegrationBuilder {
     }
 }
 
-/// `inialize_integration` CPI accounts.
-pub struct InializeIntegrationCpiAccounts<'a, 'b> {
+/// `initialize_integration` CPI accounts.
+pub struct InitializeIntegrationCpiAccounts<'a, 'b> {
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
@@ -282,8 +282,8 @@ pub struct InializeIntegrationCpiAccounts<'a, 'b> {
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-/// `inialize_integration` CPI instruction.
-pub struct InializeIntegrationCpi<'a, 'b> {
+/// `initialize_integration` CPI instruction.
+pub struct InitializeIntegrationCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -301,14 +301,14 @@ pub struct InializeIntegrationCpi<'a, 'b> {
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
-    pub __args: InializeIntegrationInstructionArgs,
+    pub __args: InitializeIntegrationInstructionArgs,
 }
 
-impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
+impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        accounts: InializeIntegrationCpiAccounts<'a, 'b>,
-        args: InializeIntegrationInstructionArgs,
+        accounts: InitializeIntegrationCpiAccounts<'a, 'b>,
+        args: InitializeIntegrationInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -392,7 +392,7 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&InializeIntegrationInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&InitializeIntegrationInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
@@ -422,7 +422,7 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `InializeIntegration` via CPI.
+/// Instruction builder for `InitializeIntegration` via CPI.
 ///
 /// ### Accounts:
 ///
@@ -434,13 +434,13 @@ impl<'a, 'b> InializeIntegrationCpi<'a, 'b> {
 ///   5. `[]` lookup_table
 ///   6. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct InializeIntegrationCpiBuilder<'a, 'b> {
-    instruction: Box<InializeIntegrationCpiBuilderInstruction<'a, 'b>>,
+pub struct InitializeIntegrationCpiBuilder<'a, 'b> {
+    instruction: Box<InitializeIntegrationCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
+impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(InializeIntegrationCpiBuilderInstruction {
+        let instruction = Box::new(InitializeIntegrationCpiBuilderInstruction {
             __program: program,
             payer: None,
             controller: None,
@@ -583,7 +583,7 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = InializeIntegrationInstructionArgs {
+        let args = InitializeIntegrationInstructionArgs {
             integration_type: self
                 .instruction
                 .integration_type
@@ -611,7 +611,7 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
                 .clone()
                 .expect("inner_args is not set"),
         };
-        let instruction = InializeIntegrationCpi {
+        let instruction = InitializeIntegrationCpi {
             __program: self.instruction.__program,
 
             payer: self.instruction.payer.expect("payer is not set"),
@@ -646,7 +646,7 @@ impl<'a, 'b> InializeIntegrationCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct InializeIntegrationCpiBuilderInstruction<'a, 'b> {
+struct InitializeIntegrationCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,

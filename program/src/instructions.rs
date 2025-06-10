@@ -62,8 +62,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, name = "lookup_table")]
     #[account(6, name = "system_program")]
-    // TODO: Fix typo
-    InializeIntegration(InitializeIntegrationArgs),
+    InitializeIntegration(InitializeIntegrationArgs),
 
     /// Manage an integration account
     #[account(0, name = "controller")]
