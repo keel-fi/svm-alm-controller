@@ -12,6 +12,36 @@ macro_rules! key_as_str {
     };
 }
 
+/// Defines an account context struct and its `from_accounts` validator.
+///
+/// ### Example
+/// ```ignore
+/// define_account_struct! {
+///     pub struct AtomicSwapRepay<'info> {
+///         payer: signer;
+///         controller;
+///         authority: signer;
+///         integration: mut;
+///         token_program: @pubkey(pinocchio_token::ID);
+///         reserve: @owner(SYSTEM_PROGRAM_ID, TOKEN_PROGRAM_ID);
+///     }
+/// }
+/// ```
+///
+/// ### Supported syntax per field:
+/// ```text
+/// field: [attr, ...]? [@pubkey(KEY)]? [@owner(KEY1, ...)]?;
+/// ```
+/// - `signer` - account must be signer
+/// - `mut` - account must be writable
+/// - `empty` - account data field must be empty
+/// - `opt_signer` — account is optional, but must be a signer if provided
+/// - `@pubkey(KEY)` — account pubkey must match key provided
+/// - `@owner(KEY1, KEY2...)` — account owner must match one of the keys provided
+///
+/// Use `@remaining_accounts as remaining_accounts;` to capture extra accounts.
+///
+/// The generated `from_accounts` consumes accounts in order and applies all checks.
 #[macro_export]
 macro_rules! define_account_struct {
     (
