@@ -73,9 +73,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, name = "system_program")]
     ManageIntegration(ManageIntegrationArgs),
 
-    // TODO: Description does not match definition.
     // TOOD: Struct def does not match implementation. Has an extra `mint` account.
-    /// Initialize an integration account
+    /// SyncReserve
     #[account(0, name = "controller")]
     #[account(1, writable, name = "reserve")]
     #[account(2, name = "mint")]
