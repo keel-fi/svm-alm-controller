@@ -13,23 +13,7 @@ define_account_struct! {
         authority: signer;
         price_feed;
         oracle: mut;
-        new_authority;
-    }
-}
-
-impl<'info> UpdateOracle<'info> {
-    pub fn checked_from_accounts(
-        program_id: &Pubkey,
-        accounts: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-
-        // Optional account defaults to program_id if not present.
-        let has_new_authority = ctx.new_authority.key().ne(program_id);
-        if has_new_authority && !ctx.new_authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        Ok(ctx)
+        new_authority: opt_signer;
     }
 }
 
@@ -39,7 +23,7 @@ pub fn process_update_oracle(
     instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("update_oracle");
-    let ctx = UpdateOracle::checked_from_accounts(program_id, accounts)?;
+    let ctx = UpdateOracle::from_accounts(accounts)?;
     let args = UpdateOracleArgs::try_from_slice(instruction_data).unwrap();
 
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;

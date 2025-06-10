@@ -54,6 +54,13 @@ macro_rules! define_account_struct {
                             if stringify!($attr) == "empty" && !$field.data_is_empty() {
                                 return Err(ProgramError::AccountAlreadyInitialized);
                             }
+                            // Verifies if an optional account is a signer.
+                            if stringify!($attr) == "opt_signer" {
+                                // Optional account defaults to program_id if not present.
+                                if $field.key() != &$crate::ID && !$field.is_signer() {
+                                    return Err(ProgramError::MissingRequiredSignature);
+                                }
+                            }
                         )*
                     )?
 
