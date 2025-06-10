@@ -22,8 +22,8 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
-        reserve_a;
-        reserve_b;
+        reserve_a: mut;
+        reserve_b: mut;
         @remaining_accounts as remaining_accounts;
     }
 }
