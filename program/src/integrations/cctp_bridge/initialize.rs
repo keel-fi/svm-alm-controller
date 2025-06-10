@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::cctp_bridge::{
@@ -10,26 +11,21 @@ use crate::{
 };
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
-pub struct InitializeCctpBridgeAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub local_token: &'info AccountInfo,
-    pub remote_token_messenger: &'info AccountInfo,
-    pub cctp_message_transmitter: &'info AccountInfo,
-    pub cctp_token_messenger_minter: &'info AccountInfo,
+define_account_struct! {
+  pub struct InitializeCctpBridgeAccounts<'info> {
+      mint: @owner(pinocchio_token::ID);
+      local_token;
+      remote_token_messenger;
+      cctp_message_transmitter;
+      cctp_token_messenger_minter;
+  }
 }
 
 impl<'info> InitializeCctpBridgeAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            local_token: &account_infos[1],
-            remote_token_messenger: &account_infos[2],
-            cctp_message_transmitter: &account_infos[3],
-            cctp_token_messenger_minter: &account_infos[4],
-        };
+    pub fn checked_from_accounts(
+        account_infos: &'info [AccountInfo],
+    ) -> Result<Self, ProgramError> {
+        let ctx = InitializeCctpBridgeAccounts::from_accounts(account_infos)?;
         if !ctx
             .local_token
             .is_owned_by(ctx.cctp_token_messenger_minter.key())
@@ -44,11 +40,6 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
             msg! {"remote_token_messenger: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx.mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
 
         Ok(ctx)
     }
@@ -60,7 +51,8 @@ pub fn process_initialize_cctp_bridge(
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_cctp_bridge");
 
-    let inner_ctx = InitializeCctpBridgeAccounts::from_accounts(outer_ctx.remaining_accounts)?;
+    let inner_ctx =
+        InitializeCctpBridgeAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
     let (desination_address, desination_domain) = match outer_args.inner_args {
         InitializeArgs::CctpBridge {

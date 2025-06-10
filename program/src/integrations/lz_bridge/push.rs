@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::IntegrationConfig,
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -22,14 +23,16 @@ use pinocchio::{
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token::{self, state::TokenAccount};
 
-pub struct PushLzBridgeAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub vault: &'info AccountInfo,
-    pub authority_token_account: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub associated_token_program: &'info AccountInfo,
-    pub system_program: &'info AccountInfo,
-    pub sysvar_instruction: &'info AccountInfo,
+define_account_struct! {
+    pub struct PushLzBridgeAccounts<'info> {
+        mint;
+        vault;
+        authority_token_account;
+        token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
+        associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
+        system_program: @pubkey(pinocchio_system::ID);
+        sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
+    }
 }
 
 impl<'info> PushLzBridgeAccounts<'info> {
@@ -37,18 +40,7 @@ impl<'info> PushLzBridgeAccounts<'info> {
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
-        if account_infos.len() != 7 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            vault: &account_infos[1],
-            authority_token_account: &account_infos[2],
-            token_program: &account_infos[3],
-            associated_token_program: &account_infos[4],
-            system_program: &account_infos[5],
-            sysvar_instruction: &account_infos[6],
-        };
+        let ctx = Self::from_accounts(account_infos)?;
         let config = match config {
             IntegrationConfig::LzBridge(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
@@ -60,27 +52,6 @@ impl<'info> PushLzBridgeAccounts<'info> {
         if ctx.mint.key().ne(&config.mint) {
             msg! {"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
-        }
-        if ctx.token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"token_program: does not match config"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx
-            .associated_token_program
-            .key()
-            .ne(&pinocchio_associated_token_account::ID)
-        {
-            msg! {"associated_token_program: does not match config"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.system_program.key().ne(&pinocchio_system::ID) {
-            msg! {"system_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if ctx.sysvar_instruction.key().ne(&INSTRUCTIONS_ID) {
-            msg! {"sysvar_instruction: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
         }
 
         Ok(ctx)

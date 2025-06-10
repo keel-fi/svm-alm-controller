@@ -1,5 +1,6 @@
 use crate::{
     constants::ADDRESS_LOOKUP_TABLE_PROGRAM_ID,
+    define_account_struct,
     error::SvmAlmControllerErrors,
     events::{IntegrationUpdateEvent, SvmAlmControllerEvent},
     instructions::ManageIntegrationArgs,
@@ -10,45 +11,19 @@ use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
-pub struct ManageIntegrationAccounts<'info> {
-    pub controller: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub integration: &'info AccountInfo,
-    pub lookup_table: &'info AccountInfo,
+define_account_struct! {
+    pub struct ManageIntegrationAccounts<'info> {
+        controller: @owner(crate::ID);
+        authority: signer;
+        permission: @owner(crate::ID);
+        integration: mut, @owner(crate::ID);
+        lookup_table;
+    }
 }
 
 impl<'info> ManageIntegrationAccounts<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            controller: &accounts[0],
-            authority: &accounts[1],
-            permission: &accounts[2],
-            integration: &accounts[3],
-            lookup_table: &accounts[4],
-        };
-        if !ctx.controller.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.permission.is_owned_by(&crate::ID) {
-            msg! {"permission: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        // New Integration AccountInfo must be mutable
-        if !ctx.integration.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        // The Integration AccountInfo must be the system program and be empty
-        if !ctx.integration.is_owned_by(&crate::ID) {
-            msg! {"integration: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
+    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
+        let ctx = Self::from_accounts(accounts)?;
         // The Lookuptable must be either a value ALUT or the system_program (i.e. no LUT provided)
         if ctx.lookup_table.key().ne(&pinocchio_system::id())
             && !ctx
@@ -70,7 +45,7 @@ pub fn process_manage_integration(
 ) -> ProgramResult {
     msg!("manage_integration");
 
-    let ctx = ManageIntegrationAccounts::from_accounts(accounts)?;
+    let ctx = ManageIntegrationAccounts::checked_from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManageIntegrationArgs::try_from_slice(instruction_data).unwrap();
 

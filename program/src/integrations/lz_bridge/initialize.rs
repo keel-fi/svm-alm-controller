@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::lz_bridge::{
@@ -11,38 +12,28 @@ use crate::{
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 use solana_program::pubkey::Pubkey as SolanaPubkey;
 
-pub struct InitializeLzBridgeAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub oft_store: &'info AccountInfo,
-    pub peer_config: &'info AccountInfo,
-    pub lz_program: &'info AccountInfo,
-    pub token_escrow: &'info AccountInfo,
+define_account_struct! {
+    pub struct InitializeLzBridgeAccounts<'info> {
+        mint: @owner(pinocchio_token::ID);
+        oft_store;
+        peer_config;
+        lz_program;
+        // TODO: Do we need to check LZ program against a const?
+        token_escrow;
+    }
 }
 
 impl<'info> InitializeLzBridgeAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            oft_store: &account_infos[1],
-            peer_config: &account_infos[2],
-            lz_program: &account_infos[3],
-            token_escrow: &account_infos[4],
-        };
-        // TODO: Do we need to check LZ program against a const?
+    pub fn checked_from_accounts(
+        account_infos: &'info [AccountInfo],
+    ) -> Result<Self, ProgramError> {
+        let ctx = Self::from_accounts(account_infos)?;
         if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
             msg! {"oft_store: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.peer_config.is_owned_by(ctx.lz_program.key()) {
             msg! {"peer_config: not owned by cctp_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
 
@@ -56,7 +47,8 @@ pub fn process_initialize_lz_bridge(
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_lz_bridge");
 
-    let inner_ctx = InitializeLzBridgeAccounts::from_accounts(outer_ctx.remaining_accounts)?;
+    let inner_ctx =
+        InitializeLzBridgeAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
     let (desination_address, destination_eid) = match outer_args.inner_args {
         InitializeArgs::LzBridge {

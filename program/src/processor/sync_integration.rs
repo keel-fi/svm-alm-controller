@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::IntegrationConfig,
     integrations::spl_token_swap::sync::process_sync_spl_token_swap,
     state::{nova_account::NovaAccount, Controller, Integration},
@@ -12,33 +13,11 @@ use pinocchio::{
     ProgramResult,
 };
 
-pub struct SyncIntegrationAccounts<'info> {
-    pub controller: &'info AccountInfo,
-    pub integration: &'info AccountInfo,
-    pub remaining_accounts: &'info [AccountInfo],
-}
-
-impl<'info> SyncIntegrationAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() < 2 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            controller: &account_infos[0],
-            integration: &account_infos[1],
-            remaining_accounts: &account_infos[2..],
-        };
-        if !ctx.controller.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.integration.is_owned_by(&crate::ID) {
-            msg! {"integration: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.integration.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct SyncIntegrationAccounts<'info> {
+        controller: @owner(crate::ID);
+        integration: mut, @owner(crate::ID);
+        @remaining_accounts as remaining_accounts;
     }
 }
 

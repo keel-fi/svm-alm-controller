@@ -1,48 +1,19 @@
 use crate::{
+    define_account_struct,
     error::SvmAlmControllerErrors,
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::ManageReserveArgs,
     state::{nova_account::NovaAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{
-    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
-};
+use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 
-pub struct ManageReserveAccounts<'info> {
-    pub controller: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub reserve: &'info AccountInfo,
-}
-
-impl<'info> ManageReserveAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 4 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            controller: &account_infos[0],
-            authority: &account_infos[1],
-            permission: &account_infos[2],
-            reserve: &account_infos[3],
-        };
-        if !ctx.controller.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.reserve.is_owned_by(&crate::ID) {
-            msg! {"reserve: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.permission.is_owned_by(&crate::ID) {
-            msg! {"permission: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.reserve.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        Ok(ctx)
+define_account_struct! {
+    pub struct ManageReserveAccounts<'info> {
+        controller: @owner(crate::ID);
+        authority: signer;
+        permission: @owner(crate::ID);
+        reserve: mut, @owner(crate::ID);
     }
 }
 

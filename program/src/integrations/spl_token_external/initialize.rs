@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::InitializeIntegrationArgs,
     integrations::spl_token_external::{
@@ -6,60 +7,17 @@ use crate::{
     },
     processor::InitializeIntegrationAccounts,
 };
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
 use pinocchio_token::{self, state::Mint};
 
-pub struct InitializeSplTokenExternalAccounts<'info> {
-    pub mint: &'info AccountInfo,
-    pub recipient: &'info AccountInfo,
-    pub token_account: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub associated_token_program: &'info AccountInfo,
-}
-
-impl<'info> InitializeSplTokenExternalAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() != 5 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            mint: &account_infos[0],
-            recipient: &account_infos[1],
-            token_account: &account_infos[2],
-            token_program: &account_infos[3],
-            associated_token_program: &account_infos[4],
-        };
-        if ctx.token_program.key().ne(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        if !ctx.mint.is_owned_by(ctx.token_program.key()) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.token_account.is_writable() {
-            msg! {"token_account: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.token_account.is_owned_by(ctx.token_program.key())
-            && !ctx.token_account.is_owned_by(&pinocchio_system::ID)
-        {
-            msg! {"token_account: not owned by token_program or system_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if ctx
-            .associated_token_program
-            .key()
-            .ne(&pinocchio_associated_token_account::ID)
-        {
-            // TODO: Allow token 2022
-            msg! {"associated_token_program: invalid address"};
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct InitializeSplTokenExternalAccounts<'info> {
+        mint: @owner(pinocchio_token::ID);
+        recipient;
+        token_account: mut, @owner(pinocchio_token::ID, pinocchio_system::ID);
+        token_program: @pubkey(pinocchio_token::ID);
+        associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
     }
 }
 

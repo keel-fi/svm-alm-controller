@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     instructions::UpdateOracleArgs,
     state::{nova_account::NovaAccount, Oracle},
 };
@@ -7,40 +8,12 @@ use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
-pub struct UpdateOracle<'info> {
-    pub authority: &'info AccountInfo,
-    pub price_feed: &'info AccountInfo,
-    pub oracle: &'info AccountInfo,
-    pub new_authority: &'info AccountInfo,
-}
-
-impl<'info> UpdateOracle<'info> {
-    pub fn from_accounts(
-        program_id: &Pubkey,
-        accounts: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
-        if accounts.len() < 4 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            authority: &accounts[0],
-            price_feed: &accounts[1],
-            oracle: &accounts[2],
-            new_authority: &accounts[3],
-        };
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.oracle.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        // Optional account defaults to program_id if not present.
-        let has_new_authority = ctx.new_authority.key().ne(program_id);
-        if has_new_authority && !ctx.new_authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct UpdateOracle<'info> {
+        authority: signer;
+        price_feed;
+        oracle: mut;
+        new_authority: opt_signer;
     }
 }
 
@@ -50,7 +23,7 @@ pub fn process_update_oracle(
     instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("update_oracle");
-    let ctx = UpdateOracle::from_accounts(program_id, accounts)?;
+    let ctx = UpdateOracle::from_accounts(accounts)?;
     let args = UpdateOracleArgs::try_from_slice(instruction_data).unwrap();
 
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;

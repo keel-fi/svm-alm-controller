@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
@@ -19,62 +20,15 @@ use pinocchio::{
     ProgramResult,
 };
 
-pub struct PushAccounts<'info> {
-    pub controller: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub permission: &'info AccountInfo,
-    pub integration: &'info AccountInfo,
-    pub reserve_a: &'info AccountInfo,
-    pub reserve_b: &'info AccountInfo,
-    pub remaining_accounts: &'info [AccountInfo],
-}
-
-impl<'info> PushAccounts<'info> {
-    pub fn from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if accounts.len() < 6 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            controller: &accounts[0],
-            authority: &accounts[1],
-            permission: &accounts[2],
-            integration: &accounts[3],
-            reserve_a: &accounts[4],
-            reserve_b: &accounts[5],
-            remaining_accounts: &accounts[6..],
-        };
-        if !ctx.controller.is_owned_by(&crate::ID) {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.authority.is_signer() {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        if !ctx.permission.is_owned_by(&crate::ID) {
-            msg! {"permission: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.integration.is_owned_by(&crate::ID) {
-            msg! {"integration: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.integration.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.reserve_a.is_owned_by(&crate::ID) {
-            msg! {"reserve_a: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.reserve_a.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.reserve_b.is_owned_by(&crate::ID) {
-            msg! {"reserve_b: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.reserve_b.is_writable() {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        Ok(ctx)
+define_account_struct! {
+    pub struct PushAccounts<'info> {
+        controller: @owner(crate::ID);
+        authority: signer;
+        permission: @owner(crate::ID);
+        integration: mut, @owner(crate::ID);
+        reserve_a: mut, @owner(crate::ID);
+        reserve_b: mut, @owner(crate::ID);
+        @remaining_accounts as remaining_accounts;
     }
 }
 

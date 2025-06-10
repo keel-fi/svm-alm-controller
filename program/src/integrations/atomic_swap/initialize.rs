@@ -1,4 +1,5 @@
 use crate::{
+    define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
@@ -6,47 +7,17 @@ use crate::{
     state::{nova_account::NovaAccount, Oracle},
 };
 use pinocchio::{
-    account_info::AccountInfo,
     msg,
     program_error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token::state::Mint;
 
-pub struct InitializeAtomicSwapAccounts<'info> {
-    pub input_mint: &'info AccountInfo,
-    pub output_mint: &'info AccountInfo,
-    pub oracle: &'info AccountInfo,
-}
-
-impl<'info> InitializeAtomicSwapAccounts<'info> {
-    pub fn from_accounts(account_infos: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        if account_infos.len() < 3 {
-            return Err(ProgramError::NotEnoughAccountKeys);
-        }
-        let ctx = Self {
-            input_mint: &account_infos[0],
-            output_mint: &account_infos[1],
-            oracle: &account_infos[2],
-        };
-        if !ctx.input_mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.output_mint.is_owned_by(&pinocchio_token::ID) {
-            // TODO: Allow token 2022
-            msg! {"mint: not owned by token program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx.oracle.is_owned_by(&crate::ID) {
-            msg! {"oracle: not owned by program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        // Check that Oracle is a valid account.
-        let _oracle: Oracle = NovaAccount::deserialize(&ctx.oracle.try_borrow_data()?)?;
-
-        Ok(ctx)
+define_account_struct! {
+    pub struct InitializeAtomicSwapAccounts<'info> {
+        input_mint;
+        output_mint;
+        oracle: @owner(crate::ID);
     }
 }
 
@@ -57,6 +28,9 @@ pub fn process_initialize_atomic_swap(
     msg!("process_initialize_atomic_swap");
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
+
+    // Check that Oracle is a valid account.
+    let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
 
     let InitializeArgs::AtomicSwap {
         max_slippage_bps,
