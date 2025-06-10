@@ -14,5 +14,4 @@ pub struct OftSendParams {
     pub dst_eid: u32,
     pub to: [u8; 32],
     pub amount_ld: u64,
-    pub min_amount_ld: u64,
 }

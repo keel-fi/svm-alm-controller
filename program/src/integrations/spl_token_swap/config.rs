@@ -10,4 +10,5 @@ pub struct SplTokenSwapConfig {
     pub mint_b: Pubkey,
     pub lp_mint: Pubkey,
     pub lp_token_account: Pubkey,
+    pub _padding: [u8; 32],
 }

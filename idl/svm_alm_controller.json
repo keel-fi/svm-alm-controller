@@ -1610,7 +1610,7 @@
             "type": {
               "array": [
                 "u8",
-                76
+                108
               ]
             }
           }
@@ -1744,7 +1744,7 @@
             "type": {
               "array": [
                 "u8",
-                60
+                92
               ]
             }
           }
@@ -1810,6 +1810,10 @@
             "type": "publicKey"
           },
           {
+            "name": "tokenEscrow",
+            "type": "publicKey"
+          },
+          {
             "name": "destinationAddress",
             "type": "publicKey"
           },
@@ -1849,10 +1853,6 @@
           },
           {
             "name": "amountLd",
-            "type": "u64"
-          },
-          {
-            "name": "minAmountLd",
             "type": "u64"
           }
         ]
@@ -1966,7 +1966,7 @@
             "type": {
               "array": [
                 "u8",
-                64
+                96
               ]
             }
           }
@@ -2018,6 +2018,15 @@
           {
             "name": "lpTokenAccount",
             "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
@@ -2154,7 +2163,7 @@
                 "type": {
                   "array": [
                     "u8",
-                    192
+                    224
                   ]
                 }
               }

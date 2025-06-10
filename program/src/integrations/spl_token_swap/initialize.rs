@@ -136,6 +136,7 @@ pub fn process_initialize_spl_token_swap(
         mint_b: Pubkey::from(*inner_ctx.mint_b.key()),
         lp_mint: Pubkey::from(*inner_ctx.lp_mint.key()),
         lp_token_account: Pubkey::from(*inner_ctx.lp_token_account.key()),
+        _padding: [0; 32],
     });
 
     // Load in the vault, since it could have an opening balance
