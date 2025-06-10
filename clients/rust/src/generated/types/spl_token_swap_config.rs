@@ -42,4 +42,5 @@ pub struct SplTokenSwapConfig {
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
     pub lp_token_account: Pubkey,
+    pub padding: [u8; 32],
 }

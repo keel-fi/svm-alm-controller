@@ -95,7 +95,7 @@ pub fn process_initialize_cctp_bridge(
         mint: Pubkey::from(*inner_ctx.mint.key()),
         destination_address: Pubkey::from(desination_address),
         destination_domain: desination_domain,
-        _padding: [0u8; 60],
+        _padding: [0u8; 92],
     });
 
     // Create the initial integration state

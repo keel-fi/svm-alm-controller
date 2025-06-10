@@ -8,6 +8,7 @@ pub struct LzBridgeConfig {
     pub mint: Pubkey,
     pub oft_store: Pubkey,
     pub peer_config: Pubkey,
+    pub token_escrow: Pubkey,
     pub destination_address: Pubkey,
     pub destination_eid: u32,
     pub _padding: [u8; 28],

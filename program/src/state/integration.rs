@@ -39,7 +39,7 @@ impl Discriminator for Integration {
 }
 
 impl NovaAccount for Integration {
-    const LEN: usize = 4 * 32 + 1 + 193 + 49 + 8 * 5;
+    const LEN: usize = 4 * 32 + 1 + 225 + 49 + 8 * 5;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = find_program_address(
