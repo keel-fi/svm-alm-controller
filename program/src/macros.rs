@@ -20,7 +20,7 @@ macro_rules! define_account_struct {
                 $field:ident
                 $( : $( $attr:ident ),* $(,)? )?
                 $( @pubkey ( $check_pubkey:expr ) )?
-                $( @owner  ( $check_owner:expr ) )?
+                $( @owner( $( $check_owner:expr ),+ ) )?
                 ;
             )*
             $( @remaining_accounts as $rem_ident:ident ; )?
@@ -46,18 +46,22 @@ macro_rules! define_account_struct {
                     $(
                         $(
                             if stringify!($attr) == "mut" && !$field.is_writable() {
+                                pinocchio_log::log!("{}: invalid mut", stringify!($field));
                                 return Err(ProgramError::Immutable);
                             }
                             if stringify!($attr) == "signer" && !$field.is_signer() {
+                                pinocchio_log::log!("{}: invalid signer", stringify!($field));
                                 return Err(ProgramError::MissingRequiredSignature);
                             }
                             if stringify!($attr) == "empty" && !$field.data_is_empty() {
+                                pinocchio_log::log!("{}: not empty", stringify!($field));
                                 return Err(ProgramError::AccountAlreadyInitialized);
                             }
                             // Verifies if an optional account is a signer.
                             if stringify!($attr) == "opt_signer" {
                                 // Optional account defaults to program_id if not present.
                                 if $field.key() != &$crate::ID && !$field.is_signer() {
+                                    pinocchio_log::log!("{}: invalid signer", stringify!($field));
                                     return Err(ProgramError::MissingRequiredSignature);
                                 }
                             }
@@ -66,13 +70,12 @@ macro_rules! define_account_struct {
 
                     $(
                         if $field.key() != &$check_pubkey {
-                            pinocchio_log::log!("{}: invalid pubkey", stringify!($field));
+                            pinocchio_log::log!("{}: invalid key", stringify!($field));
                             return Err(ProgramError::IncorrectProgramId);
                         }
                     )?
-
                     $(
-                        if !$field.is_owned_by(&$check_owner) {
+                    if !( $( $field.is_owned_by(&$check_owner) )||+ ) {
                             pinocchio_log::log!("{}: invalid owner", stringify!($field));
                             return Err(ProgramError::InvalidAccountOwner);
                         }

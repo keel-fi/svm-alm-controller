@@ -7,7 +7,7 @@ use crate::{
     },
     processor::InitializeIntegrationAccounts,
 };
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
 use pinocchio_token::{self, state::Mint};
 
@@ -15,25 +15,9 @@ define_account_struct! {
     pub struct InitializeSplTokenExternalAccounts<'info> {
         mint: @owner(pinocchio_token::ID);
         recipient;
-        token_account: mut;
+        token_account: mut, @owner(pinocchio_token::ID, pinocchio_system::ID);
         token_program: @pubkey(pinocchio_token::ID);
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
-    }
-}
-
-impl<'info> InitializeSplTokenExternalAccounts<'info> {
-    pub fn checked_from_accounts(
-        account_infos: &'info [AccountInfo],
-    ) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(account_infos)?;
-
-        if !ctx.token_account.is_owned_by(ctx.token_program.key())
-            && !ctx.token_account.is_owned_by(&pinocchio_system::ID)
-        {
-            msg! {"token_account: not owned by token_program or system_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        Ok(ctx)
     }
 }
 
@@ -44,7 +28,7 @@ pub fn process_initialize_spl_token_external(
     msg!("process_initialize_spl_token_external");
 
     let inner_ctx =
-        InitializeSplTokenExternalAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
+        InitializeSplTokenExternalAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
     // Load in the mint account, validating it in the process
     Mint::from_account_info(inner_ctx.mint).unwrap();
