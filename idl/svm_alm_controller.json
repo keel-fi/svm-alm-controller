@@ -303,7 +303,7 @@
       }
     },
     {
-      "name": "InializeIntegration",
+      "name": "InitializeIntegration",
       "accounts": [
         {
           "name": "payer",

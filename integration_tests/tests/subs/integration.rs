@@ -37,7 +37,7 @@ use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
-        InializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,
+        InitializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
@@ -368,7 +368,7 @@ pub fn initialize_integration(
 
     let integration_pda = derive_integration_pda(controller, &hash);
 
-    let ixn = InializeIntegrationBuilder::new()
+    let ixn = InitializeIntegrationBuilder::new()
         .integration_type(integration_type)
         .status(status)
         .description(description_encoding)
