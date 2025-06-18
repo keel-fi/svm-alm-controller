@@ -905,35 +905,6 @@
       }
     },
     {
-      "name": "Feed",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "priceFeed",
-            "type": "publicKey"
-          },
-          {
-            "name": "oracleType",
-            "type": "u8"
-          },
-          {
-            "name": "invertPrice",
-            "type": "bool"
-          },
-          {
-            "name": "reserved",
-            "type": {
-              "array": [
-                "u8",
-                62
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "Oracle",
       "type": {
         "kind": "struct",
@@ -2132,6 +2103,35 @@
           {
             "name": "poolFeeAccount",
             "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Feed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "priceFeed",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracleType",
+            "type": "u8"
+          },
+          {
+            "name": "invertPrice",
+            "type": "bool"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                62
+              ]
+            }
           }
         ]
       }
