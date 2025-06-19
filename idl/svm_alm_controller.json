@@ -2499,6 +2499,32 @@
           }
         ]
       }
+    },
+    {
+      "name": "AccountDiscriminators",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "UninitializedDiscriminator"
+          },
+          {
+            "name": "ControllerDiscriminator"
+          },
+          {
+            "name": "PermissionDiscriminator"
+          },
+          {
+            "name": "IntegrationDiscriminator"
+          },
+          {
+            "name": "ReserveDiscriminator"
+          },
+          {
+            "name": "OracleDiscriminator"
+          }
+        ]
+      }
     }
   ],
   "metadata": {

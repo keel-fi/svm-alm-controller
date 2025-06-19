@@ -1,11 +1,13 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use shank::ShankType;
 
 pub trait Discriminator {
     const DISCRIMINATOR: u8;
 }
 
+#[derive(ShankType)]
 #[repr(u8)]
 pub enum AccountDiscriminators {
     UninitializedDiscriminator = 0,
