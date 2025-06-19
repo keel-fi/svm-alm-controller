@@ -3,86 +3,6 @@
   "name": "svm_alm_controller",
   "instructions": [
     {
-      "name": "ControllerUpdate",
-      "accounts": [],
-      "args": [
-        {
-          "name": "controllerUpdateEvent",
-          "type": {
-            "defined": "ControllerUpdateEvent"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 0
-      }
-    },
-    {
-      "name": "PermissionUpdate",
-      "accounts": [],
-      "args": [
-        {
-          "name": "permissionUpdateEvent",
-          "type": {
-            "defined": "PermissionUpdateEvent"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 1
-      }
-    },
-    {
-      "name": "ReserveUpdate",
-      "accounts": [],
-      "args": [
-        {
-          "name": "reserveUpdateEvent",
-          "type": {
-            "defined": "ReserveUpdateEvent"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 2
-      }
-    },
-    {
-      "name": "IntegrationUpdate",
-      "accounts": [],
-      "args": [
-        {
-          "name": "integrationUpdateEvent",
-          "type": {
-            "defined": "IntegrationUpdateEvent"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 3
-      }
-    },
-    {
-      "name": "AccountingEvent",
-      "accounts": [],
-      "args": [
-        {
-          "name": "accountingEvent",
-          "type": {
-            "defined": "AccountingEvent"
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 4
-      }
-    },
-    {
       "name": "EmitEvent",
       "accounts": [
         {
@@ -2338,6 +2258,54 @@
           },
           {
             "name": "Active"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SvmAlmControllerEvent",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "ControllerUpdate",
+            "fields": [
+              {
+                "defined": "ControllerUpdateEvent"
+              }
+            ]
+          },
+          {
+            "name": "PermissionUpdate",
+            "fields": [
+              {
+                "defined": "PermissionUpdateEvent"
+              }
+            ]
+          },
+          {
+            "name": "ReserveUpdate",
+            "fields": [
+              {
+                "defined": "ReserveUpdateEvent"
+              }
+            ]
+          },
+          {
+            "name": "IntegrationUpdate",
+            "fields": [
+              {
+                "defined": "IntegrationUpdateEvent"
+              }
+            ]
+          },
+          {
+            "name": "AccountingEvent",
+            "fields": [
+              {
+                "defined": "AccountingEvent"
+              }
+            ]
           }
         ]
       }
