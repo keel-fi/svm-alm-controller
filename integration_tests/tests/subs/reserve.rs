@@ -55,7 +55,7 @@ pub fn initialize_reserve(
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
 ) -> Result<ReserveKeys, Box<dyn Error>> {
-    let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let calling_permission_pda: Pubkey = derive_permission_pda(controller, &authority.pubkey());
 
     let reserve_pda = derive_reserve_pda(controller, mint);
 

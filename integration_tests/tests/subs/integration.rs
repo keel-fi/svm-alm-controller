@@ -450,6 +450,7 @@ pub fn manage_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
+        .lookup_table(system_program::ID)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
