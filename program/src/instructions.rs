@@ -40,7 +40,6 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, writable, name = "reserve")]
     #[account(5, name = "mint")]
-    // TODO: Remove unused writable?
     #[account(6, writable, name = "vault")]
     #[account(7, name = "token_program")]
     #[account(8, name = "associated_token_program")]
