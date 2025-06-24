@@ -1,12 +1,12 @@
 extern crate alloc;
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::pubkey::Pubkey;
-use shank::ShankInstruction;
+use shank::ShankType;
 
 use crate::state::{Controller, Integration, Permission, Reserve};
 
 #[repr(u8)]
-#[derive(Clone, Debug, PartialEq, ShankInstruction, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, ShankType, BorshSerialize, BorshDeserialize)]
 pub enum SvmAlmControllerEvent {
     ControllerUpdate(ControllerUpdateEvent),
     PermissionUpdate(PermissionUpdateEvent),
@@ -15,7 +15,7 @@ pub enum SvmAlmControllerEvent {
     AccountingEvent(AccountingEvent),
 }
 
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct ControllerUpdateEvent {
     pub authority: Pubkey,
     pub controller: Pubkey,
@@ -23,7 +23,7 @@ pub struct ControllerUpdateEvent {
     pub new_state: Option<Controller>,
 }
 
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct PermissionUpdateEvent {
     pub authority: Pubkey,
     pub controller: Pubkey,
@@ -32,7 +32,7 @@ pub struct PermissionUpdateEvent {
     pub new_state: Option<Permission>,
 }
 
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct ReserveUpdateEvent {
     pub authority: Pubkey,
     pub controller: Pubkey,
@@ -41,7 +41,7 @@ pub struct ReserveUpdateEvent {
     pub new_state: Option<Reserve>,
 }
 
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct IntegrationUpdateEvent {
     pub authority: Pubkey,
     pub controller: Pubkey,
@@ -50,7 +50,7 @@ pub struct IntegrationUpdateEvent {
     pub new_state: Option<Integration>,
 }
 
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct AccountingEvent {
     pub controller: Pubkey,
     pub integration: Pubkey,
@@ -61,7 +61,7 @@ pub struct AccountingEvent {
 }
 
 #[repr(u8)]
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub enum AccountingAction {
     Sync,
     ExternalTransfer,
