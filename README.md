@@ -39,13 +39,13 @@ There are "outer" handlers for `Initialize`, `Sync`, `Push` and `Pull` actions. 
 
 ### Core Integrations
 
-| Integration | Initialize | Sync | Push | Pull | Other |
-|-------------|------------|------|------|------|-------|
-| SplTokenExternal | Yes | Yes | Yes | No | No |
-| SplTokenSwap | Yes | Yes | Yes | Yes | Swap |
+| Integration | Initialize | Sync | Push | Pull | Other        |
+|-------------|------------|------|------|------|--------------|
+| SplTokenExternal | Yes | No | Yes | No | No |
+| SplTokenSwap | Yes | Yes | Yes | Yes | No |
 | CctpBridge | Yes | No | Yes | No | No |
 | LzBridge | Yes | No | Yes | No | No |
-| SwapIntent | Yes | Yes | Yes | No | Revoke |
+| AtomicSwap | Yes | Yes | Yes | No | Borrow, Repay |
 
 ### Future Integrations
 
