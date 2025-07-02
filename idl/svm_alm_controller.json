@@ -900,6 +900,15 @@
             "type": {
               "defined": "IntegrationState"
             }
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }
@@ -1031,6 +1040,15 @@
           {
             "name": "canManageIntegrations",
             "type": "bool"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
           }
         ]
       }
@@ -1081,6 +1099,15 @@
           {
             "name": "lastRefreshSlot",
             "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }
@@ -1610,7 +1637,7 @@
             "type": {
               "array": [
                 "u8",
-                108
+                172
               ]
             }
           }
@@ -1744,7 +1771,7 @@
             "type": {
               "array": [
                 "u8",
-                92
+                156
               ]
             }
           }
@@ -1826,7 +1853,7 @@
             "type": {
               "array": [
                 "u8",
-                28
+                92
               ]
             }
           }
@@ -1966,7 +1993,7 @@
             "type": {
               "array": [
                 "u8",
-                96
+                160
               ]
             }
           }
@@ -2024,7 +2051,7 @@
             "type": {
               "array": [
                 "u8",
-                32
+                96
               ]
             }
           }
@@ -2163,7 +2190,7 @@
                 "type": {
                   "array": [
                     "u8",
-                    224
+                    288
                   ]
                 }
               }

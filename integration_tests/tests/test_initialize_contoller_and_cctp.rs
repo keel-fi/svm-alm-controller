@@ -123,7 +123,7 @@ mod tests {
                 mint: USDC_TOKEN_MINT_PUBKEY,
                 destination_address: destination_address,
                 destination_domain: CCTP_REMOTE_DOMAIN_ETH,
-                padding: [0; 92],
+                padding: [0; 156],
             }),
             &InitializeArgs::CctpBridge {
                 desination_address: destination_address,

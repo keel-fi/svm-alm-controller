@@ -31,10 +31,11 @@ pub struct Permission {
     pub can_freeze: bool,
     pub can_unfreeze: bool,
     pub can_manage_integrations: bool,
+    pub padding: [u8; 8],
 }
 
 impl Permission {
-    pub const LEN: usize = 72;
+    pub const LEN: usize = 80;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
@@ -57,7 +58,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Permission 
 #[cfg(feature = "fetch")]
 pub fn fetch_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Permission>, std::io::Error> {
     let accounts = fetch_all_permission(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -66,10 +67,10 @@ pub fn fetch_permission(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Permission>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Permission>> = Vec::new();
     for i in 0..addresses.len() {
@@ -91,7 +92,7 @@ pub fn fetch_all_permission(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Permission>, std::io::Error> {
     let accounts = fetch_all_maybe_permission(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -100,10 +101,10 @@ pub fn fetch_maybe_permission(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Permission>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Permission>> = Vec::new();
     for i in 0..addresses.len() {

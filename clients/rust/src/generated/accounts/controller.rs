@@ -41,7 +41,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Controller 
 #[cfg(feature = "fetch")]
 pub fn fetch_controller(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Controller>, std::io::Error> {
     let accounts = fetch_all_controller(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -50,10 +50,10 @@ pub fn fetch_controller(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_controller(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Controller>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Controller>> = Vec::new();
     for i in 0..addresses.len() {
@@ -75,7 +75,7 @@ pub fn fetch_all_controller(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_controller(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Controller>, std::io::Error> {
     let accounts = fetch_all_maybe_controller(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -84,10 +84,10 @@ pub fn fetch_maybe_controller(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_controller(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Controller>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Controller>> = Vec::new();
     for i in 0..addresses.len() {

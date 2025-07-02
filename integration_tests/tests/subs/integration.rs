@@ -396,7 +396,8 @@ pub fn initialize_integration(
     if tx_result.is_err() {
         println!("{:#?}", tx_result.unwrap().logs);
     } else {
-        assert!(tx_result.is_ok(), "Transaction failed to execute");
+        println!("{:#?}", tx_result.unwrap().logs);
+        // assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
 
     let integration = fetch_integration_account(svm, &integration_pda)
@@ -407,6 +408,7 @@ pub fn initialize_integration(
     );
 
     let integration = integration.unwrap();
+    // println!("{:#?}", integration);
     assert_eq!(
         integration.status, status,
         "Status does not match expected value"
@@ -464,7 +466,8 @@ pub fn manage_integration(
     if tx_result.is_err() {
         println!("{:#?}", tx_result.unwrap().logs);
     } else {
-        assert!(tx_result.is_ok(), "Transaction failed to execute");
+        println!("{:#?}", tx_result.unwrap().logs);
+        // assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
 
     let integration =
@@ -475,6 +478,7 @@ pub fn manage_integration(
     );
 
     let integration = integration.unwrap();
+    // println!("{:#?}", integration);
     assert_eq!(
         integration.status, status,
         "Status does not match expected value"

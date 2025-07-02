@@ -8,13 +8,9 @@ use crate::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
-    account_info::AccountInfo,
-    instruction::Seed,
-    msg,
-    program_error::ProgramError,
-    pubkey::{find_program_address, Pubkey},
-    sysvars::{clock::Clock, rent::Rent, Sysvar},
+    account_info::AccountInfo, instruction::Seed, msg, program_error::ProgramError, pubkey::{find_program_address, Pubkey}, sysvars::{clock::Clock, rent::Rent, Sysvar}
 };
+use pinocchio_log::log;
 use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
@@ -32,6 +28,7 @@ pub struct Integration {
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,
     pub state: IntegrationState,
+    pub _padding: [u8;128]
 }
 
 impl Discriminator for Integration {
@@ -39,9 +36,10 @@ impl Discriminator for Integration {
 }
 
 impl NovaAccount for Integration {
-    const LEN: usize = 4 * 32 + 1 + 225 + 49 + 8 * 5;
+    const LEN: usize = 4 * 32 + 1 + 289 + 49 + 8 * 5 + 128;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
+        log!("hash: {}", self.hash.as_ref());
         let (pda, bump) = find_program_address(
             &[
                 INTEGRATION_SEED,
@@ -108,14 +106,13 @@ impl Integration {
         let clock = Clock::get()?;
         // Derive the hash for this config
         let hash = config.hash();
-
         // Create and serialize the controller
         let integration = Integration {
             controller,
-            hash,
-            status,
-            lookup_table,
             description,
+            hash,
+            lookup_table,
+            status,
             config,
             state,
             rate_limit_slope,
@@ -123,6 +120,7 @@ impl Integration {
             rate_limit_amount_last_update: rate_limit_max_outflow,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
+            _padding: [0u8;128]
         };
 
         // Derive the PDA
@@ -130,7 +128,6 @@ impl Integration {
         if account_info.key().ne(&pda) {
             return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
         }
-
         // Account creation PDA
         let rent = Rent::get()?;
         let bump_seed = [bump];
@@ -163,6 +160,8 @@ impl Integration {
         rate_limit_slope: Option<u64>,
         rate_limit_max_outflow: Option<u64>,
     ) -> Result<(), ProgramError> {
+        log!{"self.hash: {}", self.hash.as_ref()};
+
         // Need to refresh rate limits before any updates
         let clock = Clock::get()?;
         self.refresh_rate_limit(clock)?;
@@ -186,6 +185,7 @@ impl Integration {
             self.rate_limit_amount_last_update = self.rate_limit_max_outflow.saturating_sub(gap);
         }
 
+        log!{"hash: {}", self.hash.as_ref()};
         // Commit the account on-chain
         self.save(account_info)?;
 

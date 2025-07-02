@@ -33,5 +33,5 @@ pub struct AtomicSwapConfig {
     pub output_mint_decimals: u8,
     pub expiry_timestamp: i64,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 108],
+    pub padding: [u8; 172],
 }

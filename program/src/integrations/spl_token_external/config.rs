@@ -8,5 +8,5 @@ pub struct SplTokenExternalConfig {
     pub mint: Pubkey,
     pub recipient: Pubkey,
     pub token_account: Pubkey,
-    pub _padding: [u8; 96],
+    pub _padding: [u8; 160],
 }

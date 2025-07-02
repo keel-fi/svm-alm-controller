@@ -36,6 +36,7 @@ pub struct Reserve {
     pub last_balance: u64,
     pub last_refresh_timestamp: i64,
     pub last_refresh_slot: u64,
+    pub _padding: [u8; 128],
 }
 
 impl Discriminator for Reserve {
@@ -43,7 +44,7 @@ impl Discriminator for Reserve {
 }
 
 impl NovaAccount for Reserve {
-    const LEN: usize = 32 * 3 + 8 * 6 + 1;
+    const LEN: usize = 32 * 3 + 8 * 6 + 1 + 128;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = SolanaPubkey::find_program_address(
@@ -115,6 +116,7 @@ impl Reserve {
             last_balance: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
+            _padding: [0; 128],
         };
         // Derive the PDA
         let (pda, bump) = reserve.derive_pda()?;

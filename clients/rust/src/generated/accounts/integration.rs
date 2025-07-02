@@ -35,10 +35,12 @@ pub struct Integration {
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,
     pub state: IntegrationState,
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 128],
 }
 
 impl Integration {
-    pub const LEN: usize = 443;
+    pub const LEN: usize = 635;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
@@ -61,7 +63,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Integration
 #[cfg(feature = "fetch")]
 pub fn fetch_integration(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Integration>, std::io::Error> {
     let accounts = fetch_all_integration(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -70,10 +72,10 @@ pub fn fetch_integration(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_integration(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Integration>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Integration>> = Vec::new();
     for i in 0..addresses.len() {
@@ -95,7 +97,7 @@ pub fn fetch_all_integration(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_integration(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Integration>, std::io::Error> {
     let accounts = fetch_all_maybe_integration(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -104,10 +106,10 @@ pub fn fetch_maybe_integration(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_integration(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Integration>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Integration>> = Vec::new();
     for i in 0..addresses.len() {

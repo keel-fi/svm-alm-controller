@@ -9,5 +9,5 @@ pub struct CctpBridgeConfig {
     pub mint: Pubkey,
     pub destination_address: Pubkey,
     pub destination_domain: u32,
-    pub _padding: [u8; 92],
+    pub _padding: [u8; 156],
 }

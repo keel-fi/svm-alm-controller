@@ -18,7 +18,7 @@ use borsh::BorshSerialize;
 pub enum IntegrationConfig {
     Undefined {
         #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-        padding: [u8; 224],
+        padding: [u8; 288],
     },
     SplTokenExternal(SplTokenExternalConfig),
     SplTokenSwap(SplTokenSwapConfig),

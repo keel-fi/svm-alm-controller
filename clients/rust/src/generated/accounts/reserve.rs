@@ -35,10 +35,12 @@ pub struct Reserve {
     pub last_balance: u64,
     pub last_refresh_timestamp: i64,
     pub last_refresh_slot: u64,
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 128],
 }
 
 impl Reserve {
-    pub const LEN: usize = 145;
+    pub const LEN: usize = 273;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
@@ -61,7 +63,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Reserve {
 #[cfg(feature = "fetch")]
 pub fn fetch_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Reserve>, std::io::Error> {
     let accounts = fetch_all_reserve(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -70,10 +72,10 @@ pub fn fetch_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Reserve>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Reserve>> = Vec::new();
     for i in 0..addresses.len() {
@@ -95,7 +97,7 @@ pub fn fetch_all_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Reserve>, std::io::Error> {
     let accounts = fetch_all_maybe_reserve(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -104,10 +106,10 @@ pub fn fetch_maybe_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Reserve>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Reserve>> = Vec::new();
     for i in 0..addresses.len() {

@@ -10,6 +10,7 @@ use borsh::BorshDeserialize;
 use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
+use pinocchio_log::log;
 
 define_account_struct! {
     pub struct ManageIntegrationAccounts<'info> {
@@ -64,6 +65,8 @@ pub fn process_manage_integration(
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
 
     let old_state = integration.clone();
+    log!("integration.hash: {}", &integration.hash);
+    log!("integration.lookup_table: {}", &integration.lookup_table);
 
     integration.update_and_save(
         ctx.integration,

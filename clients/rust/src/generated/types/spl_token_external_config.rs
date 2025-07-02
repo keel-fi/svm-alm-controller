@@ -33,5 +33,5 @@ pub struct SplTokenExternalConfig {
     )]
     pub token_account: Pubkey,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 96],
+    pub padding: [u8; 160],
 }

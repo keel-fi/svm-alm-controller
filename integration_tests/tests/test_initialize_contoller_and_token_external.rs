@@ -132,7 +132,7 @@ mod tests {
                 mint: usdc_mint,
                 recipient: external.pubkey(),
                 token_account: external_usdc_ata,
-                padding: [0; 96],
+                padding: [0; 160],
             }),
             &InitializeArgs::SplTokenExternal,
         )?;
@@ -158,6 +158,7 @@ mod tests {
             10_000_000,
         )?;
 
+        println!("usdc_external_integration_pk: {}", usdc_external_integration_pk);
         // Push the integration
         push_integration(
             &mut svm,

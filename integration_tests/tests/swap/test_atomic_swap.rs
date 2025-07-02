@@ -215,7 +215,7 @@ mod tests {
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
-                padding: [0u8; 108],
+                padding: [0u8; 172],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
@@ -1083,7 +1083,7 @@ mod tests {
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
-                padding: [0u8; 108],
+                padding: [0u8; 172],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
@@ -1203,7 +1203,7 @@ mod tests {
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
-                padding: [0u8; 108],
+                padding: [0u8; 172],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 100,

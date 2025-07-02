@@ -60,7 +60,7 @@ pub fn process_initialize_atomic_swap(
         input_mint_decimals: input_mint.decimals(),
         output_mint_decimals: output_mint.decimals(),
         expiry_timestamp,
-        padding: [0u8; 108],
+        padding: [0u8; 172],
     });
 
     // Create the initial integration state

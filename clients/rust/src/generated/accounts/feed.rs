@@ -47,7 +47,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Feed {
 #[cfg(feature = "fetch")]
 pub fn fetch_feed(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Feed>, std::io::Error> {
     let accounts = fetch_all_feed(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -56,10 +56,10 @@ pub fn fetch_feed(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_feed(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Feed>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Feed>> = Vec::new();
     for i in 0..addresses.len() {
@@ -81,7 +81,7 @@ pub fn fetch_all_feed(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_feed(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Feed>, std::io::Error> {
     let accounts = fetch_all_maybe_feed(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -90,10 +90,10 @@ pub fn fetch_maybe_feed(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_feed(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Feed>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(addresses)
+        .get_multiple_accounts(&addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Feed>> = Vec::new();
     for i in 0..addresses.len() {

@@ -97,7 +97,7 @@ pub fn process_initialize_lz_bridge(
         token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
         destination_address: Pubkey::from(desination_address),
         destination_eid,
-        _padding: [0u8; 28],
+        _padding: [0u8; 92],
     });
 
     // Create the initial integration state
