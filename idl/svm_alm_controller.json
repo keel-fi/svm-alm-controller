@@ -132,6 +132,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -389,6 +394,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -579,6 +589,11 @@
       "accounts": [
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },

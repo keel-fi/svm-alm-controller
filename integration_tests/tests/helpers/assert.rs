@@ -10,13 +10,18 @@ pub fn assert_custom_error(
     expected_err: SvmAlmControllerErrors,
 ) {
     let expected_code = expected_err as u32;
-    assert!(matches!(
-        res,
-        Err(FailedTransactionMetadata {
-            err: TransactionError::InstructionError(i, InstructionError::Custom(c)),
-            ..
-        }) if *i == ix_idx && *c == expected_code
-    ));
+    let res_tmp = res.clone();
+    assert!(
+        matches!(
+            res,
+            Err(FailedTransactionMetadata {
+                err: TransactionError::InstructionError(i, InstructionError::Custom(c)),
+                ..
+            }) if *i == ix_idx && *c == expected_code,
+        ),
+        "Got error {:?}",
+        res_tmp.err().unwrap().err
+    );
 }
 
 pub fn assert_program_error(res: &TransactionResult, ix_idx: u8, expected_err: InstructionError) {

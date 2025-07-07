@@ -14,6 +14,7 @@ define_account_struct! {
   pub struct InitializeReserveAccounts<'info> {
       payer: signer, mut;
       controller: @owner(crate::ID);
+      controller_authority;
       authority: signer;
       permission: @owner(crate::ID);
       reserve: mut, empty, @owner(pinocchio_system::ID);
@@ -39,6 +40,11 @@ pub fn process_initialize_reserve(
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
 
+    // Validate the controller authority
+    if controller.authority.ne(ctx.controller_authority.key()) {
+        return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());
+    }
+
     // Load in the super permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
@@ -56,7 +62,7 @@ pub fn process_initialize_reserve(
     CreateIdempotent {
         funding_account: ctx.payer,
         account: ctx.vault,
-        wallet: ctx.controller,
+        wallet: ctx.controller_authority,
         mint: ctx.mint,
         system_program: ctx.system_program,
         token_program: ctx.token_program,

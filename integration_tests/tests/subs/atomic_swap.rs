@@ -18,7 +18,7 @@ use svm_alm_controller_client::generated::instructions::{
     AtomicSwapBorrowBuilder, AtomicSwapRepayBuilder, RefreshOracleBuilder,
 };
 
-use crate::subs::derive_reserve_pda;
+use crate::subs::{derive_controller_authority_pda, derive_reserve_pda};
 
 use super::oracle;
 
@@ -47,13 +47,14 @@ pub fn atomic_swap_borrow_repay_ixs(
 ) -> [Instruction; 3] {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
+    let controller_authority = derive_controller_authority_pda(&controller);
     let vault_a = get_associated_token_address_with_program_id(
-        &controller,
+        &controller_authority,
         &mint_a,
         &pinocchio_token::ID.into(),
     );
     let vault_b = get_associated_token_address_with_program_id(
-        &controller,
+        &controller_authority,
         &mint_b,
         &pinocchio_token::ID.into(),
     );
@@ -65,6 +66,7 @@ pub fn atomic_swap_borrow_repay_ixs(
 
     let borrow_ix = AtomicSwapBorrowBuilder::new()
         .controller(controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(permission)
         .integration(integration)

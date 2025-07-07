@@ -49,7 +49,7 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
     swap_program: Pubkey,
     swap: &AccountInfo,
     swap_authority: &AccountInfo,
-    controller: &AccountInfo,
+    controller_authority: &AccountInfo,
     vault: &AccountInfo,
     swap_token_a: &AccountInfo,
     swap_token_b: &AccountInfo,
@@ -73,7 +73,7 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
             accounts: &[
                 AccountMeta::readonly(swap.key()),
                 AccountMeta::readonly(swap_authority.key()),
-                AccountMeta::readonly_signer(controller.key()),
+                AccountMeta::readonly_signer(controller_authority.key()),
                 AccountMeta::writable(vault.key()),
                 AccountMeta::writable(swap_token_a.key()),
                 AccountMeta::writable(swap_token_b.key()),
@@ -87,7 +87,7 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
         &[
             swap,
             swap_authority,
-            controller,
+            controller_authority,
             vault,
             swap_token_a,
             swap_token_b,

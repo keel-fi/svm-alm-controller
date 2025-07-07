@@ -12,7 +12,7 @@ use svm_alm_controller_client::generated::{
     types::ReserveStatus,
 };
 
-use crate::subs::derive_permission_pda;
+use crate::subs::{derive_controller_authority_pda, derive_permission_pda};
 
 pub fn derive_reserve_pda(controller_pda: &Pubkey, mint: &Pubkey) -> Pubkey {
     let (reserve_pda, _reserve_bump) = Pubkey::find_program_address(
@@ -59,8 +59,13 @@ pub fn initialize_reserve(
 
     let reserve_pda = derive_reserve_pda(controller, mint);
 
-    let vault =
-        get_associated_token_address_with_program_id(controller, mint, &pinocchio_token::ID.into());
+    let controller_authority = derive_controller_authority_pda(controller);
+
+    let vault = get_associated_token_address_with_program_id(
+        &controller_authority,
+        mint,
+        &pinocchio_token::ID.into(),
+    );
 
     let ixn = InitializeReserveBuilder::new()
         .status(status)
@@ -68,6 +73,7 @@ pub fn initialize_reserve(
         .rate_limit_max_outflow(rate_limit_max_outflow)
         .payer(payer.pubkey())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .reserve(reserve_pda)

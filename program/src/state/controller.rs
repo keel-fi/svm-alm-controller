@@ -166,6 +166,7 @@ impl Controller {
     pub fn transfer_tokens(
         &self,
         controller: &AccountInfo,
+        controller_authority: &AccountInfo,
         vault: &AccountInfo,
         recipient_token_account: &AccountInfo,
         amount: u64,
@@ -173,13 +174,13 @@ impl Controller {
         Transfer {
             from: vault,
             to: recipient_token_account,
-            authority: controller,
+            authority: controller_authority,
             amount,
         }
         .invoke_signed(&[Signer::from(&[
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&self.id.to_le_bytes()),
-            Seed::from(&[self.bump]),
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(controller.key().as_ref()),
+            Seed::from(&[self.authority_bump]),
         ])])?;
         Ok(())
     }

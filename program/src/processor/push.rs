@@ -23,6 +23,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct PushAccounts<'info> {
         controller: @owner(crate::ID);
+        controller_authority;
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);

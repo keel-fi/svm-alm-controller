@@ -21,6 +21,14 @@ pub fn derive_controller_pda(id: &u16) -> Pubkey {
     controller_pda
 }
 
+pub fn derive_controller_authority_pda(controller_pda: &Pubkey) -> Pubkey {
+    let (controller_authority_pda, _controller_authority_bump) = Pubkey::find_program_address(
+        &[b"controller_authority", controller_pda.as_ref()],
+        &Pubkey::from(SVM_ALM_CONTROLLER_ID),
+    );
+    controller_authority_pda
+}
+
 pub fn fetch_controller_account(
     svm: &mut LiteSVM,
     controller_pda: &Pubkey,

@@ -25,7 +25,7 @@ mod tests {
                 CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
             },
         },
-        subs::{edit_ata_amount, transfer_tokens},
+        subs::{derive_controller_authority_pda, edit_ata_amount, transfer_tokens},
     };
 
     use super::*;
@@ -63,6 +63,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Update the authority to have all permissions
         let _ = manage_permission(
@@ -99,7 +100,7 @@ mod tests {
             &authority,
             &authority,
             &USDC_TOKEN_MINT_PUBKEY,
-            &controller_pk,
+            &controller_authority,
             500_000_000,
         )?;
 

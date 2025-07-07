@@ -185,6 +185,7 @@ pub fn process_push_lz_bridge(
     // from here the token will be burned or locked in the OFT Send instruction
     controller.transfer_tokens(
         outer_ctx.controller,
+        outer_ctx.controller_authority,
         inner_ctx.vault,
         inner_ctx.authority_token_account,
         amount,

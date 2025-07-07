@@ -1,5 +1,5 @@
 use crate::{
-    constants::CONTROLLER_SEED,
+    constants::{CONTROLLER_AUTHORITY_SEED},
     define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -11,6 +11,7 @@ use crate::{
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
+use borsh::maybestd::format;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
@@ -153,20 +154,17 @@ pub fn process_push_cctp_bridge(
     reserve.sync_balance(inner_ctx.vault, outer_ctx.controller, controller)?;
     let post_sync_balance = reserve.last_balance;
 
-    let controller_id_bytes = controller.id.to_le_bytes();
-    let controller_bump = controller.bump;
-
     // Perform the CPI to deposit and burn
     deposit_for_burn_cpi(
         amount,
         destination_domain,
         destination_address,
         Signer::from(&[
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller_id_bytes),
-            Seed::from(&[controller_bump]),
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(outer_ctx.controller.key()),
+            Seed::from(&[controller.authority_bump]),
         ]),
-        outer_ctx.controller,
+        outer_ctx.controller_authority,
         outer_ctx.authority,
         inner_ctx.sender_authority_pda,
         inner_ctx.vault,
