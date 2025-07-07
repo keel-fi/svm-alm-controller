@@ -3,7 +3,7 @@ use super::{
     nova_account::NovaAccount,
 };
 use crate::{
-    constants::CONTROLLER_SEED,
+    constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     enums::ControllerStatus,
     events::SvmAlmControllerEvent,
     processor::shared::{create_pda_account, emit_cpi},
@@ -13,7 +13,7 @@ use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
 use pinocchio_token::instructions::Transfer;
@@ -26,6 +26,8 @@ pub struct Controller {
     pub id: u16,
     pub bump: u8,
     pub status: ControllerStatus,
+    pub authority: Pubkey,
+    pub authority_bump: u8,
 }
 
 impl Discriminator for Controller {
@@ -33,7 +35,8 @@ impl Discriminator for Controller {
 }
 
 impl NovaAccount for Controller {
-    const LEN: usize = 4;
+    // id + bump + status + authority + authority_bump
+    const LEN: usize = 2 + 1 + 1 + 32 + 1;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         Self::derive_pda_bytes(self.id)
@@ -83,11 +86,20 @@ impl Controller {
             return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
         }
 
+        // Derive authority PDA that has no SOL or data
+        let (controller_authority, controller_authority_bump) = try_find_program_address(
+            &[CONTROLLER_AUTHORITY_SEED, account_info.key().as_ref()],
+            &crate::ID,
+        )
+        .ok_or(ProgramError::InvalidSeeds)?;
+
         // Create and serialize the controller
         let controller = Controller {
             id,
             bump: bump,
             status,
+            authority: controller_authority,
+            authority_bump: controller_authority_bump,
         };
 
         // Account creation PDA
