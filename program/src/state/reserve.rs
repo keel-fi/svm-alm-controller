@@ -177,17 +177,16 @@ impl Reserve {
         {
             () // Do nothing
         } else {
-            self.rate_limit_amount_last_update = self
+            let increment = (self.rate_limit_slope as u128
+                * clock
+                    .unix_timestamp
+                    .checked_sub(self.last_refresh_timestamp)
+                    .unwrap() as u128
+                / SECONDS_PER_DAY as u128) as u64;
+            self.rate_limit_amount_last_update  = self
                 .rate_limit_amount_last_update
-                .checked_add(
-                    (self.rate_limit_slope as u128
-                        * clock
-                            .unix_timestamp
-                            .checked_sub(self.last_refresh_timestamp)
-                            .unwrap() as u128
-                        / SECONDS_PER_DAY as u128) as u64,
-                )
-                .unwrap_or(self.rate_limit_max_outflow);
+                .saturating_add(increment)
+                .min(self.rate_limit_max_outflow);
         }
         self.last_refresh_timestamp = clock.unix_timestamp;
         self.last_refresh_slot = clock.slot;

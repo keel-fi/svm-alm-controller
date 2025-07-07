@@ -40,7 +40,6 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, writable, name = "reserve")]
     #[account(5, name = "mint")]
-    // TODO: Remove unused writable?
     #[account(6, writable, name = "vault")]
     #[account(7, name = "token_program")]
     #[account(8, name = "associated_token_program")]
@@ -69,8 +68,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(1, signer, name = "authority")]
     #[account(2, name = "permission")]
     #[account(3, writable, name = "integration")]
-    // TODO: Incorrectly labelled as system_program when used as optional lookup_table
-    #[account(4, name = "system_program")]
+    // NOTE: if there is no LUT, then the system_program ID should be used.
+    #[account(4, name = "lookup_table")]
     ManageIntegration(ManageIntegrationArgs),
 
     // TOOD: Struct def does not match implementation. Has an extra `mint` account.

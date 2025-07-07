@@ -39,13 +39,13 @@ There are "outer" handlers for `Initialize`, `Sync`, `Push` and `Pull` actions. 
 
 ### Core Integrations
 
-| Integration | Initialize | Sync | Push | Pull | Other |
-|-------------|------------|------|------|------|-------|
-| SplTokenExternal | Yes | Yes | Yes | No | No |
-| SplTokenSwap | Yes | Yes | Yes | Yes | Swap |
+| Integration | Initialize | Sync | Push | Pull | Other        |
+|-------------|------------|------|------|------|--------------|
+| SplTokenExternal | Yes | No | Yes | No | No |
+| SplTokenSwap | Yes | Yes | Yes | Yes | No |
 | CctpBridge | Yes | No | Yes | No | No |
 | LzBridge | Yes | No | Yes | No | No |
-| SwapIntent | Yes | Yes | Yes | No | Revoke |
+| AtomicSwap | Yes | Yes | Yes | No | Borrow, Repay |
 
 ### Future Integrations
 
@@ -111,4 +111,9 @@ cargo test
 Add environment variables manually to point to a particular version of openssl@3
 ```
 OPENSSL_DIR="/usr/local/opt/openssl@3" OPENSSL_INCLUDE_DIR="/usr/local/opt/openssl@3/include" OPENSSL_LIB_DIR="/usr/local/opt/openssl@3/lib" OPENSSL_NO_VENDOR="1" cargo test
+```
+
+Apple silicon:
+```
+OPENSSL_DIR="/opt/homebrew/opt/openssl@3" OPENSSL_INCLUDE_DIR="/opt/homebrew/opt/openssl@3/include" OPENSSL_LIB_DIR="/opt/homebrew/opt/openssl@3/lib" OPENSSL_NO_VENDOR="1" cargo test
 ```

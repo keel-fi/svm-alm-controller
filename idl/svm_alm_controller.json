@@ -298,7 +298,7 @@
           "isSigner": false
         },
         {
-          "name": "systemProgram",
+          "name": "lookupTable",
           "isMut": false,
           "isSigner": false
         }

@@ -40,6 +40,7 @@ mod tests {
         // add EmitCpi instruction
         let emit_cpi_ix = EmitEventBuilder::new()
             .authority(bad_authority.pubkey())
+            .controller_id([0u8; 2])
             .data(vec![1, 2, 3, 4, 5, 6])
             .instruction();
 

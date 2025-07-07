@@ -49,10 +49,6 @@ impl<'info> PushLzBridgeAccounts<'info> {
             msg! {"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if ctx.mint.key().ne(&config.mint) {
-            msg! {"mint: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
 
         Ok(ctx)
     }

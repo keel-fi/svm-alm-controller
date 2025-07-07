@@ -18,7 +18,7 @@ define_account_struct! {
       permission: @owner(crate::ID);
       reserve: mut, empty, @owner(pinocchio_system::ID);
       mint;
-      vault;
+      vault: mut;
       token_program: @pubkey(pinocchio_token::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       system_program: @pubkey(pinocchio_system::ID);

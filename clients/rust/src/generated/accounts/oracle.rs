@@ -5,7 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::accounts::Feed;
+use crate::generated::types::Feed;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
@@ -33,6 +33,8 @@ pub struct Oracle {
 }
 
 impl Oracle {
+    pub const LEN: usize = 253;
+
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
         let mut data = data;
