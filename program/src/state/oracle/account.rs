@@ -12,13 +12,13 @@ use pinocchio::{
     pubkey::{find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
-use shank::ShankAccount;
+use shank::{ShankAccount, ShankType};
 use switchboard_on_demand::{
     Discriminator as SwitchboardDiscriminator, PullFeedAccountData,
     SWITCHBOARD_ON_DEMAND_PROGRAM_ID,
 };
 
-#[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, ShankType, BorshSerialize, BorshDeserialize)]
 pub struct Feed {
     /// Address of price feed.
     pub price_feed: Pubkey,
