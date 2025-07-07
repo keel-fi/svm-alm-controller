@@ -143,8 +143,7 @@ pub fn process_push_spl_token_external(
     // Perform the transfer
     controller.transfer_tokens(
         outer_ctx.controller,
-        // TODO FIX
-        outer_ctx.controller,
+        outer_ctx.controller_authority,
         inner_ctx.vault,
         inner_ctx.recipient_token_account,
         amount,

@@ -1,9 +1,9 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_mint, initialize_reserve, manage_integration, manage_permission, manage_reserve,
-    mint_tokens, push_integration,
+    airdrop_lamports, derive_controller_authority_pda, initialize_ata, initialize_contoller,
+    initialize_integration, initialize_mint, initialize_reserve, manage_integration,
+    manage_permission, manage_reserve, mint_tokens, push_integration,
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
@@ -54,6 +54,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Update the authority to have all permissions
         let _ = manage_permission(
@@ -154,7 +155,7 @@ mod tests {
             &authority,
             &authority,
             &usdc_mint,
-            &controller_pk,
+            &controller_authority,
             10_000_000,
         )?;
 

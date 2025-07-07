@@ -32,6 +32,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use svm_alm_controller::state::controller;
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
@@ -1158,6 +1159,7 @@ pub fn pull_integration(
     pull_args: &PullArgs,
 ) -> Result<(), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority  = derive_controller_authority_pda(controller);
 
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
@@ -1179,12 +1181,12 @@ pub fn pull_integration(
             let token_program_a = Pubkey::from(pinocchio_token::ID);
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );
@@ -1212,17 +1214,17 @@ pub fn pull_integration(
                 let token_program_b = Pubkey::from(pinocchio_token::ID);
                 let token_program_lp = Pubkey::from(pinocchio_token::ID);
                 let vault_a = get_associated_token_address_with_program_id(
-                    controller,
+                    &controller_authority,
                     &c.mint_a,
                     &token_program_a,
                 );
                 let vault_b = get_associated_token_address_with_program_id(
-                    controller,
+                    &controller_authority,
                     &c.mint_b,
                     &token_program_b,
                 );
                 let vault_lp = get_associated_token_address_with_program_id(
-                    controller,
+                    &controller_authority,
                     &c.lp_mint,
                     &token_program_lp,
                 );
@@ -1372,12 +1374,12 @@ pub fn pull_integration(
             let token_program_a = Pubkey::from(pinocchio_token::ID);
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );
