@@ -6,9 +6,10 @@ mod tests {
             spl::setup_token_account,
         },
         subs::{
-            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs, derive_permission_pda,
-            fetch_integration_account, fetch_reserve_account, fetch_token_account, initialize_ata,
-            initialize_reserve, transfer_tokens, ReserveKeys,
+            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
+            derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
+            fetch_reserve_account, fetch_token_account, initialize_ata, initialize_reserve,
+            transfer_tokens, ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -58,6 +59,7 @@ mod tests {
         pub pc_token_mint: Pubkey,
         pub coin_token_mint: Pubkey,
         pub controller_pk: Pubkey,
+        pub controller_authority: Pubkey,
         pub atomic_swap_integration_pk: Pubkey,
         pub relayer_pc: Pubkey,
         pub relayer_coin: Pubkey,
@@ -99,6 +101,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(
             svm,
             &controller_pk,
@@ -181,7 +184,7 @@ mod tests {
             &relayer_authority_kp,
             &relayer_authority_kp,
             &pc_token_mint,
-            &controller_pk,
+            &controller_authority,
             300_000_000,
         )?;
         transfer_tokens(
@@ -189,7 +192,7 @@ mod tests {
             &relayer_authority_kp,
             &relayer_authority_kp,
             &coin_token_mint,
-            &controller_pk,
+            &controller_authority,
             600_000_000,
         )?;
 
@@ -233,6 +236,7 @@ mod tests {
             pc_token_mint,
             coin_token_mint,
             controller_pk,
+            controller_authority,
             atomic_swap_integration_pk,
             relayer_pc,
             relayer_coin,
@@ -835,6 +839,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
+        println!("LOGS {:?}", res.clone().err().unwrap().meta.logs);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when repay is not the last ix.
@@ -1218,7 +1223,7 @@ mod tests {
             &swap_env.relayer_authority_kp,
             &swap_env.relayer_authority_kp,
             &swap_env.pc_token_mint,
-            &swap_env.controller_pk,
+            &swap_env.controller_authority,
             reserve_pc_pre.rate_limit_max_outflow * 2,
         )?;
 

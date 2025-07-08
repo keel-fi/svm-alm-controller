@@ -8,6 +8,7 @@
 use crate::generated::types::ControllerStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -15,10 +16,16 @@ pub struct Controller {
     pub id: u16,
     pub bump: u8,
     pub status: ControllerStatus,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub authority: Pubkey,
+    pub authority_bump: u8,
 }
 
 impl Controller {
-    pub const LEN: usize = 4;
+    pub const LEN: usize = 37;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

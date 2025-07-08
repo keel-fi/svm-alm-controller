@@ -1,5 +1,5 @@
 use crate::{
-    constants::CONTROLLER_SEED,
+    constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -198,10 +198,20 @@ pub fn process_push_spl_token_swap(
     }
 
     // // Perform a SYNC on Reserve A
-    reserve_a.sync_balance(inner_ctx.vault_a, outer_ctx.controller, controller)?;
+    reserve_a.sync_balance(
+        inner_ctx.vault_a,
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        controller,
+    )?;
 
     // Perform a SYNC on Reserve B
-    reserve_b.sync_balance(inner_ctx.vault_b, outer_ctx.controller, controller)?;
+    reserve_b.sync_balance(
+        inner_ctx.vault_b,
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        controller,
+    )?;
 
     // // Perform SYNC on LP Tokens
 
@@ -243,7 +253,8 @@ pub fn process_push_spl_token_swap(
     // Emit the accounting events for the change in A and B's relative balances
     if last_balance_a != step_1_balance_a {
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -256,7 +267,8 @@ pub fn process_push_spl_token_swap(
     }
     if last_balance_b != step_1_balance_b {
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -292,7 +304,8 @@ pub fn process_push_spl_token_swap(
         }
         // Emit the accounting events for the change in A and B's relative balances
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -303,7 +316,8 @@ pub fn process_push_spl_token_swap(
             }),
         )?;
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -325,14 +339,14 @@ pub fn process_push_spl_token_swap(
         deposit_single_token_type_exact_amount_in_cpi(
             amount_a,
             Signer::from(&[
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller_id_bytes),
-                Seed::from(&[controller_bump]),
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
             ]),
             *inner_ctx.swap_program.key(),
             inner_ctx.swap,
             inner_ctx.swap_authority,
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
             inner_ctx.vault_a,
             inner_ctx.swap_token_a,
             inner_ctx.swap_token_b,
@@ -347,14 +361,14 @@ pub fn process_push_spl_token_swap(
         deposit_single_token_type_exact_amount_in_cpi(
             amount_b,
             Signer::from(&[
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller_id_bytes),
-                Seed::from(&[controller_bump]),
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
             ]),
             *inner_ctx.swap_program.key(),
             inner_ctx.swap,
             inner_ctx.swap_authority,
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
             inner_ctx.vault_b,
             inner_ctx.swap_token_a,
             inner_ctx.swap_token_b,
@@ -399,7 +413,8 @@ pub fn process_push_spl_token_swap(
     // Emit the accounting event
     if step_2_balance_a != post_deposit_balance_a {
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -413,7 +428,8 @@ pub fn process_push_spl_token_swap(
     // Emit the accounting event
     if step_2_balance_b != post_deposit_balance_b {
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),

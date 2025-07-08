@@ -15,6 +15,7 @@ define_account_struct! {
     pub struct ManagePermissionAccounts<'info> {
         payer: signer, mut;
         controller: @owner(crate::ID);
+        controller_authority;
         super_authority: signer;
         super_permission: @owner(crate::ID);
         authority;
@@ -105,7 +106,8 @@ pub fn process_manage_permission(
 
     // Emit the event
     controller.emit_event(
-        ctx.controller,
+        ctx.controller_authority,
+        ctx.controller.key(),
         SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
             controller: *ctx.controller.key(),
             permission: *ctx.permission.key(),

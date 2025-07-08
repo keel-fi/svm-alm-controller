@@ -13,6 +13,7 @@ define_account_struct! {
         payer: signer, mut;
         authority: signer;
         controller: mut, empty, @owner(pinocchio_system::ID);
+        controller_authority;
         permission: mut, empty, @owner(pinocchio_system::ID);
         system_program: @pubkey(pinocchio_system::ID);
     }
@@ -31,7 +32,13 @@ pub fn process_initialize_controller(
     let args = InitializeControllerArgs::try_from_slice(instruction_data).unwrap();
 
     // Initialize the controller data
-    let controller = Controller::init_account(ctx.controller, ctx.payer, args.id, args.status)?;
+    let controller = Controller::init_account(
+        ctx.controller,
+        ctx.controller_authority,
+        ctx.payer,
+        args.id,
+        args.status,
+    )?;
 
     // Initialize the controller data
     Permission::init_account(
@@ -51,7 +58,8 @@ pub fn process_initialize_controller(
 
     // Emit the event
     controller.emit_event(
-        ctx.controller,
+        ctx.controller_authority,
+        ctx.controller.key(),
         SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
             controller: *ctx.controller.key(),
             authority: *ctx.authority.key(),

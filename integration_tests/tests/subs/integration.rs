@@ -7,8 +7,7 @@ use crate::{
         },
     },
     subs::{
-        derive_permission_pda, derive_reserve_pda, derive_swap_authority_pda_and_bump,
-        get_mint_supply_or_zero,
+        derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda, derive_swap_authority_pda_and_bump, get_mint_supply_or_zero
     },
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -33,6 +32,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use svm_alm_controller::state::controller;
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
@@ -86,6 +86,7 @@ pub fn initialize_integration(
     inner_args: &InitializeArgs,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let description_bytes = description.as_bytes();
     let mut description_encoding: [u8; 32] = [0; 32];
@@ -377,6 +378,7 @@ pub fn initialize_integration(
         .inner_args(inner_args.clone())
         .payer(payer.pubkey())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(integration_pda)
@@ -441,12 +443,14 @@ pub fn manage_integration(
     rate_limit_max_outflow: u64,
 ) -> Result<(), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let ixn = ManageIntegrationBuilder::new()
         .status(status)
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
@@ -503,6 +507,7 @@ pub async fn push_integration(
     push_args: &PushArgs,
 ) -> Result<TransactionResult, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
@@ -524,7 +529,7 @@ pub async fn push_integration(
         IntegrationConfig::SplTokenExternal(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault =
-                get_associated_token_address_with_program_id(controller, &c.mint, &c.program);
+                get_associated_token_address_with_program_id(&controller_authority, &c.mint, &c.program);
             reserve_a_before =
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
@@ -538,12 +543,12 @@ pub async fn push_integration(
             let token_program_a = Pubkey::from(pinocchio_token::ID);
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );
@@ -562,7 +567,7 @@ pub async fn push_integration(
         IntegrationConfig::CctpBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
@@ -577,7 +582,7 @@ pub async fn push_integration(
         IntegrationConfig::LzBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
@@ -601,7 +606,7 @@ pub async fn push_integration(
         IntegrationConfig::SplTokenExternal(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault =
-                get_associated_token_address_with_program_id(controller, &c.mint, &c.program);
+                get_associated_token_address_with_program_id(&controller_authority, &c.mint, &c.program);
             (
                 reserve_pda,
                 reserve_pda, // pass same reserve twice
@@ -652,17 +657,17 @@ pub async fn push_integration(
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let token_program_lp = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );
             let vault_lp = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.lp_mint,
                 &token_program_lp,
             );
@@ -773,7 +778,7 @@ pub async fn push_integration(
         IntegrationConfig::CctpBridge(c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
@@ -865,7 +870,7 @@ pub async fn push_integration(
         IntegrationConfig::LzBridge(c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
@@ -996,6 +1001,7 @@ pub async fn push_integration(
     let main_ixn = PushBuilder::new()
         .push_args(push_args.clone())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
@@ -1035,7 +1041,7 @@ pub async fn push_integration(
         IntegrationConfig::SplTokenExternal(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault =
-                get_associated_token_address_with_program_id(controller, &c.mint, &c.program);
+                get_associated_token_address_with_program_id(&controller_authority, &c.mint, &c.program);
             let reserve_a_after =
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
@@ -1060,12 +1066,12 @@ pub async fn push_integration(
             let token_program_a = Pubkey::from(pinocchio_token::ID);
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );
@@ -1084,7 +1090,7 @@ pub async fn push_integration(
         IntegrationConfig::CctpBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
@@ -1115,7 +1121,7 @@ pub async fn push_integration(
         IntegrationConfig::LzBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint,
                 &pinocchio_token::ID.into(),
             );
@@ -1157,6 +1163,7 @@ pub fn pull_integration(
     pull_args: &PullArgs,
 ) -> Result<(), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority  = derive_controller_authority_pda(controller);
 
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
@@ -1178,12 +1185,12 @@ pub fn pull_integration(
             let token_program_a = Pubkey::from(pinocchio_token::ID);
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );
@@ -1211,17 +1218,17 @@ pub fn pull_integration(
                 let token_program_b = Pubkey::from(pinocchio_token::ID);
                 let token_program_lp = Pubkey::from(pinocchio_token::ID);
                 let vault_a = get_associated_token_address_with_program_id(
-                    controller,
+                    &controller_authority,
                     &c.mint_a,
                     &token_program_a,
                 );
                 let vault_b = get_associated_token_address_with_program_id(
-                    controller,
+                    &controller_authority,
                     &c.mint_b,
                     &token_program_b,
                 );
                 let vault_lp = get_associated_token_address_with_program_id(
-                    controller,
+                    &controller_authority,
                     &c.lp_mint,
                     &token_program_lp,
                 );
@@ -1337,6 +1344,7 @@ pub fn pull_integration(
     let main_ixn = PullBuilder::new()
         .pull_args(pull_args.clone())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
@@ -1371,12 +1379,12 @@ pub fn pull_integration(
             let token_program_a = Pubkey::from(pinocchio_token::ID);
             let token_program_b = Pubkey::from(pinocchio_token::ID);
             let vault_a = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_a,
                 &token_program_a,
             );
             let vault_b = get_associated_token_address_with_program_id(
-                controller,
+                &controller_authority,
                 &c.mint_b,
                 &token_program_b,
             );

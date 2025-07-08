@@ -1,5 +1,5 @@
 use crate::{
-    constants::CONTROLLER_SEED,
+    constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -150,11 +150,13 @@ pub fn process_push_cctp_bridge(
     }
 
     // Sync the balance before doing anything else
-    reserve.sync_balance(inner_ctx.vault, outer_ctx.controller, controller)?;
+    reserve.sync_balance(
+        inner_ctx.vault,
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        controller,
+    )?;
     let post_sync_balance = reserve.last_balance;
-
-    let controller_id_bytes = controller.id.to_le_bytes();
-    let controller_bump = controller.bump;
 
     // Perform the CPI to deposit and burn
     deposit_for_burn_cpi(
@@ -162,11 +164,11 @@ pub fn process_push_cctp_bridge(
         destination_domain,
         destination_address,
         Signer::from(&[
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&controller_id_bytes),
-            Seed::from(&[controller_bump]),
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(outer_ctx.controller.key()),
+            Seed::from(&[controller.authority_bump]),
         ]),
-        outer_ctx.controller,
+        outer_ctx.controller_authority,
         outer_ctx.authority,
         inner_ctx.sender_authority_pda,
         inner_ctx.vault,
@@ -205,7 +207,8 @@ pub fn process_push_cctp_bridge(
 
     // Emit the accounting event
     controller.emit_event(
-        outer_ctx.controller,
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
             integration: *outer_ctx.integration.key(),

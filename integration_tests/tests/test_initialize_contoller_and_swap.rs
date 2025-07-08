@@ -19,7 +19,7 @@ mod tests {
 
     use crate::{
         helpers::constants::NOVA_TOKEN_SWAP_PROGRAM_ID,
-        subs::{initialize_swap, pull_integration},
+        subs::{derive_controller_authority_pda, initialize_swap, pull_integration},
     };
 
     use super::*;
@@ -47,6 +47,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Update the authority to have all permissions
         let _ = manage_permission(
@@ -113,7 +114,7 @@ mod tests {
             &authority,
             &authority,
             &usds_mint,
-            &controller_pk,
+            &controller_authority,
             1_000_000_000, // 1k
         )?;
         mint_tokens(
@@ -121,7 +122,7 @@ mod tests {
             &authority,
             &authority,
             &susds_mint,
-            &controller_pk,
+            &controller_authority,
             1_000_000_000, // 1k
         )?;
 

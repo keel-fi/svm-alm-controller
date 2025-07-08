@@ -32,7 +32,7 @@ pub fn deposit_for_burn_cpi(
     destination_domain: u32,
     mint_recipient: Pubkey,
     signer: Signer,
-    controller: &AccountInfo,
+    controller_authority: &AccountInfo,
     event_rent_payer: &AccountInfo,
     sender_authority_pda: &AccountInfo,
     vault: &AccountInfo,
@@ -62,7 +62,7 @@ pub fn deposit_for_burn_cpi(
             program_id: &*token_messenger_minter_program.key(),
             data: &data,
             accounts: &[
-                AccountMeta::readonly_signer(controller.key()),
+                AccountMeta::readonly_signer(controller_authority.key()),
                 AccountMeta::writable_signer(event_rent_payer.key()),
                 AccountMeta::readonly(sender_authority_pda.key()),
                 AccountMeta::writable(vault.key()),
@@ -82,7 +82,7 @@ pub fn deposit_for_burn_cpi(
             ],
         },
         &[
-            controller, // owner
+            controller_authority, // owner
             event_rent_payer,
             sender_authority_pda,
             vault, // burn_token_account,

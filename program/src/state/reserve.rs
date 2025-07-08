@@ -230,13 +230,14 @@ impl Reserve {
     pub fn sync_balance(
         &mut self,
         vault_info: &AccountInfo,
-        controller_info: &AccountInfo,
+        controller_authority_info: &AccountInfo,
+        controller_key: &Pubkey,
         controller: &Controller,
     ) -> Result<(), ProgramError> {
         if vault_info.key().ne(&self.vault) {
             return Err(ProgramError::InvalidAccountData);
         }
-        if controller_info.key().ne(&self.controller) {
+        if controller_key.ne(&self.controller) {
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -267,7 +268,8 @@ impl Reserve {
             }
 
             controller.emit_event(
-                controller_info,
+                controller_authority_info,
+                controller_key,
                 SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                     controller: self.controller,
                     // REVIEW: Should this be an Integration's pubkey?

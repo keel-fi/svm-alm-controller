@@ -37,7 +37,7 @@ mod tests {
         transaction::Transaction,
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller::{error::SvmAlmControllerErrors, state::controller};
     use svm_alm_controller_client::generated::{instructions::PushBuilder, types::LzBridgeConfig};
 
     use crate::{
@@ -49,7 +49,7 @@ mod tests {
                 LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY, LZ_USDS_PEER_CONFIG_PUBKEY,
             },
         },
-        subs::{derive_permission_pda, derive_reserve_pda},
+        subs::{derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda},
     };
 
     use super::*;
@@ -57,7 +57,7 @@ mod tests {
     fn setup_env(
         svm: &mut LiteSVM,
     ) -> Result<(Pubkey, Pubkey, Keypair), Box<dyn std::error::Error>> {
-        let authority = Keypair::new();
+        let authority: Keypair = Keypair::new();
 
         // Airdrop to payer
         airdrop_lamports(svm, &authority.pubkey(), 1_000_000_000)?;
@@ -85,6 +85,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Update the authority to have all permissions
         let _ = manage_permission(
@@ -121,7 +122,7 @@ mod tests {
             &authority,
             &authority,
             &USDS_TOKEN_MINT_PUBKEY,
-            &controller_pk,
+            &controller_authority,
             500_000_000,
         )?;
 
@@ -164,8 +165,9 @@ mod tests {
     ) -> Result<Instruction, Box<dyn std::error::Error>> {
         let calling_permission_pda = derive_permission_pda(&controller, &authority.pubkey());
         let reserve_pda = derive_reserve_pda(&controller, &USDS_TOKEN_MINT_PUBKEY);
+        let controller_authority = derive_controller_authority_pda(controller);
         let vault = get_associated_token_address_with_program_id(
-            &controller,
+            &controller_authority,
             &USDS_TOKEN_MINT_PUBKEY,
             &pinocchio_token::ID.into(),
         );
@@ -179,6 +181,7 @@ mod tests {
         let main_ixn = PushBuilder::new()
             .push_args(PushArgs::LzBridge { amount })
             .controller(*controller)
+            .controller_authority(controller_authority)
             .authority(authority.pubkey())
             .permission(calling_permission_pda)
             .integration(*integration)

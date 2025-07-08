@@ -13,6 +13,8 @@ use borsh::BorshSerialize;
 pub struct Sync {
     pub controller: solana_program::pubkey::Pubkey,
 
+    pub controller_authority: solana_program::pubkey::Pubkey,
+
     pub integration: solana_program::pubkey::Pubkey,
 }
 
@@ -26,9 +28,13 @@ impl Sync {
         &self,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(2 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(3 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.controller_authority,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
@@ -69,10 +75,12 @@ impl Default for SyncInstructionData {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[writable]` integration
+///   1. `[]` controller_authority
+///   2. `[writable]` integration
 #[derive(Clone, Debug, Default)]
 pub struct SyncBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
+    controller_authority: Option<solana_program::pubkey::Pubkey>,
     integration: Option<solana_program::pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -84,6 +92,14 @@ impl SyncBuilder {
     #[inline(always)]
     pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -113,6 +129,9 @@ impl SyncBuilder {
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
         let accounts = Sync {
             controller: self.controller.expect("controller is not set"),
+            controller_authority: self
+                .controller_authority
+                .expect("controller_authority is not set"),
             integration: self.integration.expect("integration is not set"),
         };
 
@@ -124,6 +143,8 @@ impl SyncBuilder {
 pub struct SyncCpiAccounts<'a, 'b> {
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
@@ -133,6 +154,8 @@ pub struct SyncCpi<'a, 'b> {
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 }
@@ -145,6 +168,7 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
         Self {
             __program: program,
             controller: accounts.controller,
+            controller_authority: accounts.controller_authority,
             integration: accounts.integration,
         }
     }
@@ -182,9 +206,13 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(2 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(3 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.controller_authority.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
@@ -205,9 +233,10 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(3 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(4 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
+        account_infos.push(self.controller_authority.clone());
         account_infos.push(self.integration.clone());
         remaining_accounts
             .iter()
@@ -226,7 +255,8 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[writable]` integration
+///   1. `[]` controller_authority
+///   2. `[writable]` integration
 #[derive(Clone, Debug)]
 pub struct SyncCpiBuilder<'a, 'b> {
     instruction: Box<SyncCpiBuilderInstruction<'a, 'b>>,
@@ -237,6 +267,7 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
         let instruction = Box::new(SyncCpiBuilderInstruction {
             __program: program,
             controller: None,
+            controller_authority: None,
             integration: None,
             __remaining_accounts: Vec::new(),
         });
@@ -248,6 +279,14 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
         controller: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -304,6 +343,11 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
 
             controller: self.instruction.controller.expect("controller is not set"),
 
+            controller_authority: self
+                .instruction
+                .controller_authority
+                .expect("controller_authority is not set"),
+
             integration: self
                 .instruction
                 .integration
@@ -320,6 +364,7 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
 struct SyncCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

@@ -4,10 +4,13 @@ use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
 };
 use std::error::Error;
+use svm_alm_controller::state::controller;
 use svm_alm_controller_client::generated::{
     accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID,
     types::PermissionStatus,
 };
+
+use crate::subs::derive_controller_authority_pda;
 
 pub fn derive_permission_pda(controller_pda: &Pubkey, authority: &Pubkey) -> Pubkey {
     let (permission_pda, _permission_bump) = Pubkey::find_program_address(
@@ -57,6 +60,7 @@ pub fn manage_permission(
 ) -> Result<Pubkey, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &calling_authority.pubkey());
     let calling_permission_account_before = fetch_permission_account(svm, &calling_permission_pda)?;
+    let controller_authority = derive_controller_authority_pda(controller);
 
     // Ensure the calling permission exists before the transaction
     assert!(
@@ -77,6 +81,7 @@ pub fn manage_permission(
         .can_manage_integrations(can_manage_integrations)
         .payer(payer.pubkey())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .super_authority(calling_authority.pubkey())
         .super_permission(calling_permission_pda)
         .authority(*subject_authority)

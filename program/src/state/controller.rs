@@ -3,7 +3,7 @@ use super::{
     nova_account::NovaAccount,
 };
 use crate::{
-    constants::CONTROLLER_SEED,
+    constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     enums::ControllerStatus,
     events::SvmAlmControllerEvent,
     processor::shared::{create_pda_account, emit_cpi},
@@ -13,7 +13,7 @@ use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
 use pinocchio_token::instructions::Transfer;
@@ -26,6 +26,8 @@ pub struct Controller {
     pub id: u16,
     pub bump: u8,
     pub status: ControllerStatus,
+    pub authority: Pubkey,
+    pub authority_bump: u8,
 }
 
 impl Discriminator for Controller {
@@ -33,7 +35,8 @@ impl Discriminator for Controller {
 }
 
 impl NovaAccount for Controller {
-    const LEN: usize = 4;
+    // id + bump + status + authority + authority_bump
+    const LEN: usize = 2 + 1 + 1 + 32 + 1;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         Self::derive_pda_bytes(self.id)
@@ -47,6 +50,14 @@ impl Controller {
             &SolanaPubkey::from(crate::ID),
         );
         Ok((pda.to_bytes(), bump))
+    }
+
+    pub fn derive_authority(controller: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+        try_find_program_address(
+            &[CONTROLLER_AUTHORITY_SEED, controller.as_ref()],
+            &crate::ID,
+        )
+        .ok_or(ProgramError::InvalidSeeds)
     }
 
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
@@ -72,6 +83,7 @@ impl Controller {
 
     pub fn init_account(
         account_info: &AccountInfo,
+        authority_info: &AccountInfo,
         payer_info: &AccountInfo,
         id: u16,
         status: ControllerStatus,
@@ -83,11 +95,22 @@ impl Controller {
             return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
         }
 
+        // Derive authority PDA that has no SOL or data
+        let (controller_authority, controller_authority_bump) =
+            Controller::derive_authority(account_info.key())?;
+
+        if authority_info.key().ne(&controller_authority) {
+            // Authority PDA was invalid
+            return Err(ProgramError::InvalidSeeds.into());
+        }
+
         // Create and serialize the controller
         let controller = Controller {
             id,
             bump: bump,
             status,
+            authority: controller_authority,
+            authority_bump: controller_authority_bump,
         };
 
         // Account creation PDA
@@ -134,16 +157,17 @@ impl Controller {
 
     pub fn emit_event(
         &self,
-        controller_info: &AccountInfo,
+        authority_info: &AccountInfo,
+        controller: &Pubkey,
         event: SvmAlmControllerEvent,
     ) -> Result<(), ProgramError> {
         // Emit the Event to record the update
         emit_cpi(
-            controller_info,
+            authority_info,
             [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&self.id.to_le_bytes()),
-                Seed::from(&[self.bump]),
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(controller),
+                Seed::from(&[self.authority_bump]),
             ],
             &self.id.to_le_bytes(),
             event,
@@ -154,6 +178,7 @@ impl Controller {
     pub fn transfer_tokens(
         &self,
         controller: &AccountInfo,
+        controller_authority: &AccountInfo,
         vault: &AccountInfo,
         recipient_token_account: &AccountInfo,
         amount: u64,
@@ -161,13 +186,13 @@ impl Controller {
         Transfer {
             from: vault,
             to: recipient_token_account,
-            authority: controller,
+            authority: controller_authority,
             amount,
         }
         .invoke_signed(&[Signer::from(&[
-            Seed::from(CONTROLLER_SEED),
-            Seed::from(&self.id.to_le_bytes()),
-            Seed::from(&[self.bump]),
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(controller.key()),
+            Seed::from(&[self.authority_bump]),
         ])])?;
         Ok(())
     }

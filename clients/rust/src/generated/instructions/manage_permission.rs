@@ -16,6 +16,8 @@ pub struct ManagePermission {
 
     pub controller: solana_program::pubkey::Pubkey,
 
+    pub controller_authority: solana_program::pubkey::Pubkey,
+
     pub super_authority: solana_program::pubkey::Pubkey,
 
     pub super_permission: solana_program::pubkey::Pubkey,
@@ -41,12 +43,16 @@ impl ManagePermission {
         args: ManagePermissionInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.controller_authority,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -119,15 +125,17 @@ pub struct ManagePermissionInstructionArgs {
 ///
 ///   0. `[writable, signer]` payer
 ///   1. `[]` controller
-///   2. `[signer]` super_authority
-///   3. `[]` super_permission
-///   4. `[]` authority
-///   5. `[writable]` permission
-///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   2. `[]` controller_authority
+///   3. `[signer]` super_authority
+///   4. `[]` super_permission
+///   5. `[]` authority
+///   6. `[writable]` permission
+///   7. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ManagePermissionBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
     controller: Option<solana_program::pubkey::Pubkey>,
+    controller_authority: Option<solana_program::pubkey::Pubkey>,
     super_authority: Option<solana_program::pubkey::Pubkey>,
     super_permission: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
@@ -156,6 +164,14 @@ impl ManagePermissionBuilder {
     #[inline(always)]
     pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -256,6 +272,9 @@ impl ManagePermissionBuilder {
         let accounts = ManagePermission {
             payer: self.payer.expect("payer is not set"),
             controller: self.controller.expect("controller is not set"),
+            controller_authority: self
+                .controller_authority
+                .expect("controller_authority is not set"),
             super_authority: self.super_authority.expect("super_authority is not set"),
             super_permission: self.super_permission.expect("super_permission is not set"),
             authority: self.authority.expect("authority is not set"),
@@ -300,6 +319,8 @@ pub struct ManagePermissionCpiAccounts<'a, 'b> {
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub super_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub super_permission: &'b solana_program::account_info::AccountInfo<'a>,
@@ -319,6 +340,8 @@ pub struct ManagePermissionCpi<'a, 'b> {
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub super_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -343,6 +366,7 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
             __program: program,
             payer: accounts.payer,
             controller: accounts.controller,
+            controller_authority: accounts.controller_authority,
             super_authority: accounts.super_authority,
             super_permission: accounts.super_permission,
             authority: accounts.authority,
@@ -385,13 +409,17 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.controller_authority.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -430,10 +458,11 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
+        account_infos.push(self.controller_authority.clone());
         account_infos.push(self.super_authority.clone());
         account_infos.push(self.super_permission.clone());
         account_infos.push(self.authority.clone());
@@ -457,11 +486,12 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
 ///
 ///   0. `[writable, signer]` payer
 ///   1. `[]` controller
-///   2. `[signer]` super_authority
-///   3. `[]` super_permission
-///   4. `[]` authority
-///   5. `[writable]` permission
-///   6. `[]` system_program
+///   2. `[]` controller_authority
+///   3. `[signer]` super_authority
+///   4. `[]` super_permission
+///   5. `[]` authority
+///   6. `[writable]` permission
+///   7. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ManagePermissionCpiBuilder<'a, 'b> {
     instruction: Box<ManagePermissionCpiBuilderInstruction<'a, 'b>>,
@@ -473,6 +503,7 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
             __program: program,
             payer: None,
             controller: None,
+            controller_authority: None,
             super_authority: None,
             super_permission: None,
             authority: None,
@@ -501,6 +532,14 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
         controller: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -672,6 +711,11 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
 
             controller: self.instruction.controller.expect("controller is not set"),
 
+            controller_authority: self
+                .instruction
+                .controller_authority
+                .expect("controller_authority is not set"),
+
             super_authority: self
                 .instruction
                 .super_authority
@@ -704,6 +748,7 @@ struct ManagePermissionCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     super_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     super_permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,

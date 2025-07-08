@@ -7,6 +7,7 @@ use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 define_account_struct! {
     pub struct SyncReserveAccounts<'info> {
         controller: @owner(crate::ID);
+        controller_authority;
         reserve: mut, @owner(crate::ID);
         vault;
     }
@@ -29,7 +30,12 @@ pub fn process_sync_reserve(
 
     // Call the method to synchronize the reserve's state
     //  and rate limits
-    reserve.sync_balance(ctx.vault, ctx.controller, &controller)?;
+    reserve.sync_balance(
+        ctx.vault,
+        ctx.controller_authority,
+        ctx.controller.key(),
+        &controller,
+    )?;
 
     // Save the state
     reserve.save(ctx.reserve)?;

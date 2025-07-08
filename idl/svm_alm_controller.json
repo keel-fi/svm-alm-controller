@@ -43,6 +43,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "permission",
           "isMut": true,
           "isSigner": false
@@ -76,6 +81,11 @@
         },
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },
@@ -128,6 +138,11 @@
         },
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },
@@ -194,6 +209,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -232,6 +252,11 @@
         },
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },
@@ -283,6 +308,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -325,6 +355,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "reserve",
           "isMut": true,
           "isSigner": false
@@ -362,6 +397,11 @@
           "isSigner": false
         },
         {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "integration",
           "isMut": true,
           "isSigner": false
@@ -385,6 +425,11 @@
       "accounts": [
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },
@@ -432,6 +477,11 @@
       "accounts": [
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },
@@ -579,6 +629,11 @@
       "accounts": [
         {
           "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
           "isMut": false,
           "isSigner": false
         },
@@ -748,6 +803,14 @@
             "type": {
               "defined": "ControllerStatus"
             }
+          },
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "authorityBump",
+            "type": "u8"
           }
         ]
       }
