@@ -35,10 +35,12 @@ pub struct Integration {
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,
     pub state: IntegrationState,
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 64],
 }
 
 impl Integration {
-    pub const LEN: usize = 443;
+    pub const LEN: usize = 507;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

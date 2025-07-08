@@ -892,6 +892,15 @@
             "type": {
               "defined": "IntegrationState"
             }
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
           }
         ]
       }

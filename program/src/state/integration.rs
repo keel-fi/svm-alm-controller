@@ -32,6 +32,7 @@ pub struct Integration {
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,
     pub state: IntegrationState,
+    pub _padding: [u8; 64],
 }
 
 impl Discriminator for Integration {
@@ -39,7 +40,7 @@ impl Discriminator for Integration {
 }
 
 impl NovaAccount for Integration {
-    const LEN: usize = 4 * 32 + 1 + 225 + 49 + 8 * 5;
+    const LEN: usize = 4 * 32 + 1 + 5 * 8 + 225 + 49 + 64;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         let (pda, bump) = find_program_address(
@@ -123,6 +124,7 @@ impl Integration {
             rate_limit_amount_last_update: rate_limit_max_outflow,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
+            _padding: [0; 64],
         };
 
         // Derive the PDA
