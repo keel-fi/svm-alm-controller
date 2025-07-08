@@ -61,7 +61,6 @@ pub fn process_initialize_lz_bridge(
         } => (desination_address, destination_eid),
         _ => return Err(ProgramError::InvalidArgument),
     };
-    msg!("a");
 
     // Load in the LZ OFT Store Account and verify the mint matches
     let oft_store =
@@ -70,7 +69,6 @@ pub fn process_initialize_lz_bridge(
         msg! {"mint: does not match oft_store state"};
         return Err(ProgramError::InvalidAccountData);
     }
-    msg!("b");
 
     // Check the PDA of the peer_config exists for this desination_eid
     let (expected_peer_config_pda, _bump) = try_find_program_address(

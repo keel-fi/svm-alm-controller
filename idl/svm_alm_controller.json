@@ -1053,6 +1053,15 @@
           {
             "name": "lastRefreshSlot",
             "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }

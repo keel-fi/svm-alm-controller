@@ -200,13 +200,10 @@ pub fn process_atomic_swap_borrow(
 
     verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
 
-    msg!("HERE 4");
-
     reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
     reserve_b.save(ctx.reserve_b)?;
 
-    msg!("HERE 5");
     // Update rate limit to track outflow of input_tokens for integration.
     integration.update_rate_limit_for_outflow(clock, args.amount)?;
     integration.save(ctx.integration)?;

@@ -406,7 +406,6 @@ pub fn process_push_spl_token_swap(
     }
     drop(swap_token_a);
     drop(swap_token_b);
-    msg! {"f"};
 
     // Emit the accounting event
     if step_2_balance_a != post_deposit_balance_a {
@@ -438,7 +437,6 @@ pub fn process_push_spl_token_swap(
             }),
         )?;
     }
-    msg! {"g"};
 
     // Update the state for the changes in balances
     match &mut integration.state {
