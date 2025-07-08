@@ -21,6 +21,8 @@ pub struct ManageReserve {
     pub permission: solana_program::pubkey::Pubkey,
 
     pub reserve: solana_program::pubkey::Pubkey,
+
+    pub program_id: solana_program::pubkey::Pubkey,
 }
 
 impl ManageReserve {
@@ -37,7 +39,7 @@ impl ManageReserve {
         args: ManageReserveInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
@@ -56,6 +58,10 @@ impl ManageReserve {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.reserve,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.program_id,
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
@@ -106,6 +112,7 @@ pub struct ManageReserveInstructionArgs {
 ///   2. `[signer]` authority
 ///   3. `[]` permission
 ///   4. `[writable]` reserve
+///   5. `[]` program_id
 #[derive(Clone, Debug, Default)]
 pub struct ManageReserveBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
@@ -113,6 +120,7 @@ pub struct ManageReserveBuilder {
     authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
     reserve: Option<solana_program::pubkey::Pubkey>,
+    program_id: Option<solana_program::pubkey::Pubkey>,
     status: Option<ReserveStatus>,
     rate_limit_slope: Option<u64>,
     rate_limit_max_outflow: Option<u64>,
@@ -149,6 +157,11 @@ impl ManageReserveBuilder {
     #[inline(always)]
     pub fn reserve(&mut self, reserve: solana_program::pubkey::Pubkey) -> &mut Self {
         self.reserve = Some(reserve);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.program_id = Some(program_id);
         self
     }
     /// `[optional argument]`
@@ -197,6 +210,7 @@ impl ManageReserveBuilder {
             authority: self.authority.expect("authority is not set"),
             permission: self.permission.expect("permission is not set"),
             reserve: self.reserve.expect("reserve is not set"),
+            program_id: self.program_id.expect("program_id is not set"),
         };
         let args = ManageReserveInstructionArgs {
             status: self.status.clone(),
@@ -219,6 +233,8 @@ pub struct ManageReserveCpiAccounts<'a, 'b> {
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 /// `manage_reserve` CPI instruction.
@@ -235,6 +251,8 @@ pub struct ManageReserveCpi<'a, 'b> {
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: ManageReserveInstructionArgs,
 }
@@ -252,6 +270,7 @@ impl<'a, 'b> ManageReserveCpi<'a, 'b> {
             authority: accounts.authority,
             permission: accounts.permission,
             reserve: accounts.reserve,
+            program_id: accounts.program_id,
             __args: args,
         }
     }
@@ -289,7 +308,7 @@ impl<'a, 'b> ManageReserveCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
@@ -310,6 +329,10 @@ impl<'a, 'b> ManageReserveCpi<'a, 'b> {
             *self.reserve.key,
             false,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.program_id.key,
+            false,
+        ));
         remaining_accounts.iter().for_each(|remaining_account| {
             accounts.push(solana_program::instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
@@ -326,13 +349,14 @@ impl<'a, 'b> ManageReserveCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.permission.clone());
         account_infos.push(self.reserve.clone());
+        account_infos.push(self.program_id.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -354,6 +378,7 @@ impl<'a, 'b> ManageReserveCpi<'a, 'b> {
 ///   2. `[signer]` authority
 ///   3. `[]` permission
 ///   4. `[writable]` reserve
+///   5. `[]` program_id
 #[derive(Clone, Debug)]
 pub struct ManageReserveCpiBuilder<'a, 'b> {
     instruction: Box<ManageReserveCpiBuilderInstruction<'a, 'b>>,
@@ -368,6 +393,7 @@ impl<'a, 'b> ManageReserveCpiBuilder<'a, 'b> {
             authority: None,
             permission: None,
             reserve: None,
+            program_id: None,
             status: None,
             rate_limit_slope: None,
             rate_limit_max_outflow: None,
@@ -413,6 +439,14 @@ impl<'a, 'b> ManageReserveCpiBuilder<'a, 'b> {
         reserve: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.reserve = Some(reserve);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(
+        &mut self,
+        program_id: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.program_id = Some(program_id);
         self
     }
     /// `[optional argument]`
@@ -494,6 +528,8 @@ impl<'a, 'b> ManageReserveCpiBuilder<'a, 'b> {
             permission: self.instruction.permission.expect("permission is not set"),
 
             reserve: self.instruction.reserve.expect("reserve is not set"),
+
+            program_id: self.instruction.program_id.expect("program_id is not set"),
             __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
@@ -511,6 +547,7 @@ struct ManageReserveCpiBuilderInstruction<'a, 'b> {
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     reserve: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     status: Option<ReserveStatus>,
     rate_limit_slope: Option<u64>,
     rate_limit_max_outflow: Option<u64>,

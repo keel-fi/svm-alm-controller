@@ -23,6 +23,8 @@ pub struct ManageIntegration {
     pub integration: solana_program::pubkey::Pubkey,
 
     pub lookup_table: solana_program::pubkey::Pubkey,
+
+    pub program_id: solana_program::pubkey::Pubkey,
 }
 
 impl ManageIntegration {
@@ -39,7 +41,7 @@ impl ManageIntegration {
         args: ManageIntegrationInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
@@ -62,6 +64,10 @@ impl ManageIntegration {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.lookup_table,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.program_id,
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
@@ -114,6 +120,7 @@ pub struct ManageIntegrationInstructionArgs {
 ///   3. `[]` permission
 ///   4. `[writable]` integration
 ///   5. `[]` lookup_table
+///   6. `[]` program_id
 #[derive(Clone, Debug, Default)]
 pub struct ManageIntegrationBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
@@ -122,6 +129,7 @@ pub struct ManageIntegrationBuilder {
     permission: Option<solana_program::pubkey::Pubkey>,
     integration: Option<solana_program::pubkey::Pubkey>,
     lookup_table: Option<solana_program::pubkey::Pubkey>,
+    program_id: Option<solana_program::pubkey::Pubkey>,
     status: Option<IntegrationStatus>,
     description: Option<[u8; 32]>,
     rate_limit_slope: Option<u64>,
@@ -164,6 +172,11 @@ impl ManageIntegrationBuilder {
     #[inline(always)]
     pub fn lookup_table(&mut self, lookup_table: solana_program::pubkey::Pubkey) -> &mut Self {
         self.lookup_table = Some(lookup_table);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.program_id = Some(program_id);
         self
     }
     /// `[optional argument]`
@@ -219,6 +232,7 @@ impl ManageIntegrationBuilder {
             permission: self.permission.expect("permission is not set"),
             integration: self.integration.expect("integration is not set"),
             lookup_table: self.lookup_table.expect("lookup_table is not set"),
+            program_id: self.program_id.expect("program_id is not set"),
         };
         let args = ManageIntegrationInstructionArgs {
             status: self.status.clone(),
@@ -244,6 +258,8 @@ pub struct ManageIntegrationCpiAccounts<'a, 'b> {
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 /// `manage_integration` CPI instruction.
@@ -262,6 +278,8 @@ pub struct ManageIntegrationCpi<'a, 'b> {
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: ManageIntegrationInstructionArgs,
 }
@@ -280,6 +298,7 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
             permission: accounts.permission,
             integration: accounts.integration,
             lookup_table: accounts.lookup_table,
+            program_id: accounts.program_id,
             __args: args,
         }
     }
@@ -317,7 +336,7 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
@@ -342,6 +361,10 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
             *self.lookup_table.key,
             false,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.program_id.key,
+            false,
+        ));
         remaining_accounts.iter().for_each(|remaining_account| {
             accounts.push(solana_program::instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
@@ -358,7 +381,7 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
@@ -366,6 +389,7 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
         account_infos.push(self.permission.clone());
         account_infos.push(self.integration.clone());
         account_infos.push(self.lookup_table.clone());
+        account_infos.push(self.program_id.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -388,6 +412,7 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
 ///   3. `[]` permission
 ///   4. `[writable]` integration
 ///   5. `[]` lookup_table
+///   6. `[]` program_id
 #[derive(Clone, Debug)]
 pub struct ManageIntegrationCpiBuilder<'a, 'b> {
     instruction: Box<ManageIntegrationCpiBuilderInstruction<'a, 'b>>,
@@ -403,6 +428,7 @@ impl<'a, 'b> ManageIntegrationCpiBuilder<'a, 'b> {
             permission: None,
             integration: None,
             lookup_table: None,
+            program_id: None,
             status: None,
             description: None,
             rate_limit_slope: None,
@@ -457,6 +483,14 @@ impl<'a, 'b> ManageIntegrationCpiBuilder<'a, 'b> {
         lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.lookup_table = Some(lookup_table);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(
+        &mut self,
+        program_id: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.program_id = Some(program_id);
         self
     }
     /// `[optional argument]`
@@ -553,6 +587,8 @@ impl<'a, 'b> ManageIntegrationCpiBuilder<'a, 'b> {
                 .instruction
                 .lookup_table
                 .expect("lookup_table is not set"),
+
+            program_id: self.instruction.program_id.expect("program_id is not set"),
             __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
@@ -571,6 +607,7 @@ struct ManageIntegrationCpiBuilderInstruction<'a, 'b> {
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     lookup_table: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     status: Option<IntegrationStatus>,
     description: Option<[u8; 32]>,
     rate_limit_slope: Option<u64>,

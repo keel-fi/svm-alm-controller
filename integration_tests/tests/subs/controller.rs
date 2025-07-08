@@ -67,6 +67,7 @@ pub fn initialize_contoller(
         .controller(controller_pda)
         .controller_authority(controller_authority)
         .permission(permission_pda)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
         .instruction();
 

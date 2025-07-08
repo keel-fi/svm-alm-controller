@@ -15,6 +15,7 @@ define_account_struct! {
         controller: mut, empty, @owner(pinocchio_system::ID);
         controller_authority;
         permission: mut, empty, @owner(pinocchio_system::ID);
+        program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);
     }
 }

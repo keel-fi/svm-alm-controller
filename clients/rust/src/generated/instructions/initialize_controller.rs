@@ -22,6 +22,8 @@ pub struct InitializeController {
 
     pub permission: solana_program::pubkey::Pubkey,
 
+    pub program_id: solana_program::pubkey::Pubkey,
+
     pub system_program: solana_program::pubkey::Pubkey,
 }
 
@@ -39,7 +41,7 @@ impl InitializeController {
         args: InitializeControllerInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
@@ -57,6 +59,10 @@ impl InitializeController {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.permission,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.program_id,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -110,7 +116,8 @@ pub struct InitializeControllerInstructionArgs {
 ///   2. `[writable]` controller
 ///   3. `[writable]` controller_authority
 ///   4. `[writable]` permission
-///   5. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   5. `[]` program_id
+///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeControllerBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
@@ -118,6 +125,7 @@ pub struct InitializeControllerBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
     controller_authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
+    program_id: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
     id: Option<u16>,
     status: Option<ControllerStatus>,
@@ -154,6 +162,11 @@ impl InitializeControllerBuilder {
     #[inline(always)]
     pub fn permission(&mut self, permission: solana_program::pubkey::Pubkey) -> &mut Self {
         self.permission = Some(permission);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.program_id = Some(program_id);
         self
     }
     /// `[optional account, default to '11111111111111111111111111111111']`
@@ -200,6 +213,7 @@ impl InitializeControllerBuilder {
                 .controller_authority
                 .expect("controller_authority is not set"),
             permission: self.permission.expect("permission is not set"),
+            program_id: self.program_id.expect("program_id is not set"),
             system_program: self
                 .system_program
                 .unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
@@ -225,6 +239,8 @@ pub struct InitializeControllerCpiAccounts<'a, 'b> {
 
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
@@ -242,6 +258,8 @@ pub struct InitializeControllerCpi<'a, 'b> {
     pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
@@ -261,6 +279,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             controller: accounts.controller,
             controller_authority: accounts.controller_authority,
             permission: accounts.permission,
+            program_id: accounts.program_id,
             system_program: accounts.system_program,
             __args: args,
         }
@@ -299,7 +318,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
@@ -318,6 +337,10 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.permission.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.program_id.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -340,13 +363,14 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
         account_infos.push(self.permission.clone());
+        account_infos.push(self.program_id.clone());
         account_infos.push(self.system_program.clone());
         remaining_accounts
             .iter()
@@ -369,7 +393,8 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
 ///   2. `[writable]` controller
 ///   3. `[writable]` controller_authority
 ///   4. `[writable]` permission
-///   5. `[]` system_program
+///   5. `[]` program_id
+///   6. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct InitializeControllerCpiBuilder<'a, 'b> {
     instruction: Box<InitializeControllerCpiBuilderInstruction<'a, 'b>>,
@@ -384,6 +409,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
             controller: None,
             controller_authority: None,
             permission: None,
+            program_id: None,
             system_program: None,
             id: None,
             status: None,
@@ -426,6 +452,14 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
         permission: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.permission = Some(permission);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(
+        &mut self,
+        program_id: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.program_id = Some(program_id);
         self
     }
     #[inline(always)]
@@ -507,6 +541,8 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
 
             permission: self.instruction.permission.expect("permission is not set"),
 
+            program_id: self.instruction.program_id.expect("program_id is not set"),
+
             system_program: self
                 .instruction
                 .system_program
@@ -528,6 +564,7 @@ struct InitializeControllerCpiBuilderInstruction<'a, 'b> {
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     id: Option<u16>,
     status: Option<ControllerStatus>,

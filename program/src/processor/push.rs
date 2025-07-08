@@ -29,6 +29,7 @@ define_account_struct! {
         integration: mut, @owner(crate::ID);
         reserve_a: mut, @owner(crate::ID);
         reserve_b: mut, @owner(crate::ID);
+        program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
 }

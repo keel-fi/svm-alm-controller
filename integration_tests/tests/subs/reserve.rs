@@ -81,6 +81,7 @@ pub fn initialize_reserve(
         .vault(vault)
         .token_program(pinocchio_token::ID.into())
         .associated_token_program(pinocchio_associated_token_account::ID.into())
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
         .instruction();
 
@@ -150,6 +151,7 @@ pub fn manage_reserve(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .reserve(reserve_pda)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(

@@ -15,6 +15,7 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         reserve: mut, @owner(crate::ID);
+        program_id: @pubkey(crate::ID);
     }
 }
 

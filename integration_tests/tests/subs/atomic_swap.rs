@@ -76,6 +76,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         .vault_b(vault_b)
         .recipient_token_account(payer_account_a)
         .token_program(token_program_a)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .repay_excess_token_a(repay_excess_token_a)
         .amount(borrow_amount)
         .instruction();

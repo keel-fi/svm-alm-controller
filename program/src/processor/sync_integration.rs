@@ -18,6 +18,7 @@ define_account_struct! {
         controller: @owner(crate::ID);
         controller_authority;
         integration: mut, @owner(crate::ID);
+        program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
 }
