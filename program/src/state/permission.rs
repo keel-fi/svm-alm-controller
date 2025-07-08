@@ -28,6 +28,7 @@ pub struct Permission {
     pub can_freeze: bool,
     pub can_unfreeze: bool,
     pub can_manage_integrations: bool,
+    pub _padding: [u8; 32],
 }
 
 impl Discriminator for Permission {
@@ -35,7 +36,7 @@ impl Discriminator for Permission {
 }
 
 impl NovaAccount for Permission {
-    const LEN: usize = 65 + 7;
+    const LEN: usize = 65 + 7 + 32; 
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -117,6 +118,7 @@ impl Permission {
             can_freeze,
             can_unfreeze,
             can_manage_integrations,
+            _padding: [0; 32],
         };
 
         // Derive the PDA

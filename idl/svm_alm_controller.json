@@ -994,6 +994,15 @@
           {
             "name": "canManageIntegrations",
             "type": "bool"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
