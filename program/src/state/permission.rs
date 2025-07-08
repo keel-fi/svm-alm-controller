@@ -10,11 +10,10 @@ use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
 use shank::ShankAccount;
-use solana_program::pubkey::Pubkey as SolanaPubkey;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -39,15 +38,15 @@ impl NovaAccount for Permission {
     const LEN: usize = 65 + 7;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = SolanaPubkey::find_program_address(
+        try_find_program_address(
             &[
                 PERMISSION_SEED,
                 self.controller.as_ref(),
                 self.authority.as_ref(),
             ],
-            &SolanaPubkey::from(crate::ID),
-        );
-        Ok((pda.to_bytes(), bump))
+            &crate::ID,
+        )
+        .ok_or(ProgramError::InvalidSeeds)
     }
 }
 

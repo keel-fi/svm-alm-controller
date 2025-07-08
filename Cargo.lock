@@ -6725,7 +6725,6 @@ dependencies = [
  "pinocchio-token",
  "shank",
  "solana-keccak-hasher",
- "solana-program",
  "switchboard-on-demand",
 ]
 

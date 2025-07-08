@@ -1,5 +1,5 @@
 use crate::{
-    constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
+    constants::{CONTROLLER_AUTHORITY_SEED},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -136,8 +136,6 @@ pub fn process_push_spl_token_swap(
 
     // Get the current slot and time
     let clock = Clock::get()?;
-    let controller_id_bytes = controller.id.to_le_bytes();
-    let controller_bump = controller.bump;
 
     let (amount_a, amount_b) = match outer_args {
         PushArgs::SplTokenSwap { amount_a, amount_b } => (*amount_a, *amount_b),

@@ -16,12 +16,13 @@ use pinocchio::{
     instruction::Seed,
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
 use pinocchio_token::state::TokenAccount;
 use shank::ShankAccount;
-use solana_program::{clock::SECONDS_PER_DAY, pubkey::Pubkey as SolanaPubkey};
+
+const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -46,11 +47,11 @@ impl NovaAccount for Reserve {
     const LEN: usize = 32 * 3 + 8 * 6 + 1;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = SolanaPubkey::find_program_address(
+        try_find_program_address(
             &[RESERVE_SEED, self.controller.as_ref(), self.mint.as_ref()],
-            &SolanaPubkey::from(crate::ID),
-        );
-        Ok((pda.to_bytes(), bump))
+            &crate::ID,
+        )
+        .ok_or(ProgramError::InvalidSeeds)
     }
 }
 
@@ -183,7 +184,7 @@ impl Reserve {
                     .checked_sub(self.last_refresh_timestamp)
                     .unwrap() as u128
                 / SECONDS_PER_DAY as u128) as u64;
-            self.rate_limit_amount_last_update  = self
+            self.rate_limit_amount_last_update = self
                 .rate_limit_amount_last_update
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);

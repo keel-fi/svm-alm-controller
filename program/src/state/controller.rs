@@ -18,7 +18,6 @@ use pinocchio::{
 };
 use pinocchio_token::instructions::Transfer;
 use shank::ShankAccount;
-use solana_program::pubkey::Pubkey as SolanaPubkey;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -45,11 +44,10 @@ impl NovaAccount for Controller {
 
 impl Controller {
     pub fn derive_pda_bytes(id: u16) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = SolanaPubkey::find_program_address(
+        try_find_program_address(
             &[CONTROLLER_SEED, id.to_le_bytes().as_ref()],
-            &SolanaPubkey::from(crate::ID),
-        );
-        Ok((pda.to_bytes(), bump))
+            &crate::ID,
+        ).ok_or(ProgramError::InvalidSeeds)
     }
 
     pub fn derive_authority(controller: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
