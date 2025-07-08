@@ -1,5 +1,5 @@
 use crate::{
-    constants::CONTROLLER_SEED,
+    constants::{CONTROLLER_AUTHORITY_SEED},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -48,7 +48,7 @@ define_account_struct! {
 
 impl<'info> PullSplTokenSwapAccounts<'info> {
     pub fn checked_from_accounts(
-        controller: &Pubkey,
+        controller_authority: &Pubkey,
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
@@ -114,8 +114,8 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
             msg! {"lp_token_account: invalid mint"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if lp_token_account.owner().ne(controller) {
-            msg! {"lp_token_account: not owned by controller"};
+        if lp_token_account.owner().ne(controller_authority) {
+            msg! {"lp_token_account: not owned by Controller authority PDA"};
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -136,8 +136,6 @@ pub fn process_pull_spl_token_swap(
 
     // Get the current slot and time
     let clock = Clock::get()?;
-    let controller_id_bytes = controller.id.to_le_bytes();
-    let controller_bump = controller.bump;
 
     let (amount_a, amount_b) = match outer_args {
         PullArgs::SplTokenSwap { amount_a, amount_b } => (*amount_a, *amount_b),
@@ -155,7 +153,7 @@ pub fn process_pull_spl_token_swap(
     }
 
     let inner_ctx = PullSplTokenSwapAccounts::checked_from_accounts(
-        outer_ctx.controller.key(),
+        outer_ctx.controller_authority.key(),
         &integration.config,
         outer_ctx.remaining_accounts,
     )?;
@@ -338,16 +336,15 @@ pub fn process_pull_spl_token_swap(
     if amount_a > 0 {
         withdraw_single_token_type_exact_amount_out_cpi(
             amount_a,
-            // TODO FIX
             Signer::from(&[
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller_id_bytes),
-                Seed::from(&[controller_bump]),
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
             ]),
             *inner_ctx.swap_program.key(),
             inner_ctx.swap,
             inner_ctx.swap_authority,
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
             inner_ctx.vault_a,
             inner_ctx.swap_token_a,
             inner_ctx.swap_token_b,
@@ -362,16 +359,15 @@ pub fn process_pull_spl_token_swap(
     if amount_b > 0 {
         withdraw_single_token_type_exact_amount_out_cpi(
             amount_b,
-            // TODO FIX
             Signer::from(&[
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&controller_id_bytes),
-                Seed::from(&[controller_bump]),
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
             ]),
             *inner_ctx.swap_program.key(),
             inner_ctx.swap,
             inner_ctx.swap_authority,
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
             inner_ctx.vault_b,
             inner_ctx.swap_token_a,
             inner_ctx.swap_token_b,

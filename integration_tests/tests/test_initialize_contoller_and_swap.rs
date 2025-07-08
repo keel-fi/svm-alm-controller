@@ -141,7 +141,7 @@ mod tests {
         // Initialize an Integration
 
         let usds_susds_lp_vault_pk = get_associated_token_address_with_program_id(
-            &&controller_pk,
+            &controller_authority,
             &usds_susds_lp_mint_pk,
             &pinocchio_token::ID.into(),
         );

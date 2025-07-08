@@ -1,5 +1,5 @@
 use crate::{
-    constants::{CONTROLLER_AUTHORITY_SEED},
+    constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -48,7 +48,7 @@ define_account_struct! {
 
 impl<'info> PushSplTokenSwapAccounts<'info> {
     pub fn checked_from_accounts(
-        controller: &Pubkey,
+        controller_authority: &Pubkey,
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
@@ -114,8 +114,8 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
             msg! {"lp_token_account: invalid mint"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if lp_token_account.owner().ne(controller) {
-            msg! {"lp_token_account: not owned by controller"};
+        if lp_token_account.owner().ne(controller_authority) {
+            msg! {"lp_token_account: not owned by Controller authority PDA"};
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -153,7 +153,7 @@ pub fn process_push_spl_token_swap(
     }
 
     let inner_ctx = PushSplTokenSwapAccounts::checked_from_accounts(
-        outer_ctx.controller.key(),
+        outer_ctx.controller_authority.key(),
         &integration.config,
         outer_ctx.remaining_accounts,
     )?;

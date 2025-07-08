@@ -120,7 +120,7 @@ pub fn process_initialize_spl_token_swap(
     CreateIdempotent {
         funding_account: outer_ctx.payer,
         account: inner_ctx.lp_token_account,
-        wallet: outer_ctx.controller,
+        wallet: outer_ctx.controller_authority,
         mint: inner_ctx.lp_mint,
         system_program: outer_ctx.system_program,
         token_program: inner_ctx.lp_mint_token_program,
