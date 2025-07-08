@@ -22,10 +22,12 @@ pub struct Controller {
     )]
     pub authority: Pubkey,
     pub authority_bump: u8,
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 128],
 }
 
 impl Controller {
-    pub const LEN: usize = 37;
+    pub const LEN: usize = 165;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
