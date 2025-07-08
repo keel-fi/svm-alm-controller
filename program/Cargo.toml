@@ -20,7 +20,6 @@ pinocchio-token = { workspace = true }
 pinocchio-associated-token-account = { workspace = true }
 shank = { workspace = true }
 bs58 = { workspace = true }
-solana-program = { workspace = true }
 borsh = "0.10.3"
 borsh-derive = "0.10.3"
 num-derive = { workspace = true }

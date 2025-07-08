@@ -9,8 +9,12 @@ use crate::{
     },
     processor::InitializeIntegrationAccounts,
 };
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
-use solana_program::pubkey::Pubkey as SolanaPubkey;
+use pinocchio::{
+    account_info::AccountInfo,
+    msg,
+    program_error::ProgramError,
+    pubkey::{try_find_program_address, Pubkey},
+};
 
 define_account_struct! {
     pub struct InitializeLzBridgeAccounts<'info> {
@@ -69,19 +73,16 @@ pub fn process_initialize_lz_bridge(
     msg!("b");
 
     // Check the PDA of the peer_config exists for this desination_eid
-    let (expected_peer_config_pda, _bump) = SolanaPubkey::find_program_address(
+    let (expected_peer_config_pda, _bump) = try_find_program_address(
         &[
             OFT_PEER_CONFIG_SEED,
             inner_ctx.oft_store.key().as_ref(),
             destination_eid.to_be_bytes().as_ref(),
         ],
-        &SolanaPubkey::from(*inner_ctx.lz_program.key()),
-    );
-    if inner_ctx
-        .peer_config
-        .key()
-        .ne(&expected_peer_config_pda.to_bytes())
-    {
+        inner_ctx.lz_program.key(),
+    )
+    .ok_or(ProgramError::InvalidSeeds)?;
+    if inner_ctx.peer_config.key().ne(&expected_peer_config_pda) {
         msg! {"peer_config: expected PDA for destination_eid and oft store do not match"};
         return Err(ProgramError::InvalidSeeds);
     }

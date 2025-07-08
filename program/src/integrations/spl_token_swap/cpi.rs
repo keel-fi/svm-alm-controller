@@ -108,7 +108,7 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
     swap_program: Pubkey,
     swap: &AccountInfo,
     swap_authority: &AccountInfo,
-    controller: &AccountInfo,
+    controller_authority: &AccountInfo,
     vault: &AccountInfo,
     swap_token_a: &AccountInfo,
     swap_token_b: &AccountInfo,
@@ -133,7 +133,7 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
             accounts: &[
                 AccountMeta::readonly(swap.key()),
                 AccountMeta::readonly(swap_authority.key()),
-                AccountMeta::readonly_signer(controller.key()),
+                AccountMeta::readonly_signer(controller_authority.key()),
                 AccountMeta::writable(lp_mint.key()),
                 AccountMeta::writable(lp_token_account.key()),
                 AccountMeta::writable(swap_token_a.key()),
@@ -148,7 +148,7 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
         &[
             swap,
             swap_authority,
-            controller,
+            controller_authority,
             lp_mint,
             lp_token_account,
             swap_token_a,

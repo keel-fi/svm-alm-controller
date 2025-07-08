@@ -25,7 +25,7 @@ define_account_struct! {
 
 impl<'info> SyncSplTokenSwapAccounts<'info> {
     pub fn checked_from_accounts(
-        controller: &Pubkey,
+        controller_authority: &Pubkey,
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
@@ -55,8 +55,8 @@ impl<'info> SyncSplTokenSwapAccounts<'info> {
             msg! {"lp_token_account: invalid mint"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if lp_token_account.owner().ne(controller) {
-            msg! {"lp_token_account: not owned by controller"};
+        if lp_token_account.owner().ne(controller_authority) {
+            msg! {"lp_token_account: not owned by Controller authority PDA"};
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -70,7 +70,7 @@ pub fn process_sync_spl_token_swap(
     outer_ctx: &SyncIntegrationAccounts,
 ) -> Result<(), ProgramError> {
     let inner_ctx = SyncSplTokenSwapAccounts::checked_from_accounts(
-        outer_ctx.controller.key(),
+        outer_ctx.controller_authority.key(),
         &integration.config,
         outer_ctx.remaining_accounts,
     )?;
