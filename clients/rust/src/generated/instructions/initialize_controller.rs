@@ -18,6 +18,8 @@ pub struct InitializeController {
 
     pub controller: solana_program::pubkey::Pubkey,
 
+    pub controller_authority: solana_program::pubkey::Pubkey,
+
     pub permission: solana_program::pubkey::Pubkey,
 
     pub system_program: solana_program::pubkey::Pubkey,
@@ -37,7 +39,7 @@ impl InitializeController {
         args: InitializeControllerInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
@@ -47,6 +49,10 @@ impl InitializeController {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.controller,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            self.controller_authority,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
@@ -102,13 +108,15 @@ pub struct InitializeControllerInstructionArgs {
 ///   0. `[writable, signer]` payer
 ///   1. `[signer]` authority
 ///   2. `[writable]` controller
-///   3. `[writable]` permission
-///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   3. `[writable]` controller_authority
+///   4. `[writable]` permission
+///   5. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeControllerBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
     controller: Option<solana_program::pubkey::Pubkey>,
+    controller_authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
     id: Option<u16>,
@@ -133,6 +141,14 @@ impl InitializeControllerBuilder {
     #[inline(always)]
     pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -180,6 +196,9 @@ impl InitializeControllerBuilder {
             payer: self.payer.expect("payer is not set"),
             authority: self.authority.expect("authority is not set"),
             controller: self.controller.expect("controller is not set"),
+            controller_authority: self
+                .controller_authority
+                .expect("controller_authority is not set"),
             permission: self.permission.expect("permission is not set"),
             system_program: self
                 .system_program
@@ -202,6 +221,8 @@ pub struct InitializeControllerCpiAccounts<'a, 'b> {
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
@@ -217,6 +238,8 @@ pub struct InitializeControllerCpi<'a, 'b> {
     pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -236,6 +259,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             payer: accounts.payer,
             authority: accounts.authority,
             controller: accounts.controller,
+            controller_authority: accounts.controller_authority,
             permission: accounts.permission,
             system_program: accounts.system_program,
             __args: args,
@@ -275,7 +299,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
@@ -286,6 +310,10 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.controller.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            *self.controller_authority.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
@@ -312,11 +340,12 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.controller.clone());
+        account_infos.push(self.controller_authority.clone());
         account_infos.push(self.permission.clone());
         account_infos.push(self.system_program.clone());
         remaining_accounts
@@ -338,8 +367,9 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
 ///   0. `[writable, signer]` payer
 ///   1. `[signer]` authority
 ///   2. `[writable]` controller
-///   3. `[writable]` permission
-///   4. `[]` system_program
+///   3. `[writable]` controller_authority
+///   4. `[writable]` permission
+///   5. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct InitializeControllerCpiBuilder<'a, 'b> {
     instruction: Box<InitializeControllerCpiBuilderInstruction<'a, 'b>>,
@@ -352,6 +382,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
             payer: None,
             authority: None,
             controller: None,
+            controller_authority: None,
             permission: None,
             system_program: None,
             id: None,
@@ -379,6 +410,14 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
         controller: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -461,6 +500,11 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
 
             controller: self.instruction.controller.expect("controller is not set"),
 
+            controller_authority: self
+                .instruction
+                .controller_authority
+                .expect("controller_authority is not set"),
+
             permission: self.instruction.permission.expect("permission is not set"),
 
             system_program: self
@@ -482,6 +526,7 @@ struct InitializeControllerCpiBuilderInstruction<'a, 'b> {
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     id: Option<u16>,

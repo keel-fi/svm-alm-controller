@@ -56,6 +56,7 @@ pub fn initialize_contoller(
     id: u16,
 ) -> Result<(Pubkey, Pubkey), Box<dyn Error>> {
     let controller_pda = derive_controller_pda(&id);
+    let controller_authority = derive_controller_authority_pda(&controller_pda);
     let permission_pda = derive_permission_pda(&controller_pda, &authority.pubkey());
 
     let ixn = InitializeControllerBuilder::new()
@@ -64,6 +65,7 @@ pub fn initialize_contoller(
         .payer(payer.pubkey())
         .authority(authority.pubkey())
         .controller(controller_pda)
+        .controller_authority(controller_authority)
         .permission(permission_pda)
         .system_program(system_program::ID)
         .instruction();

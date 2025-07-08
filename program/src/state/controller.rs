@@ -52,6 +52,14 @@ impl Controller {
         Ok((pda.to_bytes(), bump))
     }
 
+    pub fn derive_authority(controller: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
+        try_find_program_address(
+            &[CONTROLLER_AUTHORITY_SEED, controller.as_ref()],
+            &crate::ID,
+        )
+        .ok_or(ProgramError::InvalidSeeds)
+    }
+
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
@@ -75,6 +83,7 @@ impl Controller {
 
     pub fn init_account(
         account_info: &AccountInfo,
+        authority_info: &AccountInfo,
         payer_info: &AccountInfo,
         id: u16,
         status: ControllerStatus,
@@ -87,11 +96,13 @@ impl Controller {
         }
 
         // Derive authority PDA that has no SOL or data
-        let (controller_authority, controller_authority_bump) = try_find_program_address(
-            &[CONTROLLER_AUTHORITY_SEED, account_info.key().as_ref()],
-            &crate::ID,
-        )
-        .ok_or(ProgramError::InvalidSeeds)?;
+        let (controller_authority, controller_authority_bump) =
+            Controller::derive_authority(account_info.key())?;
+
+        if authority_info.key().ne(&controller_authority) {
+            // Authority PDA was invalid
+            return Err(ProgramError::InvalidSeeds.into());
+        }
 
         // Create and serialize the controller
         let controller = Controller {
@@ -146,16 +157,17 @@ impl Controller {
 
     pub fn emit_event(
         &self,
-        controller_info: &AccountInfo,
+        authority_info: &AccountInfo,
+        controller: &Pubkey,
         event: SvmAlmControllerEvent,
     ) -> Result<(), ProgramError> {
         // Emit the Event to record the update
         emit_cpi(
-            controller_info,
+            authority_info,
             [
-                Seed::from(CONTROLLER_SEED),
-                Seed::from(&self.id.to_le_bytes()),
-                Seed::from(&[self.bump]),
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(controller),
+                Seed::from(&[self.authority_bump]),
             ],
             &self.id.to_le_bytes(),
             event,
@@ -179,7 +191,7 @@ impl Controller {
         }
         .invoke_signed(&[Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(controller.key().as_ref()),
+            Seed::from(controller.key()),
             Seed::from(&[self.authority_bump]),
         ])])?;
         Ok(())

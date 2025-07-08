@@ -86,6 +86,7 @@ pub fn initialize_integration(
     inner_args: &InitializeArgs,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let description_bytes = description.as_bytes();
     let mut description_encoding: [u8; 32] = [0; 32];
@@ -377,6 +378,7 @@ pub fn initialize_integration(
         .inner_args(inner_args.clone())
         .payer(payer.pubkey())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(integration_pda)
@@ -441,12 +443,14 @@ pub fn manage_integration(
     rate_limit_max_outflow: u64,
 ) -> Result<(), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let ixn = ManageIntegrationBuilder::new()
         .status(status)
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
@@ -1340,6 +1344,7 @@ pub fn pull_integration(
     let main_ixn = PullBuilder::new()
         .pull_args(pull_args.clone())
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)

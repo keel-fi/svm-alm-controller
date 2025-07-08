@@ -124,7 +124,12 @@ pub fn process_push_spl_token_external(
     }
 
     // Sync the reserve before main logic
-    reserve.sync_balance(inner_ctx.vault, outer_ctx.controller, controller)?;
+    reserve.sync_balance(
+        inner_ctx.vault,
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        controller,
+    )?;
     let post_sync_balance = reserve.last_balance;
 
     // Invoke the CreateIdempotent ixn
@@ -172,7 +177,8 @@ pub fn process_push_spl_token_external(
 
     // Emit the accounting event
     controller.emit_event(
-        outer_ctx.controller,
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
             integration: *outer_ctx.integration.key(),

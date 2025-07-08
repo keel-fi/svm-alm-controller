@@ -133,7 +133,8 @@ pub fn process_sync_spl_token_swap(
     // Emit the accounting events for the change in A and B's relative balances
     if last_balance_a != step_1_balance_a {
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -146,7 +147,8 @@ pub fn process_sync_spl_token_swap(
     }
     if last_balance_b != step_1_balance_b {
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -181,7 +183,8 @@ pub fn process_sync_spl_token_swap(
         }
         // Emit the accounting events for the change in A and B's relative balances
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
@@ -192,7 +195,8 @@ pub fn process_sync_spl_token_swap(
             }),
         )?;
         controller.emit_event(
-            outer_ctx.controller,
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),

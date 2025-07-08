@@ -1,4 +1,4 @@
-use borsh::BorshDeserialize;
+use borsh::{de, BorshDeserialize};
 use litesvm::LiteSVM;
 use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
@@ -137,6 +137,7 @@ pub fn manage_reserve(
     rate_limit_max_outflow: u64,
 ) -> Result<(), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let reserve_pda = derive_reserve_pda(controller, mint);
 
@@ -145,6 +146,7 @@ pub fn manage_reserve(
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
         .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .reserve(reserve_pda)

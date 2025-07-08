@@ -11,6 +11,7 @@ use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 define_account_struct! {
     pub struct ManageReserveAccounts<'info> {
         controller: @owner(crate::ID);
+        controller_authority;
         authority: signer;
         permission: @owner(crate::ID);
         reserve: mut, @owner(crate::ID);
@@ -54,7 +55,8 @@ pub fn process_manage_reserve(
 
     // Emit the Event to record the update
     controller.emit_event(
-        ctx.controller,
+        ctx.controller_authority,
+        ctx.controller.key(),
         SvmAlmControllerEvent::ReserveUpdate(ReserveUpdateEvent {
             controller: *ctx.controller.key(),
             reserve: *ctx.reserve.key(),

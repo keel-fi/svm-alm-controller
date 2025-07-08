@@ -14,6 +14,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct ManageIntegrationAccounts<'info> {
         controller: @owner(crate::ID);
+        controller_authority;
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
@@ -79,7 +80,8 @@ pub fn process_manage_integration(
 
     // Emit the event
     controller.emit_event(
-        ctx.controller,
+        ctx.controller_authority,
+        ctx.controller.key(),
         SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
             controller: *ctx.controller.key(),
             integration: *ctx.integration.key(),

@@ -84,7 +84,8 @@ pub fn process_initialize_reserve(
 
     // Emit the Event to record the update
     controller.emit_event(
-        ctx.controller,
+        ctx.controller_authority,
+        ctx.controller.key(),
         SvmAlmControllerEvent::ReserveUpdate(ReserveUpdateEvent {
             controller: *ctx.controller.key(),
             reserve: *ctx.reserve.key(),
@@ -95,7 +96,12 @@ pub fn process_initialize_reserve(
     )?;
 
     // Call the initial sync balance
-    reserve.sync_balance(ctx.vault, ctx.controller, &controller)?;
+    reserve.sync_balance(
+        ctx.vault,
+        ctx.controller_authority,
+        ctx.controller.key(),
+        &controller,
+    )?;
 
     // Save the account state
     reserve.save(ctx.reserve)?;

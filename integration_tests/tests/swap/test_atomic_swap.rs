@@ -839,6 +839,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
+        println!("LOGS {:?}", res.clone().err().unwrap().meta.logs);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when repay is not the last ix.

@@ -19,18 +19,20 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, writable, signer, name = "payer")]
     #[account(1, signer, name = "authority")]
     #[account(2, writable, name = "controller")]
-    #[account(3, writable, name = "permission")]
-    #[account(4, name = "system_program")]
+    #[account(3, writable, name = "controller_authority")]
+    #[account(4, writable, name = "permission")]
+    #[account(5, name = "system_program")]
     InitializeController(InitializeControllerArgs),
 
     /// Initialize or manage a permission account
     #[account(0, writable, signer, name = "payer")]
     #[account(1, name = "controller")]
-    #[account(2, signer, name = "super_authority")]
-    #[account(3, name = "super_permission")]
-    #[account(4, name = "authority")]
-    #[account(5, writable, name = "permission")]
-    #[account(6, name = "system_program")]
+    #[account(2, name = "controller_authority")]
+    #[account(3, signer, name = "super_authority")]
+    #[account(4, name = "super_permission")]
+    #[account(5, name = "authority")]
+    #[account(6, writable, name = "permission")]
+    #[account(7, name = "system_program")]
     ManagePermission(ManagePermissionArgs),
 
     /// Initialize an reserve account
@@ -49,41 +51,46 @@ pub enum SvmAlmControllerInstruction {
 
     /// Manage and existing reserve account
     #[account(0, name = "controller")]
-    #[account(1, signer, name = "authority")]
-    #[account(2, name = "permission")]
-    #[account(3, writable, name = "reserve")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, writable, name = "reserve")]
     ManageReserve(ManageReserveArgs),
 
     /// Initialize an integration account
     #[account(0, writable, signer, name = "payer")]
     #[account(1, name = "controller")]
-    #[account(2, signer, name = "authority")]
-    #[account(3, name = "permission")]
-    #[account(4, writable, name = "integration")]
-    #[account(5, name = "lookup_table")]
-    #[account(6, name = "system_program")]
+    #[account(2, name = "controller_authority")]
+    #[account(3, signer, name = "authority")]
+    #[account(4, name = "permission")]
+    #[account(5, writable, name = "integration")]
+    #[account(6, name = "lookup_table")]
+    #[account(7, name = "system_program")]
     InitializeIntegration(InitializeIntegrationArgs),
 
     /// Manage an integration account
     #[account(0, name = "controller")]
-    #[account(1, signer, name = "authority")]
-    #[account(2, name = "permission")]
-    #[account(3, writable, name = "integration")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, writable, name = "integration")]
     // NOTE: if there is no LUT, then the system_program ID should be used.
-    #[account(4, name = "lookup_table")]
+    #[account(5, name = "lookup_table")]
     ManageIntegration(ManageIntegrationArgs),
 
     // TOOD: Struct def does not match implementation. Has an extra `mint` account.
     /// SyncReserve
     #[account(0, name = "controller")]
-    #[account(1, writable, name = "reserve")]
-    #[account(2, name = "mint")]
-    #[account(3, name = "vault")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, writable, name = "reserve")]
+    #[account(3, name = "mint")]
+    #[account(4, name = "vault")]
     SyncReserve(SyncReserveArgs),
 
     /// SyncIntegration
     #[account(0, name = "controller")]
-    #[account(1, writable, name = "integration")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, writable, name = "integration")]
     Sync(SyncIntegrationArgs),
 
     /// Push
@@ -98,11 +105,12 @@ pub enum SvmAlmControllerInstruction {
 
     /// Pull
     #[account(0, name = "controller")]
-    #[account(1, signer, name = "authority")]
-    #[account(2, name = "permission")]
-    #[account(3, writable, name = "integration")]
-    #[account(4, writable, name = "reserve_a")]
-    #[account(5, writable, name = "reserve_b")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, writable, name = "integration")]
+    #[account(5, writable, name = "reserve_a")]
+    #[account(6, writable, name = "reserve_b")]
     Pull(PullArgs),
 
     /// InitializeOracle

@@ -130,8 +130,18 @@ pub fn process_atomic_swap_borrow(
     }
 
     // Sync reserve balances and rate limits
-    reserve_a.sync_balance(ctx.vault_a, ctx.controller, &controller)?;
-    reserve_b.sync_balance(ctx.vault_b, ctx.controller, &controller)?;
+    reserve_a.sync_balance(
+        ctx.vault_a,
+        ctx.controller_authority,
+        ctx.controller.key(),
+        &controller,
+    )?;
+    reserve_b.sync_balance(
+        ctx.vault_b,
+        ctx.controller_authority,
+        ctx.controller.key(),
+        &controller,
+    )?;
 
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
@@ -139,28 +149,28 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
     }
     integration.refresh_rate_limit(clock)?;
-    
+
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
-    (&integration.config, &mut integration.state)
+        (&integration.config, &mut integration.state)
     {
         if cfg.input_token != reserve_a.mint || cfg.output_token != reserve_b.mint {
             return Err(SvmAlmControllerErrors::InvalidAccountData.into());
         }
-        
+
         if state.has_swap_started() {
             return Err(SvmAlmControllerErrors::SwapHasStarted.into());
         }
-        
+
         if clock.unix_timestamp >= cfg.expiry_timestamp {
             return Err(SvmAlmControllerErrors::IntegrationHasExpired.into());
         }
-        
+
         {
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
             let recipient_token_account =
-            TokenAccount::from_account_info(ctx.recipient_token_account)?;
-            
+                TokenAccount::from_account_info(ctx.recipient_token_account)?;
+
             if args.amount > vault_a.amount() {
                 return Err(ProgramError::InsufficientFunds);
             }
@@ -175,7 +185,7 @@ pub fn process_atomic_swap_borrow(
             state.recipient_token_a_pre = recipient_token_account.amount();
             state.repay_excess_token_a = args.repay_excess_token_a;
         }
-        
+
         // Transfer borrow amount of tokens from vault to recipient.
         controller.transfer_tokens(
             ctx.controller,
@@ -191,11 +201,11 @@ pub fn process_atomic_swap_borrow(
     verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
 
     msg!("HERE 4");
-    
+
     reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
     reserve_b.save(ctx.reserve_b)?;
-    
+
     msg!("HERE 5");
     // Update rate limit to track outflow of input_tokens for integration.
     integration.update_rate_limit_for_outflow(clock, args.amount)?;
