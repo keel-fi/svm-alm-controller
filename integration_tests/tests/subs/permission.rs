@@ -57,6 +57,7 @@ pub fn manage_permission(
     can_freeze: bool,
     can_unfreeze: bool,
     can_manage_integrations: bool,
+    can_suspend_permissions: bool,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &calling_authority.pubkey());
     let calling_permission_account_before = fetch_permission_account(svm, &calling_permission_pda)?;
@@ -79,6 +80,7 @@ pub fn manage_permission(
         .can_freeze(can_freeze)
         .can_unfreeze(can_unfreeze)
         .can_manage_integrations(can_manage_integrations)
+        .can_suspend_permissions(can_suspend_permissions)
         .payer(payer.pubkey())
         .controller(*controller)
         .controller_authority(controller_authority)

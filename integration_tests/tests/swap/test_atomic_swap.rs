@@ -116,6 +116,7 @@ mod tests {
             false, // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_integrations
+            false,  // can_suspend_permissions
         )?;
 
         let oracle = derive_oracle_pda(&nonce);

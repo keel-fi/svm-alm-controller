@@ -71,6 +71,7 @@ mod tests {
             true, // can_freeze,
             true, // can_unfreeze,
             true, // can_manage_integrations
+            true, // can_suspend_permissions
         )?;
 
         // Create a new permission for an allocator
@@ -88,6 +89,7 @@ mod tests {
             false, // can_freeze,
             false, // can_unfreeze,
             false, // can_manage_integrations
+            false, // can_suspend_permissions
         )?;
 
         // Initialize a reserve for the token

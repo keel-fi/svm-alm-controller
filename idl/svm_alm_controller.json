@@ -1055,11 +1055,15 @@
             "type": "bool"
           },
           {
+            "name": "canSuspendPermissions",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                32
+                31
               ]
             }
           }
@@ -1377,6 +1381,10 @@
           },
           {
             "name": "canManageIntegrations",
+            "type": "bool"
+          },
+          {
+            "name": "canSuspendPermissions",
             "type": "bool"
           }
         ]

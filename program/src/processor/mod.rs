@@ -8,6 +8,7 @@ pub mod manage_reserve;
 pub mod oracle;
 pub mod pull;
 pub mod push;
+pub mod suspend_permission;
 pub mod sync_integration;
 pub mod sync_reserve;
 
@@ -22,6 +23,7 @@ pub use oracle::*;
 
 pub use pull::*;
 pub use push::*;
+pub use suspend_permission::*;
 pub use sync_integration::*;
 pub use sync_reserve::*;
 
