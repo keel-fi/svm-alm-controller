@@ -27,6 +27,7 @@ pub struct Controller {
     pub status: ControllerStatus,
     pub authority: Pubkey,
     pub authority_bump: u8,
+    pub _padding: [u8; 128],
 }
 
 impl Discriminator for Controller {
@@ -34,8 +35,8 @@ impl Discriminator for Controller {
 }
 
 impl NovaAccount for Controller {
-    // id + bump + status + authority + authority_bump
-    const LEN: usize = 2 + 1 + 1 + 32 + 1;
+    // id + bump + status + authority + authority_bump + padding
+    const LEN: usize = 2 + 1 + 1 + 32 + 1 + 128;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         Self::derive_pda_bytes(self.id)
@@ -109,6 +110,7 @@ impl Controller {
             status,
             authority: controller_authority,
             authority_bump: controller_authority_bump,
+            _padding: [0; 128],
         };
 
         // Account creation PDA

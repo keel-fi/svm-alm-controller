@@ -861,6 +861,15 @@
           {
             "name": "authorityBump",
             "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }
@@ -932,6 +941,15 @@
             "name": "state",
             "type": {
               "defined": "IntegrationState"
+            }
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
             }
           }
         ]
@@ -1035,6 +1053,15 @@
           {
             "name": "canManageIntegrations",
             "type": "bool"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           }
         ]
       }
@@ -1085,6 +1112,15 @@
           {
             "name": "lastRefreshSlot",
             "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }

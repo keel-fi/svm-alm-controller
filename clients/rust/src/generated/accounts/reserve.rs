@@ -35,10 +35,12 @@ pub struct Reserve {
     pub last_balance: u64,
     pub last_refresh_timestamp: i64,
     pub last_refresh_slot: u64,
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 128],
 }
 
 impl Reserve {
-    pub const LEN: usize = 145;
+    pub const LEN: usize = 273;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
