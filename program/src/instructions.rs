@@ -21,7 +21,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, writable, name = "controller")]
     #[account(3, writable, name = "controller_authority")]
     #[account(4, writable, name = "permission")]
-    #[account(5, name = "system_program")]
+    #[account(5, name = "program_id")]
+    #[account(6, name = "system_program")]
     InitializeController(InitializeControllerArgs),
 
     /// Initialize or manage a permission account
@@ -32,7 +33,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, name = "super_permission")]
     #[account(5, name = "authority")]
     #[account(6, writable, name = "permission")]
-    #[account(7, name = "system_program")]
+    #[account(7, name = "program_id")]
+    #[account(8, name = "system_program")]
     ManagePermission(ManagePermissionArgs),
 
     /// Initialize an reserve account
@@ -46,7 +48,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(7, writable, name = "vault")]
     #[account(8, name = "token_program")]
     #[account(9, name = "associated_token_program")]
-    #[account(10, name = "system_program")]
+    #[account(10, name = "program_id")]
+    #[account(11, name = "system_program")]
     InitializeReserve(InitializeReserveArgs),
 
     /// Manage and existing reserve account
@@ -55,6 +58,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "reserve")]
+    #[account(5, name = "program_id")]
     ManageReserve(ManageReserveArgs),
 
     /// Initialize an integration account
@@ -65,7 +69,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, name = "permission")]
     #[account(5, writable, name = "integration")]
     #[account(6, name = "lookup_table")]
-    #[account(7, name = "system_program")]
+    #[account(7, name = "program_id")]
+    #[account(8, name = "system_program")]
     InitializeIntegration(InitializeIntegrationArgs),
 
     /// Manage an integration account
@@ -76,6 +81,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     // NOTE: if there is no LUT, then the system_program ID should be used.
     #[account(5, name = "lookup_table")]
+    #[account(6, name = "program_id")]
     ManageIntegration(ManageIntegrationArgs),
 
     // TOOD: Struct def does not match implementation. Has an extra `mint` account.
@@ -91,6 +97,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, writable, name = "integration")]
+    #[account(3, name = "program_id")]
     Sync(SyncIntegrationArgs),
 
     /// Push
@@ -101,6 +108,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "reserve_b")]
+    #[account(7, name = "program_id")]
     Push(PushArgs),
 
     /// Pull
@@ -111,6 +119,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "reserve_b")]
+    #[account(7, name = "program_id")]
     Pull(PullArgs),
 
     /// InitializeOracle
@@ -146,6 +155,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(9, writable, name = "recipient_token_account")]
     #[account(10, name = "token_program")]
     #[account(11, name = "sysvar_instruction")]
+    #[account(12, name = "program_id")]
     AtomicSwapBorrow(AtomicSwapBorrowArgs),
 
     /// Atomic swap repay

@@ -32,6 +32,8 @@ pub struct InitializeReserve {
 
     pub associated_token_program: solana_program::pubkey::Pubkey,
 
+    pub program_id: solana_program::pubkey::Pubkey,
+
     pub system_program: solana_program::pubkey::Pubkey,
 }
 
@@ -49,7 +51,7 @@ impl InitializeReserve {
         args: InitializeReserveInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(11 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(12 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
@@ -85,6 +87,10 @@ impl InitializeReserve {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.associated_token_program,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.program_id,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -144,7 +150,8 @@ pub struct InitializeReserveInstructionArgs {
 ///   7. `[writable]` vault
 ///   8. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
 ///   9. `[]` associated_token_program
-///   10. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   10. `[]` program_id
+///   11. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeReserveBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
@@ -157,6 +164,7 @@ pub struct InitializeReserveBuilder {
     vault: Option<solana_program::pubkey::Pubkey>,
     token_program: Option<solana_program::pubkey::Pubkey>,
     associated_token_program: Option<solana_program::pubkey::Pubkey>,
+    program_id: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
     status: Option<ReserveStatus>,
     rate_limit_slope: Option<u64>,
@@ -225,6 +233,11 @@ impl InitializeReserveBuilder {
         self.associated_token_program = Some(associated_token_program);
         self
     }
+    #[inline(always)]
+    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.program_id = Some(program_id);
+        self
+    }
     /// `[optional account, default to '11111111111111111111111111111111']`
     #[inline(always)]
     pub fn system_program(&mut self, system_program: solana_program::pubkey::Pubkey) -> &mut Self {
@@ -283,6 +296,7 @@ impl InitializeReserveBuilder {
             associated_token_program: self
                 .associated_token_program
                 .expect("associated_token_program is not set"),
+            program_id: self.program_id.expect("program_id is not set"),
             system_program: self
                 .system_program
                 .unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
@@ -325,6 +339,8 @@ pub struct InitializeReserveCpiAccounts<'a, 'b> {
 
     pub associated_token_program: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
@@ -353,6 +369,8 @@ pub struct InitializeReserveCpi<'a, 'b> {
 
     pub associated_token_program: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: InitializeReserveInstructionArgs,
@@ -376,6 +394,7 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
             vault: accounts.vault,
             token_program: accounts.token_program,
             associated_token_program: accounts.associated_token_program,
+            program_id: accounts.program_id,
             system_program: accounts.system_program,
             __args: args,
         }
@@ -414,7 +433,7 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(11 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(12 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
@@ -456,6 +475,10 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.program_id.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.system_program.key,
             false,
         ));
@@ -475,7 +498,7 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(12 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(13 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
@@ -487,6 +510,7 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
         account_infos.push(self.vault.clone());
         account_infos.push(self.token_program.clone());
         account_infos.push(self.associated_token_program.clone());
+        account_infos.push(self.program_id.clone());
         account_infos.push(self.system_program.clone());
         remaining_accounts
             .iter()
@@ -514,7 +538,8 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
 ///   7. `[writable]` vault
 ///   8. `[]` token_program
 ///   9. `[]` associated_token_program
-///   10. `[]` system_program
+///   10. `[]` program_id
+///   11. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct InitializeReserveCpiBuilder<'a, 'b> {
     instruction: Box<InitializeReserveCpiBuilderInstruction<'a, 'b>>,
@@ -534,6 +559,7 @@ impl<'a, 'b> InitializeReserveCpiBuilder<'a, 'b> {
             vault: None,
             token_program: None,
             associated_token_program: None,
+            program_id: None,
             system_program: None,
             status: None,
             rate_limit_slope: None,
@@ -611,6 +637,14 @@ impl<'a, 'b> InitializeReserveCpiBuilder<'a, 'b> {
         associated_token_program: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.associated_token_program = Some(associated_token_program);
+        self
+    }
+    #[inline(always)]
+    pub fn program_id(
+        &mut self,
+        program_id: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.program_id = Some(program_id);
         self
     }
     #[inline(always)]
@@ -722,6 +756,8 @@ impl<'a, 'b> InitializeReserveCpiBuilder<'a, 'b> {
                 .associated_token_program
                 .expect("associated_token_program is not set"),
 
+            program_id: self.instruction.program_id.expect("program_id is not set"),
+
             system_program: self
                 .instruction
                 .system_program
@@ -748,6 +784,7 @@ struct InitializeReserveCpiBuilderInstruction<'a, 'b> {
     vault: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     associated_token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     status: Option<ReserveStatus>,
     rate_limit_slope: Option<u64>,

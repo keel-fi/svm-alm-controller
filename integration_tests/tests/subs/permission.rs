@@ -86,6 +86,7 @@ pub fn manage_permission(
         .super_permission(calling_permission_pda)
         .authority(*subject_authority)
         .permission(subject_permission_pda)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
         .instruction();
 

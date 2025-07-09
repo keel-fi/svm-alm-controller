@@ -22,6 +22,7 @@ define_account_struct! {
       vault: mut;
       token_program: @pubkey(pinocchio_token::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
+      program_id: @pubkey(crate::ID);
       system_program: @pubkey(pinocchio_system::ID);
   }
 }

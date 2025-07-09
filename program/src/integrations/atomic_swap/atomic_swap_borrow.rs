@@ -38,6 +38,7 @@ define_account_struct! {
         recipient_token_account: mut;
         token_program: @pubkey(pinocchio_token::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
+        program_id: @pubkey(crate::ID);
     }
 }
 

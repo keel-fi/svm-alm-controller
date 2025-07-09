@@ -20,6 +20,7 @@ define_account_struct! {
         super_permission: @owner(crate::ID);
         authority;
         permission: mut;
+        program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);
     }
 }

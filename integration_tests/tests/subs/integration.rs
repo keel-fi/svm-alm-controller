@@ -384,6 +384,7 @@ pub fn initialize_integration(
         .integration(integration_pda)
         .lookup_table(system_program::ID) // TODO: Add this in the future
         .add_remaining_accounts(remaining_accounts)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
         .instruction();
 
@@ -455,6 +456,7 @@ pub fn manage_integration(
         .permission(calling_permission_pda)
         .integration(*integration)
         .lookup_table(system_program::ID)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
@@ -1007,6 +1009,7 @@ pub async fn push_integration(
         .integration(*integration)
         .reserve_a(reserve_a_pk)
         .reserve_b(reserve_b_pk)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(remaining_accounts)
         .instruction();
 
@@ -1350,6 +1353,7 @@ pub fn pull_integration(
         .integration(*integration)
         .reserve_a(reserve_a_pk)
         .reserve_b(reserve_b_pk)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(remaining_accounts)
         .instruction();
 

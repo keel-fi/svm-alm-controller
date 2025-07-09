@@ -28,6 +28,7 @@ define_account_struct! {
         permission: @owner(crate::ID);
         integration: mut, empty, @owner(pinocchio_system::ID);
         lookup_table;
+        program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);
         @remaining_accounts as remaining_accounts;
     }

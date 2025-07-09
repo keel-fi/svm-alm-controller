@@ -19,6 +19,7 @@ define_account_struct! {
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
         lookup_table;
+        program_id: @pubkey(crate::ID);
     }
 }
 

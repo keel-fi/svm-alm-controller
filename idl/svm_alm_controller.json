@@ -53,6 +53,11 @@
           "isSigner": false
         },
         {
+          "name": "programId",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
@@ -107,6 +112,11 @@
         {
           "name": "permission",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "programId",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -182,6 +192,11 @@
           "isSigner": false
         },
         {
+          "name": "programId",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
@@ -226,6 +241,11 @@
         {
           "name": "reserve",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "programId",
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -281,6 +301,11 @@
           "isSigner": false
         },
         {
+          "name": "programId",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
@@ -329,6 +354,11 @@
         },
         {
           "name": "lookupTable",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programId",
           "isMut": false,
           "isSigner": false
         }
@@ -405,6 +435,11 @@
           "name": "integration",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "programId",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -457,6 +492,11 @@
           "name": "reserveB",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "programId",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -508,6 +548,11 @@
         {
           "name": "reserveB",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "programId",
+          "isMut": false,
           "isSigner": false
         }
       ],
@@ -684,6 +729,11 @@
         },
         {
           "name": "sysvarInstruction",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programId",
           "isMut": false,
           "isSigner": false
         }

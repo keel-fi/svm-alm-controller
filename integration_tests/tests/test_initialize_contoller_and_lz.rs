@@ -187,6 +187,7 @@ mod tests {
             .integration(*integration)
             .reserve_a(reserve_pda)
             .reserve_b(reserve_pda)
+            .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
             .add_remaining_accounts(&[
                 AccountMeta {
                     pubkey: USDS_TOKEN_MINT_PUBKEY,
