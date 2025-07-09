@@ -33,6 +33,12 @@ impl<'info> ManagePermissionAccounts<'info> {
         {
             return Err(ProgramError::InvalidAccountOwner);
         }
+
+        // Check that the super permission is not modifying itself.
+        if ctx.permission.key().eq(ctx.super_permission.key()) {
+            return Err(SvmAlmControllerErrors::InvalidPermission.into());
+        }
+
         Ok(ctx)
     }
 }
