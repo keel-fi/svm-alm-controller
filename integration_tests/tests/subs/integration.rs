@@ -7,7 +7,8 @@ use crate::{
         },
     },
     subs::{
-        derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda, derive_swap_authority_pda_and_bump, get_mint_supply_or_zero
+        derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
+        derive_swap_authority_pda_and_bump, get_mint_supply_or_zero,
     },
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -32,8 +33,8 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use svm_alm_controller::state::controller;
 use std::error::Error;
+use svm_alm_controller::state::controller;
 use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
@@ -92,71 +93,13 @@ pub fn initialize_integration(
     let mut description_encoding: [u8; 32] = [0; 32];
     description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
 
-    let (integration_type, hash) = match config {
-        IntegrationConfig::SplTokenExternal(c) => {
-            let b: Vec<u8> = [
-                &[1u8][..],
-                &c.program.to_bytes()[..],
-                &c.mint.to_bytes()[..],
-                &c.recipient.to_bytes()[..],
-                &c.token_account.to_bytes()[..],
-                &c.padding[..],
-            ]
-            .concat();
-            let h = hash(b.as_slice()).to_bytes();
-            (IntegrationType::SplTokenExternal, h)
-        }
-        IntegrationConfig::SplTokenSwap(c) => {
-            let b: Vec<u8> = [
-                &[2u8][..],
-                &c.program.to_bytes()[..],
-                &c.swap.to_bytes()[..],
-                &c.mint_a.to_bytes()[..],
-                &c.mint_b.to_bytes()[..],
-                &c.lp_mint.to_bytes()[..],
-                &c.lp_token_account.to_bytes()[..],
-                &c.padding[..],
-            ]
-            .concat();
-            let h = hash(b.as_slice()).to_bytes();
-            (IntegrationType::SplTokenSwap, h)
-        }
-        IntegrationConfig::CctpBridge(c) => {
-            let b: Vec<u8> = [
-                &[3u8][..],
-                &c.cctp_token_messenger_minter.to_bytes()[..],
-                &c.cctp_message_transmitter.to_bytes()[..],
-                &c.mint.to_bytes()[..],
-                &c.destination_address.to_bytes()[..],
-                &c.destination_domain.to_le_bytes()[..],
-                &c.padding[..],
-            ]
-            .concat();
-            let h = hash(b.as_slice()).to_bytes();
-            (IntegrationType::CctpBridge, h)
-        }
-        IntegrationConfig::LzBridge(c) => {
-            let b: Vec<u8> = [
-                &[4u8][..],
-                &c.program.to_bytes()[..],
-                &c.mint.to_bytes()[..],
-                &c.oft_store.to_bytes()[..],
-                &c.peer_config.to_bytes()[..],
-                &c.token_escrow.to_bytes()[..],
-                &c.destination_address.to_bytes()[..],
-                &c.destination_eid.to_le_bytes()[..],
-                &c.padding[..],
-            ]
-            .concat();
-            let h = hash(b.as_slice()).to_bytes();
-            (IntegrationType::LzBridge, h)
-        }
-        IntegrationConfig::AtomicSwap(c) => {
-            let mut serialized = Vec::with_capacity(std::mem::size_of::<IntegrationConfig>());
-            config.serialize(&mut serialized).unwrap();
-            let h = hash(serialized.as_slice()).to_bytes();
-            (IntegrationType::AtomicSwap, h)
-        }
+    let hash = hash(borsh::to_vec(config).unwrap().as_ref()).to_bytes();
+    let integration_type = match config {
+        IntegrationConfig::SplTokenExternal(c) => IntegrationType::SplTokenExternal,
+        IntegrationConfig::SplTokenSwap(c) => IntegrationType::SplTokenSwap,
+        IntegrationConfig::CctpBridge(c) => IntegrationType::CctpBridge,
+        IntegrationConfig::LzBridge(c) => IntegrationType::LzBridge,
+        IntegrationConfig::AtomicSwap(c) => IntegrationType::AtomicSwap,
         _ => panic!("Not specified"),
     };
 
@@ -530,8 +473,11 @@ pub async fn push_integration(
     match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
-            let vault =
-                get_associated_token_address_with_program_id(&controller_authority, &c.mint, &c.program);
+            let vault = get_associated_token_address_with_program_id(
+                &controller_authority,
+                &c.mint,
+                &c.program,
+            );
             reserve_a_before =
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
@@ -607,8 +553,11 @@ pub async fn push_integration(
     ) = match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
-            let vault =
-                get_associated_token_address_with_program_id(&controller_authority, &c.mint, &c.program);
+            let vault = get_associated_token_address_with_program_id(
+                &controller_authority,
+                &c.mint,
+                &c.program,
+            );
             (
                 reserve_pda,
                 reserve_pda, // pass same reserve twice
@@ -1043,8 +992,11 @@ pub async fn push_integration(
     match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
-            let vault =
-                get_associated_token_address_with_program_id(&controller_authority, &c.mint, &c.program);
+            let vault = get_associated_token_address_with_program_id(
+                &controller_authority,
+                &c.mint,
+                &c.program,
+            );
             let reserve_a_after =
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
@@ -1166,7 +1118,7 @@ pub fn pull_integration(
     pull_args: &PullArgs,
 ) -> Result<(), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
-    let controller_authority  = derive_controller_authority_pda(controller);
+    let controller_authority = derive_controller_authority_pda(controller);
 
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
