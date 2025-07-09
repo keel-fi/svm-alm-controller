@@ -7,7 +7,7 @@ use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 define_account_struct! {
     pub struct SyncReserveAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority;
+        controller_authority: empty, @owner(pinocchio_system::ID);
         reserve: mut, @owner(crate::ID);
         vault;
     }

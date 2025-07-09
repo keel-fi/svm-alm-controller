@@ -15,7 +15,7 @@ define_account_struct! {
     pub struct ManagePermissionAccounts<'info> {
         payer: signer, mut;
         controller: @owner(crate::ID);
-        controller_authority;
+        controller_authority: empty, @owner(pinocchio_system::ID);
         super_authority: signer;
         super_permission: @owner(crate::ID);
         authority;

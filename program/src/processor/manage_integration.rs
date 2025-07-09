@@ -14,7 +14,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct ManageIntegrationAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority;
+        controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
