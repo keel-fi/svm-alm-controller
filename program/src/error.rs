@@ -41,6 +41,8 @@ pub enum SvmAlmControllerErrors {
     RateLimited,
     // 18
     InvalidControllerAuthority,
+    // 19,
+    InvalidPermission,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

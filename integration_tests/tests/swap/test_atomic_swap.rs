@@ -110,12 +110,13 @@ mod tests {
             &relayer_authority_kp.pubkey(), // subject authority
             PermissionStatus::Active,
             true,  // can_execute_swap,
-            false, // can_manage_permissions,
+            true, // can_manage_permissions,
             false, // can_invoke_external_transfer,
             false, // can_reallocate,
             false, // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_integrations
+            false,  // can_suspend_permissions
         )?;
 
         let oracle = derive_oracle_pda(&nonce);

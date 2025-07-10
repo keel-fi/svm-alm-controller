@@ -31,7 +31,8 @@ pub struct Permission {
     pub can_freeze: bool,
     pub can_unfreeze: bool,
     pub can_manage_integrations: bool,
-    pub padding: [u8; 32],
+    pub can_suspend_permissions: bool,
+    pub padding: [u8; 31],
 }
 
 impl Permission {

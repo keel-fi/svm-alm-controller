@@ -28,7 +28,8 @@ pub struct Permission {
     pub can_freeze: bool,
     pub can_unfreeze: bool,
     pub can_manage_integrations: bool,
-    pub _padding: [u8; 32],
+    pub can_suspend_permissions: bool,
+    pub _padding: [u8; 31],
 }
 
 impl Discriminator for Permission {
@@ -105,6 +106,7 @@ impl Permission {
         can_freeze: bool,
         can_unfreeze: bool,
         can_manage_integrations: bool,
+        can_suspend_permissions: bool,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the controller
         let permission = Permission {
@@ -118,7 +120,8 @@ impl Permission {
             can_freeze,
             can_unfreeze,
             can_manage_integrations,
-            _padding: [0; 32],
+            can_suspend_permissions,
+            _padding: [0; 31],
         };
 
         // Derive the PDA
@@ -161,12 +164,16 @@ impl Permission {
         can_freeze: Option<bool>,
         can_unfreeze: Option<bool>,
         can_manage_integrations: Option<bool>,
+        can_suspend_permissions: Option<bool>,
     ) -> Result<(), ProgramError> {
         if let Some(status) = status {
             self.status = status;
         }
         if let Some(can_manage_permissions) = can_manage_permissions {
             self.can_manage_permissions = can_manage_permissions;
+        }
+        if let Some(can_suspend_permissions) = can_suspend_permissions {
+            self.can_suspend_permissions = can_suspend_permissions;
         }
         if let Some(can_invoke_external_transfer) = can_invoke_external_transfer {
             self.can_invoke_external_transfer = can_invoke_external_transfer;
@@ -192,6 +199,10 @@ impl Permission {
 
     pub fn can_manage_permissions(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_manage_permissions
+    }
+
+    pub fn can_suspend_permissions(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_suspend_permissions
     }
 
     pub fn can_manage_integrations(&self) -> bool {

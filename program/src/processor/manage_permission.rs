@@ -1,5 +1,6 @@
 use crate::{
     define_account_struct,
+    enums::PermissionStatus,
     error::SvmAlmControllerErrors,
     events::{PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::ManagePermissionArgs,
@@ -33,8 +34,101 @@ impl<'info> ManagePermissionAccounts<'info> {
         {
             return Err(ProgramError::InvalidAccountOwner);
         }
+
         Ok(ctx)
     }
+}
+
+/// Logic for a Super Permission with `can_manage_permissions` to create/update
+/// a Permission account.
+fn manage_permission(
+    ctx: &ManagePermissionAccounts,
+    args: &ManagePermissionArgs,
+) -> Result<(Permission, Option<Permission>), ProgramError> {
+    if ctx.permission.data_is_empty() {
+        // Initialize the permission account
+        verify_system_account(ctx.permission, true)?;
+        let permission = Permission::init_account(
+            ctx.permission,
+            ctx.payer,
+            *ctx.controller.key(),
+            *ctx.authority.key(),
+            args.status,
+            args.can_manage_permissions,
+            args.can_invoke_external_transfer,
+            args.can_execute_swap,
+            args.can_reallocate,
+            args.can_freeze,
+            args.can_unfreeze,
+            args.can_manage_integrations,
+            args.can_suspend_permissions,
+        )?;
+        Ok((permission, None))
+    } else {
+        // Load the permission account
+        let mut permission = Permission::load_and_check_mut(
+            ctx.permission,
+            ctx.controller.key(),
+            ctx.authority.key(),
+        )?;
+        let old_state = permission.clone();
+        // Update the permission account and save it
+        permission.update_and_save(
+            Some(args.status),
+            Some(args.can_manage_permissions),
+            Some(args.can_invoke_external_transfer),
+            Some(args.can_execute_swap),
+            Some(args.can_reallocate),
+            Some(args.can_freeze),
+            Some(args.can_unfreeze),
+            Some(args.can_manage_integrations),
+            Some(args.can_suspend_permissions),
+        )?;
+        // Save the state to the account
+        permission.save(ctx.permission)?;
+        Ok((permission, Some(old_state)))
+    }
+}
+
+/// Logic for a Permission with `can_suspend_permissions` suspend AND ONLY suspend
+/// an existing permission account.
+fn suspend_permission(
+    ctx: &ManagePermissionAccounts,
+    args: &ManagePermissionArgs,
+) -> Result<(Permission, Option<Permission>), ProgramError> {
+    // Check that status is suspended since that's all the permission with
+    // `can_suspend_permissions` can do.
+    if args.status != PermissionStatus::Suspended {
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+    // Load the permission account
+    let mut permission =
+        Permission::load_and_check_mut(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
+    
+    // A Permission with `can_suspend_permissions` cannot suspend Permissions
+    // that can manage other permissions. This is to prevent a scenario where
+    // All Permissions with management capabilities are suspended and thus no Permissions
+    // could become un-suspended.
+    if permission.can_manage_permissions() {
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+
+    let old_state = permission.clone();
+    // Update the permission account and save it
+    permission.update_and_save(
+        Some(args.status),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )?;
+    // Save the state to the account
+    permission.save(ctx.permission)?;
+    Ok((permission, Some(old_state)))
 }
 
 pub fn process_manage_permission(
@@ -48,6 +142,16 @@ pub fn process_manage_permission(
     // // Deserialize the args
     let args = ManagePermissionArgs::try_from_slice(instruction_data).unwrap();
 
+    // Don't allow a permission to suspend itself or remove it's own abilities
+    // to manage permissions. This is to prevent a scenario where a Controller
+    // becomes locked because all Permissions are suspended and none can manage
+    // other permissions.
+    if ctx.permission.key().eq(ctx.super_permission.key())
+        && (args.status == PermissionStatus::Suspended || !args.can_manage_permissions)
+    {
+        return Err(SvmAlmControllerErrors::InvalidPermission.into());
+    }
+
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
 
@@ -57,53 +161,16 @@ pub fn process_manage_permission(
         ctx.controller.key(),
         ctx.super_authority.key(),
     )?;
-    // Check that super authority has permission and the permission is active
-    if !super_permission.can_manage_permissions() {
-        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
-    }
-
-    let mut permission: Permission;
-    let old_state: Option<Permission>;
-    if ctx.permission.data_is_empty() {
-        // Initialize the permission account
-        verify_system_account(ctx.permission, true)?;
-        permission = Permission::init_account(
-            ctx.permission,
-            ctx.payer,
-            *ctx.controller.key(),
-            *ctx.authority.key(),
-            args.status,
-            args.can_manage_permissions,
-            args.can_invoke_external_transfer,
-            args.can_execute_swap,
-            args.can_reallocate,
-            args.can_freeze,
-            args.can_unfreeze,
-            args.can_manage_integrations,
-        )?;
-        old_state = None;
+    let (permission, old_state) = if super_permission.can_manage_permissions() {
+        // Only super permission with `can_manage_permissions` should be able to manage the entirety of a Permission.
+        manage_permission(&ctx, &args)?
+    } else if super_permission.can_suspend_permissions() {
+        // Permission with `can_suspend_permissions` can only suspend an existing permission.
+        suspend_permission(&ctx, &args)?
     } else {
-        // Initialize the permission account
-        permission = Permission::load_and_check_mut(
-            ctx.permission,
-            ctx.controller.key(),
-            ctx.authority.key(),
-        )?;
-        old_state = Some(permission.clone());
-        // Update the permission account and save it
-        permission.update_and_save(
-            Some(args.status),
-            Some(args.can_manage_permissions),
-            Some(args.can_invoke_external_transfer),
-            Some(args.can_execute_swap),
-            Some(args.can_reallocate),
-            Some(args.can_freeze),
-            Some(args.can_unfreeze),
-            Some(args.can_manage_integrations),
-        )?;
-        // Save the state to the account
-        permission.save(ctx.permission)?;
-    }
+        // Permission does not have correct permissions, error
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    };
 
     // Emit the event
     controller.emit_event(
