@@ -110,7 +110,7 @@ mod tests {
             &relayer_authority_kp.pubkey(), // subject authority
             PermissionStatus::Active,
             true,  // can_execute_swap,
-            false, // can_manage_permissions,
+            true, // can_manage_permissions,
             false, // can_invoke_external_transfer,
             false, // can_reallocate,
             false, // can_freeze,

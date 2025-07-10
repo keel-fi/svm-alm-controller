@@ -35,11 +35,6 @@ impl<'info> ManagePermissionAccounts<'info> {
             return Err(ProgramError::InvalidAccountOwner);
         }
 
-        // Check that the super permission is not modifying itself.
-        // if ctx.permission.key().eq(ctx.super_permission.key()) {
-        //     return Err(SvmAlmControllerErrors::InvalidPermission.into());
-        // }
-
         Ok(ctx)
     }
 }
@@ -109,6 +104,15 @@ fn suspend_permission(
     // Load the permission account
     let mut permission =
         Permission::load_and_check_mut(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
+    
+    // A Permission with `can_suspend_permissions` cannot suspend Permissions
+    // that can manage other permissions. This is to prevent a scenario where
+    // All Permissions with management capabilities are suspended and thus no Permissions
+    // could become un-suspended.
+    if permission.can_manage_permissions() {
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+
     let old_state = permission.clone();
     // Update the permission account and save it
     permission.update_and_save(
@@ -137,6 +141,16 @@ pub fn process_manage_permission(
     let ctx = ManagePermissionAccounts::checked_from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManagePermissionArgs::try_from_slice(instruction_data).unwrap();
+
+    // Don't allow a permission to suspend itself or remove it's own abilities
+    // to manage permissions. This is to prevent a scenario where a Controller
+    // becomes locked because all Permissions are suspended and none can manage
+    // other permissions.
+    if ctx.permission.key().eq(ctx.super_permission.key())
+        && (args.status == PermissionStatus::Suspended || !args.can_manage_permissions)
+    {
+        return Err(SvmAlmControllerErrors::InvalidPermission.into());
+    }
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
