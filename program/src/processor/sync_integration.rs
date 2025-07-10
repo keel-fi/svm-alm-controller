@@ -16,7 +16,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct SyncIntegrationAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority;
+        controller_authority: empty, @owner(pinocchio_system::ID);
         integration: mut, @owner(crate::ID);
         program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;

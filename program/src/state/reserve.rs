@@ -94,6 +94,7 @@ impl Reserve {
         Ok(reserve)
     }
 
+    /// Iniitalizes the PDA account for a reserve.
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,
@@ -174,6 +175,8 @@ impl Reserve {
         Ok(())
     }
 
+    /// Refresh the rate limit amount based on the slope and the time since the last refresh.
+    /// If the rate limit is set to `u64::MAX`, it will not refresh.
     pub fn refresh_rate_limit(&mut self, clock: Clock) -> Result<(), ProgramError> {
         if self.rate_limit_max_outflow == u64::MAX
             || self.last_refresh_timestamp == clock.unix_timestamp
@@ -196,6 +199,7 @@ impl Reserve {
         Ok(())
     }
 
+    /// Increment the rate limit amount for inflows and update the last balance by the amount received.
     pub fn update_for_inflow(&mut self, clock: Clock, inflow: u64) -> Result<(), ProgramError> {
         if !(self.last_refresh_timestamp == clock.unix_timestamp
             && self.last_refresh_slot == clock.slot)
@@ -215,6 +219,7 @@ impl Reserve {
         Ok(())
     }
 
+    /// Decrement the rate limit amount for outflows and update the last balance by the amount sent.
     pub fn update_for_outflow(&mut self, clock: Clock, outflow: u64) -> Result<(), ProgramError> {
         if !(self.last_refresh_timestamp == clock.unix_timestamp
             && self.last_refresh_slot == clock.slot)
@@ -230,6 +235,8 @@ impl Reserve {
         Ok(())
     }
 
+    /// Sync the balance of the reserve with the vault and update the rate limits whether there is an inflow or outflow.
+    /// Also refreshes the rate limits based on time since the last refresh.
     pub fn sync_balance(
         &mut self,
         vault_info: &AccountInfo,

@@ -14,7 +14,7 @@ define_account_struct! {
   pub struct InitializeReserveAccounts<'info> {
       payer: signer, mut;
       controller: @owner(crate::ID);
-      controller_authority;
+      controller_authority: empty, @owner(pinocchio_system::ID);
       authority: signer;
       permission: @owner(crate::ID);
       reserve: mut, empty, @owner(pinocchio_system::ID);

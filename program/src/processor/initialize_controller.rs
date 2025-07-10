@@ -13,7 +13,7 @@ define_account_struct! {
         payer: signer, mut;
         authority: signer;
         controller: mut, empty, @owner(pinocchio_system::ID);
-        controller_authority;
+        controller_authority: empty, @owner(pinocchio_system::ID);
         permission: mut, empty, @owner(pinocchio_system::ID);
         program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);

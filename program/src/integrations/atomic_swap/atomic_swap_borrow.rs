@@ -27,7 +27,7 @@ use crate::{
 define_account_struct! {
     pub struct AtomicSwapBorrow<'info> {
         controller;
-        controller_authority;
+        controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission;
         integration: mut;

@@ -1,6 +1,6 @@
 # Nova SVM ALM Controller
 
-The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova STAR on Solana or other AVM chains.
+The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova STAR on Solana or other SVM chains.
 
 In effect, it is a glorified program-owned wallet with:
 - role permissioning for external wallets
@@ -13,7 +13,9 @@ In effect, it is a glorified program-owned wallet with:
 
 ### Controller
 
-The PDA which acts as the signer and owner on all key balances, positions, etc. Multiple Controller instances can exist in a single deployment of the program. The Controller account state itself is rather limited, with the exception of a high-level status which can be used to suspend all actions by the Controller in extreme cases.
+The account with a PDA that acts as the signer and owner on all key balances, positions, etc. Multiple Controller instances can exist in a single deployment of the program. The Controller account state itself is rather limited, with the exception of a high-level status which can be used to suspend all actions by the Controller in extreme cases.
+
+A System Program owned PDA with no data, the "controller_authority", is used for all signatures to ensure safety with signing CPIs.
 
 ### Permissions
 
@@ -23,9 +25,9 @@ These accounts contain rules determining the types of actions that a given calle
 
 ## Reserves 
 
-Reserve accounts are used to track the balances and flows of a particular SPL Token. They are 1-to-1 with an Associated Token Account owned by the Controller PDA. These accounts contain state which can be used to track changes to the SPL Token balance (for example, generating accounting events to account for permissionless inflows into the Controller's ATA). Rate limiting can also be applied at Reserve level (in addition to at Intergration level).
+Reserve accounts are used to track the balances and flows of a particular SPL Token. They are 1-to-1 with an Associated Token Account owned by the Controller authority PDA. These accounts contain state which can be used to track changes to the SPL Token balance (for example, generating accounting events to account for permissionless inflows into the Controller's ATA). Rate limiting can also be applied at Reserve level (in addition to at Intergration level).
 
-Although anyone could permissionessly transfer funds to the Controller, actions cannot be taken in respect of a Controller's ATA unless there is a Reserve configured for it. 
+Although anyone could permissionessly transfer funds to the Controller, actions cannot be taken in respect of a Controller authority's ATA unless there is a Reserve configured for it. 
 
 ## Integrations 
 
