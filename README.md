@@ -54,6 +54,10 @@ It's critical that all token outflows from `Push` actions or inflows from `Pull`
 #### SplTokenExternal
 Enables the transferring of tokens from a Controller owned TokenAccount to an external wallet. The implementation only supports the transferring to a recipients Associated Token Account (ATA). The ATA will be created if the recipient does not have an initialized ATA.
 
+#### SplTokenSwap
+Enables the ability to LP using funds from the Controller's Reserves to an SPL Token Swap market.
+
+
 ### Future Integrations
 
 Future integrations are likely to include interfaces with DeFi protocols across Solana, for example:
