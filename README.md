@@ -39,6 +39,8 @@ Support for different types of Integration will require modules to be developed 
 
 There are "outer" handlers for `Initialize`, `Sync`, `Push` and `Pull` actions. Each Integration will have it's own modules which will need to implement the "inner" handler logic (as well as defining "inner" account contexts and args) for any actions which are applicable to it.
 
+It's critical that all token outflows from `Push` actions or inflows from `Pull` actions are correctly accounted for within their respective Reserve AND Integration accounts.
+
 ### Core Integrations
 
 | Integration | Initialize | Sync | Push | Pull | Other        |
@@ -48,6 +50,9 @@ There are "outer" handlers for `Initialize`, `Sync`, `Push` and `Pull` actions. 
 | CctpBridge | Yes | No | Yes | No | No |
 | LzBridge | Yes | No | Yes | No | No |
 | AtomicSwap | Yes | Yes | Yes | No | Borrow, Repay |
+
+#### SplTokenExternal
+Enables the transferring of tokens from a Controller owned TokenAccount to an external wallet. The implementation only supports the transferring to a recipients Associated Token Account (ATA). The ATA will be created if the recipient does not have an initialized ATA.
 
 ### Future Integrations
 

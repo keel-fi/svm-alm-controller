@@ -17,6 +17,15 @@ use pinocchio::{
 };
 use shank::ShankAccount;
 
+/// Integrations enable controlled interactions with third-party DeFi protocols, however there are also 
+/// a number of `Integration` “special cases” — namely, to support:
+/// - Transferring balances to an external wallet
+/// - Facilitating atomic swapping between tokens
+/// - Bridging specific tokens using canonical bridges (CCTP, LayerZero OFT)
+/// 
+/// Integration accounts stores the necessary use-case specific configurations to enforce account contexts in 
+/// CPIs to the relevant third party protocol(s), and stores the data necessary to support Integration-level 
+/// rate limiting, and use-case specific data to facilitate accounting.
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Integration {
