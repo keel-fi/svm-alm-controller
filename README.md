@@ -57,6 +57,14 @@ Enables the transferring of tokens from a Controller owned TokenAccount to an ex
 #### SplTokenSwap
 Enables the ability to LP using funds from the Controller's Reserves to an SPL Token Swap market.
 
+#### CctpBridge
+Enables bridging of USDC from other chains (i.e. Ethereum, Sky's core chain) to Solana.
+
+#### LzBridge
+Enables the sending of tokens to other networks through LayerZero's OFT standard. NOTE: The OFT Send instruction has a call stack depth limit of 4, so in order to compose the Integration uses Transaction Introspection to ensure the last instruction in the Transaction containing the "Push" action contains the correct OFT Send instruction.
+
+#### AtomicSwap
+Enables an atomic swap of a Controller's Reserve token to another token within a Controller Reserve. This integration is written such that it supports any external venue or aggregator by allowing an external wallet to temporarily borrow the tokens to execute the swap. During the Repay instruction, checks are performed to ensure that the external wallet met slippage thresholds as well as other safety checks.
 
 ### Future Integrations
 

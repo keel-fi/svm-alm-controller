@@ -2,6 +2,9 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::pubkey::Pubkey;
 use shank::ShankType;
 
+/// Configure an atomic swap of a Controller's Reserve token to another token.
+/// The configuration sets the parameters for which an external wallet must adhere
+/// to when making the swap.
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 pub struct AtomicSwapConfig {
     /// The token mint that is being used to make the swap
