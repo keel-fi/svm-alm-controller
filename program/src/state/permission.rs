@@ -15,19 +15,33 @@ use pinocchio::{
 };
 use shank::ShankAccount;
 
+/// Account that tracks the permisisons of a given Address for a specific Controller.
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Permission {
+    /// Controller this Permission applies to
     pub controller: Pubkey,
+    /// Address that has the power to use the enabled permissions
     pub authority: Pubkey,
+    /// Status of the Permissions (i.e. active or suspended)
     pub status: PermissionStatus,
+    /// Enables the Permission's authority to create or modify other Permissions
     pub can_manage_permissions: bool,
+    /// Enables the Permission's authority to execute ("Push") SplTokenExternal transfers,
+    /// sending tokens to a wallet external from the Controller
     pub can_invoke_external_transfer: bool,
+    /// Enables the Permission's authority to execute ("Push") AtomicSwaps, swapping
+    /// one of the Controllers Reserve tokens to another token in a separate Reserve.
     pub can_execute_swap: bool,
+    /// Enables the Permission's authority to execute ("Push" AND "Pull") SplTokenSwap integrations,
+    /// adding or removing liquidity from a SPL Token Swap pool.
     pub can_reallocate: bool,
     pub can_freeze: bool,
     pub can_unfreeze: bool,
+    /// Enables the Permission's authority to update any Integration's status, LUT, and rate limit params.
     pub can_manage_integrations: bool,
+    /// Enables the Permission's authority to suspend any Permission, EXCEPT for
+    /// a Super Permission with `can_manage_permissions` enabled.
     pub can_suspend_permissions: bool,
     pub _padding: [u8; 31],
 }
