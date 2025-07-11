@@ -20,17 +20,28 @@ use shank::ShankAccount;
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Integration {
+    /// Controller the Integration belongs to
     pub controller: Pubkey,
     pub description: [u8; 32],
+    /// Hash of the Integration's IntegrationConfig to be used as a PDA seed
     pub hash: [u8; 32],
+    /// Address Lookup Table associated with this Integration (set to Pubkey::default() when not needed)
     pub lookup_table: Pubkey,
+    /// Status of the Integration (i.e. active or suspended)
     pub status: IntegrationStatus,
+    /// The number of units (i.e. TokenAccount amount) is replenished to the available amount per 24 hours
     pub rate_limit_slope: u64,
+    /// The cap of tokens that may outflow (i.e. Integration "Pushes") on a rolling window basis
     pub rate_limit_max_outflow: u64,
-    pub rate_limit_amount_last_update: u64,
+    /// The current amount of tokens able to outflow (i.e. Integration "Pushes") on a rolling window basis
+    pub rate_limit_outflow_amount_available: u64,
+    /// Timestamp when the Integration was last updated
     pub last_refresh_timestamp: i64,
+    /// The Solana slot where the Integration was last updated
     pub last_refresh_slot: u64,
+    /// Configuration for the specific type of Integration with a third party program
     pub config: IntegrationConfig,
+    /// Integration specific state (i.e. LP balances)
     pub state: IntegrationState,
     pub _padding: [u8; 64],
 }
@@ -121,7 +132,7 @@ impl Integration {
             state,
             rate_limit_slope,
             rate_limit_max_outflow,
-            rate_limit_amount_last_update: rate_limit_max_outflow,
+            rate_limit_outflow_amount_available: rate_limit_max_outflow,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
             _padding: [0; 64],
@@ -181,11 +192,11 @@ impl Integration {
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
             let gap = self
                 .rate_limit_max_outflow
-                .checked_sub(self.rate_limit_amount_last_update)
+                .checked_sub(self.rate_limit_outflow_amount_available)
                 .unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
-            // Reset the rate_limit_amount_last_update such that the gap from the max remains the same
-            self.rate_limit_amount_last_update = self.rate_limit_max_outflow.saturating_sub(gap);
+            // Reset the rate_limit_outflow_amount_available such that the gap from the max remains the same
+            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow.saturating_sub(gap);
         }
 
         // Commit the account on-chain
@@ -206,8 +217,8 @@ impl Integration {
                     .checked_sub(self.last_refresh_timestamp)
                     .unwrap() as u128
                 / SECONDS_PER_DAY as u128) as u64;
-            self.rate_limit_amount_last_update  = self
-                .rate_limit_amount_last_update
+            self.rate_limit_outflow_amount_available  = self
+                .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
         }
@@ -227,13 +238,13 @@ impl Integration {
             msg! {"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument);
         }
-        // Cap the rate_limit_amount_last_update at the rate_limit_max_outflow
-        let v = self.rate_limit_amount_last_update.saturating_add(inflow);
+        // Cap the rate_limit_outflow_amount_available at the rate_limit_max_outflow
+        let v = self.rate_limit_outflow_amount_available.saturating_add(inflow);
         if v > self.rate_limit_max_outflow {
             // Cannot daily max outflow
-            self.rate_limit_amount_last_update = self.rate_limit_max_outflow;
+            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow;
         } else {
-            self.rate_limit_amount_last_update = v;
+            self.rate_limit_outflow_amount_available = v;
         }
         Ok(())
     }
@@ -249,8 +260,8 @@ impl Integration {
             msg! {"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument);
         }
-        self.rate_limit_amount_last_update = self
-            .rate_limit_amount_last_update
+        self.rate_limit_outflow_amount_available = self
+            .rate_limit_outflow_amount_available
             .checked_sub(outflow)
             .ok_or(SvmAlmControllerErrors::RateLimited)?;
         Ok(())

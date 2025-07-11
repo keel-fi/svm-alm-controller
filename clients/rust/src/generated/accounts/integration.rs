@@ -30,7 +30,7 @@ pub struct Integration {
     pub status: IntegrationStatus,
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
-    pub rate_limit_amount_last_update: u64,
+    pub rate_limit_outflow_amount_available: u64,
     pub last_refresh_timestamp: i64,
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,

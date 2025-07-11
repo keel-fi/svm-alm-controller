@@ -973,21 +973,21 @@ mod tests {
 
         // Expect outflow by borrow amount
         assert_eq!(
-            integration_pre.rate_limit_amount_last_update
-                - integration_post.rate_limit_amount_last_update,
+            integration_pre.rate_limit_outflow_amount_available
+                - integration_post.rate_limit_outflow_amount_available,
             borrow_amount
         );
 
         // Expect outflow by borrow amount
         assert_eq!(
-            reserve_pc_pre.rate_limit_amount_last_update
-                - reserve_pc_post.rate_limit_amount_last_update,
+            reserve_pc_pre.rate_limit_outflow_amount_available
+                - reserve_pc_post.rate_limit_outflow_amount_available,
             borrow_amount
         );
 
         // Expect no change since its alr at max.
         assert_eq!(
-            reserve_coin_post.rate_limit_amount_last_update,
+            reserve_coin_post.rate_limit_outflow_amount_available,
             reserve_coin_post.rate_limit_max_outflow
         );
 
@@ -1052,21 +1052,21 @@ mod tests {
 
         // Expect outflow by spent amount
         assert_eq!(
-            integration_post.rate_limit_amount_last_update
-                - integration_post2.rate_limit_amount_last_update,
+            integration_post.rate_limit_outflow_amount_available
+                - integration_post2.rate_limit_outflow_amount_available,
             spent_a
         );
 
         // Expect outflow by spent amount
         assert_eq!(
-            reserve_pc_post.rate_limit_amount_last_update
-                - reserve_pc_post2.rate_limit_amount_last_update,
+            reserve_pc_post.rate_limit_outflow_amount_available
+                - reserve_pc_post2.rate_limit_outflow_amount_available,
             spent_a
         );
 
         // Expect no change since its alr at max.
         assert_eq!(
-            reserve_coin_post.rate_limit_amount_last_update,
+            reserve_coin_post.rate_limit_outflow_amount_available,
             reserve_coin_post.rate_limit_max_outflow
         );
 
@@ -1132,22 +1132,22 @@ mod tests {
 
         // Expect outflow by borrow amount
         assert_eq!(
-            integration2_pre.rate_limit_amount_last_update
-                - integration2_post.rate_limit_amount_last_update,
+            integration2_pre.rate_limit_outflow_amount_available
+                - integration2_post.rate_limit_outflow_amount_available,
             borrow_amount
         );
 
         // Expect outflow by borrow amount
         assert_eq!(
-            reserve_coin_post2.rate_limit_amount_last_update
-                - reserve_coin_post3.rate_limit_amount_last_update,
+            reserve_coin_post2.rate_limit_outflow_amount_available
+                - reserve_coin_post3.rate_limit_outflow_amount_available,
             borrow_amount
         );
 
         // Expect outflow by repay amount
         assert_eq!(
-            reserve_pc_post3.rate_limit_amount_last_update
-                - reserve_pc_post2.rate_limit_amount_last_update,
+            reserve_pc_post3.rate_limit_outflow_amount_available
+                - reserve_pc_post2.rate_limit_outflow_amount_available,
             repay_amount
         );
 
