@@ -25,8 +25,8 @@ pub struct Permission {
     pub can_invoke_external_transfer: bool,
     pub can_execute_swap: bool,
     pub can_reallocate: bool,
-    pub can_freeze: bool,
-    pub can_unfreeze: bool,
+    pub can_freeze_controller: bool,
+    pub can_unfreeze_controller: bool,
     pub can_manage_integrations: bool,
     pub can_suspend_permissions: bool,
     pub _padding: [u8; 31],
@@ -103,8 +103,8 @@ impl Permission {
         can_invoke_external_transfer: bool,
         can_execute_swap: bool,
         can_reallocate: bool,
-        can_freeze: bool,
-        can_unfreeze: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
         can_manage_integrations: bool,
         can_suspend_permissions: bool,
     ) -> Result<Self, ProgramError> {
@@ -117,8 +117,8 @@ impl Permission {
             can_invoke_external_transfer,
             can_execute_swap,
             can_reallocate,
-            can_freeze,
-            can_unfreeze,
+            can_freeze_controller,
+            can_unfreeze_controller,
             can_manage_integrations,
             can_suspend_permissions,
             _padding: [0; 31],
@@ -161,8 +161,8 @@ impl Permission {
         can_invoke_external_transfer: Option<bool>,
         can_execute_swap: Option<bool>,
         can_reallocate: Option<bool>,
-        can_freeze: Option<bool>,
-        can_unfreeze: Option<bool>,
+        can_freeze_controller: Option<bool>,
+        can_unfreeze_controller: Option<bool>,
         can_manage_integrations: Option<bool>,
         can_suspend_permissions: Option<bool>,
     ) -> Result<(), ProgramError> {
@@ -184,17 +184,25 @@ impl Permission {
         if let Some(can_reallocate) = can_reallocate {
             self.can_reallocate = can_reallocate;
         }
-        if let Some(can_freeze) = can_freeze {
-            self.can_freeze = can_freeze;
+        if let Some(can_freeze_controller) = can_freeze_controller {
+            self.can_freeze_controller = can_freeze_controller;
         }
-        if let Some(can_unfreeze) = can_unfreeze {
-            self.can_unfreeze = can_unfreeze;
+        if let Some(can_unfreeze_controller) = can_unfreeze_controller {
+            self.can_unfreeze_controller = can_unfreeze_controller;
         }
         if let Some(can_manage_integrations) = can_manage_integrations {
             self.can_manage_integrations = can_manage_integrations;
         }
 
         Ok(())
+    }
+
+    pub fn can_freeze_controller(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_freeze_controller
+    }
+
+    pub fn can_unfreeze_controller(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_unfreeze_controller
     }
 
     pub fn can_manage_permissions(&self) -> bool {

@@ -7,11 +7,7 @@ use crate::{
     constants::ATOMIC_SWAP_REPAY_IX_DISC,
     integrations::atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
     processor::{
-        process_emit_event, process_initialize_controller, process_initialize_integration,
-        process_initialize_oracle, process_initialize_reserve, process_manage_integration,
-        process_manage_permission, process_manage_reserve, process_pull, process_push,
-        process_refresh_oracle, process_sync_integration, process_sync_reserve,
-        process_update_oracle,
+        process_emit_event, process_initialize_controller, process_initialize_integration, process_initialize_oracle, process_initialize_reserve, process_manage_controller, process_manage_integration, process_manage_permission, process_manage_reserve, process_pull, process_push, process_refresh_oracle, process_sync_integration, process_sync_reserve, process_update_oracle
     },
 };
 
@@ -29,22 +25,23 @@ pub fn process_instruction(
     match discriminator {
         0 => process_emit_event(program_id, accounts, instruction_data),
         1 => process_initialize_controller(program_id, accounts, instruction_data),
-        2 => process_manage_permission(program_id, accounts, instruction_data),
-        3 => process_initialize_reserve(program_id, accounts, instruction_data),
-        4 => process_manage_reserve(program_id, accounts, instruction_data),
-        5 => process_initialize_integration(program_id, accounts, instruction_data),
-        6 => process_manage_integration(program_id, accounts, instruction_data),
-        7 => process_sync_reserve(program_id, accounts, instruction_data),
-        8 => process_sync_integration(program_id, accounts, instruction_data),
-        9 => process_push(program_id, accounts, instruction_data),
-        10 => process_pull(program_id, accounts, instruction_data),
-        11 => process_initialize_oracle(program_id, accounts, instruction_data),
-        12 => process_update_oracle(program_id, accounts, instruction_data),
-        13 => process_refresh_oracle(program_id, accounts),
-        14 => process_atomic_swap_borrow(program_id, accounts, instruction_data),
+        2 => process_manage_controller(program_id, accounts, instruction_data),
+        3 => process_manage_permission(program_id, accounts, instruction_data),
+        4 => process_initialize_reserve(program_id, accounts, instruction_data),
+        5 => process_manage_reserve(program_id, accounts, instruction_data),
+        6 => process_initialize_integration(program_id, accounts, instruction_data),
+        7 => process_manage_integration(program_id, accounts, instruction_data),
+        8 => process_sync_reserve(program_id, accounts, instruction_data),
+        9 => process_sync_integration(program_id, accounts, instruction_data),
+        10 => process_push(program_id, accounts, instruction_data),
+        11 => process_pull(program_id, accounts, instruction_data),
+        12 => process_initialize_oracle(program_id, accounts, instruction_data),
+        13 => process_update_oracle(program_id, accounts, instruction_data),
+        14 => process_refresh_oracle(program_id, accounts),
+        15 => process_atomic_swap_borrow(program_id, accounts, instruction_data),
         &ATOMIC_SWAP_REPAY_IX_DISC => {
             process_atomic_swap_repay(program_id, accounts, instruction_data)
-        } // 15
+        } // 16
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

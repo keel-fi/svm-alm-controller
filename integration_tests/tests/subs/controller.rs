@@ -6,7 +6,7 @@ use solana_sdk::{
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::Controller,
-    instructions::InitializeControllerBuilder,
+    instructions::{InitializeControllerBuilder, ManageContollerBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
     types::{ControllerStatus, PermissionStatus},
 };
@@ -115,11 +115,11 @@ pub fn initialize_contoller(
         "Permission to execute swap is not set to false"
     );
     assert_eq!(
-        permission.can_freeze, false,
+        permission.can_freeze_controller, false,
         "Permission to freeze is not set to false"
     );
     assert_eq!(
-        permission.can_unfreeze, false,
+        permission.can_unfreeze_controller, false,
         "Permission to unfreeze is not set to false"
     );
     assert_eq!(
@@ -141,4 +141,80 @@ pub fn initialize_contoller(
     );
 
     Ok((controller_pda, permission_pda))
+}
+
+pub fn manage_controller(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    payer: &Keypair,
+    calling_authority: &Keypair,
+    status: ControllerStatus,
+) -> Result<(), Box<dyn Error>> {
+    let calling_permission_pda = derive_permission_pda(controller, &calling_authority.pubkey());
+    let calling_permission_account_before = fetch_permission_account(svm, &calling_permission_pda)?;
+    let controller_authority = derive_controller_authority_pda(controller);
+
+    // Ensure the calling permission exists before the transaction
+    assert!(
+        calling_permission_account_before.is_some(),
+        "Calling permission account must exist before the transaction"
+    );
+
+    let controller_account_before = fetch_controller_account(svm, controller)?;
+
+    let ixn = ManageContollerBuilder::new()
+        .status(status)
+        .controller(*controller)
+        .controller_authority(controller_authority)
+        .authority(calling_authority.pubkey())
+        .permission(calling_permission_pda)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&payer.pubkey()),
+        &[&calling_authority, &payer],
+        svm.latest_blockhash(),
+    );
+
+    let tx_result = svm.send_transaction(txn);
+    
+    // If transaction failed, return the error
+    if tx_result.is_err() {
+        return Err(format!("Transaction failed: {:?}", tx_result.unwrap_err()).into());
+    }
+
+    let calling_permission_account_after = fetch_permission_account(svm, &calling_permission_pda)?;
+    let controller_account_after = fetch_controller_account(svm, controller)?;
+
+    // Ensure both accounts exist after the transaction
+    if calling_permission_account_after.is_none() {
+        return Err("Calling permission account must exist after the transaction".into());
+    }
+    if controller_account_after.is_none() {
+        return Err("Controller account must exist after the transaction".into());
+    }
+
+    // Check that the calling permission values are unchanged
+    let calling_permission_before = calling_permission_account_before.unwrap();
+    let calling_permission_after = calling_permission_account_after.unwrap();
+    if calling_permission_before != calling_permission_after {
+        return Err("Calling permission values have changed".into());
+    }
+
+    // Check that the controller status has been updated correctly
+    let controller_after = controller_account_after.unwrap();
+    if controller_after.status != status {
+        return Err("Controller status does not match the expected status".into());
+    }
+
+    // If there was a previous controller state, verify other fields remain unchanged
+    if let Some(controller_before) = controller_account_before {
+        if controller_after.id != controller_before.id {
+            return Err("Controller ID has changed unexpectedly".into());
+        }
+    }
+
+    Ok(())
 }

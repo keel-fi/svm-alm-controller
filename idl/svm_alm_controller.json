@@ -77,6 +77,48 @@
       }
     },
     {
+      "name": "ManageContoller",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programId",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "manageControllerArgs",
+          "type": {
+            "defined": "ManageControllerArgs"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
       "name": "ManagePermission",
       "accounts": [
         {
@@ -135,7 +177,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 2
+        "value": 3
       }
     },
     {
@@ -212,7 +254,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 3
+        "value": 4
       }
     },
     {
@@ -259,7 +301,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 4
+        "value": 5
       }
     },
     {
@@ -321,7 +363,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 5
+        "value": 6
       }
     },
     {
@@ -373,7 +415,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 6
+        "value": 7
       }
     },
     {
@@ -415,7 +457,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 7
+        "value": 8
       }
     },
     {
@@ -452,7 +494,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 8
+        "value": 9
       }
     },
     {
@@ -509,7 +551,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 9
+        "value": 10
       }
     },
     {
@@ -566,7 +608,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 10
+        "value": 11
       }
     },
     {
@@ -608,7 +650,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 11
+        "value": 12
       }
     },
     {
@@ -646,7 +688,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 12
+        "value": 13
       }
     },
     {
@@ -666,7 +708,7 @@
       "args": [],
       "discriminant": {
         "type": "u8",
-        "value": 13
+        "value": 14
       }
     },
     {
@@ -748,7 +790,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 14
+        "value": 15
       }
     },
     {
@@ -830,7 +872,7 @@
       ],
       "discriminant": {
         "type": "u8",
-        "value": 15
+        "value": 16
       }
     }
   ],
@@ -1043,11 +1085,11 @@
             "type": "bool"
           },
           {
-            "name": "canFreeze",
+            "name": "canFreezeController",
             "type": "bool"
           },
           {
-            "name": "canUnfreeze",
+            "name": "canUnfreezeController",
             "type": "bool"
           },
           {
@@ -1372,11 +1414,11 @@
             "type": "bool"
           },
           {
-            "name": "canFreeze",
+            "name": "canFreezeController",
             "type": "bool"
           },
           {
-            "name": "canUnfreeze",
+            "name": "canUnfreezeController",
             "type": "bool"
           },
           {
@@ -1478,6 +1520,20 @@
             "name": "innerArgs",
             "type": {
               "defined": "InitializeArgs"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ManageControllerArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "status",
+            "type": {
+              "defined": "ControllerStatus"
             }
           }
         ]
