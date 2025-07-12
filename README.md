@@ -1,19 +1,19 @@
 # Nova SVM ALM Controller
 
-The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova STAR on Solana or other SVM chains.
+The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova Star on Solana.
 
-In effect, it is a glorified program-owned wallet with:
-- role permissioning for external wallets
+In effect, it is a program-owned address with:
+- role permissioning for addresses which configure and orchestrate it
 - rate limiting
 - configurable integrations with DeFi protocols
 - integrations with cross-chain bridges
-- audit-trail generation with all actions
+- audit-trail generation enforced for all actions
 
 ## Core Concepts
 
 ### Controller
 
-The account with a PDA that acts as the signer and owner on all key balances, positions, etc. Multiple Controller instances can exist in a single deployment of the program. The Controller account state itself is rather limited, with the exception of a high-level status which can be used to suspend all actions by the Controller in extreme cases.
+The account with a corresponding PDA signer that acts as the signer and owner on all key balances, positions, etc. Multiple Controller instances can exist in a single deployment of the program. The Controller account state itself is rather limited, with the exception of a high-level status which can be used to suspend all actions by the Controller in extreme cases.
 
 A System Program owned PDA with no data, the "controller_authority", is used for all signatures to ensure safety with signing CPIs.
 
@@ -68,12 +68,39 @@ Enables an atomic swap of a Controller's Reserve token to another token within a
 
 ### Future Integrations
 
-Future integrations are likely to include interfaces with DeFi protocols across Solana, for example:
-- Kamino Lend
-- Drift Spot (borrow-lend) markets
-- Save (fka Solend)
-- MarginFi
+Future integrations are likely to include interfaces with DeFi protocols across Solana. For example, lending marketplaces or DEXs.
 
+### Anticipated Security Permissions/Configurations
+
+#### Key authorities:
+- *Sky PauseProxy* - A PDA controlled exclusively by Sky's PauseProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Sky's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked.
+- *Nova SubProxy* - A PDA controlled exclusively by Nova's SubProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Nova's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked. Prior to Nova's TGE, this is anticipated to be controlled by a multisig operated by Sky's Governance Operational Executors.
+- *Nova Security Council Multisig* - A 2/n multisig, where preventative action may be required to quickly respond to an identified or probable security threat.
+- *Relayer(s)* - Externally owned wallet(s), intended to operate day-to-day rebalancing operations.
+
+#### Permission Descriptions:
+
+- **can_freeze**: Freeze controller operations (emergency control)
+- **can_unfreeze**: Unfreeze controller operations (emergency control)
+- **can_manage_permissions**: Create or modify other permissions (highest level control)
+- **can_suspend_permissions**: Suspend any permission except super permissions (emergency control)
+- **can_manage_integrations**: Update integration status, LUT, and rate limit parameters (configuration control)
+- **can_invoke_external_transfer**: Execute SplTokenExternal transfers (for example to fund DAO operations)
+- **can_execute_swap**: Execute AtomicSwap operations (operational)
+- **can_reallocate**: Execute SplTokenSwap LP operations (operational)
+
+#### Permission Matrix
+
+| Permission | Sky PauseProxy | Nova SubProxy | Nova Security Council Multisig | Relayer (Primary) | Relayer (Backup) |
+|------------|----------------|---------------|-------------------------------|-------------------|------------------|
+| **can_freeze** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_unfreeze** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **can_manage_permissions** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **can_suspend_permissions** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_manage_integrations** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_invoke_external_transfer** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **can_execute_swap** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **can_reallocate** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 
 ## Build
