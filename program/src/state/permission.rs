@@ -36,7 +36,10 @@ pub struct Permission {
     /// Enables the Permission's authority to execute ("Push" AND "Pull") SplTokenSwap integrations,
     /// adding or removing liquidity from a SPL Token Swap pool.
     pub can_reallocate: bool,
+    /// Enables the Permission's authority to freeze the Controller, preventing any
+    /// "Push" or "Pull" type actions from being invoked.
     pub can_freeze: bool,
+    /// Enables the Permission's authority to unfreeze the Controller.
     pub can_unfreeze: bool,
     /// Enables the Permission's authority to update any Integration's status, LUT, and rate limit params.
     pub can_manage_integrations: bool,
