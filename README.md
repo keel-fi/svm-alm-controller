@@ -1,19 +1,19 @@
 # Nova SVM ALM Controller
 
-The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova STAR on Solana or other SVM chains.
+The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova Star on Solana.
 
-In effect, it is a glorified program-owned wallet with:
-- role permissioning for external wallets
+In effect, it is a program-owned address with:
+- role permissioning for addresses which configure and orchestrate it
 - rate limiting
 - configurable integrations with DeFi protocols
 - integrations with cross-chain bridges
-- audit-trail generation with all actions
+- audit-trail generation enforced for all actions
 
 ## Core Concepts
 
 ### Controller
 
-The account with a PDA that acts as the signer and owner on all key balances, positions, etc. Multiple Controller instances can exist in a single deployment of the program. The Controller account state itself is rather limited, with the exception of a high-level status which can be used to suspend all actions by the Controller in extreme cases.
+The account with a corresponding PDA signer that acts as the signer and owner on all key balances, positions, etc. Multiple Controller instances can exist in a single deployment of the program. The Controller account state itself is rather limited, with the exception of a high-level status which can be used to suspend all actions by the Controller in extreme cases.
 
 A System Program owned PDA with no data, the "controller_authority", is used for all signatures to ensure safety with signing CPIs.
 
@@ -39,6 +39,8 @@ Support for different types of Integration will require modules to be developed 
 
 There are "outer" handlers for `Initialize`, `Sync`, `Push` and `Pull` actions. Each Integration will have it's own modules which will need to implement the "inner" handler logic (as well as defining "inner" account contexts and args) for any actions which are applicable to it.
 
+It's critical that all token outflows from `Push` actions or inflows from `Pull` actions are correctly accounted for within their respective Reserve AND Integration accounts.
+
 ### Core Integrations
 
 | Integration | Initialize | Sync | Push | Pull | Other        |
@@ -49,14 +51,56 @@ There are "outer" handlers for `Initialize`, `Sync`, `Push` and `Pull` actions. 
 | LzBridge | Yes | No | Yes | No | No |
 | AtomicSwap | Yes | Yes | Yes | No | Borrow, Repay |
 
+#### SplTokenExternal
+Enables the transferring of tokens from a Controller owned TokenAccount to an external wallet. The implementation only supports the transferring to a recipients Associated Token Account (ATA). The ATA will be created if the recipient does not have an initialized ATA.
+
+#### SplTokenSwap
+Enables the ability to LP using funds from the Controller's Reserves to an SPL Token Swap market.
+
+#### CctpBridge
+Enables bridging of USDC from other chains (i.e. Ethereum, Sky's core chain) to Solana.
+
+#### LzBridge
+Enables the sending of tokens to other networks through LayerZero's OFT standard. NOTE: The OFT Send instruction has a call stack depth limit of 4, so in order to compose the Integration uses Transaction Introspection to ensure the last instruction in the Transaction containing the "Push" action contains the correct OFT Send instruction.
+
+#### AtomicSwap
+Enables an atomic swap of a Controller's Reserve token to another token within a Controller Reserve. This integration is written such that it supports any external venue or aggregator by allowing an external wallet to temporarily borrow the tokens to execute the swap. During the Repay instruction, checks are performed to ensure that the external wallet met slippage thresholds as well as other safety checks.
+
 ### Future Integrations
 
-Future integrations are likely to include interfaces with DeFi protocols across Solana, for example:
-- Kamino Lend
-- Drift Spot (borrow-lend) markets
-- Save (fka Solend)
-- MarginFi
+Future integrations are likely to include interfaces with DeFi protocols across Solana. For example, lending marketplaces or DEXs.
 
+### Anticipated Security Permissions/Configurations
+
+#### Key authorities:
+- *Sky PauseProxy* - A PDA controlled exclusively by Sky's PauseProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Sky's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked.
+- *Nova SubProxy* - A PDA controlled exclusively by Nova's SubProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Nova's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked. Prior to Nova's TGE, this is anticipated to be controlled by a multisig operated by Sky's Governance Operational Executors.
+- *Nova Security Council Multisig* - A 2/n multisig, where preventative action may be required to quickly respond to an identified or probable security threat.
+- *Relayer(s)* - Externally owned wallet(s), intended to operate day-to-day rebalancing operations.
+
+#### Permission Descriptions:
+
+- **can_freeze**: Freeze controller operations (emergency control)
+- **can_unfreeze**: Unfreeze controller operations (emergency control)
+- **can_manage_permissions**: Create or modify other permissions (highest level control)
+- **can_suspend_permissions**: Suspend any permission except super permissions (emergency control)
+- **can_manage_integrations**: Update integration status, LUT, and rate limit parameters (configuration control)
+- **can_invoke_external_transfer**: Execute SplTokenExternal transfers (for example to fund DAO operations)
+- **can_execute_swap**: Execute AtomicSwap operations (operational)
+- **can_reallocate**: Execute SplTokenSwap LP operations (operational)
+
+#### Permission Matrix
+
+| Permission | Sky PauseProxy | Nova SubProxy | Nova Security Council Multisig | Relayer (Primary) | Relayer (Backup) |
+|------------|----------------|---------------|-------------------------------|-------------------|------------------|
+| **can_freeze** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_unfreeze** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **can_manage_permissions** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **can_suspend_permissions** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_manage_integrations** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_invoke_external_transfer** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **can_execute_swap** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **can_reallocate** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 
 ## Build
