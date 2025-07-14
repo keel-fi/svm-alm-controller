@@ -962,7 +962,7 @@
             "type": "u64"
           },
           {
-            "name": "rateLimitAmountLastUpdate",
+            "name": "rateLimitOutflowAmountAvailable",
             "type": "u64"
           },
           {
@@ -1144,7 +1144,7 @@
             "type": "u64"
           },
           {
-            "name": "rateLimitAmountLastUpdate",
+            "name": "rateLimitOutflowAmountAvailable",
             "type": "u64"
           },
           {

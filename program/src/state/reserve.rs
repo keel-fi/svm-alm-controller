@@ -24,18 +24,30 @@ use shank::ShankAccount;
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
+/// The Reserve account manages a specific TokenAccount ultimately owned by a specific Controller's
+/// authority PDA. The Reserve enforces certain policies like outflow rate limiting.
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Reserve {
+    /// Controller the Reserve belongs to
     pub controller: Pubkey,
+    /// Token Mint of the Reserve
     pub mint: Pubkey,
+    /// TokenAccount holding the Reserve's tokens
     pub vault: Pubkey,
+    /// Status of the Reserve (i.e. active or suspended)
     pub status: ReserveStatus,
+    /// The number of units (i.e. TokenAccount amount) is replenished to the available amount per 24 hours
     pub rate_limit_slope: u64,
+    /// The cap of tokens that may outflow on a rolling window basis
     pub rate_limit_max_outflow: u64,
-    pub rate_limit_amount_last_update: u64,
+    /// The current amount of tokens able to outflow on a rolling window basis
+    pub rate_limit_outflow_amount_available: u64,
+    /// The last recorded balance of the Reserve's vault TokenAccount
     pub last_balance: u64,
+    /// Timestamp when the Reserve was last updated
     pub last_refresh_timestamp: i64,
+    /// The Solana slot where the Reserve was last updated
     pub last_refresh_slot: u64,
     pub _padding: [u8; 128],
 }
@@ -114,7 +126,7 @@ impl Reserve {
             status,
             rate_limit_slope,
             rate_limit_max_outflow,
-            rate_limit_amount_last_update: rate_limit_max_outflow, // Starts at full amount
+            rate_limit_outflow_amount_available: rate_limit_max_outflow, // Starts at full amount
             last_balance: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
@@ -166,11 +178,11 @@ impl Reserve {
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
             let gap = self
                 .rate_limit_max_outflow
-                .checked_sub(self.rate_limit_amount_last_update)
+                .checked_sub(self.rate_limit_outflow_amount_available)
                 .unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
-            // Reset the rate_limit_amount_last_update such that the gap from the max remains the same
-            self.rate_limit_amount_last_update = self.rate_limit_max_outflow.saturating_sub(gap);
+            // Reset the rate_limit_outflow_amount_available such that the gap from the max remains the same
+            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow.saturating_sub(gap);
         }
         Ok(())
     }
@@ -189,8 +201,8 @@ impl Reserve {
                     .checked_sub(self.last_refresh_timestamp)
                     .unwrap() as u128
                 / SECONDS_PER_DAY as u128) as u64;
-            self.rate_limit_amount_last_update = self
-                .rate_limit_amount_last_update
+            self.rate_limit_outflow_amount_available = self
+                .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
         }
@@ -207,13 +219,13 @@ impl Reserve {
             msg! {"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument);
         }
-        // Cap the rate_limit_amount_last_update at the rate_limit_max_outflow
-        let v = self.rate_limit_amount_last_update.saturating_add(inflow);
+        // Cap the rate_limit_outflow_amount_available at the rate_limit_max_outflow
+        let v = self.rate_limit_outflow_amount_available.saturating_add(inflow);
         if v > self.rate_limit_max_outflow {
             // Cannot daily max outflow
-            self.rate_limit_amount_last_update = self.rate_limit_max_outflow;
+            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow;
         } else {
-            self.rate_limit_amount_last_update = v;
+            self.rate_limit_outflow_amount_available = v;
         }
         self.last_balance = self.last_balance.checked_add(inflow).unwrap();
         Ok(())
@@ -227,8 +239,8 @@ impl Reserve {
             msg! {"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument);
         }
-        self.rate_limit_amount_last_update = self
-            .rate_limit_amount_last_update
+        self.rate_limit_outflow_amount_available = self
+            .rate_limit_outflow_amount_available
             .checked_sub(outflow)
             .ok_or(SvmAlmControllerErrors::RateLimited)?;
         self.last_balance = self.last_balance.checked_sub(outflow).unwrap();

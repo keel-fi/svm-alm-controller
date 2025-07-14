@@ -186,8 +186,8 @@ pub fn process_push_lz_bridge(
     }
     .invoke()?;
 
-    // Transfer the token to the token destination, where the t
-    // from here the token will be burned or locked in the OFT Send instruction
+    // Transfer the token to the token destination, where the token
+    // will be burned or locked in the OFT Send instruction
     controller.transfer_tokens(
         outer_ctx.controller,
         outer_ctx.controller_authority,
