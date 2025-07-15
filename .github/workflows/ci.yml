@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+        
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+          
+    - name: Install Solana CLI
+      uses: solana-labs/setup-solana@v1
+      with:
+        solana-version: '2.1.13'
+        
+    - name: Install Anchor CLI (if needed)
+      run: |
+        cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+        avm install latest
+        avm use latest
+        
+    # - name: Check formatting
+    #   run: cargo fmt --all -- --check
+      
+    # - name: Run clippy
+    #   run: cargo clippy --all-targets --all-features -- -D warnings
+      
+    - name: Build program
+      run: cargo build-sbf
+      
+    - name: Run integration tests
+      run: cargo test
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      if: success()
+      with:
+        name: program-build
+        path: |
+          target/release/svm-alm-controller.so
+          target/release/svm-alm-controller.d
+        retention-days: 7 
