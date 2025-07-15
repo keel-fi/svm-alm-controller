@@ -16,4 +16,4 @@ pub mod state;
 pub mod entrypoint;
 
 // TODO update with your program ID
-pinocchio_pubkey::declare_id!("2NCpU9nsgLfhqKX5CDVz24FfsZ8aRwjgUWtFbPsVZVu2");
+pinocchio_pubkey::declare_id!("98BiSW5kL3nfgGeoLmYi85EAgabcdNhmXPwJ9Yc8w3sD");

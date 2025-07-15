@@ -1,0 +1,17 @@
+[package]
+name = "deploy-controller"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+solana-program = { workspace = true }
+svm-alm-controller-client = { path = "../clients/rust" }
+base64 = "0.22"
+borsh = { workspace = true }
+bs58 = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
+anyhow = "1.0"
+serde_json = { workspace = true }
+bincode = "1.3" 

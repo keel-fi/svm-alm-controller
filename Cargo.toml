@@ -3,7 +3,8 @@
 members = [
   "program",
   "integration_tests",
-  "clients/rust"
+  "clients/rust",
+  "scripts"
 ]
 
 resolver = "2"
