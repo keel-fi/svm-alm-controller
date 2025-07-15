@@ -80,8 +80,8 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 
 #### Permission Descriptions:
 
-- **can_freeze**: Freeze controller operations (emergency control)
-- **can_unfreeze**: Unfreeze controller operations (emergency control)
+- **can_freeze_controller**: Freeze controller operations (emergency control)
+- **can_unfreeze_controller**: Unfreeze controller operations (emergency control)
 - **can_manage_permissions**: Create or modify other permissions (highest level control)
 - **can_suspend_permissions**: Suspend any permission except super permissions (emergency control)
 - **can_manage_integrations**: Update integration status, LUT, and rate limit parameters (configuration control)
@@ -93,8 +93,8 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 
 | Permission | Sky PauseProxy | Nova SubProxy | Nova Security Council Multisig | Relayer (Primary) | Relayer (Backup) |
 |------------|----------------|---------------|-------------------------------|-------------------|------------------|
-| **can_freeze** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **can_unfreeze** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **can_freeze_controller** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **can_unfreeze_controller** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **can_manage_permissions** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **can_suspend_permissions** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **can_manage_integrations** | ✅ | ✅ | ✅ | ❌ | ❌ |
