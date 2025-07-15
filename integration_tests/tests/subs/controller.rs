@@ -6,7 +6,7 @@ use solana_sdk::{
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::Controller,
-    instructions::{InitializeControllerBuilder, ManageContollerBuilder},
+    instructions::{InitializeControllerBuilder, ManageControllerBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
     types::{ControllerStatus, PermissionStatus},
 };
@@ -162,7 +162,7 @@ pub fn manage_controller(
 
     let controller_account_before = fetch_controller_account(svm, controller)?;
 
-    let ixn = ManageContollerBuilder::new()
+    let ixn = ManageControllerBuilder::new()
         .status(status)
         .controller(*controller)
         .controller_authority(controller_authority)

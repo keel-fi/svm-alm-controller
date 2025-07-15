@@ -77,7 +77,7 @@
       }
     },
     {
-      "name": "ManageContoller",
+      "name": "ManageController",
       "accounts": [
         {
           "name": "controller",
