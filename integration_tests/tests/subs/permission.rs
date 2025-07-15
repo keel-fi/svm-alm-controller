@@ -54,8 +54,8 @@ pub fn manage_permission(
     can_manage_permissions: bool,
     can_invoke_external_transfer: bool,
     can_reallocate: bool,
-    can_freeze: bool,
-    can_unfreeze: bool,
+    can_freeze_controller: bool,
+    can_unfreeze_controller: bool,
     can_manage_integrations: bool,
     can_suspend_permissions: bool,
 ) -> Result<Pubkey, Box<dyn Error>> {
@@ -77,8 +77,8 @@ pub fn manage_permission(
         .can_manage_permissions(can_manage_permissions)
         .can_invoke_external_transfer(can_invoke_external_transfer)
         .can_reallocate(can_reallocate)
-        .can_freeze(can_freeze)
-        .can_unfreeze(can_unfreeze)
+        .can_freeze_controller(can_freeze_controller)
+        .can_unfreeze_controller(can_unfreeze_controller)
         .can_manage_integrations(can_manage_integrations)
         .can_suspend_permissions(can_suspend_permissions)
         .payer(payer.pubkey())
@@ -156,11 +156,11 @@ pub fn manage_permission(
         "Subject permission to reallocate does not match the expected value"
     );
     assert_eq!(
-        subject_permission_after.can_freeze, can_freeze,
+        subject_permission_after.can_freeze_controller, can_freeze_controller,
         "Subject permission to freeze does not match the expected value"
     );
     assert_eq!(
-        subject_permission_after.can_unfreeze, can_unfreeze,
+        subject_permission_after.can_unfreeze_controller, can_unfreeze_controller,
         "Subject permission to unfreeze does not match the expected value"
     );
     assert_eq!(

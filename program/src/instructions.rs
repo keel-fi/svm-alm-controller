@@ -25,6 +25,14 @@ pub enum SvmAlmControllerInstruction {
     #[account(6, name = "system_program")]
     InitializeController(InitializeControllerArgs),
 
+    /// Manage an integration account
+    #[account(0, writable, name = "controller")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, name = "program_id")]
+    ManageContoller(ManageControllerArgs),
+  
     /// Initialize or manage a permission account
     #[account(0, writable, signer, name = "payer")]
     #[account(1, name = "controller")]
@@ -73,6 +81,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(8, name = "system_program")]
     InitializeIntegration(InitializeIntegrationArgs),
 
+  
     /// Manage an integration account
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
@@ -194,8 +203,8 @@ pub struct ManagePermissionArgs {
     pub can_invoke_external_transfer: bool,
     pub can_execute_swap: bool,
     pub can_reallocate: bool,
-    pub can_freeze: bool,
-    pub can_unfreeze: bool,
+    pub can_freeze_controller: bool,
+    pub can_unfreeze_controller: bool,
     pub can_manage_integrations: bool,
     pub can_suspend_permissions: bool,
 }
@@ -222,6 +231,12 @@ pub struct InitializeIntegrationArgs {
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
     pub inner_args: InitializeArgs,
+}
+
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
+pub struct ManageControllerArgs {
+    pub status: ControllerStatus
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

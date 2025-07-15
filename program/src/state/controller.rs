@@ -139,12 +139,17 @@ impl Controller {
     pub fn update_and_save(
         &mut self,
         account_info: &AccountInfo,
-        status: Option<ControllerStatus>,
+        status: ControllerStatus
     ) -> Result<(), ProgramError> {
-        // Update the status, if one is provided
-        if let Some(status) = status {
-            self.status = status;
+
+        // No change will take place
+        if self.status == status {
+            return Err(ProgramError::InvalidArgument.into());
         }
+
+        // Update the status, 
+        self.status = status;
+    
         // Commit the account on-chain
         self.save(account_info)?;
 

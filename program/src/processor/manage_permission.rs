@@ -58,8 +58,8 @@ fn manage_permission(
             args.can_invoke_external_transfer,
             args.can_execute_swap,
             args.can_reallocate,
-            args.can_freeze,
-            args.can_unfreeze,
+            args.can_freeze_controller,
+            args.can_unfreeze_controller,
             args.can_manage_integrations,
             args.can_suspend_permissions,
         )?;
@@ -79,8 +79,8 @@ fn manage_permission(
             Some(args.can_invoke_external_transfer),
             Some(args.can_execute_swap),
             Some(args.can_reallocate),
-            Some(args.can_freeze),
-            Some(args.can_unfreeze),
+            Some(args.can_freeze_controller),
+            Some(args.can_unfreeze_controller),
             Some(args.can_manage_integrations),
             Some(args.can_suspend_permissions),
         )?;

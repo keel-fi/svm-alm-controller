@@ -38,7 +38,6 @@ impl ManagePermission {
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
-    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
@@ -102,7 +101,7 @@ pub struct ManagePermissionInstructionData {
 
 impl ManagePermissionInstructionData {
     pub fn new() -> Self {
-        Self { discriminator: 2 }
+        Self { discriminator: 3 }
     }
 }
 
@@ -120,8 +119,8 @@ pub struct ManagePermissionInstructionArgs {
     pub can_invoke_external_transfer: bool,
     pub can_execute_swap: bool,
     pub can_reallocate: bool,
-    pub can_freeze: bool,
-    pub can_unfreeze: bool,
+    pub can_freeze_controller: bool,
+    pub can_unfreeze_controller: bool,
     pub can_manage_integrations: bool,
     pub can_suspend_permissions: bool,
 }
@@ -155,8 +154,8 @@ pub struct ManagePermissionBuilder {
     can_invoke_external_transfer: Option<bool>,
     can_execute_swap: Option<bool>,
     can_reallocate: Option<bool>,
-    can_freeze: Option<bool>,
-    can_unfreeze: Option<bool>,
+    can_freeze_controller: Option<bool>,
+    can_unfreeze_controller: Option<bool>,
     can_manage_integrations: Option<bool>,
     can_suspend_permissions: Option<bool>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
@@ -250,13 +249,13 @@ impl ManagePermissionBuilder {
         self
     }
     #[inline(always)]
-    pub fn can_freeze(&mut self, can_freeze: bool) -> &mut Self {
-        self.can_freeze = Some(can_freeze);
+    pub fn can_freeze_controller(&mut self, can_freeze_controller: bool) -> &mut Self {
+        self.can_freeze_controller = Some(can_freeze_controller);
         self
     }
     #[inline(always)]
-    pub fn can_unfreeze(&mut self, can_unfreeze: bool) -> &mut Self {
-        self.can_unfreeze = Some(can_unfreeze);
+    pub fn can_unfreeze_controller(&mut self, can_unfreeze_controller: bool) -> &mut Self {
+        self.can_unfreeze_controller = Some(can_unfreeze_controller);
         self
     }
     #[inline(always)]
@@ -322,8 +321,14 @@ impl ManagePermissionBuilder {
                 .can_reallocate
                 .clone()
                 .expect("can_reallocate is not set"),
-            can_freeze: self.can_freeze.clone().expect("can_freeze is not set"),
-            can_unfreeze: self.can_unfreeze.clone().expect("can_unfreeze is not set"),
+            can_freeze_controller: self
+                .can_freeze_controller
+                .clone()
+                .expect("can_freeze_controller is not set"),
+            can_unfreeze_controller: self
+                .can_unfreeze_controller
+                .clone()
+                .expect("can_unfreeze_controller is not set"),
             can_manage_integrations: self
                 .can_manage_integrations
                 .clone()
@@ -427,7 +432,6 @@ impl<'a, 'b> ManagePermissionCpi<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
-    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed_with_remaining_accounts(
@@ -551,8 +555,8 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
             can_invoke_external_transfer: None,
             can_execute_swap: None,
             can_reallocate: None,
-            can_freeze: None,
-            can_unfreeze: None,
+            can_freeze_controller: None,
+            can_unfreeze_controller: None,
             can_manage_integrations: None,
             can_suspend_permissions: None,
             __remaining_accounts: Vec::new(),
@@ -657,13 +661,13 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn can_freeze(&mut self, can_freeze: bool) -> &mut Self {
-        self.instruction.can_freeze = Some(can_freeze);
+    pub fn can_freeze_controller(&mut self, can_freeze_controller: bool) -> &mut Self {
+        self.instruction.can_freeze_controller = Some(can_freeze_controller);
         self
     }
     #[inline(always)]
-    pub fn can_unfreeze(&mut self, can_unfreeze: bool) -> &mut Self {
-        self.instruction.can_unfreeze = Some(can_unfreeze);
+    pub fn can_unfreeze_controller(&mut self, can_unfreeze_controller: bool) -> &mut Self {
+        self.instruction.can_unfreeze_controller = Some(can_unfreeze_controller);
         self
     }
     #[inline(always)]
@@ -739,16 +743,16 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
                 .can_reallocate
                 .clone()
                 .expect("can_reallocate is not set"),
-            can_freeze: self
+            can_freeze_controller: self
                 .instruction
-                .can_freeze
+                .can_freeze_controller
                 .clone()
-                .expect("can_freeze is not set"),
-            can_unfreeze: self
+                .expect("can_freeze_controller is not set"),
+            can_unfreeze_controller: self
                 .instruction
-                .can_unfreeze
+                .can_unfreeze_controller
                 .clone()
-                .expect("can_unfreeze is not set"),
+                .expect("can_unfreeze_controller is not set"),
             can_manage_integrations: self
                 .instruction
                 .can_manage_integrations
@@ -818,8 +822,8 @@ struct ManagePermissionCpiBuilderInstruction<'a, 'b> {
     can_invoke_external_transfer: Option<bool>,
     can_execute_swap: Option<bool>,
     can_reallocate: Option<bool>,
-    can_freeze: Option<bool>,
-    can_unfreeze: Option<bool>,
+    can_freeze_controller: Option<bool>,
+    can_unfreeze_controller: Option<bool>,
     can_manage_integrations: Option<bool>,
     can_suspend_permissions: Option<bool>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
