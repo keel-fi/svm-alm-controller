@@ -36,12 +36,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
         
-    - name: Install Anchor CLI (if needed)
+    - name: Install Dependencies
       run: |
-        cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-        avm install latest
-        avm use latest
-        
+        curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+  
     # - name: Check formatting
     #   run: cargo fmt --all -- --check
       
