@@ -31,7 +31,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, name = "program_id")]
-    ManageContoller(ManageControllerArgs),
+    ManageController(ManageControllerArgs),
   
     /// Initialize or manage a permission account
     #[account(0, writable, signer, name = "payer")]

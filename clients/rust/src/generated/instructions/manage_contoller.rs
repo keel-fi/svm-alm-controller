@@ -11,7 +11,7 @@ use borsh::BorshSerialize;
 
 /// Accounts.
 #[derive(Debug)]
-pub struct ManageContoller {
+pub struct ManageController {
     pub controller: solana_program::pubkey::Pubkey,
 
     pub controller_authority: solana_program::pubkey::Pubkey,
@@ -23,17 +23,17 @@ pub struct ManageContoller {
     pub program_id: solana_program::pubkey::Pubkey,
 }
 
-impl ManageContoller {
+impl ManageController {
     pub fn instruction(
         &self,
-        args: ManageContollerInstructionArgs,
+        args: ManageControllerInstructionArgs,
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: ManageContollerInstructionArgs,
+        args: ManageControllerInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
@@ -58,7 +58,7 @@ impl ManageContoller {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&ManageContollerInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&ManageControllerInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
@@ -72,17 +72,17 @@ impl ManageContoller {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ManageContollerInstructionData {
+pub struct ManageControllerInstructionData {
     discriminator: u8,
 }
 
-impl ManageContollerInstructionData {
+impl ManageControllerInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 2 }
     }
 }
 
-impl Default for ManageContollerInstructionData {
+impl Default for ManageControllerInstructionData {
     fn default() -> Self {
         Self::new()
     }
@@ -90,11 +90,11 @@ impl Default for ManageContollerInstructionData {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ManageContollerInstructionArgs {
+pub struct ManageControllerInstructionArgs {
     pub status: ControllerStatus,
 }
 
-/// Instruction builder for `ManageContoller`.
+/// Instruction builder for `ManageController`.
 ///
 /// ### Accounts:
 ///
@@ -104,7 +104,7 @@ pub struct ManageContollerInstructionArgs {
 ///   3. `[]` permission
 ///   4. `[]` program_id
 #[derive(Clone, Debug, Default)]
-pub struct ManageContollerBuilder {
+pub struct ManageControllerBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
     controller_authority: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
@@ -114,7 +114,7 @@ pub struct ManageContollerBuilder {
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
-impl ManageContollerBuilder {
+impl ManageControllerBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -171,7 +171,7 @@ impl ManageContollerBuilder {
     }
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
-        let accounts = ManageContoller {
+        let accounts = ManageController {
             controller: self.controller.expect("controller is not set"),
             controller_authority: self
                 .controller_authority
@@ -180,7 +180,7 @@ impl ManageContollerBuilder {
             permission: self.permission.expect("permission is not set"),
             program_id: self.program_id.expect("program_id is not set"),
         };
-        let args = ManageContollerInstructionArgs {
+        let args = ManageControllerInstructionArgs {
             status: self.status.clone().expect("status is not set"),
         };
 
@@ -189,7 +189,7 @@ impl ManageContollerBuilder {
 }
 
 /// `manage_contoller` CPI accounts.
-pub struct ManageContollerCpiAccounts<'a, 'b> {
+pub struct ManageControllerCpiAccounts<'a, 'b> {
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
@@ -202,7 +202,7 @@ pub struct ManageContollerCpiAccounts<'a, 'b> {
 }
 
 /// `manage_contoller` CPI instruction.
-pub struct ManageContollerCpi<'a, 'b> {
+pub struct ManageControllerCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -216,14 +216,14 @@ pub struct ManageContollerCpi<'a, 'b> {
 
     pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
-    pub __args: ManageContollerInstructionArgs,
+    pub __args: ManageControllerInstructionArgs,
 }
 
-impl<'a, 'b> ManageContollerCpi<'a, 'b> {
+impl<'a, 'b> ManageControllerCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_program::account_info::AccountInfo<'a>,
-        accounts: ManageContollerCpiAccounts<'a, 'b>,
-        args: ManageContollerInstructionArgs,
+        accounts: ManageControllerCpiAccounts<'a, 'b>,
+        args: ManageControllerInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -296,7 +296,7 @@ impl<'a, 'b> ManageContollerCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&ManageContollerInstructionData::new()).unwrap();
+        let mut data = borsh::to_vec(&ManageControllerInstructionData::new()).unwrap();
         let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
@@ -324,7 +324,7 @@ impl<'a, 'b> ManageContollerCpi<'a, 'b> {
     }
 }
 
-/// Instruction builder for `ManageContoller` via CPI.
+/// Instruction builder for `ManageController` via CPI.
 ///
 /// ### Accounts:
 ///
@@ -334,13 +334,13 @@ impl<'a, 'b> ManageContollerCpi<'a, 'b> {
 ///   3. `[]` permission
 ///   4. `[]` program_id
 #[derive(Clone, Debug)]
-pub struct ManageContollerCpiBuilder<'a, 'b> {
-    instruction: Box<ManageContollerCpiBuilderInstruction<'a, 'b>>,
+pub struct ManageControllerCpiBuilder<'a, 'b> {
+    instruction: Box<ManageControllerCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> ManageContollerCpiBuilder<'a, 'b> {
+impl<'a, 'b> ManageControllerCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(ManageContollerCpiBuilderInstruction {
+        let instruction = Box::new(ManageControllerCpiBuilderInstruction {
             __program: program,
             controller: None,
             controller_authority: None,
@@ -438,10 +438,10 @@ impl<'a, 'b> ManageContollerCpiBuilder<'a, 'b> {
         &self,
         signers_seeds: &[&[&[u8]]],
     ) -> solana_program::entrypoint::ProgramResult {
-        let args = ManageContollerInstructionArgs {
+        let args = ManageControllerInstructionArgs {
             status: self.instruction.status.clone().expect("status is not set"),
         };
-        let instruction = ManageContollerCpi {
+        let instruction = ManageControllerCpi {
             __program: self.instruction.__program,
 
             controller: self.instruction.controller.expect("controller is not set"),
@@ -466,7 +466,7 @@ impl<'a, 'b> ManageContollerCpiBuilder<'a, 'b> {
 }
 
 #[derive(Clone, Debug)]
-struct ManageContollerCpiBuilderInstruction<'a, 'b> {
+struct ManageControllerCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
