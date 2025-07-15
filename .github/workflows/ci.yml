@@ -51,7 +51,7 @@ jobs:
       run: cargo build-sbf
       
     - name: Run integration tests
-      run: cargo test
+      run: OPENSSL_DIR="/usr/local/opt/openssl@3" OPENSSL_INCLUDE_DIR="/usr/local/opt/openssl@3/include" OPENSSL_LIB_DIR="/usr/local/opt/openssl@3/lib" OPENSSL_NO_VENDOR="1" cargo test
       
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
