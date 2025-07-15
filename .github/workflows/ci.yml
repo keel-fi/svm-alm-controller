@@ -35,11 +35,6 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-cargo-
-          
-    - name: Install Solana CLI
-      uses: solana-labs/setup-solana@v1
-      with:
-        solana-version: '2.1.13'
         
     - name: Install Anchor CLI (if needed)
       run: |
@@ -60,7 +55,7 @@ jobs:
       run: cargo test
       
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success()
       with:
         name: program-build
