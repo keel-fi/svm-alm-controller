@@ -36,7 +36,7 @@ macro_rules! key_as_str {
 /// - `mut` - account must be writable
 /// - `empty` - account data field must be empty
 /// - `opt_signer` — account is optional, but must be a signer if provided
-/// - `@pubkey(KEY)` — account pubkey must match key provided
+/// - `@pubkey(KEY1, KEY2...)` — account pubkey must match one of the keys provided
 /// - `@owner(KEY1, KEY2...)` — account owner must match one of the keys provided
 ///
 /// Use `@remaining_accounts as remaining_accounts;` to capture extra accounts.
@@ -49,7 +49,7 @@ macro_rules! define_account_struct {
             $(
                 $field:ident
                 $( : $( $attr:ident ),* $(,)? )?
-                $( @pubkey ( $check_pubkey:expr ) )?
+                $( @pubkey( $( $check_pubkey:expr ),+ ) )?
                 $( @owner( $( $check_owner:expr ),+ ) )?
                 ;
             )*
@@ -99,7 +99,7 @@ macro_rules! define_account_struct {
                     )?
 
                     $(
-                        if $field.key() != &$check_pubkey {
+                        if !( $( $field.key().eq(&$check_pubkey) )||+ ) {
                             pinocchio_log::log!("{}: invalid key", stringify!($field));
                             return Err(ProgramError::IncorrectProgramId);
                         }
