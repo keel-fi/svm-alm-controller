@@ -13,10 +13,10 @@ use pinocchio_token::{self, state::Mint};
 
 define_account_struct! {
     pub struct InitializeSplTokenExternalAccounts<'info> {
-        mint: @owner(pinocchio_token::ID);
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         recipient;
-        token_account: mut, @owner(pinocchio_token::ID, pinocchio_system::ID);
-        token_program: @pubkey(pinocchio_token::ID);
+        token_account: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID, pinocchio_system::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
     }
 }

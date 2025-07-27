@@ -32,7 +32,7 @@ define_account_struct! {
         oracle;
         payer_account_a: mut;
         payer_account_b: mut;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }
 }
 

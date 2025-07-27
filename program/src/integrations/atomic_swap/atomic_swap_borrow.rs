@@ -36,7 +36,7 @@ define_account_struct! {
         reserve_b: mut;
         vault_b;
         recipient_token_account: mut;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
         program_id: @pubkey(crate::ID);
     }

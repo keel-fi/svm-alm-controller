@@ -22,7 +22,7 @@ macro_rules! key_as_str {
 ///         controller;
 ///         authority: signer;
 ///         integration: mut;
-///         token_program: @pubkey(pinocchio_token::ID);
+///         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
 ///         reserve: @owner(SYSTEM_PROGRAM_ID, TOKEN_PROGRAM_ID);
 ///     }
 /// }

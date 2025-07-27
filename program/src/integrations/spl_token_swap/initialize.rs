@@ -23,9 +23,9 @@ define_account_struct! {
         mint_b;
         lp_mint;
         lp_token_account: mut;
-        mint_a_token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
-        mint_b_token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
-        lp_mint_token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
+        mint_a_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_b_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        lp_mint_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         swap_token_a;
         swap_token_b;
         swap_program;

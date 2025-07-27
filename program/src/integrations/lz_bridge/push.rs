@@ -28,7 +28,7 @@ define_account_struct! {
         mint;
         vault;
         authority_token_account;
-        token_program: @pubkey(pinocchio_token::ID); // TODO: Allow token 2022
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
         system_program: @pubkey(pinocchio_system::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);

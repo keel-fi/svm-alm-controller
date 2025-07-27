@@ -22,7 +22,7 @@ use pinocchio_token::{self, state::TokenAccount};
 
 define_account_struct! {
     pub struct PushCctpBridgeAccounts<'info> {
-        mint: @owner(pinocchio_token::ID);
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         vault;
         sender_authority_pda;
         message_transmitter;
@@ -34,7 +34,7 @@ define_account_struct! {
         cctp_message_transmitter;
         cctp_token_messenger_minter;
         event_authority;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         system_program: @pubkey(pinocchio_system::ID);
     }
 }

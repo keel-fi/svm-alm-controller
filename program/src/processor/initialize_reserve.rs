@@ -20,7 +20,7 @@ define_account_struct! {
       reserve: mut, empty, @owner(pinocchio_system::ID);
       mint;
       vault: mut;
-      token_program: @pubkey(pinocchio_token::ID);
+      token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       program_id: @pubkey(crate::ID);
       system_program: @pubkey(pinocchio_system::ID);

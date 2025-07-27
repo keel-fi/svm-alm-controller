@@ -13,7 +13,7 @@ use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pub
 
 define_account_struct! {
   pub struct InitializeCctpBridgeAccounts<'info> {
-      mint: @owner(pinocchio_token::ID);
+      mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
       local_token;
       remote_token_messenger;
       cctp_message_transmitter;
