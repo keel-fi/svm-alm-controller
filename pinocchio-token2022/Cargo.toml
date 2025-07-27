@@ -1,0 +1,12 @@
+[package]
+name = "pinocchio-token2022"
+version = { workspace = true }
+edition = { workspace = true }
+description = "A fork of Pinocchio Token 2022 SDK necessary to enable Token 2022 support in the ALM Controller."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+pinocchio = { workspace = true }
+pinocchio-pubkey = { workspace = true }
