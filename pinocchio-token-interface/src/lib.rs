@@ -4,6 +4,8 @@ use pinocchio::{
     program_error::ProgramError,
 };
 
+pub use pinocchio_token2022::instructions;
+
 pub struct TokenAccount<'info>(Ref<'info, pinocchio_token2022::state::TokenAccount>);
 
 impl<'info> TokenAccount<'info> {

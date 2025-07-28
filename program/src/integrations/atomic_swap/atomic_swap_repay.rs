@@ -7,8 +7,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_token::instructions::Transfer;
-use pinocchio_token_interface::TokenAccount;
+use pinocchio_token_interface::{instructions::Transfer, TokenAccount};
 
 use crate::{
     constants::BPS_DENOMINATOR,
@@ -117,6 +116,7 @@ pub fn process_atomic_swap_repay(
                 to: ctx.vault_a,
                 authority: ctx.payer,
                 amount: excess_token_a,
+                token_program: ctx.token_program.key(),
             }
             .invoke()?;
         }
@@ -126,6 +126,7 @@ pub fn process_atomic_swap_repay(
             to: ctx.vault_b,
             authority: ctx.payer,
             amount: args.amount,
+            token_program: ctx.token_program.key(),
         }
         .invoke()?;
 

@@ -16,7 +16,7 @@ use pinocchio::{
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token_interface::instructions::Transfer;
 use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
@@ -45,10 +45,8 @@ impl NovaAccount for Controller {
 
 impl Controller {
     pub fn derive_pda_bytes(id: u16) -> Result<(Pubkey, u8), ProgramError> {
-        try_find_program_address(
-            &[CONTROLLER_SEED, id.to_le_bytes().as_ref()],
-            &crate::ID,
-        ).ok_or(ProgramError::InvalidSeeds)
+        try_find_program_address(&[CONTROLLER_SEED, id.to_le_bytes().as_ref()], &crate::ID)
+            .ok_or(ProgramError::InvalidSeeds)
     }
 
     pub fn derive_authority(controller: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
@@ -139,17 +137,16 @@ impl Controller {
     pub fn update_and_save(
         &mut self,
         account_info: &AccountInfo,
-        status: ControllerStatus
+        status: ControllerStatus,
     ) -> Result<(), ProgramError> {
-
         // No change will take place
         if self.status == status {
             return Err(ProgramError::InvalidArgument.into());
         }
 
-        // Update the status, 
+        // Update the status,
         self.status = status;
-    
+
         // Commit the account on-chain
         self.save(account_info)?;
 
@@ -193,6 +190,9 @@ impl Controller {
             to: recipient_token_account,
             authority: controller_authority,
             amount,
+            // SAFETY: A reference returned by `owner` is invalidated when [`Self::assign`] is called.
+            // This is safe as the `assign` method is not called in this context.
+            token_program: unsafe { recipient_token_account.owner() },
         }
         .invoke_signed(&[Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
