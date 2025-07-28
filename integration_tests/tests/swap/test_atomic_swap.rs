@@ -28,6 +28,8 @@ mod tests {
         IntegrationState, IntegrationStatus, PermissionStatus, ReserveStatus,
     };
 
+    use test_case::test_case;
+
     use crate::{
         helpers::spl::setup_token_mint,
         subs::{
@@ -73,6 +75,8 @@ mod tests {
     fn setup_integration_env(
         svm: &mut LiteSVM,
         expiry_timestamp: i64,
+        coin_token_program: &Pubkey,
+        pc_token_program: &Pubkey,
     ) -> Result<SwapEnv, Box<dyn std::error::Error>> {
         let relayer_authority_kp = Keypair::new();
         let price_feed = Pubkey::new_unique();
@@ -90,8 +94,20 @@ mod tests {
         set_price_feed(svm, &price_feed, 1_000_000_000_000)?; // $1
         initalize_oracle(svm, &relayer_authority_kp, &nonce, &price_feed, 0, false)?;
 
-        setup_token_mint(svm, &coin_token_mint, 6, &mint_authority.pubkey());
-        setup_token_mint(svm, &pc_token_mint, 6, &mint_authority.pubkey());
+        setup_token_mint(
+            svm,
+            &coin_token_mint,
+            6,
+            &mint_authority.pubkey(),
+            &coin_token_program,
+        );
+        setup_token_mint(
+            svm,
+            &pc_token_mint,
+            6,
+            &mint_authority.pubkey(),
+            &pc_token_program,
+        );
 
         // Set up a controller and relayer with swap capabilities.
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
@@ -110,13 +126,13 @@ mod tests {
             &relayer_authority_kp.pubkey(), // subject authority
             PermissionStatus::Active,
             true,  // can_execute_swap,
-            true, // can_manage_permissions,
+            true,  // can_manage_permissions,
             false, // can_invoke_external_transfer,
             false, // can_reallocate,
             false, // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_integrations
-            false,  // can_suspend_permissions
+            false, // can_suspend_permissions
         )?;
 
         let oracle = derive_oracle_pda(&nonce);
@@ -125,7 +141,7 @@ mod tests {
         let relayer_pc = get_associated_token_address_with_program_id(
             &relayer_authority_kp.pubkey(),
             &pc_token_mint,
-            &pinocchio_token::ID.into(),
+            pc_token_program,
         );
         setup_token_account(
             svm,
@@ -133,7 +149,7 @@ mod tests {
             &pc_token_mint,
             &relayer_authority_kp.pubkey(),
             1_000_000_000_000,
-            &pinocchio_token::ID.into(),
+            pc_token_program,
             None,
         );
         let relayer_coin = get_associated_token_address_with_program_id(
@@ -147,7 +163,7 @@ mod tests {
             &coin_token_mint,
             &relayer_authority_kp.pubkey(),
             1000_000_000,
-            &pinocchio_token::ID.into(),
+            coin_token_program,
             None,
         );
 
@@ -249,12 +265,20 @@ mod tests {
         })
     }
 
-    #[test_log::test]
-    fn init_atomic_swap() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn init_atomic_swap(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         // Check that integration after init.
         let integration =
@@ -282,12 +306,20 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_success() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_success(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let _integration =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
@@ -313,8 +345,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -403,8 +435,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -412,8 +444,8 @@ mod tests {
 
         // Transfer some tokens out of relayer_pc to simulate spending.
         let spent_a = 15;
-        let transfer_ix = spl_token::instruction::transfer(
-            &spl_token::id(),
+        let transfer_ix = spl_token_2022::instruction::transfer(
+            &pc_token_program,
             &swap_env.relayer_pc,
             &random_user_pc_token,
             &swap_env.relayer_authority_kp.pubkey(),
@@ -460,12 +492,16 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_slippage_checks() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_slippage_checks(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env =
+            setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
 
         let _integration =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
@@ -489,8 +525,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -519,8 +555,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -536,8 +572,8 @@ mod tests {
         )?;
 
         // Transfer tokens out of relayer_pc to simulate spending.
-        let transfer_ix = spl_token::instruction::transfer(
-            &spl_token::id(),
+        let transfer_ix = spl_token_2022::instruction::transfer(
+            &pc_token_program,
             &swap_env.relayer_pc,
             &random_user_pc_token,
             &swap_env.relayer_authority_kp.pubkey(),
@@ -557,12 +593,20 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_fails_after_expiry() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_fails_after_expiry(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
@@ -581,8 +625,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -606,8 +650,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount + 10,
             repay_amount,
@@ -617,12 +661,20 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_fails_with_invalid_token_amounts() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_fails_with_invalid_token_amounts(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 0;
@@ -641,8 +693,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -664,8 +716,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             0,
@@ -685,8 +737,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             1000_000_001,
@@ -706,8 +758,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             300_000_001,
             repay_amount,
@@ -718,12 +770,20 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_vault_balance_check() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_vault_balance_check(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
@@ -741,16 +801,16 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
         );
 
         // Transfer some to vault_a
-        let transfer_ix = spl_token::instruction::transfer(
-            &spl_token::id(),
+        let transfer_ix = spl_token_2022::instruction::transfer(
+            &pc_token_program,
             &swap_env.relayer_pc,
             &swap_env.pc_reserve_vault,
             &swap_env.relayer_authority_kp.pubkey(),
@@ -774,8 +834,8 @@ mod tests {
         assert_custom_error(&res, 3, SvmAlmControllerErrors::InvalidSwapState);
 
         // Transfer some to vault_b
-        let transfer_ix = spl_token::instruction::transfer(
-            &spl_token::id(),
+        let transfer_ix = spl_token_2022::instruction::transfer(
+            &coin_token_program,
             &swap_env.relayer_coin,
             &swap_env.coin_reserve_vault,
             &swap_env.relayer_authority_kp.pubkey(),
@@ -802,12 +862,12 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_ix_ordering_checks() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_ix_ordering_checks(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
@@ -825,8 +885,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -881,12 +941,12 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_oracle_checks() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_oracle_checks(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
@@ -904,8 +964,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -927,12 +987,12 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_rate_limit_valid_state() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_rate_limit_valid_state(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 5_00_000;
@@ -956,8 +1016,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -1017,8 +1077,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -1026,8 +1086,8 @@ mod tests {
 
         // Transfer some tokens out of relayer_pc to simulate spending.
         let spent_a = 15;
-        let transfer_ix = spl_token::instruction::transfer(
-            &spl_token::id(),
+        let transfer_ix = spl_token_2022::instruction::transfer(
+            &pc_token_program,
             &swap_env.relayer_pc,
             &random_user_pc_token,
             &swap_env.relayer_authority_kp.pubkey(),
@@ -1116,8 +1176,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_coin, // payer_account_a
             swap_env.relayer_pc,   // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -1154,12 +1214,12 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
-    fn atomic_swap_rate_limit_violation() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    fn atomic_swap_rate_limit_violation(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
 
         let repay_excess_token_a = false;
         let repay_amount = 30_000_000;
@@ -1182,8 +1242,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             integration_pre.rate_limit_max_outflow + 1,
             repay_amount,
@@ -1240,8 +1300,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_pc,   // payer_account_a
             swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
+            pc_token_program.clone(),
+            coin_token_program.clone(),
             repay_excess_token_a,
             reserve_pc_pre.rate_limit_max_outflow + 1,
             repay_amount,

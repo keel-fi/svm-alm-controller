@@ -46,7 +46,7 @@ pub fn setup_token_account(
 }
 
 /// Sets the state of an SPL Token Mint in a given address.
-pub fn setup_token_mint(svm: &mut LiteSVM, pubkey: &Pubkey, decimals: u8, mint_authority: &Pubkey) {
+pub fn setup_token_mint(svm: &mut LiteSVM, pubkey: &Pubkey, decimals: u8, mint_authority: &Pubkey, token_program: &Pubkey) {
     let mint = spl_token_2022::state::Mint {
         mint_authority: Some(*mint_authority).into(),
         supply: 0,
@@ -56,7 +56,7 @@ pub fn setup_token_mint(svm: &mut LiteSVM, pubkey: &Pubkey, decimals: u8, mint_a
     };
     let space = spl_token_2022::state::Mint::LEN;
     let rent = svm.minimum_balance_for_rent_exemption(space);
-    let mut account = AccountSharedData::new(rent, space, &SPL_TOKEN_PROGRAM_ID);
+    let mut account = AccountSharedData::new(rent, space, token_program);
     let mut data = [0u8; spl_token_2022::state::Mint::LEN];
     spl_token_2022::state::Mint::pack(mint, &mut data).unwrap();
     account.set_data_from_slice(&data);

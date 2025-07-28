@@ -33,7 +33,15 @@ mod tests {
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
 
         // Initialize a mint
-        let usdc_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
+        let usdc_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+        )?;
 
         let _authority_usdc_ata =
             initialize_ata(&mut svm, &authority, &authority.pubkey(), &usdc_mint)?;

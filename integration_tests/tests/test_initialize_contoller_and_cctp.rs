@@ -31,7 +31,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-
     async fn initialize_controller_and_cctp() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 

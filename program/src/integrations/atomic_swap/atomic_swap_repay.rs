@@ -137,6 +137,8 @@ pub fn process_atomic_swap_repay(
             return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
         }
 
+        // TODO does this need to not use args.amount in case of TransferFees?
+
         // Check that swap is within accepted slippage of oracle price.
         check_swap_slippage(
             final_input_amount,

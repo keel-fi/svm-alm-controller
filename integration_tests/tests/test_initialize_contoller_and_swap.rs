@@ -35,10 +35,26 @@ mod tests {
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
 
         // Initialize a mint
-        let usds_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
+        let usds_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+        )?;
 
         // Initialize a mint
-        let susds_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
+        let susds_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+        )?;
 
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,

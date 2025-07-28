@@ -81,7 +81,16 @@ pub fn initialize_swap(
 
     // Create the LP Mint
     let lp_mint_kp = Keypair::new();
-    let lp_mint_pk = initialize_mint(svm, payer, &swap_authority, None, 2, Some(lp_mint_kp))?;
+    let lp_mint_pk = initialize_mint(
+        svm,
+        payer,
+        &swap_authority,
+        None,
+        2,
+        Some(lp_mint_kp),
+        // We assume all LP tokens are SPL Tokens
+        &spl_token::ID,
+    )?;
 
     // Create the LP ATA for the pool creator
     let creator_lp_mint_ata = initialize_ata(svm, payer, &authority.pubkey(), &lp_mint_pk)?;

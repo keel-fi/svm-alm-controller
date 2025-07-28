@@ -8,7 +8,7 @@ use spl_associated_token_account_client::{
     address::get_associated_token_address_with_program_id,
     instruction::create_associated_token_account_idempotent,
 };
-use spl_token::{
+use spl_token_2022::{
     instruction::{initialize_mint2, mint_to},
     state::{Account, Mint},
 };
@@ -21,6 +21,7 @@ pub fn initialize_mint(
     freeze_authority: Option<&Pubkey>,
     decimals: u8,
     mint_kp: Option<Keypair>,
+    token_program: &Pubkey,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let mint_kp = if mint_kp.is_some() {
         mint_kp.unwrap()
@@ -35,11 +36,11 @@ pub fn initialize_mint(
         &mint_pk,
         svm.minimum_balance_for_rent_exemption(mint_len),
         mint_len as u64,
-        &spl_token::id(),
+        token_program,
     );
 
     let init_mint_ins = initialize_mint2(
-        &spl_token::id(),
+        token_program,
         &mint_pk,
         mint_authority,
         freeze_authority,
@@ -82,9 +83,10 @@ pub fn initialize_ata(
     owner: &Pubkey,
     mint: &Pubkey,
 ) -> Result<Pubkey, Box<dyn Error>> {
-    let ata_pk = get_associated_token_address_with_program_id(owner, mint, &spl_token::id());
+    let token_program = svm.get_account(mint).unwrap().owner;
+    let ata_pk = get_associated_token_address_with_program_id(owner, mint, &token_program);
     let create_ixn =
-        create_associated_token_account_idempotent(&payer.pubkey(), owner, mint, &spl_token::id());
+        create_associated_token_account_idempotent(&payer.pubkey(), owner, mint, &token_program);
 
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
         &[create_ixn],
@@ -112,7 +114,8 @@ pub fn mint_tokens(
     recipient: &Pubkey,
     amount: u64,
 ) -> Result<(), Box<dyn Error>> {
-    let ata_pk = get_associated_token_address_with_program_id(recipient, mint, &spl_token::id());
+    let token_program = svm.get_account(mint).unwrap().owner;
+    let ata_pk = get_associated_token_address_with_program_id(recipient, mint, &token_program);
 
     let balance_before = get_token_balance_or_zero(svm, &ata_pk);
 
@@ -120,10 +123,10 @@ pub fn mint_tokens(
         &payer.pubkey(),
         recipient,
         mint,
-        &spl_token::id(),
+        &token_program,
     );
     let mint_ixn = mint_to(
-        &spl_token::id(),
+        &token_program,
         mint,
         &ata_pk,
         &mint_authority.pubkey(),
@@ -170,11 +173,12 @@ pub fn transfer_tokens(
     recipient: &Pubkey,
     amount: u64,
 ) -> Result<(), Box<dyn Error>> {
+    let token_program = svm.get_account(mint).unwrap().owner;
     let source_ata_pk =
-        get_associated_token_address_with_program_id(&authority.pubkey(), mint, &spl_token::id());
+        get_associated_token_address_with_program_id(&authority.pubkey(), mint, &token_program);
 
     let destination_ata_pk =
-        get_associated_token_address_with_program_id(recipient, mint, &spl_token::id());
+        get_associated_token_address_with_program_id(recipient, mint, &token_program);
 
     let source_balance_before = get_token_balance_or_zero(svm, &source_ata_pk);
     let destination_balance_before = get_token_balance_or_zero(svm, &destination_ata_pk);
@@ -183,10 +187,10 @@ pub fn transfer_tokens(
         &payer.pubkey(),
         recipient,
         mint,
-        &spl_token::id(),
+        &token_program,
     );
-    let transfer_ixn = spl_token::instruction::transfer(
-        &spl_token::id(),
+    let transfer_ixn = spl_token_2022::instruction::transfer(
+        &token_program,
         &source_ata_pk,
         &destination_ata_pk,
         &authority.pubkey(),
@@ -230,7 +234,8 @@ pub fn edit_ata_amount(
     mint: &Pubkey,
     amount: u64,
 ) -> Result<(), Box<dyn Error>> {
-    let ata_pk = get_associated_token_address_with_program_id(&owner, mint, &spl_token::id());
+    let token_program = svm.get_account(mint).unwrap().owner;
+    let ata_pk = get_associated_token_address_with_program_id(&owner, mint, &token_program);
 
     edit_token_amount(svm, &ata_pk, amount)?;
 
