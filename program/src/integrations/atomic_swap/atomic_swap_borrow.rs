@@ -11,7 +11,7 @@ use pinocchio::{
     },
     ProgramResult,
 };
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC},

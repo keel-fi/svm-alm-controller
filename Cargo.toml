@@ -3,6 +3,7 @@
 members = [
   "program",
   "integration_tests",
+  "pinocchio-token-interface",
   "pinocchio-token2022",
   "clients/rust"
 ]
@@ -22,6 +23,7 @@ pinocchio-log = "0.4.0"
 pinocchio-pubkey = "0.2.4"
 pinocchio-system = "0.2.3"
 pinocchio-token = "0.3.0"
+pinocchio-token-interface = { path = "pinocchio-token-interface" }
 pinocchio-token2022 = { path = "pinocchio-token2022" }
 pinocchio-associated-token-account = "0.1.1"
 shank = "0.4.2"

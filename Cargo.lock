@@ -2842,6 +2842,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pinocchio-token-interface"
+version = "0.1.0"
+dependencies = [
+ "pinocchio",
+ "pinocchio-pubkey",
+ "pinocchio-token",
+ "pinocchio-token2022",
+]
+
+[[package]]
 name = "pinocchio-token2022"
 version = "0.1.0"
 dependencies = [
@@ -6731,6 +6741,7 @@ dependencies = [
  "pinocchio-pubkey",
  "pinocchio-system",
  "pinocchio-token",
+ "pinocchio-token-interface",
  "pinocchio-token2022",
  "shank",
  "solana-keccak-hasher",

@@ -12,10 +12,8 @@ use crate::{
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
-use pinocchio_token::{
-    self,
-    state::{Mint, TokenAccount},
-};
+use pinocchio_token_interface::{Mint, TokenAccount};
+
 define_account_struct! {
     pub struct InitializeSplTokenSwapAccounts<'info> {
         swap;

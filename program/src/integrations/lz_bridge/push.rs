@@ -21,7 +21,7 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_token::{self, state::TokenAccount};
+use pinocchio_token_interface::TokenAccount;
 
 define_account_struct! {
     pub struct PushLzBridgeAccounts<'info> {

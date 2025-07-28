@@ -20,10 +20,7 @@ use pinocchio::{
     pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::{
-    self,
-    state::{Mint, TokenAccount},
-};
+use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
     pub struct PullSplTokenSwapAccounts<'info> {

@@ -19,7 +19,7 @@ use pinocchio::{
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::TokenAccount;
 use shank::ShankAccount;
 
 const SECONDS_PER_DAY: u64 = 24 * 60 * 60;

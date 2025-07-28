@@ -18,7 +18,7 @@ use pinocchio::{
     program_error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::{self, state::TokenAccount};
+use pinocchio_token_interface::TokenAccount;
 
 define_account_struct! {
     pub struct PushCctpBridgeAccounts<'info> {

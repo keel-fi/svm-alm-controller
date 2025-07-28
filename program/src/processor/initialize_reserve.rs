@@ -8,7 +8,7 @@ use crate::{
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_token::state::Mint;
+use pinocchio_token_interface::Mint;
 
 define_account_struct! {
   pub struct InitializeReserveAccounts<'info> {

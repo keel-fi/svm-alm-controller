@@ -9,7 +9,7 @@ use crate::{
 };
 use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
-use pinocchio_token::{self, state::Mint};
+use pinocchio_token_interface::Mint;
 
 define_account_struct! {
     pub struct InitializeSplTokenExternalAccounts<'info> {

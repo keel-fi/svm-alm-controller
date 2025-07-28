@@ -7,7 +7,8 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_token::{instructions::Transfer, state::TokenAccount};
+use pinocchio_token::instructions::Transfer;
+use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::BPS_DENOMINATOR,
