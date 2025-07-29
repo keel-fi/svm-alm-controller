@@ -94,8 +94,8 @@ pub fn process_atomic_swap_borrow(
 ) -> ProgramResult {
     msg!("atomic_swap_borrow");
     let ctx = AtomicSwapBorrow::from_accounts(accounts)?;
-    let args: AtomicSwapBorrowArgs =
-        AtomicSwapBorrowArgs::try_from_slice(instruction_data).unwrap();
+    let args: AtomicSwapBorrowArgs = AtomicSwapBorrowArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;

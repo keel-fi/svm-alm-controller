@@ -32,6 +32,7 @@ define_account_struct! {
         oracle;
         payer_account_a: mut;
         payer_account_b: mut;
+        // TODO need to split the token programs into two accounts.
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }
 }

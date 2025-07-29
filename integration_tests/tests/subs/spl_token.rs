@@ -1,18 +1,34 @@
 use litesvm::LiteSVM;
 use solana_sdk::program_pack::Pack;
 use solana_sdk::{
-    account::ReadableAccount, program_option::COption, pubkey::Pubkey, signature::Keypair,
-    signer::Signer, transaction::Transaction,
+    account::{Account as SolanaAccount, ReadableAccount},
+    program_option::COption,
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer,
+    transaction::Transaction,
 };
 use spl_associated_token_account_client::{
     address::get_associated_token_address_with_program_id,
     instruction::create_associated_token_account_idempotent,
 };
 use spl_token_2022::{
+    extension::StateWithExtensions,
     instruction::{initialize_mint2, mint_to},
     state::{Account, Mint},
 };
 use std::error::Error;
+
+/// Unpacks a token account from either token program.
+pub fn unpack_token_account(account: &SolanaAccount) -> Result<Account, String> {
+    if account.owner() == &spl_token_2022::ID {
+        StateWithExtensions::unpack(&account.data)
+            .map(|a| a.base)
+            .map_err(|e| format!("Failed to unpack token2022 account: {:?}", e))
+    } else {
+        Account::unpack(&account.data).map_err(|e| format!("Failed to unpack token account: {:?}", e))
+    }
+}
 
 pub fn initialize_mint(
     svm: &mut LiteSVM,
@@ -96,12 +112,11 @@ pub fn initialize_ata(
     ));
     assert!(tx_result.is_ok(), "Transaction failed to execute");
 
-    let ata_acc = svm.get_account(&ata_pk);
-    let ata_data = ata_acc.unwrap().data;
-    let ata = Account::unpack(&ata_data).map_err(|e| format!("Failed to unpack ata: {:?}", e))?;
+    let token_acc = svm.get_account(&ata_pk).unwrap();
+    let token_account = unpack_token_account(&token_acc)?;
 
-    assert_eq!(ata.mint, *mint, "Incorrect ATA mint");
-    assert_eq!(ata.owner, *owner, "Incorrect ATA owner");
+    assert_eq!(token_account.mint, *mint, "Incorrect ATA mint");
+    assert_eq!(token_account.owner, *owner, "Incorrect ATA owner");
 
     Ok(ata_pk)
 }
@@ -152,16 +167,17 @@ pub fn mint_tokens(
 
 pub fn get_token_balance_or_zero(svm: &mut LiteSVM, token_account: &Pubkey) -> u64 {
     svm.get_account(token_account).map_or(0, |account| {
-        let ata =
-            Account::unpack(&account.data).map_err(|e| format!("Failed to unpack ata: {:?}", e));
-        ata.map_or(0, |ata| ata.amount)
+        let token_account = unpack_token_account(&account);
+
+        token_account.map_or(0, |acct| acct.amount)
     })
 }
 
 pub fn get_mint_supply_or_zero(svm: &mut LiteSVM, mint: &Pubkey) -> u64 {
     svm.get_account(mint).map_or(0, |account| {
-        let ata = Mint::unpack(&account.data).map_err(|e| format!("Failed to unpack ata: {:?}", e));
-        ata.map_or(0, |ata| ata.supply)
+        let mint = Mint::unpack(&account.data)
+            .map_err(|e| format!("Failed to unpack token mint: {:?}", e));
+        mint.map_or(0, |m| m.supply)
     })
 }
 
@@ -253,9 +269,7 @@ pub fn edit_token_amount(
 ) -> Result<(), Box<dyn Error>> {
     let mut account_info = svm.get_account(&pubkey).unwrap();
 
-    let mut account = Account::unpack(&account_info.data)
-        .map_err(|e| format!("Failed to unpack ata: {:?}", e))
-        .unwrap();
+    let mut account = unpack_token_account(&account_info).unwrap();
     account.amount = amount;
     Account::pack(account, &mut account_info.data)?;
     svm.set_account(*pubkey, account_info)?;

@@ -51,12 +51,12 @@ pub fn atomic_swap_borrow_repay_ixs(
     let vault_a = get_associated_token_address_with_program_id(
         &controller_authority,
         &mint_a,
-        &pinocchio_token::ID.into(),
+        &token_program_a,
     );
     let vault_b = get_associated_token_address_with_program_id(
         &controller_authority,
         &mint_b,
-        &pinocchio_token::ID.into(),
+        &token_program_b,
     );
 
     let refresh_ix = RefreshOracleBuilder::new()

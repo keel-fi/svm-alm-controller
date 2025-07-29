@@ -6,7 +6,9 @@ use crate::{
     state::{nova_account::NovaAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token_interface::Mint;
 
@@ -36,7 +38,8 @@ pub fn process_initialize_reserve(
 
     let ctx = InitializeReserveAccounts::from_accounts(accounts)?;
     // // Deserialize the args
-    let args = InitializeReserveArgs::try_from_slice(instruction_data).unwrap();
+    let args = InitializeReserveArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
@@ -56,7 +59,7 @@ pub fn process_initialize_reserve(
 
     // Validate the mint
     // Load in the mint account, validating it in the process
-    Mint::from_account_info(ctx.mint).unwrap();
+    Mint::from_account_info(ctx.mint)?;
 
     // Invoke the CreateIdempotent ixn for the ATA
     // Will handle both the creation or the checking, if already created
@@ -68,8 +71,7 @@ pub fn process_initialize_reserve(
         system_program: ctx.system_program,
         token_program: ctx.token_program,
     }
-    .invoke()
-    .unwrap();
+    .invoke()?;
 
     // Initialize the reserve account
     let mut reserve = Reserve::init_account(
