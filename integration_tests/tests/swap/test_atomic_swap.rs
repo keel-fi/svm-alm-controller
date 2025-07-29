@@ -155,7 +155,7 @@ mod tests {
         let relayer_coin = get_associated_token_address_with_program_id(
             &relayer_authority_kp.pubkey(),
             &coin_token_mint,
-            &pinocchio_token::ID.into(),
+            coin_token_program,
         );
         setup_token_account(
             svm,
@@ -179,6 +179,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000, // rate_limit_slope
             1_000_000_000, // rate_limit_max_outflow
+            pc_token_program
         )?;
 
         let ReserveKeys {
@@ -193,6 +194,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            coin_token_program
         )?;
 
         // Transfer funds into the reserve
@@ -265,7 +267,8 @@ mod tests {
         })
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn init_atomic_swap(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -306,7 +309,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_success(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -492,7 +496,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_slippage_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -594,6 +599,7 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_fails_after_expiry(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -661,7 +667,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_fails_with_invalid_token_amounts(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -770,7 +777,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_vault_balance_check(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -856,13 +864,13 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        println!("{:?}", res);
         assert_custom_error(&res, 3, SvmAlmControllerErrors::InvalidSwapState);
 
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_ix_ordering_checks(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -900,7 +908,6 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        println!("LOGS {:?}", res.clone().err().unwrap().meta.logs);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when repay is not the last ix.
@@ -941,7 +948,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_oracle_checks(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -987,7 +995,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_rate_limit_valid_state(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -1214,7 +1223,8 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
     fn atomic_swap_rate_limit_violation(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 

@@ -54,6 +54,7 @@ pub fn initialize_reserve(
     status: ReserveStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
+    token_program: &Pubkey,
 ) -> Result<ReserveKeys, Box<dyn Error>> {
     let calling_permission_pda: Pubkey = derive_permission_pda(controller, &authority.pubkey());
 
@@ -64,7 +65,7 @@ pub fn initialize_reserve(
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         mint,
-        &pinocchio_token::ID.into(),
+        token_program,
     );
 
     let ixn = InitializeReserveBuilder::new()
@@ -79,7 +80,7 @@ pub fn initialize_reserve(
         .reserve(reserve_pda)
         .mint(*mint)
         .vault(vault)
-        .token_program(pinocchio_token::ID.into())
+        .token_program(*token_program)
         .associated_token_program(pinocchio_associated_token_account::ID.into())
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
@@ -93,7 +94,12 @@ pub fn initialize_reserve(
     );
 
     let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
+    match tx_result {
+        Ok(_res) => {},
+        Err(e) => {
+            panic!("Transaction errored\n{:?}", e.meta.logs);
+        }
+    }
 
     let reserve =
         fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");

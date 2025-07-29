@@ -93,6 +93,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
         )?;
 
         // Initialize a reserve for the sUSDS token
@@ -105,6 +106,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
         )?;
 
         // Mint a supply of both tokens to the authority -- needed to init the swap

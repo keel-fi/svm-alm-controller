@@ -110,6 +110,7 @@ mod tests {
             ReserveStatus::Suspended,
             0, // rate_limit_slope
             0, // rate_limit_max_outflow
+            &spl_token::ID,
         )?;
 
         // Update the reserve
