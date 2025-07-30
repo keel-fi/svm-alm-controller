@@ -32,8 +32,8 @@ define_account_struct! {
         oracle;
         payer_account_a: mut;
         payer_account_b: mut;
-        // TODO need to split the token programs into two accounts.
-        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        token_program_a: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        token_program_b: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }
 }
 
@@ -117,7 +117,7 @@ pub fn process_atomic_swap_repay(
                 to: ctx.vault_a,
                 authority: ctx.payer,
                 amount: excess_token_a,
-                token_program: ctx.token_program.key(),
+                token_program: ctx.token_program_a.key(),
             }
             .invoke()?;
         }
@@ -127,7 +127,7 @@ pub fn process_atomic_swap_repay(
             to: ctx.vault_b,
             authority: ctx.payer,
             amount: args.amount,
-            token_program: ctx.token_program.key(),
+            token_program: ctx.token_program_b.key(),
         }
         .invoke()?;
 

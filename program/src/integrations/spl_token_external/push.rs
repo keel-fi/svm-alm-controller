@@ -22,7 +22,7 @@ define_account_struct! {
       vault;
       recipient;
       recipient_token_account: mut;
-      token_program;
+      token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       system_program: @pubkey(pinocchio_system::ID);
   }
@@ -152,6 +152,7 @@ pub fn process_push_spl_token_external(
         inner_ctx.vault,
         inner_ctx.recipient_token_account,
         amount,
+        inner_ctx.token_program.key(),
     )?;
 
     // Reload the vault account to check it's balance

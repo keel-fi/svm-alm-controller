@@ -184,15 +184,14 @@ impl Controller {
         vault: &AccountInfo,
         recipient_token_account: &AccountInfo,
         amount: u64,
+        token_program: &Pubkey,
     ) -> Result<(), ProgramError> {
         Transfer {
             from: vault,
             to: recipient_token_account,
             authority: controller_authority,
             amount,
-            // SAFETY: A reference returned by `owner` is invalidated when [`Self::assign`] is called.
-            // This is safe as the `assign` method is not called in this context.
-            token_program: unsafe { recipient_token_account.owner() },
+            token_program,
         }
         .invoke_signed(&[Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),

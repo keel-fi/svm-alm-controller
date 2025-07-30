@@ -857,7 +857,12 @@
           "isSigner": false
         },
         {
-          "name": "tokenProgram",
+          "name": "tokenProgramA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgramB",
           "isMut": false,
           "isSigner": false
         }

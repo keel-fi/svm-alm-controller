@@ -179,7 +179,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000, // rate_limit_slope
             1_000_000_000, // rate_limit_max_outflow
-            pc_token_program
+            pc_token_program,
         )?;
 
         let ReserveKeys {
@@ -194,8 +194,9 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
-            coin_token_program
+            coin_token_program,
         )?;
+        println!("COIN VAULT {:?}", coin_reserve_vault);
 
         // Transfer funds into the reserve
         transfer_tokens(
@@ -505,8 +506,12 @@ mod tests {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env =
-            setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let _integration =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?;
@@ -871,11 +876,19 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    fn atomic_swap_ix_ordering_checks(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_ix_ordering_checks(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
@@ -950,11 +963,19 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    fn atomic_swap_oracle_checks(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_oracle_checks(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
@@ -997,11 +1018,19 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    fn atomic_swap_rate_limit_valid_state(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_rate_limit_valid_state(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let borrow_amount = 5_00_000;
@@ -1173,7 +1202,7 @@ mod tests {
 
         let integration2_pre = fetch_integration_account(&mut svm, &integration_pk2)?.unwrap();
 
-        atomic_swap_borrow_repay(
+        let res = atomic_swap_borrow_repay(
             &mut svm,
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
@@ -1185,8 +1214,8 @@ mod tests {
             swap_env.price_feed,
             swap_env.relayer_coin, // payer_account_a
             swap_env.relayer_pc,   // payer_account_b
-            pc_token_program.clone(),
             coin_token_program.clone(),
+            pc_token_program.clone(),
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
@@ -1225,11 +1254,19 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    fn atomic_swap_rate_limit_violation(coin_token_program: Pubkey, pc_token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_rate_limit_violation(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp, &coin_token_program, &pc_token_program)?;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            &pc_token_program,
+        )?;
 
         let repay_excess_token_a = false;
         let repay_amount = 30_000_000;

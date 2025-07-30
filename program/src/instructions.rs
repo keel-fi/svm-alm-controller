@@ -180,7 +180,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(9, name = "oracle")]
     #[account(10, writable, name = "payer_account_a")]
     #[account(11, writable, name = "payer_account_b")]
-    #[account(12, name = "token_program")]
+    #[account(12, name = "token_program_a")]
+    #[account(13, name = "token_program_b")]
     AtomicSwapRepay(AtomicSwapRepayArgs),
 }
 

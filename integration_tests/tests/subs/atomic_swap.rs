@@ -94,7 +94,8 @@ pub fn atomic_swap_borrow_repay_ixs(
         .oracle(oracle)
         .payer_account_a(payer_account_a)
         .payer_account_b(payer_account_b)
-        .token_program(token_program_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
         .amount(repay_amount)
         .instruction();
     [borrow_ix, refresh_ix, repay_ix]

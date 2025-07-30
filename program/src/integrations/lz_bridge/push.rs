@@ -194,6 +194,7 @@ pub fn process_push_lz_bridge(
         inner_ctx.vault,
         inner_ctx.authority_token_account,
         amount,
+        inner_ctx.token_program.key(),
     )?;
 
     /////////

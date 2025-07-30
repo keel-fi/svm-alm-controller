@@ -194,6 +194,7 @@ pub fn process_atomic_swap_borrow(
             ctx.vault_a,
             ctx.recipient_token_account,
             args.amount,
+            ctx.token_program.key(),
         )?;
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());

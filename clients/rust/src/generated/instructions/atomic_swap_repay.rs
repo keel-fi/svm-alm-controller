@@ -35,7 +35,9 @@ pub struct AtomicSwapRepay {
 
     pub payer_account_b: solana_program::pubkey::Pubkey,
 
-    pub token_program: solana_program::pubkey::Pubkey,
+    pub token_program_a: solana_program::pubkey::Pubkey,
+
+    pub token_program_b: solana_program::pubkey::Pubkey,
 }
 
 impl AtomicSwapRepay {
@@ -45,13 +47,14 @@ impl AtomicSwapRepay {
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
         args: AtomicSwapRepayInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(13 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(14 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
@@ -100,7 +103,11 @@ impl AtomicSwapRepay {
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.token_program,
+            self.token_program_a,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.token_program_b,
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
@@ -156,7 +163,8 @@ pub struct AtomicSwapRepayInstructionArgs {
 ///   9. `[]` oracle
 ///   10. `[writable]` payer_account_a
 ///   11. `[writable]` payer_account_b
-///   12. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///   12. `[]` token_program_a
+///   13. `[]` token_program_b
 #[derive(Clone, Debug, Default)]
 pub struct AtomicSwapRepayBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
@@ -171,7 +179,8 @@ pub struct AtomicSwapRepayBuilder {
     oracle: Option<solana_program::pubkey::Pubkey>,
     payer_account_a: Option<solana_program::pubkey::Pubkey>,
     payer_account_b: Option<solana_program::pubkey::Pubkey>,
-    token_program: Option<solana_program::pubkey::Pubkey>,
+    token_program_a: Option<solana_program::pubkey::Pubkey>,
+    token_program_b: Option<solana_program::pubkey::Pubkey>,
     amount: Option<u64>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -246,10 +255,20 @@ impl AtomicSwapRepayBuilder {
         self.payer_account_b = Some(payer_account_b);
         self
     }
-    /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
     #[inline(always)]
-    pub fn token_program(&mut self, token_program: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.token_program = Some(token_program);
+    pub fn token_program_a(
+        &mut self,
+        token_program_a: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.token_program_a = Some(token_program_a);
+        self
+    }
+    #[inline(always)]
+    pub fn token_program_b(
+        &mut self,
+        token_program_b: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.token_program_b = Some(token_program_b);
         self
     }
     #[inline(always)]
@@ -290,9 +309,8 @@ impl AtomicSwapRepayBuilder {
             oracle: self.oracle.expect("oracle is not set"),
             payer_account_a: self.payer_account_a.expect("payer_account_a is not set"),
             payer_account_b: self.payer_account_b.expect("payer_account_b is not set"),
-            token_program: self.token_program.unwrap_or(solana_program::pubkey!(
-                "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-            )),
+            token_program_a: self.token_program_a.expect("token_program_a is not set"),
+            token_program_b: self.token_program_b.expect("token_program_b is not set"),
         };
         let args = AtomicSwapRepayInstructionArgs {
             amount: self.amount.clone().expect("amount is not set"),
@@ -328,7 +346,9 @@ pub struct AtomicSwapRepayCpiAccounts<'a, 'b> {
 
     pub payer_account_b: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub token_program_a: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub token_program_b: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 /// `atomic_swap_repay` CPI instruction.
@@ -360,7 +380,9 @@ pub struct AtomicSwapRepayCpi<'a, 'b> {
 
     pub payer_account_b: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub token_program_a: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub token_program_b: &'b solana_program::account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: AtomicSwapRepayInstructionArgs,
 }
@@ -385,7 +407,8 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             oracle: accounts.oracle,
             payer_account_a: accounts.payer_account_a,
             payer_account_b: accounts.payer_account_b,
-            token_program: accounts.token_program,
+            token_program_a: accounts.token_program_a,
+            token_program_b: accounts.token_program_b,
             __args: args,
         }
     }
@@ -411,6 +434,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed_with_remaining_accounts(
@@ -422,7 +446,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(13 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(14 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
@@ -472,7 +496,11 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.token_program.key,
+            *self.token_program_a.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.token_program_b.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
@@ -491,7 +519,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(14 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(15 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
@@ -505,7 +533,8 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
         account_infos.push(self.oracle.clone());
         account_infos.push(self.payer_account_a.clone());
         account_infos.push(self.payer_account_b.clone());
-        account_infos.push(self.token_program.clone());
+        account_infos.push(self.token_program_a.clone());
+        account_infos.push(self.token_program_b.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -534,7 +563,8 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
 ///   9. `[]` oracle
 ///   10. `[writable]` payer_account_a
 ///   11. `[writable]` payer_account_b
-///   12. `[]` token_program
+///   12. `[]` token_program_a
+///   13. `[]` token_program_b
 #[derive(Clone, Debug)]
 pub struct AtomicSwapRepayCpiBuilder<'a, 'b> {
     instruction: Box<AtomicSwapRepayCpiBuilderInstruction<'a, 'b>>,
@@ -556,7 +586,8 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
             oracle: None,
             payer_account_a: None,
             payer_account_b: None,
-            token_program: None,
+            token_program_a: None,
+            token_program_b: None,
             amount: None,
             __remaining_accounts: Vec::new(),
         });
@@ -656,11 +687,19 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn token_program(
+    pub fn token_program_a(
         &mut self,
-        token_program: &'b solana_program::account_info::AccountInfo<'a>,
+        token_program_a: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
-        self.instruction.token_program = Some(token_program);
+        self.instruction.token_program_a = Some(token_program_a);
+        self
+    }
+    #[inline(always)]
+    pub fn token_program_b(
+        &mut self,
+        token_program_b: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.token_program_b = Some(token_program_b);
         self
     }
     #[inline(always)]
@@ -748,10 +787,15 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
                 .payer_account_b
                 .expect("payer_account_b is not set"),
 
-            token_program: self
+            token_program_a: self
                 .instruction
-                .token_program
-                .expect("token_program is not set"),
+                .token_program_a
+                .expect("token_program_a is not set"),
+
+            token_program_b: self
+                .instruction
+                .token_program_b
+                .expect("token_program_b is not set"),
             __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
@@ -776,7 +820,8 @@ struct AtomicSwapRepayCpiBuilderInstruction<'a, 'b> {
     oracle: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     payer_account_a: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     payer_account_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    token_program_a: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    token_program_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     amount: Option<u64>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

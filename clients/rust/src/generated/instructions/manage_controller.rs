@@ -30,6 +30,7 @@ impl ManageController {
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
@@ -188,7 +189,7 @@ impl ManageControllerBuilder {
     }
 }
 
-/// `manage_contoller` CPI accounts.
+/// `manage_controller` CPI accounts.
 pub struct ManageControllerCpiAccounts<'a, 'b> {
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -201,7 +202,7 @@ pub struct ManageControllerCpiAccounts<'a, 'b> {
     pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
-/// `manage_contoller` CPI instruction.
+/// `manage_controller` CPI instruction.
 pub struct ManageControllerCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
@@ -257,6 +258,7 @@ impl<'a, 'b> ManageControllerCpi<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed_with_remaining_accounts(
