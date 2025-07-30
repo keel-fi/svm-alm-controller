@@ -44,6 +44,7 @@ mod tests {
             6,
             None,
             &token_program,
+            None,
         )?;
 
         let _authority_usdc_ata = initialize_ata(&mut svm, &authority, &authority.pubkey(), &mint)?;

@@ -46,6 +46,7 @@ pub fn setup_token_account(
 }
 
 /// Sets the state of an SPL Token Mint in a given address.
+#[deprecated(note = "Please use initialize_mint as it has more functionality")]
 pub fn setup_token_mint(svm: &mut LiteSVM, pubkey: &Pubkey, decimals: u8, mint_authority: &Pubkey, token_program: &Pubkey) {
     let mint = spl_token_2022::state::Mint {
         mint_authority: Some(*mint_authority).into(),

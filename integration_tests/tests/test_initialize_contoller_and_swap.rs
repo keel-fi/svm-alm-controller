@@ -43,6 +43,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
         )?;
 
         // Initialize a mint
@@ -54,6 +55,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
         )?;
 
         let (controller_pk, _authority_permission_pk) = initialize_contoller(

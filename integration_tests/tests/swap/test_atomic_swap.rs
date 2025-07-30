@@ -8,8 +8,8 @@ mod tests {
         subs::{
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
             derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
-            fetch_reserve_account, fetch_token_account, initialize_ata, initialize_reserve,
-            transfer_tokens, ReserveKeys,
+            fetch_reserve_account, fetch_token_account, initialize_ata, initialize_mint,
+            initialize_reserve, transfer_tokens, ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -30,12 +30,9 @@ mod tests {
 
     use test_case::test_case;
 
-    use crate::{
-        helpers::spl::setup_token_mint,
-        subs::{
-            initialize_contoller, initialize_integration, manage_permission,
-            oracle::{derive_oracle_pda, initalize_oracle, set_price_feed},
-        },
+    use crate::subs::{
+        initialize_contoller, initialize_integration, manage_permission,
+        oracle::{derive_oracle_pda, initalize_oracle, set_price_feed},
     };
 
     fn lite_svm_with_programs() -> LiteSVM {
@@ -76,13 +73,17 @@ mod tests {
         svm: &mut LiteSVM,
         expiry_timestamp: i64,
         coin_token_program: &Pubkey,
+        coin_token_transfer_fee: Option<u16>,
         pc_token_program: &Pubkey,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<SwapEnv, Box<dyn std::error::Error>> {
         let relayer_authority_kp = Keypair::new();
         let price_feed = Pubkey::new_unique();
         let nonce = Pubkey::new_unique();
-        let coin_token_mint = Pubkey::new_unique();
-        let pc_token_mint = Pubkey::new_unique();
+        let coin_token_mint_kp = Keypair::new();
+        let coin_token_mint = coin_token_mint_kp.pubkey();
+        let pc_token_mint_kp = Keypair::new();
+        let pc_token_mint = pc_token_mint_kp.pubkey();
         let mint_authority = Keypair::new();
 
         svm.airdrop(&relayer_authority_kp.pubkey(), 100_000_000)
@@ -94,20 +95,26 @@ mod tests {
         set_price_feed(svm, &price_feed, 1_000_000_000_000)?; // $1
         initalize_oracle(svm, &relayer_authority_kp, &nonce, &price_feed, 0, false)?;
 
-        setup_token_mint(
+        initialize_mint(
             svm,
-            &coin_token_mint,
-            6,
+            &relayer_authority_kp,
             &mint_authority.pubkey(),
-            &coin_token_program,
-        );
-        setup_token_mint(
+            None,
+            6,
+            Some(coin_token_mint_kp),
+            coin_token_program,
+            coin_token_transfer_fee,
+        )?;
+        initialize_mint(
             svm,
-            &pc_token_mint,
-            6,
+            &relayer_authority_kp,
             &mint_authority.pubkey(),
-            &pc_token_program,
-        );
+            None,
+            6,
+            Some(pc_token_mint_kp),
+            pc_token_program,
+            pc_token_transfer_fee
+        )?;
 
         // Set up a controller and relayer with swap capabilities.
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
@@ -283,7 +290,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            None,
             &pc_token_program,
+            None,
         )?;
 
         // Check that integration after init.
@@ -312,13 +321,17 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(100), None ; "Coin Token2022 TransferFee 100 bps, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(100) ; "Coin Token2022, PC Token2022 TransferFee 100 bps")]
     fn atomic_swap_success(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -327,7 +340,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let _integration =
@@ -501,13 +516,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_slippage_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -516,7 +533,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee
         )?;
 
         let _integration =
@@ -609,13 +628,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_fails_after_expiry(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -624,7 +645,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;
@@ -680,13 +703,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_fails_with_invalid_token_amounts(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -695,7 +720,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;
@@ -792,11 +819,13 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
     fn atomic_swap_vault_balance_check(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -805,7 +834,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;
@@ -884,13 +915,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_ix_ordering_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -899,7 +932,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;
@@ -973,13 +1008,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_oracle_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -988,7 +1025,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;
@@ -1030,13 +1069,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_rate_limit_valid_state(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -1045,7 +1086,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;
@@ -1268,13 +1311,15 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_rate_limit_violation(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
+        coin_token_transfer_fee: Option<u16>,
+        pc_token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -1283,7 +1328,9 @@ mod tests {
             &mut svm,
             expiry_timestamp,
             &coin_token_program,
+            coin_token_transfer_fee,
             &pc_token_program,
+            pc_token_transfer_fee,
         )?;
 
         let repay_excess_token_a = false;

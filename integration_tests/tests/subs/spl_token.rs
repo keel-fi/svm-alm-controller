@@ -12,6 +12,8 @@ use spl_associated_token_account_client::{
     address::get_associated_token_address_with_program_id,
     instruction::create_associated_token_account_idempotent,
 };
+use spl_token_2022::extension::transfer_fee::instruction::initialize_transfer_fee_config;
+use spl_token_2022::extension::ExtensionType;
 use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::{initialize_mint2, mint_to},
@@ -26,7 +28,8 @@ pub fn unpack_token_account(account: &SolanaAccount) -> Result<Account, String> 
             .map(|a| a.base)
             .map_err(|e| format!("Failed to unpack token2022 account: {:?}", e))
     } else {
-        Account::unpack(&account.data).map_err(|e| format!("Failed to unpack token account: {:?}", e))
+        Account::unpack(&account.data)
+            .map_err(|e| format!("Failed to unpack token account: {:?}", e))
     }
 }
 
@@ -38,34 +41,59 @@ pub fn initialize_mint(
     decimals: u8,
     mint_kp: Option<Keypair>,
     token_program: &Pubkey,
+    transfer_fee_bps: Option<u16>,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let mint_kp = if mint_kp.is_some() {
         mint_kp.unwrap()
     } else {
         Keypair::new()
     };
-    let mint_pk = mint_kp.pubkey();
-    let mint_len = Mint::LEN;
+    let mint_pubkey = mint_kp.pubkey();
+
+    let mut instructions = Vec::new();
+
+    // Track the extensions required for size calculation
+    let mut extension_types = vec![];
+
+    // Init the TransferFee token extension if fee is set AND
+    // insert the TransferFee extension to extension types.
+    if let Some(fee) = transfer_fee_bps {
+        extension_types.push(ExtensionType::TransferFeeConfig);
+        let init_transfer_fee_ix = initialize_transfer_fee_config(
+            token_program,
+            &mint_pubkey,
+            Some(&payer.pubkey()),
+            Some(&payer.pubkey()),
+            fee,
+            u64::MAX,
+        )
+        .unwrap();
+        instructions.push(init_transfer_fee_ix);
+    }
+
+    let space = ExtensionType::try_calculate_account_len::<Mint>(&extension_types).unwrap();
 
     let create_acc_ins = solana_system_interface::instruction::create_account(
         &payer.pubkey(),
-        &mint_pk,
-        svm.minimum_balance_for_rent_exemption(mint_len),
-        mint_len as u64,
+        &mint_pubkey,
+        svm.minimum_balance_for_rent_exemption(space),
+        space as u64,
         token_program,
     );
+    instructions.insert(0, create_acc_ins);
 
-    let init_mint_ins = initialize_mint2(
+    let init_mint_inx = initialize_mint2(
         token_program,
-        &mint_pk,
+        &mint_pubkey,
         mint_authority,
         freeze_authority,
         decimals,
     )
     .unwrap();
+    instructions.push(init_mint_inx);
 
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-        &[create_acc_ins, init_mint_ins],
+        &instructions,
         Some(&payer.pubkey()),
         &[&payer, &mint_kp],
         svm.latest_blockhash(),
@@ -74,7 +102,9 @@ pub fn initialize_mint(
 
     let mint_acc = svm.get_account(&mint_kp.pubkey());
     let mint_data = mint_acc.unwrap().data;
-    let mint = Mint::unpack(&mint_data).map_err(|e| format!("Failed to unpack mint: {:?}", e))?;
+    let mint = StateWithExtensions::<Mint>::unpack(&mint_data)
+        .map_err(|e| format!("Failed to unpack mint: {:?}", e))?
+        .base;
 
     assert_eq!(mint.decimals, decimals, "Incorrect number of decimals");
     assert_eq!(
@@ -90,7 +120,7 @@ pub fn initialize_mint(
         "Incorrect freeze_authority"
     );
 
-    Ok(mint_pk)
+    Ok(mint_pubkey)
 }
 
 pub fn initialize_ata(

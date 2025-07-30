@@ -90,6 +90,7 @@ pub fn initialize_swap(
         Some(lp_mint_kp),
         // We assume all LP tokens are SPL Tokens
         &spl_token::ID,
+        None,
     )?;
 
     // Create the LP ATA for the pool creator
