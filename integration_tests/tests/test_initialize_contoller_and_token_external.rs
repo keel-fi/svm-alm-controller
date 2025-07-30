@@ -20,11 +20,13 @@ mod tests {
     use test_case::test_case;
 
     #[tokio::test]
-    #[test_case(spl_token::ID ; "SPL Token")]
-    #[test_case(spl_token_2022::ID ; "Token2022")]
+    #[test_case(spl_token::ID, None ; "SPL Token")]
+    #[test_case(spl_token_2022::ID, None ; "Token2022")]
+    #[test_case(spl_token_2022::ID, Some(100) ; "Token2022 TransferFee 100 bps")]
 
     async fn initialize_controller_and_token_external_success(
         token_program: Pubkey,
+        token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -44,10 +46,10 @@ mod tests {
             6,
             None,
             &token_program,
-            None,
+            token_transfer_fee,
         )?;
 
-        let _authority_usdc_ata = initialize_ata(&mut svm, &authority, &authority.pubkey(), &mint)?;
+        let _authority_ata = initialize_ata(&mut svm, &authority, &authority.pubkey(), &mint)?;
 
         mint_tokens(
             &mut svm,
@@ -104,7 +106,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the token
-        let _usdc_reserve_pk = initialize_reserve(
+        let _reserve_pk = initialize_reserve(
             &mut svm,
             &controller_pk,
             &mint,      // mint
