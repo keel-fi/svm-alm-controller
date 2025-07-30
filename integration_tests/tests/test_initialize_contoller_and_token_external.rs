@@ -6,7 +6,7 @@ use crate::subs::{
     manage_permission, manage_reserve, mint_tokens, push_integration,
 };
 use helpers::lite_svm_with_programs;
-use solana_sdk::{signature::Keypair, signer::Signer};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use svm_alm_controller_client::generated::types::SplTokenExternalConfig;
 use svm_alm_controller_client::generated::types::{
@@ -16,12 +16,15 @@ use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, Rese
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+    use test_case::test_case;
 
     #[tokio::test]
+    #[test_case(spl_token::ID ; "SPL Token")]
+    #[test_case(spl_token_2022::ID ; "Token2022")]
 
     async fn initialize_controller_and_token_external_success(
+        token_program: Pubkey,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -33,24 +36,23 @@ mod tests {
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
 
         // Initialize a mint
-        let usdc_mint = initialize_mint(
+        let mint = initialize_mint(
             &mut svm,
             &authority,
             &authority.pubkey(),
             None,
             6,
             None,
-            &spl_token::ID,
+            &token_program,
         )?;
 
-        let _authority_usdc_ata =
-            initialize_ata(&mut svm, &authority, &authority.pubkey(), &usdc_mint)?;
+        let _authority_usdc_ata = initialize_ata(&mut svm, &authority, &authority.pubkey(), &mint)?;
 
         mint_tokens(
             &mut svm,
             &authority,
             &authority,
-            &usdc_mint,
+            &mint,
             &authority.pubkey(),
             1_000_000,
         )?;
@@ -104,20 +106,20 @@ mod tests {
         let _usdc_reserve_pk = initialize_reserve(
             &mut svm,
             &controller_pk,
-            &usdc_mint, // mint
+            &mint,      // mint
             &authority, // payer
             &authority, // authority
             ReserveStatus::Suspended,
             0, // rate_limit_slope
             0, // rate_limit_max_outflow
-            &spl_token::ID,
+            &token_program,
         )?;
 
         // Update the reserve
         manage_reserve(
             &mut svm,
             &controller_pk,
-            &usdc_mint,
+            &mint,
             &authority,
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
@@ -125,25 +127,22 @@ mod tests {
         )?;
 
         // Initialize an External integration
-        let external_usdc_ata = get_associated_token_address_with_program_id(
-            &external.pubkey(),
-            &usdc_mint,
-            &pinocchio_token::ID.into(),
-        );
-        let usdc_external_integration_pk = initialize_integration(
+        let external_ata =
+            get_associated_token_address_with_program_id(&external.pubkey(), &mint, &token_program);
+        let external_integration_pk = initialize_integration(
             &mut svm,
             &controller_pk,
             &authority, // payer
             &authority, // authority
-            "USDC DAO Treasury",
+            "DAO Treasury",
             IntegrationStatus::Suspended,
             0, // rate_limit_slope
             0, // rate_limit_max_outflow
             &IntegrationConfig::SplTokenExternal(SplTokenExternalConfig {
-                program: pinocchio_token::ID.into(),
-                mint: usdc_mint,
+                program: token_program,
+                mint: mint,
                 recipient: external.pubkey(),
-                token_account: external_usdc_ata,
+                token_account: external_ata,
                 padding: [0; 96],
             }),
             &InitializeArgs::SplTokenExternal,
@@ -153,19 +152,19 @@ mod tests {
         manage_integration(
             &mut svm,
             &controller_pk,
-            &usdc_external_integration_pk,
+            &external_integration_pk,
             &authority,
             IntegrationStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
         )?;
 
-        // TODO: Transfer funds directly to the controller's vault
+        // Transfer funds directly to the controller's vault
         mint_tokens(
             &mut svm,
             &authority,
             &authority,
-            &usdc_mint,
+            &mint,
             &controller_authority,
             10_000_000,
         )?;
@@ -174,7 +173,7 @@ mod tests {
         push_integration(
             &mut svm,
             &controller_pk,
-            &usdc_external_integration_pk,
+            &external_integration_pk,
             &authority,
             &PushArgs::SplTokenExternal { amount: 1_000_000 },
         )
