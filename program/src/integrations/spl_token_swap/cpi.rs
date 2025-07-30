@@ -20,7 +20,8 @@ impl DepositSingleTokenTypeExactAmountInArgs {
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized = Vec::with_capacity(1 + Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized).unwrap();
+        BorshSerialize::serialize(self, &mut serialized)
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
         Ok(serialized)
     }
 }
@@ -38,7 +39,8 @@ impl WithdrawSingleTokenTypeExactAmountOutArgs {
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized = Vec::with_capacity(1 + Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized).unwrap();
+        BorshSerialize::serialize(self, &mut serialized)
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
         Ok(serialized)
     }
 }
@@ -63,8 +65,7 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
         source_token_amount: amount,
         minimum_pool_token_amount: 0,
     }
-    .to_vec()
-    .unwrap();
+    .to_vec()?;
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {
@@ -123,8 +124,7 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
         destination_token_amount: amount,
         maximum_pool_token_amount: u64::MAX,
     }
-    .to_vec()
-    .unwrap();
+    .to_vec()?;
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {

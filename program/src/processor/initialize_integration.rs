@@ -60,7 +60,8 @@ pub fn process_initialize_integration(
 
     let ctx = InitializeIntegrationAccounts::checked_from_accounts(accounts)?;
     // // Deserialize the args
-    let args = InitializeIntegrationArgs::try_from_slice(instruction_data).unwrap();
+    let args = InitializeIntegrationArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;

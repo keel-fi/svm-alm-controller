@@ -83,14 +83,15 @@ pub fn process_initialize_spl_token_swap(
         InitializeSplTokenSwapAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
     // Load in the mint accounts, validating it in the process
-    Mint::from_account_info(inner_ctx.mint_a).unwrap();
-    Mint::from_account_info(inner_ctx.mint_b).unwrap();
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint).unwrap();
+    Mint::from_account_info(inner_ctx.mint_a)?;
+    Mint::from_account_info(inner_ctx.mint_b)?;
+    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
 
     // Load in the Pool state and verify the accounts
     //  w.r.t it's stored state
     let swap_data = inner_ctx.swap.try_borrow_data()?;
-    let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1]).unwrap();
+    let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1])
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if swap_state.token_a_mint.ne(inner_ctx.mint_a.key()) {
         msg! {"mint_a: does not match swap state"};
@@ -123,8 +124,7 @@ pub fn process_initialize_spl_token_swap(
         system_program: outer_ctx.system_program,
         token_program: inner_ctx.lp_mint_token_program,
     }
-    .invoke()
-    .unwrap();
+    .invoke()?;
 
     // Create the Config
     let config = IntegrationConfig::SplTokenSwap(SplTokenSwapConfig {

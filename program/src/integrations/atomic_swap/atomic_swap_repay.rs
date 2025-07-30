@@ -46,7 +46,8 @@ pub fn process_atomic_swap_repay(
 ) -> ProgramResult {
     msg!("atomic_swap_repay");
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
-    let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data).unwrap();
+    let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
     let clock = Clock::get()?;
 
     // Load in the super permission account

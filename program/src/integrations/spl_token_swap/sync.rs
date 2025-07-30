@@ -72,13 +72,14 @@ pub fn process_sync_spl_token_swap(
         outer_ctx.remaining_accounts,
     )?;
 
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint).unwrap();
+    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
     let lp_mint_supply = lp_mint.supply() as u128;
 
     // Load in the Pool state and verify the accounts
     //  w.r.t it's stored state
     let swap_data = inner_ctx.swap.try_borrow_data()?;
-    let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1]).unwrap();
+    let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1])
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     if swap_state.pool_mint.ne(inner_ctx.lp_mint.key()) {
         msg! {"lp_mint: does not match swap state"};

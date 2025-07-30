@@ -24,7 +24,8 @@ pub fn process_update_oracle(
 ) -> ProgramResult {
     msg!("update_oracle");
     let ctx = UpdateOracle::from_accounts(accounts)?;
-    let args = UpdateOracleArgs::try_from_slice(instruction_data).unwrap();
+    let args = UpdateOracleArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
     if oracle.authority.ne(ctx.authority.key()) {

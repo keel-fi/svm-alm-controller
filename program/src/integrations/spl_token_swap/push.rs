@@ -176,7 +176,8 @@ pub fn process_push_spl_token_swap(
     // Load in the Pool state and verify the accounts
     //  w.r.t it's stored state
     let swap_data = inner_ctx.swap.try_borrow_data()?;
-    let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1]).unwrap();
+    let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1])
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
     drop(swap_data);
 
     if swap_state.pool_mint.ne(inner_ctx.lp_mint.key()) {
@@ -220,7 +221,7 @@ pub fn process_push_spl_token_swap(
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint).unwrap();
+    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
     let lp_mint_supply = lp_mint.supply() as u128;
     drop(lp_mint);
 
@@ -381,7 +382,7 @@ pub fn process_push_spl_token_swap(
     let post_deposit_balance_lp = lp_token_account.amount() as u128;
     drop(lp_token_account);
 
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint).unwrap();
+    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
     let lp_mint_supply = lp_mint.supply() as u128;
     let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
     let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;

@@ -62,7 +62,8 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
         Ok(controller)
     }
@@ -72,8 +73,8 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller: Self =
-            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
         Ok(controller)
     }

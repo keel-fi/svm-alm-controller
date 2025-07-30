@@ -31,7 +31,7 @@ pub fn process_initialize_spl_token_external(
         InitializeSplTokenExternalAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
     // Load in the mint account, validating it in the process
-    Mint::from_account_info(inner_ctx.mint).unwrap();
+    Mint::from_account_info(inner_ctx.mint)?;
 
     // Invoke the CreateIdempotent ixn for the token_accout (ATA)
     // Will handle both the creation or the checking, if already created
@@ -43,8 +43,7 @@ pub fn process_initialize_spl_token_external(
         system_program: outer_ctx.system_program,
         token_program: inner_ctx.token_program,
     }
-    .invoke()
-    .unwrap();
+    .invoke()?;
 
     // Create the Config
     let config = IntegrationConfig::SplTokenExternal(SplTokenExternalConfig {

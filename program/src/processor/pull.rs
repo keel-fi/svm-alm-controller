@@ -40,7 +40,8 @@ pub fn process_pull(
     let clock = Clock::get()?;
     let ctx = PullAccounts::from_accounts(accounts)?;
     // // Deserialize the args
-    let args = PullArgs::try_from_slice(instruction_data).unwrap();
+    let args = PullArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
@@ -67,6 +68,9 @@ pub fn process_pull(
     if reserve_a.status != ReserveStatus::Active {
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
+
+    // TODO [CLEANUP] Shouldn't this just return error if the reserves are 
+    // equal rather than using an Option?
 
     // Load in the reserve account for b (if applicable)
     let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
