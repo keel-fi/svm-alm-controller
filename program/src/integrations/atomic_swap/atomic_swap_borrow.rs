@@ -206,6 +206,8 @@ pub fn process_atomic_swap_borrow(
 
     verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
 
+    // NOTE: ok to use the amount from arguments as not Token Extension
+    // configuration sends more or less than the requested amount.
     reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
     reserve_b.save(ctx.reserve_b)?;

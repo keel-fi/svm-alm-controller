@@ -70,6 +70,8 @@ pub fn process_atomic_swap_repay(
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
     let mut excess_token_a = 0;
+    let mut balance_a_delta = 0;
+    let mut balance_b_delta = 0;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
@@ -114,6 +116,7 @@ pub fn process_atomic_swap_repay(
 
         // Transfer tokens to vault for repayment.
         if excess_token_a > 0 {
+            let balance_before = TokenAccount::from_account_info(ctx.vault_a)?.amount();
             let mint_a = Mint::from_account_info(ctx.mint_a)?;
             TransferChecked {
                 from: ctx.payer_account_a,
@@ -125,8 +128,11 @@ pub fn process_atomic_swap_repay(
                 token_program: ctx.token_program_a.key(),
             }
             .invoke()?;
+            let balance_after = TokenAccount::from_account_info(ctx.vault_a)?.amount();
+            balance_a_delta = balance_after.checked_sub(balance_before).expect("overflow");
         }
 
+        let balance_b_before = TokenAccount::from_account_info(ctx.vault_b)?.amount();
         let mint_b = Mint::from_account_info(ctx.mint_b)?;
         TransferChecked {
             from: ctx.payer_account_b,
@@ -138,6 +144,10 @@ pub fn process_atomic_swap_repay(
             token_program: ctx.token_program_b.key(),
         }
         .invoke()?;
+        let balance_b_after = TokenAccount::from_account_info(ctx.vault_b)?.amount();
+        balance_b_delta = balance_b_after
+            .checked_sub(balance_b_before)
+            .expect("overflow");
 
         let oracle = Oracle::load_and_check(ctx.oracle)?;
 
@@ -146,13 +156,11 @@ pub fn process_atomic_swap_repay(
             return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
         }
 
-        // TODO does this need to not use args.amount in case of TransferFees?
-
         // Check that swap is within accepted slippage of oracle price.
         check_swap_slippage(
             final_input_amount,
             cfg.input_mint_decimals,
-            args.amount,
+            balance_b_delta,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
             oracle.value,
@@ -166,12 +174,12 @@ pub fn process_atomic_swap_repay(
     }
 
     // Update for rate limits and save.
-    reserve_a.update_for_inflow(clock, excess_token_a)?;
+    reserve_a.update_for_inflow(clock, balance_a_delta)?;
     reserve_a.save(ctx.reserve_a)?;
-    reserve_b.update_for_inflow(clock, args.amount)?;
+    reserve_b.update_for_inflow(clock, balance_b_delta)?;
     reserve_b.save(ctx.reserve_b)?;
 
-    integration.update_rate_limit_for_inflow(clock, excess_token_a)?;
+    integration.update_rate_limit_for_inflow(clock, balance_a_delta)?;
     integration.save(ctx.integration)?;
 
     Ok(())
