@@ -270,6 +270,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn init_atomic_swap(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -312,6 +314,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_success(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -499,6 +503,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_slippage_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -603,8 +609,10 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID ; "Coin & PC SPL Token")]
+    #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_fails_after_expiry(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -674,6 +682,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_fails_with_invalid_token_amounts(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -876,6 +886,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_ix_ordering_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -963,6 +975,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_oracle_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1018,6 +1032,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_rate_limit_valid_state(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1254,6 +1270,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_rate_limit_violation(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
