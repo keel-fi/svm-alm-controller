@@ -7,7 +7,7 @@ use spl_associated_token_account_client::address::get_associated_token_address_w
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::Reserve,
-    instructions::{InitializeReserveBuilder, ManageReserveBuilder},
+    instructions::{InitializeReserveBuilder, ManageReserveBuilder, SyncReserveBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
     types::ReserveStatus,
 };
@@ -195,5 +195,40 @@ pub fn manage_reserve(
         "Controller does not match expected value"
     );
 
+    Ok(())
+}
+
+pub fn sync_reserve(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    mint: &Pubkey,
+    payer: &Keypair,
+) -> Result<(), Box<dyn Error>> {
+    let controller_authority = derive_controller_authority_pda(controller);
+    let reserve_pda = derive_reserve_pda(controller, mint);
+    let reserve = fetch_reserve_account(svm, &reserve_pda)?.unwrap();
+
+    let ixn = SyncReserveBuilder::new()
+        .controller(*controller)
+        .controller_authority(controller_authority)
+        .reserve(reserve_pda)
+        .vault(reserve.vault)
+        .instruction();
+
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+
+    let tx_result = svm.send_transaction(txn);
+    match tx_result {
+        Ok(_res) => {},
+        Err(e) => {
+            panic!("Transaction errored\n{:?}", e.meta.logs);
+        }
+    }
     Ok(())
 }

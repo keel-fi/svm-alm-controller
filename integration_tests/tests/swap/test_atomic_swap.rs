@@ -8,8 +8,8 @@ mod tests {
         subs::{
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
             derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
-            fetch_reserve_account, fetch_token_account, initialize_ata, initialize_mint,
-            initialize_reserve, transfer_tokens, ReserveKeys,
+            fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
+            initialize_reserve, mint_tokens, sync_reserve, transfer_tokens, ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -113,7 +113,7 @@ mod tests {
             6,
             Some(pc_token_mint_kp),
             pc_token_program,
-            pc_token_transfer_fee
+            pc_token_transfer_fee,
         )?;
 
         // Set up a controller and relayer with swap capabilities.
@@ -145,33 +145,43 @@ mod tests {
         let oracle = derive_oracle_pda(&nonce);
 
         // Setup relayer with funded token accounts.
+        initialize_ata(
+            svm,
+            &relayer_authority_kp,
+            &relayer_authority_kp.pubkey(),
+            &pc_token_mint,
+        )?;
+        mint_tokens(
+            svm,
+            &relayer_authority_kp,
+            &mint_authority,
+            &pc_token_mint,
+            &relayer_authority_kp.pubkey(),
+            1_000_000_000_000,
+        )?;
+        initialize_ata(
+            svm,
+            &relayer_authority_kp,
+            &relayer_authority_kp.pubkey(),
+            &coin_token_mint,
+        )?;
+        mint_tokens(
+            svm,
+            &relayer_authority_kp,
+            &mint_authority,
+            &coin_token_mint,
+            &relayer_authority_kp.pubkey(),
+            1_000_000_000,
+        )?;
         let relayer_pc = get_associated_token_address_with_program_id(
             &relayer_authority_kp.pubkey(),
             &pc_token_mint,
             pc_token_program,
         );
-        setup_token_account(
-            svm,
-            &relayer_pc,
-            &pc_token_mint,
-            &relayer_authority_kp.pubkey(),
-            1_000_000_000_000,
-            pc_token_program,
-            None,
-        );
         let relayer_coin = get_associated_token_address_with_program_id(
             &relayer_authority_kp.pubkey(),
             &coin_token_mint,
             coin_token_program,
-        );
-        setup_token_account(
-            svm,
-            &relayer_coin,
-            &coin_token_mint,
-            &relayer_authority_kp.pubkey(),
-            1000_000_000,
-            coin_token_program,
-            None,
         );
 
         let ReserveKeys {
@@ -203,7 +213,6 @@ mod tests {
             1_000_000_000_000, // rate_limit_max_outflow
             coin_token_program,
         )?;
-        println!("COIN VAULT {:?}", coin_reserve_vault);
 
         // Transfer funds into the reserve
         transfer_tokens(
@@ -222,6 +231,11 @@ mod tests {
             &controller_authority,
             600_000_000,
         )?;
+
+        // Make sure Reserve accounts start with updated balances. This
+        // is not necessary, but is helpful for testing.
+        sync_reserve(svm, &controller_pk, &pc_token_mint, &relayer_authority_kp)?;
+        sync_reserve(svm, &controller_pk, &coin_token_mint, &relayer_authority_kp)?;
 
         let permission_pda = derive_permission_pda(&controller_pk, &relayer_authority_kp.pubkey());
 
@@ -352,10 +366,31 @@ mod tests {
         let vault_b_before = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
         let relayer_a_before = fetch_token_account(&mut svm, &swap_env.relayer_pc);
         let relayer_b_before = fetch_token_account(&mut svm, &swap_env.relayer_coin);
+        let reserve_a_before =
+            fetch_reserve_account(&mut svm, &swap_env.pc_reserve_pubkey)?.unwrap();
+        let reserve_b_before =
+            fetch_reserve_account(&mut svm, &swap_env.coin_reserve_pubkey)?.unwrap();
 
         let repay_excess_token_a = false;
         let borrow_amount = 100;
+        let expected_borrow_amount = if let Some(transfer_fee) = pc_token_transfer_fee {
+            borrow_amount - (borrow_amount * u64::from(transfer_fee) / 10_000)
+        } else {
+            borrow_amount
+        };
         let repay_amount = 300;
+        let expected_repay_amount = if let Some(transfer_fee) = coin_token_transfer_fee {
+            repay_amount - (repay_amount * u64::from(transfer_fee) / 10_000)
+        } else {
+            repay_amount
+        };
+
+        // REserve A outflow: args.amount
+        // Reserve A inflow: excess?
+        // Reserve B inflow: args.amount // should be repay amount?
+
+        // outflow will be borrow_amount
+        // inflow will be expected_repay_amount
 
         atomic_swap_borrow_repay(
             &mut svm,
@@ -381,6 +416,10 @@ mod tests {
         let vault_b_after = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
         let relayer_a_after = fetch_token_account(&mut svm, &swap_env.relayer_pc);
         let relayer_b_after = fetch_token_account(&mut svm, &swap_env.relayer_coin);
+        let reserve_a_after =
+            fetch_reserve_account(&mut svm, &swap_env.pc_reserve_pubkey)?.unwrap();
+        let reserve_b_after =
+            fetch_reserve_account(&mut svm, &swap_env.coin_reserve_pubkey)?.unwrap();
 
         let vault_a_decrease = vault_a_before
             .amount
@@ -401,9 +440,32 @@ mod tests {
 
         // Check that token balances are changed as expected.
         assert_eq!(vault_a_decrease, borrow_amount);
-        assert_eq!(relayer_a_increase, borrow_amount);
-        assert_eq!(vault_b_increase, repay_amount);
+        assert_eq!(relayer_a_increase, expected_borrow_amount);
+        assert_eq!(vault_b_increase, expected_repay_amount);
         assert_eq!(relayer_b_decrease, repay_amount);
+
+        // Check Reserve state accounted properly.
+        let reserve_a_last_balance_delta = reserve_a_before
+            .last_balance
+            .checked_sub(reserve_a_after.last_balance)
+            .expect("overflow");
+        let reserve_a_outflow_available_delta = reserve_a_before
+            .rate_limit_outflow_amount_available
+            .checked_sub(reserve_a_after.rate_limit_outflow_amount_available)
+            .expect("overflow");
+        let reserve_b_last_balance_delta = reserve_b_after
+            .last_balance
+            .checked_sub(reserve_b_before.last_balance)
+            .expect("overflow");
+        let reserve_b_outflow_available_delta = reserve_b_before
+            .rate_limit_outflow_amount_available
+            .checked_sub(reserve_b_after.rate_limit_outflow_amount_available)
+            .expect("overflow");
+        assert_eq!(reserve_a_last_balance_delta, borrow_amount);
+        assert_eq!(reserve_a_outflow_available_delta, borrow_amount);
+        assert_eq!(reserve_b_last_balance_delta, expected_repay_amount);
+        // should be unchanged as it started as the max amount
+        assert_eq!(reserve_b_outflow_available_delta, 0);
 
         // Check that integration after swap.
         let integration =
@@ -439,8 +501,6 @@ mod tests {
 
         // Swap with repaying of token_a
         let repay_excess_token_a = true;
-        let borrow_amount = 100;
-        let repay_amount = 300;
 
         let vault_a_before = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
         let vault_b_before = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
@@ -468,13 +528,16 @@ mod tests {
 
         // Transfer some tokens out of relayer_pc to simulate spending.
         let spent_a = 15;
-        let transfer_ix = spl_token_2022::instruction::transfer(
+        let pc_mint = get_mint(&svm, &swap_env.pc_token_mint);
+        let transfer_ix = spl_token_2022::instruction::transfer_checked(
             &pc_token_program,
             &swap_env.relayer_pc,
+            &swap_env.pc_token_mint,
             &random_user_pc_token,
             &swap_env.relayer_authority_kp.pubkey(),
             &[&swap_env.relayer_authority_kp.pubkey()],
             spent_a,
+            pc_mint.decimals,
         )?;
 
         let txn = Transaction::new_signed_with_payer(
@@ -484,6 +547,9 @@ mod tests {
             svm.latest_blockhash(),
         );
         svm.send_transaction(txn).unwrap();
+
+        // Because the AtomicSwap happened twice, we must double the amount lost from TransferFees.
+        let total_transfer_fees_on_borrow = 2 * (borrow_amount - expected_borrow_amount);
 
         let vault_a_after = fetch_token_account(&mut svm, &swap_env.pc_reserve_vault);
         let vault_b_after = fetch_token_account(&mut svm, &swap_env.coin_reserve_vault);
@@ -508,9 +574,9 @@ mod tests {
             .unwrap();
 
         // Check that net change for relayer_a is 0 as excess tokens are repaid.
-        assert_eq!(vault_a_decrease, spent_a);
+        assert_eq!(vault_a_decrease, spent_a + total_transfer_fees_on_borrow);
         assert_eq!(relayer_a_increase, 0);
-        assert_eq!(vault_b_increase, repay_amount);
+        assert_eq!(vault_b_increase, expected_repay_amount);
         assert_eq!(relayer_b_decrease, repay_amount);
 
         Ok(())
@@ -535,7 +601,7 @@ mod tests {
             &coin_token_program,
             coin_token_transfer_fee,
             &pc_token_program,
-            pc_token_transfer_fee
+            pc_token_transfer_fee,
         )?;
 
         let _integration =
@@ -821,6 +887,8 @@ mod tests {
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
     #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_vault_balance_check(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,

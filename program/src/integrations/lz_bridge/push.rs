@@ -21,7 +21,7 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_token_interface::TokenAccount;
+use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
     pub struct PushLzBridgeAccounts<'info> {
@@ -188,12 +188,15 @@ pub fn process_push_lz_bridge(
 
     // Transfer the token to the token destination, where the token
     // will be burned or locked in the OFT Send instruction
+    let mint = Mint::from_account_info(&inner_ctx.mint)?;
     controller.transfer_tokens(
         outer_ctx.controller,
         outer_ctx.controller_authority,
         inner_ctx.vault,
         inner_ctx.authority_token_account,
+        inner_ctx.mint,
         amount,
+        mint.decimals(),
         inner_ctx.token_program.key(),
     )?;
 

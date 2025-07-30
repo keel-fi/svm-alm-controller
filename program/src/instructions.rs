@@ -98,8 +98,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, writable, name = "reserve")]
-    #[account(3, name = "mint")]
-    #[account(4, name = "vault")]
+    #[account(3, name = "vault")]
     SyncReserve(SyncReserveArgs),
 
     /// SyncIntegration
@@ -159,12 +158,13 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "vault_a")]
-    #[account(7, writable, name = "reserve_b")]
-    #[account(8, name = "vault_b")]
-    #[account(9, writable, name = "recipient_token_account")]
-    #[account(10, name = "token_program")]
-    #[account(11, name = "sysvar_instruction")]
-    #[account(12, name = "program_id")]
+    #[account(7, name = "mint_a")]
+    #[account(8, writable, name = "reserve_b")]
+    #[account(9, name = "vault_b")]
+    #[account(10, writable, name = "recipient_token_account")]
+    #[account(11, name = "token_program")]
+    #[account(12, name = "sysvar_instruction")]
+    #[account(13, name = "program_id")]
     AtomicSwapBorrow(AtomicSwapBorrowArgs),
 
     /// Atomic swap repay
@@ -175,13 +175,15 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "vault_a")]
-    #[account(7, writable, name = "reserve_b")]
-    #[account(8, writable, name = "vault_b")]
-    #[account(9, name = "oracle")]
-    #[account(10, writable, name = "payer_account_a")]
-    #[account(11, writable, name = "payer_account_b")]
-    #[account(12, name = "token_program_a")]
-    #[account(13, name = "token_program_b")]
+    #[account(7, name = "mint_a")]
+    #[account(8, writable, name = "reserve_b")]
+    #[account(9, writable, name = "vault_b")]
+    #[account(10, name = "mint_b")]
+    #[account(11, name = "oracle")]
+    #[account(12, writable, name = "payer_account_a")]
+    #[account(13, writable, name = "payer_account_b")]
+    #[account(14, name = "token_program_a")]
+    #[account(15, name = "token_program_b")]
     AtomicSwapRepay(AtomicSwapRepayArgs),
 }
 

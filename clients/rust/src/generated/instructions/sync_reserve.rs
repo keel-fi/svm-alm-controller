@@ -17,8 +17,6 @@ pub struct SyncReserve {
 
     pub reserve: solana_program::pubkey::Pubkey,
 
-    pub mint: solana_program::pubkey::Pubkey,
-
     pub vault: solana_program::pubkey::Pubkey,
 }
 
@@ -32,7 +30,7 @@ impl SyncReserve {
         &self,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
@@ -44,9 +42,6 @@ impl SyncReserve {
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.reserve,
             false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.mint, false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.vault, false,
@@ -87,14 +82,12 @@ impl Default for SyncReserveInstructionData {
 ///   0. `[]` controller
 ///   1. `[]` controller_authority
 ///   2. `[writable]` reserve
-///   3. `[]` mint
-///   4. `[]` vault
+///   3. `[]` vault
 #[derive(Clone, Debug, Default)]
 pub struct SyncReserveBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
     controller_authority: Option<solana_program::pubkey::Pubkey>,
     reserve: Option<solana_program::pubkey::Pubkey>,
-    mint: Option<solana_program::pubkey::Pubkey>,
     vault: Option<solana_program::pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -119,11 +112,6 @@ impl SyncReserveBuilder {
     #[inline(always)]
     pub fn reserve(&mut self, reserve: solana_program::pubkey::Pubkey) -> &mut Self {
         self.reserve = Some(reserve);
-        self
-    }
-    #[inline(always)]
-    pub fn mint(&mut self, mint: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.mint = Some(mint);
         self
     }
     #[inline(always)]
@@ -157,7 +145,6 @@ impl SyncReserveBuilder {
                 .controller_authority
                 .expect("controller_authority is not set"),
             reserve: self.reserve.expect("reserve is not set"),
-            mint: self.mint.expect("mint is not set"),
             vault: self.vault.expect("vault is not set"),
         };
 
@@ -173,8 +160,6 @@ pub struct SyncReserveCpiAccounts<'a, 'b> {
 
     pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub mint: &'b solana_program::account_info::AccountInfo<'a>,
-
     pub vault: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
@@ -189,8 +174,6 @@ pub struct SyncReserveCpi<'a, 'b> {
 
     pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub mint: &'b solana_program::account_info::AccountInfo<'a>,
-
     pub vault: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
@@ -204,7 +187,6 @@ impl<'a, 'b> SyncReserveCpi<'a, 'b> {
             controller: accounts.controller,
             controller_authority: accounts.controller_authority,
             reserve: accounts.reserve,
-            mint: accounts.mint,
             vault: accounts.vault,
         }
     }
@@ -242,7 +224,7 @@ impl<'a, 'b> SyncReserveCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
@@ -253,10 +235,6 @@ impl<'a, 'b> SyncReserveCpi<'a, 'b> {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.reserve.key,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.mint.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -277,12 +255,11 @@ impl<'a, 'b> SyncReserveCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
         account_infos.push(self.reserve.clone());
-        account_infos.push(self.mint.clone());
         account_infos.push(self.vault.clone());
         remaining_accounts
             .iter()
@@ -303,8 +280,7 @@ impl<'a, 'b> SyncReserveCpi<'a, 'b> {
 ///   0. `[]` controller
 ///   1. `[]` controller_authority
 ///   2. `[writable]` reserve
-///   3. `[]` mint
-///   4. `[]` vault
+///   3. `[]` vault
 #[derive(Clone, Debug)]
 pub struct SyncReserveCpiBuilder<'a, 'b> {
     instruction: Box<SyncReserveCpiBuilderInstruction<'a, 'b>>,
@@ -317,7 +293,6 @@ impl<'a, 'b> SyncReserveCpiBuilder<'a, 'b> {
             controller: None,
             controller_authority: None,
             reserve: None,
-            mint: None,
             vault: None,
             __remaining_accounts: Vec::new(),
         });
@@ -345,11 +320,6 @@ impl<'a, 'b> SyncReserveCpiBuilder<'a, 'b> {
         reserve: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.reserve = Some(reserve);
-        self
-    }
-    #[inline(always)]
-    pub fn mint(&mut self, mint: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.mint = Some(mint);
         self
     }
     #[inline(always)]
@@ -410,8 +380,6 @@ impl<'a, 'b> SyncReserveCpiBuilder<'a, 'b> {
 
             reserve: self.instruction.reserve.expect("reserve is not set"),
 
-            mint: self.instruction.mint.expect("mint is not set"),
-
             vault: self.instruction.vault.expect("vault is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
@@ -427,7 +395,6 @@ struct SyncReserveCpiBuilderInstruction<'a, 'b> {
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     reserve: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    mint: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     vault: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

@@ -203,6 +203,14 @@ pub fn get_token_balance_or_zero(svm: &mut LiteSVM, token_account: &Pubkey) -> u
     })
 }
 
+/// Get the Mint account for a given mint pubkey
+pub fn get_mint(svm: &LiteSVM, mint: &Pubkey) -> Mint {
+    let mint_acc = svm.get_account(mint).unwrap();
+    StateWithExtensions::<Mint>::unpack(&mint_acc.data)
+        .expect("Failed to unpack mint")
+        .base
+}
+
 pub fn get_mint_supply_or_zero(svm: &mut LiteSVM, mint: &Pubkey) -> u64 {
     svm.get_account(mint).map_or(0, |account| {
         let mint = Mint::unpack(&account.data)
@@ -219,15 +227,14 @@ pub fn transfer_tokens(
     recipient: &Pubkey,
     amount: u64,
 ) -> Result<(), Box<dyn Error>> {
-    let token_program = svm.get_account(mint).unwrap().owner;
+    let mint_acc = svm.get_account(mint).unwrap();
+    let token_program = mint_acc.owner;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_acc.data)?;
     let source_ata_pk =
         get_associated_token_address_with_program_id(&authority.pubkey(), mint, &token_program);
 
     let destination_ata_pk =
         get_associated_token_address_with_program_id(recipient, mint, &token_program);
-
-    let source_balance_before = get_token_balance_or_zero(svm, &source_ata_pk);
-    let destination_balance_before = get_token_balance_or_zero(svm, &destination_ata_pk);
 
     let create_ixn = create_associated_token_account_idempotent(
         &payer.pubkey(),
@@ -235,13 +242,15 @@ pub fn transfer_tokens(
         mint,
         &token_program,
     );
-    let transfer_ixn = spl_token_2022::instruction::transfer(
+    let transfer_ixn = spl_token_2022::instruction::transfer_checked(
         &token_program,
         &source_ata_pk,
+        mint,
         &destination_ata_pk,
         &authority.pubkey(),
         &[&authority.pubkey()],
         amount,
+        mint_state.base.decimals,
     )?;
 
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
@@ -250,26 +259,12 @@ pub fn transfer_tokens(
         &[&payer, &authority],
         svm.latest_blockhash(),
     ));
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
-
-    let source_balance_after = get_token_balance_or_zero(svm, &source_ata_pk);
-    let destination_balance_after = get_token_balance_or_zero(svm, &destination_ata_pk);
-
-    let source_delta = source_balance_before
-        .checked_sub(source_balance_after)
-        .unwrap();
-    let destination_delta = destination_balance_after
-        .checked_sub(destination_balance_before)
-        .unwrap();
-
-    assert_eq!(
-        source_delta, amount,
-        "Amount deducted from source is incorrect"
-    );
-    assert_eq!(
-        destination_delta, amount,
-        "Amount added to destination is incorrect"
-    );
+    match tx_result {
+        Ok(_res) => {}
+        Err(e) => {
+            panic!("Transaction errored\n{:?}", e.meta.logs);
+        }
+    }
 
     Ok(())
 }

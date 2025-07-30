@@ -16,7 +16,7 @@ use pinocchio::{
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_token_interface::instructions::Transfer;
+use pinocchio_token_interface::instructions::TransferChecked;
 use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
@@ -183,14 +183,18 @@ impl Controller {
         controller_authority: &AccountInfo,
         vault: &AccountInfo,
         recipient_token_account: &AccountInfo,
+        mint: &AccountInfo,
         amount: u64,
+        decimals: u8,
         token_program: &Pubkey,
     ) -> Result<(), ProgramError> {
-        Transfer {
+        TransferChecked {
             from: vault,
             to: recipient_token_account,
+            mint,
             authority: controller_authority,
             amount,
+            decimals,
             token_program,
         }
         .invoke_signed(&[Signer::from(&[

@@ -7,7 +7,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_token_interface::{instructions::Transfer, TokenAccount};
+use pinocchio_token_interface::{instructions::TransferChecked, Mint, TokenAccount};
 
 use crate::{
     constants::BPS_DENOMINATOR,
@@ -27,8 +27,10 @@ define_account_struct! {
         integration: mut;
         reserve_a: mut;
         vault_a: mut;
+        mint_a;
         reserve_b: mut;
         vault_b: mut;
+        mint_b;
         oracle;
         payer_account_a: mut;
         payer_account_b: mut;
@@ -57,11 +59,11 @@ pub fn process_atomic_swap_repay(
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
-    if reserve_a.vault != *ctx.vault_a.key() {
+    if reserve_a.vault != *ctx.vault_a.key() || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
-    if reserve_b.vault != *ctx.vault_b.key() {
+    if reserve_b.vault != *ctx.vault_b.key() || reserve_b.mint.ne(ctx.mint_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
@@ -112,21 +114,27 @@ pub fn process_atomic_swap_repay(
 
         // Transfer tokens to vault for repayment.
         if excess_token_a > 0 {
-            Transfer {
+            let mint_a = Mint::from_account_info(ctx.mint_a)?;
+            TransferChecked {
                 from: ctx.payer_account_a,
                 to: ctx.vault_a,
+                mint: ctx.mint_a,
                 authority: ctx.payer,
                 amount: excess_token_a,
+                decimals: mint_a.decimals(),
                 token_program: ctx.token_program_a.key(),
             }
             .invoke()?;
         }
 
-        Transfer {
+        let mint_b = Mint::from_account_info(ctx.mint_b)?;
+        TransferChecked {
             from: ctx.payer_account_b,
             to: ctx.vault_b,
+            mint: ctx.mint_b,
             authority: ctx.payer,
             amount: args.amount,
+            decimals: mint_b.decimals(),
             token_program: ctx.token_program_b.key(),
         }
         .invoke()?;
