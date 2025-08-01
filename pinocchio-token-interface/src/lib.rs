@@ -76,7 +76,7 @@ impl Deref for Mint<'_> {
     }
 }
 
-/// Iterate over all extension data and return
+/// Iterate over all extension data and return the lists of extension types.
 pub fn get_all_extensions_for_mint(
     acc_data_bytes: &[u8],
 ) -> Result<Vec<ExtensionType>, ProgramError> {
@@ -89,7 +89,6 @@ pub fn get_all_extensions_for_mint(
     while start < end {
         let ext_type_idx = start;
         let ext_len_idx = ext_type_idx + 2;
-        // let ext_data_idx = ext_len_idx + EXTENSION_LENGTH_LEN;
 
         let ext_type: [u8; 2] = ext_bytes[ext_type_idx..ext_type_idx + EXTENSION_TYPE_LEN]
             .try_into()
