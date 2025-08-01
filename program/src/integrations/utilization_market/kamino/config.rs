@@ -7,7 +7,10 @@ pub struct KaminoConfig {
     /// The Kamino market
     pub market: Pubkey,
     /// The mint that's pushed/pulled into/from market
-    pub mint: Pubkey,
+    pub token_mint: Pubkey,
     /// The obligation, KaminoConfigs can share obligations
-    pub obligation: Pubkey
+    pub obligation: Pubkey,
+    /// obligation_id: helper for the UI?
+    pub obligation_id: u8,
+    // should I add more fields (obligation farm, reserve, reserve_farm)?
 }

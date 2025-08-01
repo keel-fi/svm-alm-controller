@@ -1,4 +1,6 @@
 pub mod kamino;
+pub mod config;
+pub mod state;
 
 use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 use borsh::{BorshDeserialize, BorshSerialize};

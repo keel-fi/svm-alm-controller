@@ -1,6 +1,9 @@
-use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 
-use crate::integrations::utilization_market::kamino::cpi::anchor_sighash;
+use crate::{integrations::utilization_market::kamino::{
+    cpi::anchor_sighash, 
+    initialize::InitializeKaminoAccounts
+}, processor::InitializeIntegrationAccounts};
 
 // --------- Reserve ----------
 
@@ -43,6 +46,34 @@ impl<'a> TryFrom<&'a [u8]> for Reserve {
         ).map_err(|_| ProgramError::InvalidAccountData)?;
 
         Ok(Self { lending_market, farm_collateral, liquidity_mint })
+    }
+}
+
+impl Reserve {
+    /// Verifies that:
+    /// - the `Reserve` belongs to the market
+    /// - the `Reserve` `liquidity_mint` matches `token_mint`
+    /// - the `Reserve` `farm_collateral` matches `reserve_farm` 
+    pub fn check_from_account(
+        &self, 
+        inner_ctx: &InitializeKaminoAccounts
+    ) -> Result<(), ProgramError> {
+        if &self.lending_market != inner_ctx.market.key() {
+            msg! {"reserve: invalid reserve, does not belong to market"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        if &self.liquidity_mint != inner_ctx.token_mint.key() {
+            msg! {"reserve: invalid reserve, liquidity mint does not match"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        if &self.farm_collateral != inner_ctx.reserve_farm.key() {
+            msg! {"reserve: farm collateral does not match reserve farm"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        Ok(())
     }
 }
 
@@ -95,5 +126,43 @@ impl<'a> TryFrom<&'a [u8]> for Obligation {
         }
 
         Ok(Self { lending_market, owner, collateral_reserves })
+    }
+}
+
+impl Obligation {
+    /// Verifies that:
+    /// - the `Obligation` `owner` field matches `controller_authority`
+    /// - the `Obligation` `lending_market` matches `market`
+    /// - the `Obligation` `collateral_reserved` is not full
+    pub fn check_from_accounts(
+        &self,
+        outer_ctx: &InitializeIntegrationAccounts,
+        inner_ctx: &InitializeKaminoAccounts,
+    ) -> Result<(), ProgramError> {
+
+        if &self.owner != outer_ctx.controller_authority.key() {
+            msg! {"obligation: invalid obligation, owner is not controller_authority"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        if &self.lending_market != inner_ctx.market.key() {
+            msg! {"obligation: invalid obligation, belongs to another market"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        if self.is_collateral_reserves_full() {
+            msg! {"obligation: invalid obligation, collateral reserves is full"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        Ok(())
+    }
+
+    fn is_collateral_reserves_full(&self) -> bool {
+        if self.collateral_reserves.contains(&Pubkey::default()) {
+            return false
+        }
+
+        true
     }
 }

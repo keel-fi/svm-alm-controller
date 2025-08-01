@@ -42,7 +42,8 @@ impl InitObligationArgs {
     }
 }
 
-pub fn derive_obligation_address(
+pub fn derive_vanilla_obligation_address(
+    obligation_id: u8,
     authority: &Pubkey,
     market: &Pubkey,
     kamino_program: &Pubkey
@@ -52,7 +53,7 @@ pub fn derive_obligation_address(
             // tag 0 for vanilla obligation
             &0_u8.to_le_bytes(),
             // id 0 as default
-            &0_u8.to_le_bytes(),
+            &obligation_id.to_le_bytes(),
             // user
             authority.as_ref(),
             // kamino market
@@ -61,7 +62,7 @@ pub fn derive_obligation_address(
             Pubkey::default().as_ref(),
             // seed 2, for lending obligation is the token
             Pubkey::default().as_ref(),
-        ], 
+        ],
         kamino_program
     );
 
@@ -235,7 +236,7 @@ pub fn derive_lookup_table_address(
     )
 }
 
-const CREATE_VARIANT_INDEX: u32 = 0;
+const CREATE_VARIANT_INDEX: u32 = 0; // TODO: verify this
 
 /// Manual encoder: `[u32 variant | u64 recent_slot | u8 bump]`
 pub fn encode_create_lookup_table(recent_slot: Slot, bump_seed: u8) -> [u8; 13] {
@@ -332,7 +333,7 @@ pub fn derive_market_authority_address(
 
 #[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
 pub struct InitObligationFarmArgs {
-    pub mode: u8
+    pub mode: u8 // TODO: verify this mode
 }
 
 impl InitObligationFarmArgs {
@@ -359,7 +360,7 @@ pub fn initialize_obligation_farm_for_reserve_cpi(
     obligation: &AccountInfo,
     market_authority: &AccountInfo,
     reserve: &AccountInfo,
-    // reserve.farm_collateral
+    // this is reserve.farm_collateral
     reserve_farm_state: &AccountInfo,
     obligation_farm: &AccountInfo,
     market: &AccountInfo,

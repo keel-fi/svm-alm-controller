@@ -282,6 +282,9 @@ pub enum InitializeArgs {
         max_staleness: u64,
         expiry_timestamp: i64,
     },
+    KaminoIntegration {
+        obligation_id: u8
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
