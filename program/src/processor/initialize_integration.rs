@@ -10,7 +10,7 @@ use crate::{
         cctp_bridge::initialize::process_initialize_cctp_bridge,
         lz_bridge::initialize::process_initialize_lz_bridge,
         spl_token_external::initialize::process_initialize_spl_token_external,
-        spl_token_swap::initialize::process_initialize_spl_token_swap,
+        spl_token_swap::initialize::process_initialize_spl_token_swap, utilization_market::process_initialize_utilization_market,
     },
     state::{Controller, Integration, Permission},
 };
@@ -79,6 +79,7 @@ pub fn process_initialize_integration(
         IntegrationType::CctpBridge => process_initialize_cctp_bridge(&ctx, &args)?,
         IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
         IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
+        IntegrationType::UtilizationMarket(market) => process_initialize_utilization_market(&ctx, &args, market, &controller)?,
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };
