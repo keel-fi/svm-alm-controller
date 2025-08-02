@@ -27,3 +27,6 @@ num-traits = { workspace = true}
 solana-keccak-hasher = { workspace = true }
 switchboard-on-demand = { workspace = true }
 bytemuck = { workspace = true }
+
+[dev-dependencies]
+base64 = "0.22"
