@@ -760,7 +760,12 @@
           "isSigner": false
         },
         {
-          "name": "recipientTokenAccount",
+          "name": "recipientTokenAccountA",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recipientTokenAccountB",
           "isMut": true,
           "isSigner": false
         },
@@ -1664,12 +1669,7 @@
       "name": "AtomicSwapRepayArgs",
       "type": {
         "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "type": "u64"
-          }
-        ]
+        "fields": []
       }
     },
     {
@@ -1743,6 +1743,10 @@
             "type": "u64"
           },
           {
+            "name": "recipientTokenBPre",
+            "type": "u64"
+          },
+          {
             "name": "repayExcessTokenA",
             "type": "bool"
           },
@@ -1751,7 +1755,7 @@
             "type": {
               "array": [
                 "u8",
-                15
+                7
               ]
             }
           }

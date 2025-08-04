@@ -35,8 +35,8 @@ define_account_struct! {
         vault_a: mut;
         reserve_b: mut;
         vault_b;
-        recipient_token_a_account: mut;
-        recipient_token_b_account: mut;
+        recipient_token_account_a: mut;
+        recipient_token_account_b: mut;
         token_program: @pubkey(pinocchio_token::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
         program_id: @pubkey(crate::ID);
@@ -171,9 +171,9 @@ pub fn process_atomic_swap_borrow(
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
             let recipient_token_a_account =
-                TokenAccount::from_account_info(ctx.recipient_token_a_account)?;
+                TokenAccount::from_account_info(ctx.recipient_token_account_a)?;
             let recipient_token_b_account =
-                TokenAccount::from_account_info(ctx.recipient_token_b_account)?;
+                TokenAccount::from_account_info(ctx.recipient_token_account_b)?;
 
             if args.amount > vault_a.amount() {
                 return Err(ProgramError::InsufficientFunds);
@@ -196,7 +196,7 @@ pub fn process_atomic_swap_borrow(
             ctx.controller,
             ctx.controller_authority,
             ctx.vault_a,
-            ctx.recipient_token_a_account,
+            ctx.recipient_token_account_a,
             args.amount,
         )?;
     } else {
