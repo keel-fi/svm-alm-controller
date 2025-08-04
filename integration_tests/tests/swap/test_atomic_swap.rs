@@ -318,7 +318,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         )
         .unwrap();
 
@@ -345,10 +345,11 @@ mod tests {
             .unwrap();
 
         // Check that token balances are changed as expected.
+        // relayer_b_decrease should be 0 because tokens are minted and then immediately repaid
         assert_eq!(vault_a_decrease, borrow_amount);
         assert_eq!(relayer_a_increase, borrow_amount);
         assert_eq!(vault_b_increase, repay_amount);
-        assert_eq!(relayer_b_decrease, repay_amount);
+        assert_eq!(relayer_b_decrease, 0);
 
         // Check that integration after swap.
         let integration =
@@ -392,6 +393,8 @@ mod tests {
         let relayer_a_before = fetch_token_account(&mut svm, &swap_env.relayer_pc);
         let relayer_b_before = fetch_token_account(&mut svm, &swap_env.relayer_coin);
 
+
+
         let [borrow_ix, refresh_ix, mint_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &mut svm,
             &swap_env.relayer_authority_kp,
@@ -409,7 +412,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         // Transfer some tokens out of relayer_pc to simulate spending.
@@ -426,7 +429,7 @@ mod tests {
         let txn = Transaction::new_signed_with_payer(
             &[borrow_ix, refresh_ix, mint_ix, transfer_ix, repay_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
-            &[&swap_env.relayer_authority_kp],
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
         svm.send_transaction(txn).unwrap();
@@ -454,10 +457,11 @@ mod tests {
             .unwrap();
 
         // Check that net change for relayer_a is 0 as excess tokens are repaid.
+        // relayer_b_decrease should be 0 because tokens are minted and then immediately repaid
         assert_eq!(vault_a_decrease, spent_a);
         assert_eq!(relayer_a_increase, 0);
         assert_eq!(vault_b_increase, repay_amount);
-        assert_eq!(relayer_b_decrease, repay_amount);
+        assert_eq!(relayer_b_decrease, 0);
 
         Ok(())
     }
@@ -496,7 +500,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
         assert_custom_error(&res, 2, SvmAlmControllerErrors::SlippageExceeded);
 
@@ -527,7 +531,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         // Create a random user
@@ -590,7 +594,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         )
         .unwrap();
 
@@ -616,7 +620,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount + 10,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         assert_custom_error(&res, 0, SvmAlmControllerErrors::IntegrationHasExpired);
@@ -652,7 +656,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
         assert_program_error(&res, 0, InstructionError::InvalidArgument);
 
@@ -676,7 +680,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             0,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
         assert_program_error(&res, 2, InstructionError::InvalidArgument);
 
@@ -698,7 +702,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             1000_000_001,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
         assert_program_error(&res, 2, InstructionError::InsufficientFunds);
 
@@ -720,7 +724,7 @@ mod tests {
             repay_excess_token_a,
             300_000_001,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         assert_program_error(&res, 0, InstructionError::InsufficientFunds);
@@ -756,7 +760,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         // Transfer some to vault_a
@@ -779,7 +783,7 @@ mod tests {
                 repay_ix.clone(),
             ],
             Some(&swap_env.relayer_authority_kp.pubkey()),
-            &[&swap_env.relayer_authority_kp],
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
@@ -805,11 +809,11 @@ mod tests {
                 repay_ix.clone(),
             ],
             Some(&swap_env.relayer_authority_kp.pubkey()),
-            &[&swap_env.relayer_authority_kp],
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        println!("{:?}", res);
+
         assert_custom_error(&res, 3, SvmAlmControllerErrors::InvalidSwapState);
 
         Ok(())
@@ -843,7 +847,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         // Expect failure when borrowing w/o repay.
@@ -854,7 +858,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        println!("LOGS {:?}", res.clone().err().unwrap().meta.logs);
+
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when repay is not the last ix.
@@ -923,7 +927,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         let clock = svm.get_sysvar::<Clock>();
@@ -933,7 +937,7 @@ mod tests {
         let txn = Transaction::new_signed_with_payer(
             &[borrow_ix.clone(), mint_ix.clone(), repay_ix.clone()],
             Some(&swap_env.relayer_authority_kp.pubkey()),
-            &[&swap_env.relayer_authority_kp],
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
@@ -976,7 +980,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         )
         .unwrap();
 
@@ -1038,7 +1042,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
 
         // Transfer some tokens out of relayer_pc to simulate spending.
@@ -1055,7 +1059,7 @@ mod tests {
         let txn = Transaction::new_signed_with_payer(
             &[borrow_ix, refresh_ix, mint_ix, transfer_ix, repay_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
-            &[&swap_env.relayer_authority_kp],
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
         svm.send_transaction(txn).unwrap();
@@ -1138,7 +1142,7 @@ mod tests {
             repay_excess_token_a,
             borrow_amount,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         )
         .unwrap();
 
@@ -1205,7 +1209,7 @@ mod tests {
             repay_excess_token_a,
             integration_pre.rate_limit_max_outflow + 1,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
         assert_custom_error(&res, 0, SvmAlmControllerErrors::RateLimited);
 
@@ -1264,7 +1268,7 @@ mod tests {
             repay_excess_token_a,
             reserve_pc_pre.rate_limit_max_outflow + 1,
             repay_amount,
-            swap_env.mint_authority.pubkey(),
+            &swap_env.mint_authority,
         );
         assert_custom_error(&res, 0, SvmAlmControllerErrors::RateLimited);
 

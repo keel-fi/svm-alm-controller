@@ -44,7 +44,7 @@ pub fn atomic_swap_borrow_repay_ixs(
     repay_excess_token_a: bool,
     borrow_amount: u64,
     repay_amount: u64,
-    mint_authority: Pubkey,
+    mint_authority: &Keypair,
 ) -> [Instruction; 4] {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
@@ -87,7 +87,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         &spl_token::ID,
         &mint_b,
         &payer_account_b,
-        &mint_authority,
+        &mint_authority.pubkey(),
         &[],
         repay_amount,
     ).unwrap();
@@ -127,7 +127,7 @@ pub fn atomic_swap_borrow_repay(
     repay_excess_token_a: bool,
     borrow_amount: u64,
     repay_amount: u64,
-    mint_authority: Pubkey,
+    mint_authority: &Keypair,
 ) -> TransactionResult {
     let instructions = atomic_swap_borrow_repay_ixs(
         svm,
@@ -151,7 +151,7 @@ pub fn atomic_swap_borrow_repay(
     let txn = Transaction::new_signed_with_payer(
         &instructions,
         Some(&authority.pubkey()),
-        &[&authority],
+        &[&authority, &mint_authority],
         svm.latest_blockhash(),
     );
 
