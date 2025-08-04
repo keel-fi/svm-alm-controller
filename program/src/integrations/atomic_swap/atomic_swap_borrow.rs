@@ -35,7 +35,8 @@ define_account_struct! {
         vault_a: mut;
         reserve_b: mut;
         vault_b;
-        recipient_token_account: mut;
+        recipient_token_a_account: mut;
+        recipient_token_b_account: mut;
         token_program: @pubkey(pinocchio_token::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
         program_id: @pubkey(crate::ID);
@@ -169,8 +170,10 @@ pub fn process_atomic_swap_borrow(
         {
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
-            let recipient_token_account =
-                TokenAccount::from_account_info(ctx.recipient_token_account)?;
+            let recipient_token_a_account =
+                TokenAccount::from_account_info(ctx.recipient_token_a_account)?;
+            let recipient_token_b_account =
+                TokenAccount::from_account_info(ctx.recipient_token_b_account)?;
 
             if args.amount > vault_a.amount() {
                 return Err(ProgramError::InsufficientFunds);
@@ -183,7 +186,8 @@ pub fn process_atomic_swap_borrow(
             state.last_balance_a = vault_a.amount();
             state.last_balance_b = vault_b.amount();
             state.amount_borrowed = args.amount;
-            state.recipient_token_a_pre = recipient_token_account.amount();
+            state.recipient_token_a_pre = recipient_token_a_account.amount();
+            state.recipient_token_b_pre = recipient_token_b_account.amount();
             state.repay_excess_token_a = args.repay_excess_token_a;
         }
 
@@ -192,7 +196,7 @@ pub fn process_atomic_swap_borrow(
             ctx.controller,
             ctx.controller_authority,
             ctx.vault_a,
-            ctx.recipient_token_account,
+            ctx.recipient_token_a_account,
             args.amount,
         )?;
     } else {

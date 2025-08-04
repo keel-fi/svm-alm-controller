@@ -1,4 +1,3 @@
-use borsh::BorshDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     msg,
@@ -14,7 +13,6 @@ use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    instructions::AtomicSwapRepayArgs,
     state::{nova_account::NovaAccount, Integration, Oracle, Permission, Reserve},
 };
 
@@ -39,11 +37,10 @@ define_account_struct! {
 pub fn process_atomic_swap_repay(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8],
+    _instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("atomic_swap_repay");
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
-    let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data).unwrap();
     let clock = Clock::get()?;
 
     // Load in the super permission account
@@ -68,6 +65,8 @@ pub fn process_atomic_swap_repay(
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
     let mut excess_token_a = 0;
 
+    let amount;
+
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
     {
@@ -88,6 +87,7 @@ pub fn process_atomic_swap_repay(
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
             let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
+            amount = payer_account_b.amount() - state.recipient_token_b_pre;
 
             // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
             if vault_a.amount().checked_add(state.amount_borrowed).unwrap() != state.last_balance_a
@@ -104,7 +104,7 @@ pub fn process_atomic_swap_repay(
                 final_input_amount = final_input_amount.checked_sub(excess_token_a).unwrap();
             }
 
-            if args.amount > payer_account_b.amount() {
+            if amount > payer_account_b.amount() {
                 return Err(ProgramError::InsufficientFunds);
             }
         }
@@ -124,7 +124,7 @@ pub fn process_atomic_swap_repay(
             from: ctx.payer_account_b,
             to: ctx.vault_b,
             authority: ctx.payer,
-            amount: args.amount,
+            amount,
         }
         .invoke()?;
 
@@ -139,7 +139,7 @@ pub fn process_atomic_swap_repay(
         check_swap_slippage(
             final_input_amount,
             cfg.input_mint_decimals,
-            args.amount,
+            amount,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
             oracle.value,
@@ -155,7 +155,7 @@ pub fn process_atomic_swap_repay(
     // Update for rate limits and save.
     reserve_a.update_for_inflow(clock, excess_token_a)?;
     reserve_a.save(ctx.reserve_a)?;
-    reserve_b.update_for_inflow(clock, args.amount)?;
+    reserve_b.update_for_inflow(clock, amount)?;
     reserve_b.save(ctx.reserve_b)?;
 
     integration.update_rate_limit_for_inflow(clock, excess_token_a)?;

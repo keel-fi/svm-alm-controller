@@ -63,7 +63,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Reserve {
 #[cfg(feature = "fetch")]
 pub fn fetch_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &Pubkey,
+    address: &solana_program::pubkey::Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Reserve>, std::io::Error> {
     let accounts = fetch_all_reserve(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -72,10 +72,10 @@ pub fn fetch_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[Pubkey],
+    addresses: &[solana_program::pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Reserve>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(&addresses)
+        .get_multiple_accounts(addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<Reserve>> = Vec::new();
     for i in 0..addresses.len() {
@@ -97,7 +97,7 @@ pub fn fetch_all_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &Pubkey,
+    address: &solana_program::pubkey::Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Reserve>, std::io::Error> {
     let accounts = fetch_all_maybe_reserve(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -106,10 +106,10 @@ pub fn fetch_maybe_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[Pubkey],
+    addresses: &[solana_program::pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Reserve>>, std::io::Error> {
     let accounts = rpc
-        .get_multiple_accounts(&addresses)
+        .get_multiple_accounts(addresses)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<Reserve>> = Vec::new();
     for i in 0..addresses.len() {

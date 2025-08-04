@@ -45,6 +45,7 @@ impl AtomicSwapBorrow {
     ) -> solana_program::instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
@@ -155,10 +156,11 @@ pub struct AtomicSwapBorrowInstructionArgs {
 ///   6. `[writable]` vault_a
 ///   7. `[writable]` reserve_b
 ///   8. `[]` vault_b
-///   9. `[writable]` recipient_token_account
-///   10. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-///   11. `[optional]` sysvar_instruction (default to `Sysvar1nstructions1111111111111111111111111`)
-///   12. `[]` program_id
+///   9. `[writable]` recipient_token_a_account
+///  10. `[writable]` recipient_token_b_account
+///  11. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///  12. `[optional]` sysvar_instruction (default to `Sysvar1nstructions1111111111111111111111111`)
+///  13. `[]` program_id
 #[derive(Clone, Debug, Default)]
 pub struct AtomicSwapBorrowBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
@@ -170,7 +172,8 @@ pub struct AtomicSwapBorrowBuilder {
     vault_a: Option<solana_program::pubkey::Pubkey>,
     reserve_b: Option<solana_program::pubkey::Pubkey>,
     vault_b: Option<solana_program::pubkey::Pubkey>,
-    recipient_token_account: Option<solana_program::pubkey::Pubkey>,
+    recipient_token_a_account: Option<solana_program::pubkey::Pubkey>,
+    recipient_token_b_account: Option<solana_program::pubkey::Pubkey>,
     token_program: Option<solana_program::pubkey::Pubkey>,
     sysvar_instruction: Option<solana_program::pubkey::Pubkey>,
     program_id: Option<solana_program::pubkey::Pubkey>,
@@ -232,11 +235,19 @@ impl AtomicSwapBorrowBuilder {
         self
     }
     #[inline(always)]
-    pub fn recipient_token_account(
+    pub fn recipient_token_a_account(
         &mut self,
-        recipient_token_account: solana_program::pubkey::Pubkey,
+        recipient_token_a_account: solana_program::pubkey::Pubkey,
     ) -> &mut Self {
-        self.recipient_token_account = Some(recipient_token_account);
+        self.recipient_token_a_account = Some(recipient_token_a_account);
+        self
+    }
+    #[inline(always)]
+    pub fn recipient_token_b_account(
+        &mut self,
+        recipient_token_b_account: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.recipient_token_b_account = Some(recipient_token_b_account);
         self
     }
     /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
@@ -301,9 +312,12 @@ impl AtomicSwapBorrowBuilder {
             vault_a: self.vault_a.expect("vault_a is not set"),
             reserve_b: self.reserve_b.expect("reserve_b is not set"),
             vault_b: self.vault_b.expect("vault_b is not set"),
-            recipient_token_account: self
-                .recipient_token_account
-                .expect("recipient_token_account is not set"),
+            recipient_token_a_account: self
+                .recipient_token_a_account
+                .expect("recipient_token_a_account is not set"),
+            recipient_token_b_account: self
+                .recipient_token_b_account
+                .expect("recipient_token_b_account is not set"),
             token_program: self.token_program.unwrap_or(solana_program::pubkey!(
                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
             )),
@@ -433,6 +447,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
     ) -> solana_program::entrypoint::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
+    #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed_with_remaining_accounts(
