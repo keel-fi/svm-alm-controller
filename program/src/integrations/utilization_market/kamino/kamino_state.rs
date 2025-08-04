@@ -160,11 +160,7 @@ impl Obligation {
     }
 
     fn is_collateral_reserves_full(&self) -> bool {
-        if self.collateral_reserves.contains(&Pubkey::default()) {
-            return false
-        }
-
-        true
+        !self.collateral_reserves.contains(&Pubkey::default())
     }
 }
 
