@@ -502,7 +502,7 @@ mod tests {
             repay_amount,
             &swap_env.mint_authority,
         );
-        assert_custom_error(&res, 2, SvmAlmControllerErrors::SlippageExceeded);
+        assert_custom_error(&res, 3, SvmAlmControllerErrors::SlippageExceeded);
 
         // Swap Price (after excess repaid) = 300/50 = 6
         let repay_excess_token_a = true;
@@ -556,11 +556,11 @@ mod tests {
         let txn = Transaction::new_signed_with_payer(
             &[borrow_ix, refresh_ix, mint_ix, transfer_ix, repay_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
-            &[&swap_env.relayer_authority_kp],
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        assert_custom_error(&res, 3, SvmAlmControllerErrors::SlippageExceeded);
+        assert_custom_error(&res, 4, SvmAlmControllerErrors::SlippageExceeded);
 
         Ok(())
     }
@@ -629,105 +629,135 @@ mod tests {
 
     #[test_log::test]
     fn atomic_swap_fails_with_invalid_token_amounts() -> Result<(), Box<dyn std::error::Error>> {
-        let mut svm = lite_svm_with_programs();
+        // Test case 1: borrow amount is 0
+        {
+            let mut svm = lite_svm_with_programs();
+            let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+            let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
 
-        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
-        let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+            let repay_excess_token_a = false;
+            let borrow_amount = 0;
+            let repay_amount = 300;
 
-        let repay_excess_token_a = false;
-        let borrow_amount = 0;
-        let repay_amount = 300;
+            // Expect failure when borrow amount is 0.
+            let res = atomic_swap_borrow_repay(
+                &mut svm,
+                &swap_env.relayer_authority_kp,
+                swap_env.controller_pk,
+                swap_env.permission_pda,
+                swap_env.atomic_swap_integration_pk,
+                swap_env.pc_token_mint,
+                swap_env.coin_token_mint,
+                swap_env.oracle,
+                swap_env.price_feed,
+                swap_env.relayer_pc,   // payer_account_a
+                swap_env.relayer_coin, // payer_account_b
+                pinocchio_token::ID.into(),
+                pinocchio_token::ID.into(),
+                repay_excess_token_a,
+                borrow_amount,
+                repay_amount,
+                &swap_env.mint_authority,
+            );
+            assert_program_error(&res, 0, InstructionError::InvalidArgument);
+        }
 
-        // Expect failure when borrow amount is 0.
-        let res = atomic_swap_borrow_repay(
-            &mut svm,
-            &swap_env.relayer_authority_kp,
-            swap_env.controller_pk,
-            swap_env.permission_pda,
-            swap_env.atomic_swap_integration_pk,
-            swap_env.pc_token_mint,
-            swap_env.coin_token_mint,
-            swap_env.oracle,
-            swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
-            repay_excess_token_a,
-            borrow_amount,
-            repay_amount,
-            &swap_env.mint_authority,
-        );
-        assert_program_error(&res, 0, InstructionError::InvalidArgument);
+        // Test case 2: repay amount is 0
+        {
+            let mut svm = lite_svm_with_programs();
+            let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+            let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
 
-        let borrow_amount = 100;
+            let repay_excess_token_a = false;
+            let borrow_amount = 100;
 
-        // Expect failure when repay amount is 0.
-        let res = atomic_swap_borrow_repay(
-            &mut svm,
-            &swap_env.relayer_authority_kp,
-            swap_env.controller_pk,
-            swap_env.permission_pda,
-            swap_env.atomic_swap_integration_pk,
-            swap_env.pc_token_mint,
-            swap_env.coin_token_mint,
-            swap_env.oracle,
-            swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
-            repay_excess_token_a,
-            borrow_amount,
-            0,
-            &swap_env.mint_authority,
-        );
-        assert_program_error(&res, 2, InstructionError::InvalidArgument);
+            // Expect failure when repay amount is 0.
+            let res = atomic_swap_borrow_repay(
+                &mut svm,
+                &swap_env.relayer_authority_kp,
+                swap_env.controller_pk,
+                swap_env.permission_pda,
+                swap_env.atomic_swap_integration_pk,
+                swap_env.pc_token_mint,
+                swap_env.coin_token_mint,
+                swap_env.oracle,
+                swap_env.price_feed,
+                swap_env.relayer_pc,   // payer_account_a
+                swap_env.relayer_coin, // payer_account_b
+                pinocchio_token::ID.into(),
+                pinocchio_token::ID.into(),
+                repay_excess_token_a,
+                borrow_amount,
+                0,
+                &swap_env.mint_authority,
+            );
+            assert_program_error(&res, 3, InstructionError::InvalidArgument);
+        }
 
-        // Expect failure when repay amount is more than payer balance.
-        let res = atomic_swap_borrow_repay(
-            &mut svm,
-            &swap_env.relayer_authority_kp,
-            swap_env.controller_pk,
-            swap_env.permission_pda,
-            swap_env.atomic_swap_integration_pk,
-            swap_env.pc_token_mint,
-            swap_env.coin_token_mint,
-            swap_env.oracle,
-            swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
-            repay_excess_token_a,
-            borrow_amount,
-            1000_000_001,
-            &swap_env.mint_authority,
-        );
-        assert_program_error(&res, 2, InstructionError::InsufficientFunds);
+        // Test case 3: repay amount is more than payer balance
+        {
+            let mut svm = lite_svm_with_programs();
+            let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+            let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
 
-        // Expect failure when borrowing more than balance.
-        let res = atomic_swap_borrow_repay(
-            &mut svm,
-            &swap_env.relayer_authority_kp,
-            swap_env.controller_pk,
-            swap_env.permission_pda,
-            swap_env.atomic_swap_integration_pk,
-            swap_env.pc_token_mint,
-            swap_env.coin_token_mint,
-            swap_env.oracle,
-            swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
-            pinocchio_token::ID.into(),
-            pinocchio_token::ID.into(),
-            repay_excess_token_a,
-            300_000_001,
-            repay_amount,
-            &swap_env.mint_authority,
-        );
+            let repay_excess_token_a = false;
+            let borrow_amount = 100;
 
-        assert_program_error(&res, 0, InstructionError::InsufficientFunds);
+            // Expect failure when repay amount is more than payer balance.
+            let res = atomic_swap_borrow_repay(
+                &mut svm,
+                &swap_env.relayer_authority_kp,
+                swap_env.controller_pk,
+                swap_env.permission_pda,
+                swap_env.atomic_swap_integration_pk,
+                swap_env.pc_token_mint,
+                swap_env.coin_token_mint,
+                swap_env.oracle,
+                swap_env.price_feed,
+                swap_env.relayer_pc,   // payer_account_a
+                swap_env.relayer_coin, // payer_account_b
+                pinocchio_token::ID.into(),
+                pinocchio_token::ID.into(),
+                repay_excess_token_a,
+                borrow_amount,
+                1000_000_001,
+                &swap_env.mint_authority,
+            );
+            assert_program_error(&res, 3, InstructionError::InsufficientFunds);
+        }
+
+        // Test case 4: borrowing more than balance
+        {
+            let mut svm = lite_svm_with_programs();
+            let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+            let swap_env = setup_integration_env(&mut svm, expiry_timestamp)?;
+
+            let repay_excess_token_a = false;
+            let repay_amount = 300;
+
+            // Expect failure when borrowing more than balance.
+            let res = atomic_swap_borrow_repay(
+                &mut svm,
+                &swap_env.relayer_authority_kp,
+                swap_env.controller_pk,
+                swap_env.permission_pda,
+                swap_env.atomic_swap_integration_pk,
+                swap_env.pc_token_mint,
+                swap_env.coin_token_mint,
+                swap_env.oracle,
+                swap_env.price_feed,
+                swap_env.relayer_pc,   // payer_account_a
+                swap_env.relayer_coin, // payer_account_b
+                pinocchio_token::ID.into(),
+                pinocchio_token::ID.into(),
+                repay_excess_token_a,
+                300_000_001,
+                repay_amount,
+                &swap_env.mint_authority,
+            );
+
+            assert_program_error(&res, 0, InstructionError::InsufficientFunds);
+        }
 
         Ok(())
     }
@@ -787,7 +817,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        assert_custom_error(&res, 3, SvmAlmControllerErrors::InvalidSwapState);
+        assert_custom_error(&res, 4, SvmAlmControllerErrors::InvalidSwapState);
 
         // Transfer some to vault_b
         let transfer_ix = spl_token::instruction::transfer(
@@ -814,7 +844,7 @@ mod tests {
         );
         let res = svm.send_transaction(txn);
 
-        assert_custom_error(&res, 3, SvmAlmControllerErrors::InvalidSwapState);
+        assert_custom_error(&res, 4, SvmAlmControllerErrors::InvalidSwapState);
 
         Ok(())
     }
@@ -941,7 +971,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        assert_custom_error(&res, 1, SvmAlmControllerErrors::StaleOraclePrice);
+        assert_custom_error(&res, 2, SvmAlmControllerErrors::StaleOraclePrice);
 
         Ok(())
     }
