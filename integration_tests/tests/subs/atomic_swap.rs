@@ -13,7 +13,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use spl_token::{state::Account};
+use spl_token::state::Account;
 use svm_alm_controller_client::generated::instructions::{
     AtomicSwapBorrowBuilder, AtomicSwapRepayBuilder, RefreshOracleBuilder,
 };

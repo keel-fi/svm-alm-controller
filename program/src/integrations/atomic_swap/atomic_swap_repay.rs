@@ -6,7 +6,6 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_log::log;
 use pinocchio_token::{instructions::Transfer, state::TokenAccount};
 
 use crate::{
@@ -89,13 +88,6 @@ pub fn process_atomic_swap_repay(
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
             let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
             amount = payer_account_b.amount() - state.recipient_token_b_pre;
-
-            log!("state.amount_borrowed: {}", state.amount_borrowed);
-            log!("payer_account_b: {}", payer_account_b.amount());
-            log!(
-                "state.recipient_token_b_pre: {}",
-                state.recipient_token_b_pre
-            );
 
             // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
             if vault_a.amount().checked_add(state.amount_borrowed).unwrap() != state.last_balance_a
