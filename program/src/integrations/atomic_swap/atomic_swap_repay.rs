@@ -120,7 +120,6 @@ pub fn process_atomic_swap_repay(
             .invoke()?;
         }
 
-        log!("amount: {}", amount);
         Transfer {
             from: ctx.payer_account_b,
             to: ctx.vault_b,
