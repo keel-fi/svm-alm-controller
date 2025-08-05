@@ -867,14 +867,7 @@
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "atomicSwapRepayArgs",
-          "type": {
-            "defined": "AtomicSwapRepayArgs"
-          }
-        }
-      ],
+      "args": [],
       "discriminant": {
         "type": "u8",
         "value": 16
@@ -1663,13 +1656,6 @@
             "type": "bool"
           }
         ]
-      }
-    },
-    {
-      "name": "AtomicSwapRepayArgs",
-      "type": {
-        "kind": "struct",
-        "fields": []
       }
     },
     {

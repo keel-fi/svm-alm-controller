@@ -87,7 +87,10 @@ pub fn process_atomic_swap_repay(
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
             let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
-            amount = payer_account_b.amount() - state.recipient_token_b_pre;
+            amount = payer_account_b
+                .amount()
+                .checked_sub(state.recipient_token_b_pre)
+                .unwrap();
 
             // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
             if vault_a.amount().checked_add(state.amount_borrowed).unwrap() != state.last_balance_a
