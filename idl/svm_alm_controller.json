@@ -1737,13 +1737,12 @@
             "type": "bool"
           },
           {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                7
-              ]
-            }
+            "name": "tokenAccountA",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAccountB",
+            "type": "publicKey"
           }
         ]
       }

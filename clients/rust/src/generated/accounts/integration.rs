@@ -40,8 +40,6 @@ pub struct Integration {
 }
 
 impl Integration {
-    pub const LEN: usize = 507;
-
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
         let mut data = data;

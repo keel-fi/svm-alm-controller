@@ -9,6 +9,7 @@ use crate::{
 use pinocchio::{
     msg,
     program_error::ProgramError,
+    pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token::state::Mint;
@@ -71,7 +72,8 @@ pub fn process_initialize_atomic_swap(
         recipient_token_a_pre: 0,
         recipient_token_b_pre: 0,
         repay_excess_token_a: false,
-        _padding: [0u8; 7],
+        token_account_a: Pubkey::default(),
+        token_account_b: Pubkey::default(),
     });
 
     Ok((config, state))
