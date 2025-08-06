@@ -106,10 +106,6 @@ pub fn process_atomic_swap_repay(
                     .saturating_sub(state.recipient_token_a_pre);
                 final_input_amount = final_input_amount.checked_sub(excess_token_a).unwrap();
             }
-
-            if amount > payer_account_b.amount() {
-                return Err(ProgramError::InsufficientFunds);
-            }
         }
 
         // Transfer tokens to vault for repayment.
