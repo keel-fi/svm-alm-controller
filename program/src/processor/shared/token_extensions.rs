@@ -36,8 +36,8 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     ExtensionType::PermanentDelegate,
     /* UNTESTED Could freeze within Controller. Requires trusting of the issuer. */
     ExtensionType::Pausable,
-    // TODO need to handle remaining accounts to enable
-    // ExtensionType::TransferHook,
+    // WIP
+    ExtensionType::TransferHook,
     /* UNTESTED */
     ExtensionType::MemoTransfer,
     /* UNTESTED */

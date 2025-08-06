@@ -45,6 +45,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            false,
         )?;
 
         let _authority_usdc_ata =

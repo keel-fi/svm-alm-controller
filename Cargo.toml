@@ -7,6 +7,9 @@ members = [
   "pinocchio-token2022",
   "clients/rust"
 ]
+exclude = [
+  "test_programs"
+]
 
 resolver = "2"
 

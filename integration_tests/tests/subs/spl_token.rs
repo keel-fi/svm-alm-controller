@@ -13,13 +13,15 @@ use spl_associated_token_account_client::{
     instruction::create_associated_token_account_idempotent,
 };
 use spl_token_2022::extension::transfer_fee::instruction::initialize_transfer_fee_config;
-use spl_token_2022::extension::ExtensionType;
+use spl_token_2022::extension::{transfer_hook, ExtensionType};
 use spl_token_2022::{
     extension::StateWithExtensions,
     instruction::{initialize_mint2, mint_to},
     state::{Account, Mint},
 };
 use std::error::Error;
+
+use crate::helpers::constants::TEST_TRANSFER_HOOK_PROGRAM_ID;
 
 /// Unpacks a token account from either token program.
 pub fn unpack_token_account(account: &SolanaAccount) -> Result<Account, String> {
@@ -42,6 +44,7 @@ pub fn initialize_mint(
     mint_kp: Option<Keypair>,
     token_program: &Pubkey,
     transfer_fee_bps: Option<u16>,
+    transfer_hook_enabled: bool,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let mint_kp = if mint_kp.is_some() {
         mint_kp.unwrap()
@@ -69,6 +72,18 @@ pub fn initialize_mint(
         )
         .unwrap();
         instructions.push(init_transfer_fee_ix);
+    }
+
+    if transfer_hook_enabled {
+        extension_types.push(ExtensionType::TransferHook);
+        let init_transfer_hook = transfer_hook::instruction::initialize(
+            token_program,
+            &mint_pubkey,
+            None,
+            Some(TEST_TRANSFER_HOOK_PROGRAM_ID),
+        )
+        .unwrap();
+        instructions.push(init_transfer_hook);
     }
 
     let space = ExtensionType::try_calculate_account_len::<Mint>(&extension_types).unwrap();

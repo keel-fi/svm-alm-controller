@@ -22,7 +22,7 @@ use std::{fs, str::FromStr};
 
 use crate::helpers::constants::{
     LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302,
-    LZ_USDS_ESCROW,
+    LZ_USDS_ESCROW, TEST_TRANSFER_HOOK_PROGRAM_ID,
 };
 
 /// Get LiteSvm with myproject loaded.
@@ -103,6 +103,10 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(LZ_R2_PROGRAM_ID, lz_r2_program);
     let lz_executor_program = include_bytes!("../../fixtures/lz_executor.so");
     svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
+
+    // // Add Test program for TransferHooks
+    let transfer_hook_program_bytes = include_bytes!("../../fixtures/test_transfer_hook.so");
+    svm.add_program(TEST_TRANSFER_HOOK_PROGRAM_ID, transfer_hook_program_bytes);
 
     svm
 }

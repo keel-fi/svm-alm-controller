@@ -20,13 +20,15 @@ mod tests {
     use test_case::test_case;
 
     #[tokio::test]
-    #[test_case(spl_token::ID, None ; "SPL Token")]
-    #[test_case(spl_token_2022::ID, None ; "Token2022")]
-    #[test_case(spl_token_2022::ID, Some(100) ; "Token2022 TransferFee 100 bps")]
+    #[test_case(spl_token::ID, None, false ; "SPL Token")]
+    #[test_case(spl_token_2022::ID, None, false ; "Token2022")]
+    #[test_case(spl_token_2022::ID, Some(100), false ; "Token2022 TransferFee 100 bps")]
+    #[test_case(spl_token_2022::ID, None, true ; "Token2022 TransferHook")]
 
     async fn initialize_controller_and_token_external_success(
         token_program: Pubkey,
         token_transfer_fee: Option<u16>,
+        transfer_hook: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -47,6 +49,7 @@ mod tests {
             None,
             &token_program,
             token_transfer_fee,
+            transfer_hook,
         )?;
 
         let _authority_ata = initialize_ata(&mut svm, &authority, &authority.pubkey(), &mint)?;
