@@ -2,7 +2,7 @@ use pinocchio::{
     account_info::AccountInfo,
     msg,
     program_error::ProgramError,
-    pubkey::{Pubkey, find_program_address},
+    pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
@@ -58,32 +58,6 @@ pub fn process_atomic_swap_repay(
     }
     let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
-        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
-    }
-
-    let (associated_token_account_a, _) = find_program_address(
-        &[
-            ctx.authority.key().as_ref(),
-            &pinocchio_token::ID,
-            reserve_a.mint.as_ref(),
-        ],
-        &pinocchio_associated_token_account::ID,
-    );
-
-    if associated_token_account_a != *ctx.payer_account_a.key() {
-        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
-    }
-
-    let (associated_token_account_b, _) = find_program_address(
-        &[
-            ctx.authority.key().as_ref(),
-            &pinocchio_token::ID,
-            reserve_b.mint.as_ref(),
-        ],
-        &pinocchio_associated_token_account::ID,
-    );
-
-    if associated_token_account_b != *ctx.payer_account_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 

@@ -3,7 +3,7 @@ use pinocchio::{
     account_info::AccountInfo,
     msg,
     program_error::ProgramError,
-    pubkey::{self, find_program_address, Pubkey},
+    pubkey::Pubkey,
     sysvars::{
         clock::Clock,
         instructions::{Instructions, INSTRUCTIONS_ID},
@@ -14,7 +14,10 @@ use pinocchio::{
 use pinocchio_token::state::TokenAccount;
 
 use crate::{
-    constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC},
+    constants::{
+        ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC,
+        ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX, ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX,
+    },
     define_account_struct,
     enums::{
         ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
@@ -47,6 +50,8 @@ define_account_struct! {
 pub fn verify_repay_ix_in_tx(
     sysvar_instruction: &AccountInfo,
     integration: &Pubkey,
+    recipient_token_account_a: &Pubkey,
+    recipient_token_account_b: &Pubkey,
 ) -> ProgramResult {
     // Get number of instructions in current transaction.
     let data = sysvar_instruction.try_borrow_data()?;
@@ -83,6 +88,18 @@ pub fn verify_repay_ix_in_tx(
         last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_INTEGRATION_IDX as usize)?;
     if integration_acc.key.ne(integration) {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    let payer_account_a =
+        last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX as usize)?;
+    let payer_account_b =
+        last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX as usize)?;
+
+    if payer_account_a.key.ne(recipient_token_account_a) {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+    }
+    if payer_account_b.key.ne(recipient_token_account_b) {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     Ok(())
@@ -123,38 +140,12 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    let (associated_token_account_a, _) = find_program_address(
-        &[
-            ctx.authority.key().as_ref(),
-            &pinocchio_token::ID,
-            reserve_a.mint.as_ref(),
-        ],
-        &pinocchio_associated_token_account::ID,
-    );
-
-    if associated_token_account_a != *ctx.recipient_token_account_a.key() {
-        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
-    }
-
     let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     if reserve_b.status != ReserveStatus::Active {
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
-    }
-
-    let (associated_token_account_b, _) = find_program_address(
-        &[
-            ctx.authority.key().as_ref(),
-            &pinocchio_token::ID,
-            reserve_b.mint.as_ref(),
-        ],
-        &pinocchio_associated_token_account::ID,
-    );
-
-    if associated_token_account_b != *ctx.recipient_token_account_b.key() {
-        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     // Sync reserve balances and rate limits
@@ -229,7 +220,12 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
 
-    verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
+    verify_repay_ix_in_tx(
+        ctx.sysvar_instruction,
+        ctx.integration.key(),
+        ctx.recipient_token_account_a.key(),
+        ctx.recipient_token_account_b.key(),
+    )?;
 
     reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
