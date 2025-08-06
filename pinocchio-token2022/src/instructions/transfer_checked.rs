@@ -41,9 +41,6 @@ impl TransferChecked<'_, '_> {
     }
 
     #[inline(always)]
-    pub fn instruction()
-
-    #[inline(always)]
     pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         // account metadata
         let account_metas: [AccountMeta; 4] = [
