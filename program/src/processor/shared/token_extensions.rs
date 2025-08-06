@@ -3,7 +3,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use pinocchio::{
     account_info::{AccountInfo, Ref},
-    instruction::{AccountMeta, Instruction},
+    cpi::slice_invoke_signed,
+    instruction::{AccountMeta, Instruction, Signer},
     msg,
     program_error::ProgramError,
     pubkey::{find_program_address, Pubkey},
@@ -263,15 +264,16 @@ pub fn get_extra_account_metas_address(mint: &Pubkey, program_id: &Pubkey) -> Pu
 // instead of adding the accounts to an existing instruction, we return the
 // whole list of accounts.
 //
-pub fn create_transfer_instruction_with_transfer_hook(
+pub fn invoke_transfer_checked_with_transfer_hook(
     transfer_hook_program_id: &Pubkey,
-    source_info: AccountInfo,
-    mint_info: AccountInfo,
-    destination_info: AccountInfo,
-    authority_info: AccountInfo,
+    source_info: &AccountInfo,
+    mint_info: &AccountInfo,
+    destination_info: &AccountInfo,
+    authority_info: &AccountInfo,
     amount: u64,
     decimals: u8,
     additional_accounts: &[AccountInfo],
+    signers_seeds: &[Signer],
 ) -> Result<(), ProgramError> {
     let extra_account_metas_address =
         get_extra_account_metas_address(mint_info.key(), transfer_hook_program_id);
@@ -286,14 +288,14 @@ pub fn create_transfer_instruction_with_transfer_hook(
     // -  [0]: instruction discriminator (1 byte, u8)
     // -  [1..9]: amount (8 bytes, u64)
     // -  [9]: decimals (1 byte, u8)
-    let mut ix_data = [0u8; 10];
-    ix_data[0] = 12;
-    ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
-    ix_data[9] = decimals;
+    let mut transfer_checked_ix_data = [0u8; 10];
+    transfer_checked_ix_data[0] = 12;
+    transfer_checked_ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
+    transfer_checked_ix_data[9] = decimals;
     // Accounts for the TransferChecked instruction
-    let mut ix_account_infos: Vec<&AccountInfo> =
+    let mut transfer_checked_ix_account_infos: Vec<&AccountInfo> =
         alloc::vec![&source_info, &mint_info, &destination_info, &authority_info];
-    let mut ix_account_metas = alloc::vec![
+    let mut transfer_checked_ix_account_metas = alloc::vec![
         AccountMeta::writable(source_info.key()),
         AccountMeta::readonly(mint_info.key()),
         AccountMeta::writable(destination_info.key()),
@@ -304,8 +306,8 @@ pub fn create_transfer_instruction_with_transfer_hook(
         .iter()
         .find(|&x| x.key() == &extra_account_metas_address)
     {
-        ix_account_infos.push(extra_account_metas_info);
-        ix_account_metas.push(AccountMeta::readonly(&extra_account_metas_address));
+        transfer_checked_ix_account_infos.push(extra_account_metas_info);
+        transfer_checked_ix_account_metas.push(AccountMeta::readonly(&extra_account_metas_address));
 
         // ExtraAccountMetaList Account structure
         // 0..4 - length
@@ -324,10 +326,10 @@ pub fn create_transfer_instruction_with_transfer_hook(
 
             let tmp_meta = resolve(
                 extra_meta_data,
-                &ix_data,
+                &transfer_checked_ix_data,
                 transfer_hook_program_id,
                 |usize| {
-                    ix_account_infos
+                    transfer_checked_ix_account_infos
                         .get(usize)
                         .map(|acc_info| (acc_info.key(), acc_info.try_borrow_data().ok()))
                 },
@@ -340,30 +342,28 @@ pub fn create_transfer_instruction_with_transfer_hook(
                 .ok_or(ProgramError::NotEnoughAccountKeys)?;
 
             // De-escalate accounts by setting to the resolved value permissions
-            ix_account_metas.push(AccountMeta {
+            transfer_checked_ix_account_metas.push(AccountMeta {
                 pubkey: acct.key(),
                 is_signer: tmp_meta.is_signer,
                 is_writable: tmp_meta.is_writable,
             });
-            ix_account_infos.push(acct);
+            transfer_checked_ix_account_infos.push(acct);
 
             offset += EXTRA_ACCOUNT_META_LEN;
         }
     }
 
-    ix_account_infos.push(transfer_hook_program_info);
-    ix_account_metas.push(AccountMeta::readonly(transfer_hook_program_id));
+    transfer_checked_ix_account_infos.push(transfer_hook_program_info);
+    transfer_checked_ix_account_metas.push(AccountMeta::readonly(transfer_hook_program_id));
 
-    let ix = Instruction {
+    // TODO this should be TransferChecked instruction to a specified TokenProgram
+    let transfer_checked_with_transfer_hook = Instruction {
         program_id: transfer_hook_program_id,
-        accounts: &ix_account_metas,
-        data: &ix_data,
+        accounts: &transfer_checked_ix_account_metas,
+        data: &transfer_checked_ix_data,
     };
 
-    // TODO fix invocation
-    // invoke(&ix, ix_account_infos.as_slice())?;
-
-    Ok(())
+    slice_invoke_signed(&transfer_checked_with_transfer_hook, &transfer_checked_ix_account_infos, signers_seeds)
 }
 
 pub enum TransferHookError {

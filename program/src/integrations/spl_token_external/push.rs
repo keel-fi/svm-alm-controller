@@ -25,6 +25,8 @@ define_account_struct! {
       token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       system_program: @pubkey(pinocchio_system::ID);
+      // Remaining accounts may be needed for TransferHooks
+      @remaining_accounts as remaining_accounts;
   }
 }
 

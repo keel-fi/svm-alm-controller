@@ -6,7 +6,7 @@ use crate::{
     constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     enums::ControllerStatus,
     events::SvmAlmControllerEvent,
-    processor::shared::{create_pda_account, emit_cpi},
+    processor::shared::{create_pda_account, emit_cpi, invoke_transfer_checked_with_transfer_hook},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -15,6 +15,10 @@ use pinocchio::{
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
+};
+use pinocchio_token2022::{
+    extensions::{get_extension_from_bytes, transfer_hook::TransferHook},
+    state::Mint,
 };
 use pinocchio_token_interface::instructions::TransferChecked;
 use shank::ShankAccount;
@@ -175,6 +179,45 @@ impl Controller {
             &self.id.to_le_bytes(),
             event,
         )?;
+        Ok(())
+    }
+
+    pub fn transfer_tokens_with_possible_transfer_hook(
+        &self,
+        controller: &AccountInfo,
+        controller_authority: &AccountInfo,
+        vault: &AccountInfo,
+        recipient_token_account: &AccountInfo,
+        mint: &AccountInfo,
+        amount: u64,
+        decimals: u8,
+        token_program: &Pubkey,
+        // TODO should this be optional?
+        remaining_accounts: &[AccountInfo],
+    ) -> Result<(), ProgramError> {
+        // TODO how to handle T22 vs non T22?
+        let mint_data = mint.try_borrow_data()?;
+        let res: Option<&TransferHook> = get_extension_from_bytes(&mint_data);
+        match res {
+            Some(transfer_hook) => {
+                invoke_transfer_checked_with_transfer_hook(
+                    &transfer_hook.program_id,
+                    vault,
+                    mint,
+                    recipient_token_account,
+                    controller_authority,
+                    amount,
+                    decimals,
+                    remaining_accounts,
+                    &[Signer::from(&[
+                        Seed::from(CONTROLLER_AUTHORITY_SEED),
+                        Seed::from(controller.key()),
+                        Seed::from(&[self.authority_bump]),
+                    ])],
+                )?;
+            }
+            None => {}
+        }
         Ok(())
     }
 
