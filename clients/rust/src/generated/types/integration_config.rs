@@ -10,6 +10,7 @@ use crate::generated::types::CctpBridgeConfig;
 use crate::generated::types::LzBridgeConfig;
 use crate::generated::types::SplTokenExternalConfig;
 use crate::generated::types::SplTokenSwapConfig;
+use crate::generated::types::UtilizationMarketConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
@@ -25,4 +26,5 @@ pub enum IntegrationConfig {
     CctpBridge(CctpBridgeConfig),
     LzBridge(LzBridgeConfig),
     AtomicSwap(AtomicSwapConfig),
+    UtilizationMarket(UtilizationMarketConfig),
 }

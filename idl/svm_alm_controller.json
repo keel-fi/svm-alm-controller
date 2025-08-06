@@ -2241,6 +2241,94 @@
       }
     },
     {
+      "name": "KaminoConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserve",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveFarm",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "obligation",
+            "type": "publicKey"
+          },
+          {
+            "name": "obligationId",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitObligationArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tag",
+            "type": "u8"
+          },
+          {
+            "name": "id",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitUserMetadataArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "userLookupTable",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitObligationFarmArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mode",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "KaminoState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "assets",
+            "type": "u64"
+          },
+          {
+            "name": "liabilities",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Feed",
       "type": {
         "kind": "struct",
@@ -2341,6 +2429,14 @@
                 "defined": "AtomicSwapConfig"
               }
             ]
+          },
+          {
+            "name": "UtilizationMarket",
+            "fields": [
+              {
+                "defined": "UtilizationMarketConfig"
+              }
+            ]
           }
         ]
       }
@@ -2403,6 +2499,14 @@
                 "defined": "AtomicSwapState"
               }
             ]
+          },
+          {
+            "name": "UtilizationMarket",
+            "fields": [
+              {
+                "defined": "UtilizationMarketState"
+              }
+            ]
           }
         ]
       }
@@ -2443,6 +2547,14 @@
           },
           {
             "name": "AtomicSwap"
+          },
+          {
+            "name": "UtilizationMarket",
+            "fields": [
+              {
+                "defined": "UtilizationMarket"
+              }
+            ]
           }
         ]
       }
@@ -2599,6 +2711,15 @@
                 "type": "i64"
               }
             ]
+          },
+          {
+            "name": "KaminoIntegration",
+            "fields": [
+              {
+                "name": "obligation_id",
+                "type": "u8"
+              }
+            ]
           }
         ]
       }
@@ -2677,6 +2798,49 @@
           },
           {
             "name": "LzBridge"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UtilizationMarket",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Kamino"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UtilizationMarketConfig",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "KaminoConfig",
+            "fields": [
+              {
+                "defined": "KaminoConfig"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "UtilizationMarketState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "KaminoState",
+            "fields": [
+              {
+                "defined": "KaminoState"
+              }
+            ]
           }
         ]
       }

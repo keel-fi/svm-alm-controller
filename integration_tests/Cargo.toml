@@ -14,6 +14,8 @@ svm-alm-controller = { workspace = true }
 svm-alm-controller-client = { workspace = true }
 pinocchio-token = { workspace = true }
 pinocchio-associated-token-account = { workspace = true }
+pinocchio-system = { workspace = true }
+pinocchio = { workspace = true }
 safe-transmute = { workspace = true }
 solana-keccak-hasher = { workspace = true}
 spl-token = { workspace = true }

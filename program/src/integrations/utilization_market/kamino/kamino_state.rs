@@ -27,12 +27,10 @@ impl<'a> TryFrom<&'a [u8]> for Reserve {
             return Err(ProgramError::InvalidAccountData)
         }
 
-        // let discriminator = anchor_sighash("account", "Reserve");
-
-        // if data[..8] != discriminator {
-        //     msg!("discriminator error");
-        //     return Err(ProgramError::InvalidAccountData)
-        // }
+        if data[..8] != Self::DISCRIMINATOR {
+            msg!("discriminator error");
+            return Err(ProgramError::InvalidAccountData)
+        }
 
         let lending_market = Pubkey::try_from(
             &data[RESERVE_LENDING_MARKET_OFFSET .. RESERVE_LENDING_MARKET_OFFSET + 32]
@@ -51,6 +49,8 @@ impl<'a> TryFrom<&'a [u8]> for Reserve {
 }
 
 impl Reserve {
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("account", "Reserve");
+
     /// Verifies that:
     /// - the `Reserve` belongs to the market
     /// - the `Reserve` `liquidity_mint` matches `token_mint`
@@ -75,6 +75,10 @@ impl Reserve {
         }
 
         Ok(())
+    }
+
+    pub fn has_collateral_farm(&self) -> bool {
+        self.farm_collateral != Pubkey::default()
     }
 }
 
@@ -102,11 +106,9 @@ impl<'a> TryFrom<&'a [u8]> for Obligation {
             return Err(ProgramError::InvalidAccountData)
         }
 
-        // let discriminator = anchor_sighash("account", "Obligation");
-
-        // if data[..8] != discriminator {
-        //     return Err(ProgramError::InvalidAccountData)
-        // }
+        if data[..8] != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData)
+        }
 
         let lending_market = Pubkey::try_from(
             &data[OBLIGATION_LENDING_MARKET_OFFSET .. OBLIGATION_LENDING_MARKET_OFFSET + 32]
@@ -131,6 +133,8 @@ impl<'a> TryFrom<&'a [u8]> for Obligation {
 }
 
 impl Obligation {
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("account", "Obligation");
+
     /// Verifies that:
     /// - the `Obligation` `owner` field matches `controller_authority`
     /// - the `Obligation` `lending_market` matches `market`

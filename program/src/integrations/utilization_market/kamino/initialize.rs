@@ -1,3 +1,4 @@
+use borsh::maybestd::format;
 use pinocchio::{
     account_info::AccountInfo, 
     instruction::{Seed, Signer}, msg, 
@@ -21,7 +22,7 @@ use crate::{
                 initialize_obligation_cpi, 
                 initialize_obligation_farm_for_reserve_cpi, 
                 initialize_user_lookup_table, 
-                initialize_user_metadata_cpi
+                initialize_user_metadata_cpi,
             }, 
             kamino_state::{Obligation, Reserve}, state::KaminoState
         }, state::UtilizationMarketState, 
@@ -36,9 +37,10 @@ use crate::{
 define_account_struct! {
     pub struct InitializeKaminoAccounts<'info> {
         obligation: mut;
-        token_mint: @owner(pinocchio_token::ID);
+        token_mint: @owner(pinocchio_token::ID); // TODO Token2022
         user_metadata: mut;
         user_lookup_table: mut;
+        referrer_metadata;
         obligation_farm: mut;
         reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         reserve_farm: mut; // TODO: verify if the farm state is the owner
@@ -108,22 +110,19 @@ impl<'info> InitializeKaminoAccounts<'info> {
 }
 
 // TODOs:
-// 1- Verify that a vanilla obligation is what we actually want.
-// 2- If we need support for referrer (optional account in initialize_user_metadata_cpi).
-// 3- Verify the variant for created lookup table.
-// 4- The mode for creating obligation farm (what is it for?).
-// 5- which program owns the reserve farm (reserve.collateral_farm)? is it kamino_program of kamino_farms?
+// 1- If we need support for referrer (optional account in initialize_user_metadata_cpi).
+// 2- The mode for creating obligation farm (what is it for?).
+// 3- which program owns the reserve farm (reserve.collateral_farm)? is it kamino_program of kamino_farms?
 
 
 
 /// This function initializes a `KaminoIntegration`.
 /// In order to do so it initializes (if needed):
 /// - A `LUT` and `user_metadata_account` (initialized only once at the `controller` level).
-/// - An `obligation` : an `obligation`s can be shared accross 8 different `KaminoIntegrations`, 
-///     thats why we need an `obligation_id` arg. The `obligation` is derived from the `obligation_id`, 
+/// - An `obligation` : The `obligation` is derived from the `obligation_id`, 
 ///     the `market` and the `controller_authority`.
 /// - An `obligation_farm`: derived from the `reserve.collateral_farm` and `obligation`, 
-///     so every `KaminoIntegration` has its own `obligation_farm`.
+///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm.
 pub fn process_initialize_kamino(
     controller: &Controller,
     outer_ctx: &InitializeIntegrationAccounts,
@@ -131,6 +130,7 @@ pub fn process_initialize_kamino(
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_kamino");
 
+    msg!(&format!("inner_args: {:?}", outer_args.inner_args));
     let obligation_id = match outer_args.inner_args {
         InitializeArgs::KaminoIntegration { 
             obligation_id 
@@ -152,6 +152,7 @@ pub fn process_initialize_kamino(
 
     // initialize LUT and metadata if owned by system program
     if inner_ctx.user_metadata.is_owned_by(&pinocchio_system::ID) {
+        msg! {"calling initialize_lut_and_metadata"}
         initialize_lut_and_metadata(
             outer_ctx, 
             &inner_ctx, 
@@ -161,6 +162,7 @@ pub fn process_initialize_kamino(
     
     // initialize obligation if owned by system program
     if inner_ctx.obligation.is_owned_by(&pinocchio_system::ID) {
+        msg! {"calling initialize_vanilla_obligation"}
         initialize_vanilla_obligation(
             obligation_id, 
             outer_ctx, 
@@ -175,12 +177,19 @@ pub fn process_initialize_kamino(
         obligation.check_from_accounts(outer_ctx, &inner_ctx)?;
     }
 
-    // initialize obligation farm for the reserve we are targeting
-    initialize_obligation_farm(outer_ctx, &inner_ctx)?;
+    // initialize obligation farm for the reserve we are targeting,
+    // only if the reserve has a collateral_farm
+
+    if reserve.has_collateral_farm() {
+            msg! {"calling initialize_obligation_farm"}
+            initialize_obligation_farm(outer_ctx, &inner_ctx)?;
+    }
     
     // create the config
     let kamino_config = KaminoConfig {
         market: *inner_ctx.market.key(),
+        reserve: *inner_ctx.reserve.key(),
+        reserve_farm: *inner_ctx.reserve_farm.key(),
         token_mint: *inner_ctx.token_mint.key(),
         obligation: *inner_ctx.obligation.key(),
         obligation_id
@@ -206,6 +215,8 @@ fn initialize_lut_and_metadata(
     inner_ctx: &InitializeKaminoAccounts,
     controller: &Controller
 ) -> Result<(), ProgramError> {
+    
+    msg! {"calling initialize_user_lookup_table"}
     initialize_user_lookup_table(
         Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
@@ -220,6 +231,7 @@ fn initialize_lut_and_metadata(
         Clock::get()?.slot
     )?;
 
+    msg! {"calling initialize_user_metadata_cpi"}
     initialize_user_metadata_cpi(
         Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
@@ -230,6 +242,7 @@ fn initialize_lut_and_metadata(
         outer_ctx.payer, 
         inner_ctx.user_metadata, 
         inner_ctx.user_lookup_table, 
+        inner_ctx.referrer_metadata,
         inner_ctx.kamino_program.key(), 
         inner_ctx.rent, 
         inner_ctx.system_program
@@ -244,8 +257,8 @@ fn initialize_vanilla_obligation(
     inner_ctx: &InitializeKaminoAccounts,
     controller: &Controller
 ) -> Result<(), ProgramError> {
+    msg! {"calling initialize_obligation_cpi"}
     initialize_obligation_cpi(
-        0, // tag 0 for vanilla obligation
         id, 
         Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
@@ -269,6 +282,7 @@ fn initialize_obligation_farm(
     outer_ctx: &InitializeIntegrationAccounts,
     inner_ctx: &InitializeKaminoAccounts,
 ) -> Result<(), ProgramError> {
+    msg! {"calling initialize_obligation_farm_for_reserve_cpi"}
     initialize_obligation_farm_for_reserve_cpi(
         outer_ctx.payer, 
         outer_ctx.controller_authority, 

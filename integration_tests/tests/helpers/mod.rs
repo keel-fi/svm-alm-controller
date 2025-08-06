@@ -21,8 +21,7 @@ use std::env;
 use std::{fs, str::FromStr};
 
 use crate::helpers::constants::{
-    LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302,
-    LZ_USDS_ESCROW,
+    KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_REFERRER_METADATA, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_FARM_COLLATERAL, LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302, LZ_USDS_ESCROW
 };
 
 /// Get LiteSvm with myproject loaded.
@@ -103,6 +102,25 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(LZ_R2_PROGRAM_ID, lz_r2_program);
     let lz_executor_program = include_bytes!("../../fixtures/lz_executor.so");
     svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
+
+
+    // Kamino Lend
+    let kamino_lend_program = include_bytes!("../../fixtures/kamino_lend.so");
+    svm.add_program(KAMINO_LEND_PROGRAM_ID, kamino_lend_program);
+    let kamino_farms_program = include_bytes!("../../fixtures/kamino_farms.so");
+    svm.add_program(KAMINO_FARMS_PROGRAM_ID, kamino_farms_program);
+    let kamino_main_market_account = get_account_data_from_json("./fixtures/kamino_main_market.json");
+    svm.set_account(KAMINO_MAIN_MARKET, kamino_main_market_account)
+        .unwrap();
+    let kamino_usdc_reserve = get_account_data_from_json("./fixtures/kamino_usdc_reserve.json");
+    svm.set_account(KAMINO_USDC_RESERVE, kamino_usdc_reserve)
+        .unwrap();
+    let kamino_usdc_reserve_farm_collateral = get_account_data_from_json("./fixtures/usdc_reserve_farm_collateral.json");
+    svm.set_account(KAMINO_USDC_RESERVE_FARM_COLLATERAL, kamino_usdc_reserve_farm_collateral)
+        .unwrap();
+    let kamino_referrer_user_metadata = get_account_data_from_json("./fixtures/kamino_referrer_metadata.json");
+    svm.set_account(KAMINO_REFERRER_METADATA, kamino_referrer_user_metadata)
+        .unwrap();
 
     svm
 }

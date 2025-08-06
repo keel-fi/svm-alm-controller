@@ -14,7 +14,7 @@ use crate::{
     processor::InitializeIntegrationAccounts, state::Controller
 };
 
-pub const KAMINO_LEND_PROGRAM_ID: Pubkey = pubkey!("GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW");
+pub const KAMINO_LEND_PROGRAM_ID: Pubkey = pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 pub const KAMINO_FARMS_PROGRAM_ID: Pubkey = pubkey!("FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr");
 pub const LOOKUP_TABLE_PROGRAM_ID: Pubkey = pubkey!("AddressLookupTab1e1111111111111111111111111");
 

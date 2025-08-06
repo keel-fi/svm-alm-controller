@@ -1,22 +1,31 @@
 
-use borsh::{maybestd::{format, vec::Vec}, BorshSerialize};
+use borsh::{maybestd::vec::Vec, BorshSerialize};
 use pinocchio::{
-    account_info::AccountInfo, cpi::{invoke, invoke_signed}, instruction::{AccountMeta, Instruction, Signer}, msg, program_error::ProgramError, pubkey::{find_program_address, Pubkey}, sysvars::clock::Slot
+    account_info::AccountInfo, cpi::{invoke, invoke_signed}, 
+    instruction::{AccountMeta, Instruction, Signer}, msg, 
+    program_error::ProgramError, pubkey::{find_program_address, Pubkey}, 
+    sysvars::clock::Slot,
 };
-use solana_keccak_hasher::hash;
+use sha2_const_stable::{Sha256};
 
-/// helper for finding an anchor instruction discriminator
-pub fn anchor_sighash(namespace: &str, name: &str) -> [u8;8] {
-    let preimage = format!("{}:{}", namespace, name);
+/// compute the first 8 bytes of SHA256(namespace:name) in a `const fn`.
+pub const fn anchor_sighash(namespace: &str, name: &str) -> [u8; 8] {
+    let hash = Sha256::new()
+        .update(namespace.as_bytes())
+        .update(b":")
+        .update(name.as_bytes())
+        .finalize();
 
-    let mut sighash = [0u8; 8];
-    sighash.copy_from_slice(
-        &hash(preimage.as_bytes()).to_bytes()[..8]
-    );
-    sighash
+    // return the first 8 bytes as the discriminator
+    [
+        hash[0], hash[1], hash[2], hash[3],
+        hash[4], hash[5], hash[6], hash[7],
+    ]
 }
 
 // ------------ init obligation ------------
+
+pub const VANILLA_OBLIGATION_TAG: u8 = 0;
 
 #[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
 pub struct InitObligationArgs {
@@ -26,15 +35,12 @@ pub struct InitObligationArgs {
 
 impl InitObligationArgs {
     pub const LEN: usize = 2;
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("global", "init_obligation");
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
-        let discriminator = anchor_sighash(
-            "global", 
-            "init_obligation"
-        );
 
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
-        serialized.extend_from_slice(&discriminator);
+        serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
         BorshSerialize::serialize(&self, &mut serialized).unwrap();
         
@@ -51,7 +57,7 @@ pub fn derive_vanilla_obligation_address(
     let (obligation_pda, _) = find_program_address(
         &[
             // tag 0 for vanilla obligation
-            &0_u8.to_le_bytes(),
+            &VANILLA_OBLIGATION_TAG.to_le_bytes(),
             // id 0 as default
             &obligation_id.to_le_bytes(),
             // user
@@ -70,7 +76,6 @@ pub fn derive_vanilla_obligation_address(
 }
 
 pub fn initialize_obligation_cpi(
-    tag: u8,
     id: u8,
     signer: Signer,
     obligation: &AccountInfo,
@@ -83,7 +88,7 @@ pub fn initialize_obligation_cpi(
     system_program: &AccountInfo
 ) -> Result<(), ProgramError> {
 
-    let args_vec = InitObligationArgs { tag, id }
+    let args_vec = InitObligationArgs { tag: VANILLA_OBLIGATION_TAG, id }
         .to_vec()
         .unwrap();
 
@@ -138,15 +143,11 @@ pub struct InitUserMetadataArgs<'a> {
 
 impl<'a> InitUserMetadataArgs<'a> {
     pub const LEN: usize = 32;
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("global", "init_user_metadata");
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
-        let discriminator = anchor_sighash(
-            "global", 
-            "init_user_metadata"
-        );
-
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
-        serialized.extend_from_slice(&discriminator);
+        serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
         BorshSerialize::serialize(&self, &mut serialized).unwrap();
         
@@ -175,7 +176,7 @@ pub fn initialize_user_metadata_cpi(
     payer: &AccountInfo,
     user_metadata: &AccountInfo,
     user_lookup_table: &AccountInfo,
-    // referrer_user_metadata: &AccountInfo, // TODO: confirm referrer user metadata
+    referrer_user_metadata: &AccountInfo,
     kamino_program: &Pubkey,
     rent: &AccountInfo,
     system_program: &AccountInfo
@@ -198,8 +199,8 @@ pub fn initialize_user_metadata_cpi(
                 AccountMeta::writable_signer(payer.key()),
                 // user metadata
                 AccountMeta::writable(user_metadata.key()),
-                // referrer user metadata
-                // AccountMeta::readonly(referrer_user_metadata.key()),
+                // // referrer user metadata
+                AccountMeta::readonly(referrer_user_metadata.key()),
                 // rent
                 AccountMeta::readonly(rent.key()),
                 // system program
@@ -210,7 +211,7 @@ pub fn initialize_user_metadata_cpi(
             user,
             payer,
             user_metadata,
-            // referrer_user_metadata,
+            referrer_user_metadata,
             rent,
             system_program
         ], 
@@ -279,15 +280,15 @@ pub fn initialize_user_lookup_table(
                 // lut authority
                 AccountMeta::readonly_signer(authority.key()),
                 // payer
-                AccountMeta::writable(payer.key()),
+                AccountMeta::writable_signer(payer.key()),
                 // system program
                 AccountMeta::readonly(system_program.key())
             ] 
         }, 
         &[
             lookup_table,
-            payer,
             authority,
+            payer,
             system_program
         ], 
         &[signer]
@@ -338,15 +339,11 @@ pub struct InitObligationFarmArgs {
 
 impl InitObligationFarmArgs {
     pub const LEN: usize = 1;
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("global", "init_obligation_farms_for_reserve");
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
-        let discriminator = anchor_sighash(
-            "global", 
-            "init_obligation_farms_for_reserve"
-        );
-
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
-        serialized.extend_from_slice(&discriminator);
+        serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
         BorshSerialize::serialize(&self, &mut serialized).unwrap();
         

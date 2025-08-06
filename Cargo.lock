@@ -3701,6 +3701,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2-const-stable"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f179d4e11094a893b82fff208f74d448a7512f99f5a0acbd5c679b705f83ed9"
+
+[[package]]
 name = "sha3"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6724,6 +6730,7 @@ dependencies = [
  "pinocchio-pubkey",
  "pinocchio-system",
  "pinocchio-token",
+ "sha2-const-stable",
  "shank",
  "solana-keccak-hasher",
  "switchboard-on-demand",
@@ -6751,7 +6758,9 @@ dependencies = [
  "hex",
  "litesvm",
  "oft-client",
+ "pinocchio",
  "pinocchio-associated-token-account",
+ "pinocchio-system",
  "pinocchio-token",
  "safe-transmute",
  "serde",

@@ -3,12 +3,11 @@ use crate::{
     helpers::{
         cctp::CctpDepositForBurnPdas,
         constants::{
-            DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER,
+            DEVNET_RPC, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, KAMINO_REFERRER_METADATA, LUT_PROGRAM_ID, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER
         },
     },
     subs::{
-        derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
-        derive_swap_authority_pda_and_bump, get_mint_supply_or_zero,
+        derive_controller_authority_pda, derive_lookup_table_address, derive_market_authority_address, derive_obligation_farm_address, derive_permission_pda, derive_reserve_pda, derive_swap_authority_pda_and_bump, derive_user_metadata_address, get_mint_supply_or_zero
     },
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -31,6 +30,7 @@ use solana_sdk::{
     signature::{Keypair, Signer},
     system_program, sysvar,
     transaction::Transaction,
+    sysvar::clock::Clock
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
@@ -42,8 +42,7 @@ use svm_alm_controller_client::generated::{
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
-        InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PullArgs, PushArgs,
-        SplTokenExternalConfig,
+        InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PullArgs, PushArgs, SplTokenExternalConfig, UtilizationMarket, UtilizationMarketConfig
     },
 };
 
@@ -100,6 +99,9 @@ pub fn initialize_integration(
         IntegrationConfig::CctpBridge(c) => IntegrationType::CctpBridge,
         IntegrationConfig::LzBridge(c) => IntegrationType::LzBridge,
         IntegrationConfig::AtomicSwap(c) => IntegrationType::AtomicSwap,
+        IntegrationConfig::UtilizationMarket(c) => {
+            IntegrationType::UtilizationMarket(UtilizationMarket::Kamino)
+        },
         _ => panic!("Not specified"),
     };
 
@@ -288,23 +290,120 @@ pub fn initialize_integration(
                 is_writable: false,
             },
         ],
-        IntegrationConfig::AtomicSwap(c) => &[
-            AccountMeta {
-                pubkey: c.input_token,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: c.output_token,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: c.oracle,
-                is_signer: false,
-                is_writable: false,
-            },
-        ],
+        IntegrationConfig::UtilizationMarket(c) => {
+            match c {
+                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
+                    let kamino_program = KAMINO_LEND_PROGRAM_ID;
+                    let kamino_farms_program = KAMINO_FARMS_PROGRAM_ID;
+                    let lookup_table_program = LUT_PROGRAM_ID;
+
+                    let obligation = kamino_config.obligation;
+                    let market = kamino_config.market;
+                    let token_mint = kamino_config.token_mint;
+                    let reserve = kamino_config.reserve;
+                    let reserve_farm = kamino_config.reserve_farm;
+
+                    let slot = svm.get_sysvar::<Clock>().slot;
+
+                    let market_authority = derive_market_authority_address(
+                        &market, 
+                        &kamino_program
+                    );
+                    let user_metadata = derive_user_metadata_address(
+                        &controller_authority, 
+                        &kamino_program
+                    );
+                    let user_lookup_table = derive_lookup_table_address(
+                        &controller_authority,
+                        slot, 
+                        &lookup_table_program
+                    );
+                    let obligation_farm = derive_obligation_farm_address(
+                        &reserve_farm, 
+                        &obligation, 
+                        &kamino_farms_program
+                    );
+
+                    &[
+                        AccountMeta {
+                            pubkey: obligation,
+                            is_signer: false,
+                            is_writable: true
+                        },
+                        AccountMeta {
+                            pubkey: token_mint,
+                            is_signer: false,
+                            is_writable: false,
+                        },
+                        AccountMeta {
+                            pubkey: user_metadata,
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                        AccountMeta {
+                            pubkey: user_lookup_table,
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                        AccountMeta {
+                            pubkey: KAMINO_REFERRER_METADATA,
+                            is_signer: false,
+                            is_writable: false,
+                        },
+                        AccountMeta {
+                            pubkey: obligation_farm,
+                            is_signer: false,
+                            is_writable: true
+                        },
+                        AccountMeta {
+                            pubkey: reserve,
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                        AccountMeta {
+                            pubkey: reserve_farm,
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                        AccountMeta {
+                            pubkey: market_authority,
+                            is_signer: false,
+                            is_writable: false
+                        },
+                        AccountMeta {
+                            pubkey: market,
+                            is_signer: false,
+                            is_writable: false,
+                        },
+                        AccountMeta {
+                            pubkey: lookup_table_program,
+                            is_signer: false,
+                            is_writable: false
+                        },
+                        AccountMeta {
+                            pubkey: kamino_program,
+                            is_signer: false,
+                            is_writable: false
+                        },
+                        AccountMeta {
+                            pubkey: kamino_farms_program,
+                            is_signer: false,
+                            is_writable: false,
+                        },
+                        AccountMeta {
+                            pubkey: pinocchio_system::ID.into(),
+                            is_signer: false,
+                            is_writable: false,
+                        },
+                        AccountMeta {
+                            pubkey: pinocchio::sysvars::rent::RENT_ID.into(),
+                            is_signer: false,
+                            is_writable: false
+                        }
+                    ]
+                }
+            }
+        },
         _ => panic!("Not specified"),
     };
 
