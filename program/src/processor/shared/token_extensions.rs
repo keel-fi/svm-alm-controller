@@ -95,9 +95,6 @@ pub struct TmpAccountMeta {
 /// discriminator as an index rather than as a type
 const U8_TOP_BIT: u8 = 1 << 7;
 const EXTRA_ACCOUNT_META_LEN: usize = 35;
-// impl<'info> ExtraAccountMeta<'info> {
-//     const LEN: usize = 35;
-// }
 
 /// Resolve a program-derived address (PDA) from the instruction data
 /// and the accounts that have already been resolved
@@ -110,25 +107,25 @@ fn resolve_pda<'a, F>(
 where
     F: Fn(usize) -> Option<(&'a Pubkey, Option<Ref<'a, [u8]>>)>,
 {
-    let mut pda_seeds: Vec<&[u8]> = alloc::vec![];
+    let mut pda_seeds: Vec<Vec<u8>> = alloc::vec![];
     for config in seeds {
         match config {
             Seed::Uninitialized => (),
-            Seed::Literal { bytes } => pda_seeds.push(bytes),
+            Seed::Literal { bytes } => pda_seeds.push(bytes.clone()),
             Seed::InstructionData { index, length } => {
                 let arg_start = *index as usize;
                 let arg_end = arg_start + *length as usize;
                 if arg_end > instruction_data.len() {
                     return Err(ProgramError::InvalidInstructionData);
                 }
-                pda_seeds.push(&instruction_data[arg_start..arg_end]);
+                pda_seeds.push(instruction_data[arg_start..arg_end].into());
             }
             Seed::AccountKey { index } => {
                 let account_index = *index as usize;
                 let address = get_account_key_data_fn(account_index)
                     .ok_or::<ProgramError>(ProgramError::NotEnoughAccountKeys)?
                     .0;
-                pda_seeds.push(address.as_ref());
+                pda_seeds.push(address.into());
             }
             Seed::AccountData {
                 account_index,
@@ -147,22 +144,17 @@ where
                     return Err(ProgramError::InvalidAccountData);
                 }
 
-                // Create a new Ref with the sliced data
-                let sliced_ref = Ref::map(account_data, |data| &data[arg_start..arg_end]);
-
-                // TODO TEST, unsure of the safety
-                // Read the raw data from the sliced ref
-                let slice = unsafe {
-                    let ptr = sliced_ref.as_ptr();
-                    core::slice::from_raw_parts(ptr, len)
-                };
-
-                pda_seeds.push(slice);
+                let data = account_data[arg_start..arg_end].to_vec();
+                pda_seeds.push(data);
             }
         }
     }
 
-    Ok(find_program_address(&pda_seeds, program_id).0)
+    let seeds = pda_seeds
+        .iter()
+        .map(|seed| seed.as_slice())
+        .collect::<Vec<&[u8]>>();
+    Ok(find_program_address(&seeds, program_id).0)
 }
 
 /// Resolve a pubkey from a pubkey data configuration.
@@ -393,6 +385,8 @@ impl From<TransferHookError> for ProgramError {
 
 #[cfg(test)]
 mod tests {
+    use spl_tlv_account_resolution::account::ExtraAccountMeta;
+
     use super::*;
 
     #[test]
