@@ -6813,7 +6813,6 @@ dependencies = [
  "shank",
  "solana-keccak-hasher",
  "spl-tlv-account-resolution 0.10.0",
- "spl-type-length-value 0.8.0",
  "switchboard-on-demand",
 ]
 
