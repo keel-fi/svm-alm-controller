@@ -7,7 +7,6 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -18,14 +17,5 @@ pub struct AtomicSwapState {
     pub recipient_token_a_pre: u64,
     pub recipient_token_b_pre: u64,
     pub repay_excess_token_a: bool,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub token_account_a: Pubkey,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub token_account_b: Pubkey,
+    pub padding: [u8; 7],
 }

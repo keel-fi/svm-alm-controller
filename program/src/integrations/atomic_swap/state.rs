@@ -1,5 +1,4 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use pinocchio::pubkey::Pubkey;
 use shank::ShankType;
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
@@ -18,10 +17,7 @@ pub struct AtomicSwapState {
     // recipient_token_a_pre should be repaid. Note that this is for accounting
     // purposes and that is no enforcement that the same token account has to be used.
     pub repay_excess_token_a: bool,
-    // Token account of token a in recipient's account.
-    pub token_account_a: Pubkey,
-    // Token account of token b in recipient's account.
-    pub token_account_b: Pubkey,
+    pub _padding: [u8; 7],
 }
 
 impl AtomicSwapState {
@@ -36,7 +32,5 @@ impl AtomicSwapState {
         self.recipient_token_a_pre = 0;
         self.recipient_token_b_pre = 0;
         self.repay_excess_token_a = false;
-        self.token_account_a = Pubkey::default();
-        self.token_account_b = Pubkey::default();
     }
 }

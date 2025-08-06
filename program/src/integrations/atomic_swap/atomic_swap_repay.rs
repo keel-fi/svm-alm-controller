@@ -81,12 +81,6 @@ pub fn process_atomic_swap_repay(
             return Err(SvmAlmControllerErrors::SwapNotStarted.into());
         }
 
-        if state.token_account_a != *ctx.payer_account_a.key()
-            || state.token_account_b != *ctx.payer_account_b.key()
-        {
-            return Err(SvmAlmControllerErrors::InvalidAccountData.into());
-        }
-
         let mut final_input_amount = state.amount_borrowed;
         {
             // Check that vault_a and vault_b amounts remain same as after atomic borrow.

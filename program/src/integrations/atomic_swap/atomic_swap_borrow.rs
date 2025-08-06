@@ -3,7 +3,7 @@ use pinocchio::{
     account_info::AccountInfo,
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::{self, find_program_address, Pubkey},
     sysvars::{
         clock::Clock,
         instructions::{Instructions, INSTRUCTIONS_ID},
@@ -123,12 +123,38 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
+    let (associated_token_account_a, _) = find_program_address(
+        &[
+            ctx.authority.key().as_ref(),
+            &pinocchio_token::ID,
+            reserve_a.mint.as_ref(),
+        ],
+        &pinocchio_associated_token_account::ID,
+    );
+
+    if associated_token_account_a != *ctx.recipient_token_account_a.key() {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+    }
+
     let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     if reserve_b.status != ReserveStatus::Active {
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
+    }
+
+    let (associated_token_account_b, _) = find_program_address(
+        &[
+            ctx.authority.key().as_ref(),
+            &pinocchio_token::ID,
+            reserve_b.mint.as_ref(),
+        ],
+        &pinocchio_associated_token_account::ID,
+    );
+
+    if associated_token_account_b != *ctx.recipient_token_account_b.key() {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     // Sync reserve balances and rate limits
@@ -189,8 +215,6 @@ pub fn process_atomic_swap_borrow(
             state.recipient_token_a_pre = recipient_token_a_account.amount();
             state.recipient_token_b_pre = recipient_token_b_account.amount();
             state.repay_excess_token_a = args.repay_excess_token_a;
-            state.token_account_a = *ctx.recipient_token_account_a.key();
-            state.token_account_b = *ctx.recipient_token_account_b.key();
         }
 
         // Transfer borrow amount of tokens from vault to recipient.
