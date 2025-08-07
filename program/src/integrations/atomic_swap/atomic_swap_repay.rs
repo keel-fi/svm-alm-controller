@@ -104,7 +104,9 @@ pub fn process_atomic_swap_repay(
                 excess_token_a = payer_account_a
                     .amount()
                     .saturating_sub(state.recipient_token_a_pre);
-                final_input_amount = final_input_amount.checked_sub(excess_token_a).unwrap();
+                // Calculate the final amount of token A that that external wallet spent.
+                // This is used for final slippage calculations.
+                final_input_amount = final_input_amount.saturating_sub(excess_token_a);
             }
         }
 
@@ -208,9 +210,14 @@ fn check_swap_slippage(
     oracle_price: i128,
     precision: u32,
 ) -> ProgramResult {
-    if input_amount == 0 || output_amount == 0 {
+    // The External address repaid ALL of their tokens, thus we can skip
+    // the slippage check as any amount of output tokens is ok.
+    if input_amount == 0 {
+        return Ok(());
+    } else if output_amount == 0 {
         return Err(ProgramError::InvalidArgument);
     }
+
     let swap_price = calc_swap_price(
         pow10(input_decimals.into()).unwrap(),
         pow10(output_decimals.into()).unwrap(),
@@ -249,6 +256,18 @@ mod tests {
             6,
         );
         assert!(res.is_ok());
+
+        // 0 input with any output is ok
+        let res = check_swap_slippage(
+            0,
+            6,
+            400_000_000, // output: $400
+            6,
+            100, // 1%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
@@ -267,18 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap_zero_input_or_output() {
-        let res = check_swap_slippage(
-            0,
-            6,
-            400_000_000, // output: $400
-            6,
-            100, // 1%
-            202_150_000,
-            6,
-        );
-        assert!(res.is_err());
-
+    fn test_swap_zero_output() {
         let res = check_swap_slippage(
             2_000_000,
             6,
