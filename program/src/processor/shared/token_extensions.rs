@@ -10,6 +10,7 @@ use pinocchio::{
     pubkey::{find_program_address, Pubkey},
     ProgramResult,
 };
+use pinocchio_log::log;
 use pinocchio_token2022::extensions::ExtensionType;
 use pinocchio_token_interface::get_all_extensions_for_mint;
 use spl_tlv_account_resolution::{
@@ -265,6 +266,7 @@ pub fn get_extra_account_metas_address(mint: &Pubkey, program_id: &Pubkey) -> Pu
 // whole list of accounts.
 //
 pub fn invoke_transfer_checked_with_transfer_hook(
+    token_program: &Pubkey,
     transfer_hook_program_id: &Pubkey,
     source_info: &AccountInfo,
     mint_info: &AccountInfo,
@@ -275,14 +277,18 @@ pub fn invoke_transfer_checked_with_transfer_hook(
     additional_accounts: &[AccountInfo],
     signers_seeds: &[Signer],
 ) -> Result<(), ProgramError> {
+    log!("WHAT 1");
     let extra_account_metas_address =
         get_extra_account_metas_address(mint_info.key(), transfer_hook_program_id);
 
+    log!("WHAT 2");
     // Find the program info in the additional accounts
     let transfer_hook_program_info = additional_accounts
         .iter()
         .find(|&x| x.key().eq(transfer_hook_program_id))
         .ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+    log!("WHAT 3");
 
     // TransferChecked Instruction data layout:
     // -  [0]: instruction discriminator (1 byte, u8)
@@ -292,6 +298,7 @@ pub fn invoke_transfer_checked_with_transfer_hook(
     transfer_checked_ix_data[0] = 12;
     transfer_checked_ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
     transfer_checked_ix_data[9] = decimals;
+    log!("WHAT 4");
     // Accounts for the TransferChecked instruction
     let mut transfer_checked_ix_account_infos: Vec<&AccountInfo> =
         alloc::vec![&source_info, &mint_info, &destination_info, &authority_info];
@@ -301,6 +308,7 @@ pub fn invoke_transfer_checked_with_transfer_hook(
         AccountMeta::writable(destination_info.key()),
         AccountMeta::readonly_signer(authority_info.key()),
     ];
+    log!("WHAT 5");
     // Find the ExtraAccountMetas pubkey in the account list
     if let Some(extra_account_metas_info) = additional_accounts
         .iter()
@@ -308,6 +316,7 @@ pub fn invoke_transfer_checked_with_transfer_hook(
     {
         transfer_checked_ix_account_infos.push(extra_account_metas_info);
         transfer_checked_ix_account_metas.push(AccountMeta::readonly(&extra_account_metas_address));
+        log!("WHAT 6");
 
         // ExtraAccountMetaList Account structure
         // 0..4 - length
@@ -318,12 +327,15 @@ pub fn invoke_transfer_checked_with_transfer_hook(
                 .try_into()
                 .map_err(|_| ProgramError::InvalidAccountData)?,
         );
+        log!("WHAT 7");
         let mut offset = 4;
         // Resolve all ExtraAccountMeta into list
         for _index in 0..length {
+            log!("WHAT 8");
             let extra_meta_data =
                 &extra_account_metas_data[offset..offset + EXTRA_ACCOUNT_META_LEN];
 
+            log!("WHAT 9");
             let tmp_meta = resolve(
                 extra_meta_data,
                 &transfer_checked_ix_data,
@@ -334,12 +346,14 @@ pub fn invoke_transfer_checked_with_transfer_hook(
                         .map(|acc_info| (acc_info.key(), acc_info.try_borrow_data().ok()))
                 },
             )?;
+            log!("WHAT 10");
 
             // Check AccountInfo exists in the account list
             let acct = additional_accounts
                 .iter()
                 .find(|acc_info| acc_info.key().eq(&tmp_meta.pubkey))
                 .ok_or(ProgramError::NotEnoughAccountKeys)?;
+            log!("WHAT 11");
 
             // De-escalate accounts by setting to the resolved value permissions
             transfer_checked_ix_account_metas.push(AccountMeta {
@@ -356,14 +370,21 @@ pub fn invoke_transfer_checked_with_transfer_hook(
     transfer_checked_ix_account_infos.push(transfer_hook_program_info);
     transfer_checked_ix_account_metas.push(AccountMeta::readonly(transfer_hook_program_id));
 
-    // TODO this should be TransferChecked instruction to a specified TokenProgram
+    log!("WHAT 12");
+    // Create TransferChecked instruction
     let transfer_checked_with_transfer_hook = Instruction {
-        program_id: transfer_hook_program_id,
+        program_id: token_program,
         accounts: &transfer_checked_ix_account_metas,
         data: &transfer_checked_ix_data,
     };
+    log!("WHAT 13");
 
-    slice_invoke_signed(&transfer_checked_with_transfer_hook, &transfer_checked_ix_account_infos, signers_seeds)
+    // invoke TransferChecked CPI
+    slice_invoke_signed(
+        &transfer_checked_with_transfer_hook,
+        &transfer_checked_ix_account_infos,
+        signers_seeds,
+    )
 }
 
 pub enum TransferHookError {

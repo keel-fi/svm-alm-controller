@@ -149,7 +149,7 @@ pub fn process_push_spl_token_external(
 
     // Perform the transfer
     let mint = Mint::from_account_info(&inner_ctx.mint)?;
-    controller.transfer_tokens(
+    controller.transfer_tokens_with_possible_transfer_hook(
         outer_ctx.controller,
         outer_ctx.controller_authority,
         inner_ctx.vault,
@@ -158,6 +158,7 @@ pub fn process_push_spl_token_external(
         amount,
         mint.decimals(),
         inner_ctx.token_program.key(),
+        inner_ctx.remaining_accounts,
     )?;
 
     // Reload the vault account to check it's balance

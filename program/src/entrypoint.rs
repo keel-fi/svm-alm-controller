@@ -1,17 +1,26 @@
 use pinocchio::{
-    account_info::AccountInfo, entrypoint, program_error::ProgramError, pubkey::Pubkey,
-    ProgramResult,
+    account_info::AccountInfo, default_allocator, default_panic_handler, program_entrypoint,
+    program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
 use crate::{
     constants::ATOMIC_SWAP_REPAY_IX_DISC,
+    dev_panic_handler,
     integrations::atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
     processor::{
-        process_emit_event, process_initialize_controller, process_initialize_integration, process_initialize_oracle, process_initialize_reserve, process_manage_controller, process_manage_integration, process_manage_permission, process_manage_reserve, process_pull, process_push, process_refresh_oracle, process_sync_integration, process_sync_reserve, process_update_oracle
+        process_emit_event, process_initialize_controller, process_initialize_integration,
+        process_initialize_oracle, process_initialize_reserve, process_manage_controller,
+        process_manage_integration, process_manage_permission, process_manage_reserve,
+        process_pull, process_push, process_refresh_oracle, process_sync_integration,
+        process_sync_reserve, process_update_oracle,
     },
 };
 
-entrypoint!(process_instruction);
+program_entrypoint!(process_instruction);
+default_allocator!();
+// TODO change back to defaults.
+// default_panic_handler!();
+dev_panic_handler!();
 
 pub fn process_instruction(
     program_id: &Pubkey,

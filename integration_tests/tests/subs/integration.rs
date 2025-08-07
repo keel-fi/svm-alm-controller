@@ -33,6 +33,8 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use spl_token_2022::{extension::StateWithExtensions, state::Mint};
+use spl_transfer_hook_interface::offchain::add_extra_account_metas_for_execute;
 use std::error::Error;
 use svm_alm_controller::state::controller;
 use svm_alm_controller_client::generated::{
@@ -558,6 +560,15 @@ pub async fn push_integration(
                 &c.mint,
                 &c.program,
             );
+
+
+            // TODO check for TransferHook and add the necessary accounts
+            let mint_acc = svm.get_account(&c.mint).unwrap();
+            let mint = StateWithExtensions::<Mint>::unpack(&mint_acc.data).unwrap();
+            let transfer_hook_program_id =
+                spl_token_2022::extension::transfer_hook::get_program_id(&mint);
+            // add_extra_account_metas_for_execute();
+
             (
                 reserve_pda,
                 reserve_pda, // pass same reserve twice

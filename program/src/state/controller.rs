@@ -182,6 +182,8 @@ impl Controller {
         Ok(())
     }
 
+    /// Transfer tokens whether or not the Mint has a
+    /// TransferHook extensions enabled.
     pub fn transfer_tokens_with_possible_transfer_hook(
         &self,
         controller: &AccountInfo,
@@ -192,15 +194,33 @@ impl Controller {
         amount: u64,
         decimals: u8,
         token_program: &Pubkey,
-        // TODO should this be optional?
         remaining_accounts: &[AccountInfo],
     ) -> Result<(), ProgramError> {
-        // TODO how to handle T22 vs non T22?
+        if token_program.ne(&pinocchio_token2022::ID) || mint.data_len() == Mint::BASE_LEN {
+            // Short circuit to normal TransferChecked when Token program
+            // is not Token2022 or the Mint does not have any extensions enabled.
+            return self.transfer_tokens(
+                controller,
+                controller_authority,
+                vault,
+                recipient_token_account,
+                mint,
+                amount,
+                decimals,
+                token_program,
+            );
+        }
+
+        // Token Program is Token2022, so we must check if the Mint has a
+        // TransferHook.
         let mint_data = mint.try_borrow_data()?;
         let res: Option<&TransferHook> = get_extension_from_bytes(&mint_data);
+        // Conditionally invoke TransferChecked with TransferHook accounts or
+        // fallback to regular TransferChecked.
         match res {
             Some(transfer_hook) => {
                 invoke_transfer_checked_with_transfer_hook(
+                    token_program,
                     &transfer_hook.program_id,
                     vault,
                     mint,
@@ -216,11 +236,24 @@ impl Controller {
                     ])],
                 )?;
             }
-            None => {}
+            None => {
+                self.transfer_tokens(
+                    controller,
+                    controller_authority,
+                    vault,
+                    recipient_token_account,
+                    mint,
+                    amount,
+                    decimals,
+                    token_program,
+                )?;
+            }
         }
         Ok(())
     }
 
+    /// Transfer Controller owned tokens using TransferChecked.
+    /// This will fail if the Mint has a TransferHook enabled.
     pub fn transfer_tokens(
         &self,
         controller: &AccountInfo,
