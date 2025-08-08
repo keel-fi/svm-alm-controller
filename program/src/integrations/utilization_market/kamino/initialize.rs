@@ -22,7 +22,7 @@ use crate::{
                 initialize_obligation_cpi, 
                 initialize_obligation_farm_for_reserve_cpi, 
                 initialize_user_lookup_table, 
-                initialize_user_metadata_cpi,
+                initialize_user_metadata_cpi, OBLIGATION_FARM_COLLATERAL_MODE, OBLIGATION_FARM_DEBT_MODE,
             }, 
             kamino_state::{Obligation, Reserve}, state::KaminoState
         }, state::UtilizationMarketState, 
@@ -37,13 +37,15 @@ use crate::{
 define_account_struct! {
     pub struct InitializeKaminoAccounts<'info> {
         obligation: mut;
-        token_mint: @owner(pinocchio_token::ID); // TODO Token2022
+        reserve_liquidity_mint: @owner(pinocchio_token::ID); // TODO Token2022
         user_metadata: mut;
         user_lookup_table: mut;
         referrer_metadata;
-        obligation_farm: mut;
+        obligation_farm_collateral: mut;
+        obligation_farm_debt: mut;
         reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
-        reserve_farm: mut; // TODO: verify if the farm state is the owner
+        reserve_farm_collateral: mut;
+        reserve_farm_debt: mut;
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
         lookup_table_program: @pubkey(LOOKUP_TABLE_PROGRAM_ID);
@@ -84,14 +86,25 @@ impl<'info> InitializeKaminoAccounts<'info> {
             return Err(ProgramError::InvalidSeeds)
         }
 
-        // verify obligation farm is valid
-        let obligation_farm_pda = derive_obligation_farm_address(
-            ctx.reserve_farm.key(), 
+        // verify obligation farm collateral is valid
+        let obligation_farm_collateral_pda = derive_obligation_farm_address(
+            ctx.reserve_farm_collateral.key(), 
             ctx.obligation.key(), 
             ctx.kamino_farms_program.key()
         );
-        if &obligation_farm_pda != ctx.obligation_farm.key() {
-            msg! {"Obligation farm: Invalid address"}
+        if &obligation_farm_collateral_pda != ctx.obligation_farm_collateral.key() {
+            msg! {"Obligation farm collateral: Invalid address"}
+            return Err(ProgramError::InvalidSeeds)
+        }
+
+        // verify obligation farm debt is valid
+        let obligation_farm_debt_pda = derive_obligation_farm_address(
+            ctx.reserve_farm_debt.key(), 
+            ctx.obligation.key(), 
+            ctx.kamino_farms_program.key()
+        );
+        if &obligation_farm_debt_pda != ctx.obligation_farm_debt.key() {
+            msg! {"Obligation farm collateral: Invalid address"}
             return Err(ProgramError::InvalidSeeds)
         }
 
@@ -112,8 +125,6 @@ impl<'info> InitializeKaminoAccounts<'info> {
 // TODOs:
 // 1- If we need support for referrer (optional account in initialize_user_metadata_cpi).
 // 2- The mode for creating obligation farm (what is it for?).
-// 3- which program owns the reserve farm (reserve.collateral_farm)? is it kamino_program of kamino_farms?
-
 
 
 /// This function initializes a `KaminoIntegration`.
@@ -179,20 +190,25 @@ pub fn process_initialize_kamino(
 
     // initialize obligation farm for the reserve we are targeting,
     // only if the reserve has a collateral_farm
-
     if reserve.has_collateral_farm() {
-            msg! {"calling initialize_obligation_farm"}
-            initialize_obligation_farm(outer_ctx, &inner_ctx)?;
+        initialize_obligation_farm(OBLIGATION_FARM_COLLATERAL_MODE, outer_ctx, &inner_ctx)?;
+    }
+
+    // initialize an obligation farm, only if reserve has farm_debt
+    if reserve.has_debt_farm() {
+        initialize_obligation_farm(OBLIGATION_FARM_DEBT_MODE, outer_ctx, &inner_ctx)?;
     }
     
     // create the config
     let kamino_config = KaminoConfig {
         market: *inner_ctx.market.key(),
         reserve: *inner_ctx.reserve.key(),
-        reserve_farm: *inner_ctx.reserve_farm.key(),
-        token_mint: *inner_ctx.token_mint.key(),
+        reserve_farm_collateral: *inner_ctx.reserve_farm_collateral.key(),
+        reserve_farm_debt: *inner_ctx.reserve_farm_debt.key(),
+        reserve_liquidity_mint: *inner_ctx.reserve_liquidity_mint.key(),
         obligation: *inner_ctx.obligation.key(),
-        obligation_id
+        obligation_id,
+        _padding: [0; 30]
     };
     let config = IntegrationConfig::UtilizationMarket(
         UtilizationMarketConfig::KaminoConfig(kamino_config)
@@ -201,7 +217,8 @@ pub fn process_initialize_kamino(
     // create the state
     let kamino_state = KaminoState {
         assets: 0,
-        liabilities: 0
+        liabilities: 0,
+        _padding: [0; 31]
     };
     let state = IntegrationState::UtilizationMarket(
         UtilizationMarketState::KaminoState(kamino_state)
@@ -279,18 +296,31 @@ fn initialize_vanilla_obligation(
 }
 
 fn initialize_obligation_farm(
+    mode: u8,
     outer_ctx: &InitializeIntegrationAccounts,
     inner_ctx: &InitializeKaminoAccounts,
 ) -> Result<(), ProgramError> {
     msg! {"calling initialize_obligation_farm_for_reserve_cpi"}
+
+    let (reserve_farm, obligation_farm) = match mode {
+        0 => {
+            (inner_ctx.reserve_farm_collateral, inner_ctx.obligation_farm_collateral)
+        },
+        1 => {
+            (inner_ctx.reserve_farm_debt, inner_ctx.obligation_farm_debt)
+        },
+        _ => return Err(ProgramError::InvalidArgument)
+    };
+
     initialize_obligation_farm_for_reserve_cpi(
+        mode,
         outer_ctx.payer, 
         outer_ctx.controller_authority, 
         inner_ctx.obligation, 
         inner_ctx.market_authority, 
         inner_ctx.reserve, 
-        inner_ctx.reserve_farm, 
-        inner_ctx.obligation_farm, 
+        reserve_farm, 
+        obligation_farm, 
         inner_ctx.market, 
         inner_ctx.kamino_farms_program, 
         inner_ctx.rent, 

@@ -507,7 +507,7 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -2254,11 +2254,15 @@
             "type": "publicKey"
           },
           {
-            "name": "reserveFarm",
+            "name": "reserveFarmCollateral",
             "type": "publicKey"
           },
           {
-            "name": "tokenMint",
+            "name": "reserveFarmDebt",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveLiquidityMint",
             "type": "publicKey"
           },
           {
@@ -2268,6 +2272,15 @@
           {
             "name": "obligationId",
             "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                30
+              ]
+            }
           }
         ]
       }
@@ -2313,6 +2326,18 @@
       }
     },
     {
+      "name": "DepositLiquidityV2Args",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liquidityAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "KaminoState",
       "type": {
         "kind": "struct",
@@ -2324,6 +2349,15 @@
           {
             "name": "liabilities",
             "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                31
+              ]
+            }
           }
         ]
       }
@@ -2768,6 +2802,15 @@
                 "type": "u64"
               }
             ]
+          },
+          {
+            "name": "Kamino",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
           }
         ]
       }
@@ -2825,6 +2868,9 @@
                 "defined": "KaminoConfig"
               }
             ]
+          },
+          {
+            "name": "Other"
           }
         ]
       }
@@ -2841,6 +2887,9 @@
                 "defined": "KaminoState"
               }
             ]
+          },
+          {
+            "name": "Other"
           }
         ]
       }

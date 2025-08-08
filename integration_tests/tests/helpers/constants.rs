@@ -52,3 +52,7 @@ pub const KAMINO_USDC_RESERVE: Pubkey = pubkey!("D6q6wuQSrifJKZYpR1M8R4YawnLDtDs
 pub const KAMINO_USDC_RESERVE_FARM_COLLATERAL: Pubkey = pubkey!("JAvnB9AKtgPsTEoKmn24Bq64UMoYcrtWtq42HHBdsPkh");
 pub const KAMINO_REFERRER_METADATA: Pubkey = pubkey!("Bp5TLBJ53fcGMCnxQg8FSwHg9xDu2CuMffvT5uxkRcNA");
 pub const LUT_PROGRAM_ID: Pubkey = pubkey!("AddressLookupTab1e1111111111111111111111111");
+pub const KAMINO_USDC_RESERVE_LIQUIDITY_SUPPLY: Pubkey = pubkey!("Bgq7trRgVMeq33yt235zM2onQ4bRDBsY5EWiTetF4qw6");
+pub const KAMINO_USDC_RESERVE_COLLATERAL_MINT: Pubkey = pubkey!("B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D");
+pub const KAMINO_USDC_RESERVE_COLLATERAL_SUPPLY: Pubkey = pubkey!("3DzjXRfxRm6iejfyyMynR4tScddaanrePJ1NJU2XnPPL");
+pub const KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED: Pubkey= pubkey!("3NJYftD5sjVfxSnUdZ1wVML8f3aC6mp1CXCL6L7TnU8C");

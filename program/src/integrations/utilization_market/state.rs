@@ -8,4 +8,5 @@ use crate::integrations::utilization_market::kamino::state::KaminoState;
 #[repr(u8)]
 pub enum UtilizationMarketState {
     KaminoState(KaminoState),
+    Other
 }

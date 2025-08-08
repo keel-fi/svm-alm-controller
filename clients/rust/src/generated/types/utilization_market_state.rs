@@ -13,4 +13,5 @@ use borsh::BorshSerialize;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum UtilizationMarketState {
     KaminoState(KaminoState),
+    Other,
 }

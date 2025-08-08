@@ -13,4 +13,5 @@ use borsh::BorshSerialize;
 pub struct KaminoState {
     pub assets: u64,
     pub liabilities: u64,
+    pub padding: [u8; 31],
 }

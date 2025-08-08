@@ -15,4 +15,5 @@ pub enum PushArgs {
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge { amount: u64 },
     LzBridge { amount: u64 },
+    Kamino { amount: u64 },
 }

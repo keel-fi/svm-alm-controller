@@ -7,5 +7,7 @@ pub struct KaminoState {
     /// the lending amount
     pub assets: u64,
     /// the lent amount
-    pub liabilities: u64
+    pub liabilities: u64,
+    /// padding
+    pub _padding: [u8; 31],
 }

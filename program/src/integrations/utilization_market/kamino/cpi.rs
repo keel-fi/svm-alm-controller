@@ -64,9 +64,9 @@ pub fn derive_vanilla_obligation_address(
             authority.as_ref(),
             // kamino market
             market.as_ref(),
-            // seed 1, for lending obligation is the token
+            // seed 1, pubkey default for vanilla obligations
             Pubkey::default().as_ref(),
-            // seed 2, for lending obligation is the token
+            // seed 2, pubkey default for vanilla obligations
             Pubkey::default().as_ref(),
         ],
         kamino_program
@@ -124,6 +124,8 @@ pub fn initialize_obligation_cpi(
             payer,
             obligation,
             market,
+            system_program,
+            system_program,
             owner_user_metadata,
             rent,
             system_program
@@ -199,7 +201,7 @@ pub fn initialize_user_metadata_cpi(
                 AccountMeta::writable_signer(payer.key()),
                 // user metadata
                 AccountMeta::writable(user_metadata.key()),
-                // // referrer user metadata
+                // // referrer user metadata (OPTIONAL)
                 AccountMeta::readonly(referrer_user_metadata.key()),
                 // rent
                 AccountMeta::readonly(rent.key()),
@@ -237,7 +239,7 @@ pub fn derive_lookup_table_address(
     )
 }
 
-const CREATE_VARIANT_INDEX: u32 = 0; // TODO: verify this
+const CREATE_VARIANT_INDEX: u32 = 0;
 
 /// Manual encoder: `[u32 variant | u64 recent_slot | u8 bump]`
 pub fn encode_create_lookup_table(recent_slot: Slot, bump_seed: u8) -> [u8; 13] {
@@ -351,13 +353,18 @@ impl InitObligationFarmArgs {
     }
 }
 
+pub const OBLIGATION_FARM_COLLATERAL_MODE: u8 = 0;
+pub const OBLIGATION_FARM_DEBT_MODE: u8 = 1;
+
 pub fn initialize_obligation_farm_for_reserve_cpi(
+    // mode 0 for collateral farm and mode 1 for debt farm
+    mode: u8,
     payer: &AccountInfo,
     owner: &AccountInfo,
     obligation: &AccountInfo,
     market_authority: &AccountInfo,
     reserve: &AccountInfo,
-    // this is reserve.farm_collateral
+    // this is either reserve.farm_collateral or reserve.farm_debt
     reserve_farm_state: &AccountInfo,
     obligation_farm: &AccountInfo,
     market: &AccountInfo,
@@ -368,7 +375,9 @@ pub fn initialize_obligation_farm_for_reserve_cpi(
 ) -> Result<(), ProgramError> {
     
     let args_vec = InitObligationFarmArgs {
-        mode: 0 // TODO: verify this is correct mode
+        // 0 for ReserveFarmKind::Collateral, meaning reserve_farm_state == reserve.farm_collateral
+        // 1 for ReserveFarmKind::Debt, meaning reserve_farm_state == reserve.farm_debt
+        mode
     }.to_vec().unwrap();
 
     let data = args_vec.as_slice();
@@ -415,6 +424,177 @@ pub fn initialize_obligation_farm_for_reserve_cpi(
             rent,
             system_program
         ]
+    )?;
+
+    Ok(())
+}
+
+
+// ---------- RESERVE derives ----------
+
+pub fn derive_reserve_collateral_mint(
+    market: &Pubkey,
+    reserve_liquidity_mint: &Pubkey,
+    kamino_program: &Pubkey
+) -> Pubkey {
+    let (address, _) = find_program_address(
+        &[
+            b"reserve_coll_mint",
+            market.as_ref(), 
+            reserve_liquidity_mint.as_ref()
+        ], 
+        kamino_program
+    );
+
+    address
+}
+
+pub fn derive_reserve_collateral_supply(
+    market: &Pubkey,
+    reserve_liquidity_mint: &Pubkey,
+    kamino_program: &Pubkey
+) -> Pubkey {
+    let (address, _) = find_program_address(
+        &[
+            b"reserve_coll_supply",
+            market.as_ref(), 
+            reserve_liquidity_mint.as_ref()
+        ], 
+        kamino_program
+    );
+
+    address
+}
+
+pub fn derive_reserve_liquidity_supply(
+    market: &Pubkey,
+    reserve_liquidity_mint: &Pubkey,
+    kamino_program: &Pubkey
+) -> Pubkey {
+    let (address, _) = find_program_address(
+        &[
+            b"reserve_liq_supply",
+            market.as_ref(), 
+            reserve_liquidity_mint.as_ref()
+        ], 
+        kamino_program
+    );
+
+    address
+}
+
+// ---------- deposit reserve liquidity and obligation collateral ----------
+
+#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
+pub struct DepositLiquidityV2Args {
+    pub liquidity_amount: u64
+}
+
+impl DepositLiquidityV2Args {
+    pub const LEN: usize = 8;
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash(
+        "global", 
+        "deposit_reserve_liquidity_and_obligation_collateral_v2"
+    );
+
+    pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
+        let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
+        serialized.extend_from_slice(&Self::DISCRIMINATOR);
+        
+        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        
+        Ok(serialized)
+    }
+}
+
+pub fn deposit_reserve_liquidity_v2_cpi(
+    liquidity_amount: u64,
+    signer: Signer,
+    owner: &AccountInfo,
+    obligation: &AccountInfo,
+    market: &AccountInfo,
+    market_authority: &AccountInfo,
+    reserve: &AccountInfo,
+    reserve_liquidity_mint: &AccountInfo,
+    reserve_liquidity_supply: &AccountInfo,
+    reserve_collateral_mint: &AccountInfo,
+    reserve_collateral_supply: &AccountInfo,
+    liquidity_source: &AccountInfo,
+    collateral_token_program: &AccountInfo,
+    liquidity_token_program: &AccountInfo,
+    instruction_sysvar_account: &AccountInfo,
+    obligation_farm_collateral: &AccountInfo,
+    reserve_farm_collateral: &AccountInfo,
+    farms_program: &AccountInfo,
+    kamino_program: &AccountInfo,
+) -> Result<(), ProgramError> {
+    let args_vec = DepositLiquidityV2Args {
+        liquidity_amount
+    }.to_vec().unwrap();
+
+    let data = args_vec.as_slice();
+
+    invoke_signed(
+        &Instruction { 
+            program_id: kamino_program.key(), 
+            data: &data, 
+            accounts: &[
+                // owner
+                AccountMeta::writable_signer(owner.key()),
+                // obligation
+                AccountMeta::writable(obligation.key()),
+                // lending market
+                AccountMeta::readonly(market.key()),
+                // market authority
+                AccountMeta::readonly(market_authority.key()),
+                // reserve
+                AccountMeta::writable(reserve.key()),
+                // reserve_liquidity_mint
+                AccountMeta::readonly(reserve_liquidity_mint.key()),
+                // reserve_liquidity_supply
+                AccountMeta::writable(reserve_liquidity_supply.key()),
+                // reserve_collateral_mint
+                AccountMeta::writable(reserve_collateral_mint.key()),
+                // reserve_destination_deposit_collateral
+                AccountMeta::writable(reserve_collateral_supply.key()),
+                // user_source_liquidity
+                AccountMeta::writable(liquidity_source.key()),
+                // placeholder_user_destination_collateral OPTIONAL
+                AccountMeta::readonly(kamino_program.key()),
+                // collateral_token_program
+                AccountMeta::readonly(collateral_token_program.key()),
+                // liquidity_token_program
+                AccountMeta::readonly(liquidity_token_program.key()),
+                // instruction_sysvar_account
+                AccountMeta::readonly(instruction_sysvar_account.key()),
+                // obligation_farm_user_state
+                AccountMeta::writable(obligation_farm_collateral.key()),
+                // reserve_farm_state
+                AccountMeta::writable(reserve_farm_collateral.key()),
+                // farms_program
+                AccountMeta::readonly(farms_program.key()),
+            ]
+        }, 
+        &[
+            owner,
+            obligation,
+            market,
+            market_authority,
+            reserve,
+            reserve_liquidity_mint,
+            reserve_liquidity_supply,
+            reserve_collateral_mint,
+            reserve_collateral_supply,
+            liquidity_source,
+            kamino_program,
+            collateral_token_program,
+            liquidity_token_program,
+            instruction_sysvar_account,
+            obligation_farm_collateral,
+            reserve_farm_collateral,
+            farms_program
+        ], 
+        &[signer]
     )?;
 
     Ok(())

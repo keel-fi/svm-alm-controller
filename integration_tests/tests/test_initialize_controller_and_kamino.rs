@@ -12,25 +12,48 @@ use svm_alm_controller_client::generated::types::{
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::pubkey;
-    use svm_alm_controller_client::generated::types::{InitializeArgs, KaminoConfig, ReserveStatus, UtilizationMarketConfig};
+    use solana_sdk::{clock::Clock, pubkey::Pubkey};
+    use svm_alm_controller_client::generated::types::{
+        InitializeArgs, KaminoConfig, PushArgs, ReserveStatus, UtilizationMarketConfig
+    };
 
     use super::*;
 
       use crate::{
-        helpers::constants::{KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_FARM_COLLATERAL}, subs::{derive_controller_authority_pda, derive_vanilla_obligation_address}
+        helpers::constants::{
+            KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_FARM_COLLATERAL, KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY}, 
+            subs::{
+                derive_controller_authority_pda, derive_vanilla_obligation_address, edit_ata_amount, initialize_ata, push_integration, refresh_obligation, refresh_reserve, transfer_tokens
+            }
     };
 
     #[tokio::test]
-    async fn initialize_controller_and_kamino() -> Result<(), Box<dyn std::error::Error>> {
+    async fn initialize_controller_and_kamino_integration() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
-        let usdc_mint = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+        let usdc_mint = USDC_TOKEN_MINT_PUBKEY;
 
         let authority = Keypair::new();
-
+        
         // Airdrop to payer
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+
+        // Create an ATA for the USDC account
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            &usdc_mint,
+        )?;
+        
+
+        // Cheat to give the authority some USDC
+        edit_ata_amount(
+            &mut svm,
+            &authority.pubkey(),
+            &usdc_mint,
+            1_000_000_000,
+        )?;
 
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
@@ -72,10 +95,20 @@ mod tests {
             1_000_000_000_000, // rate_limit_max_outflow
         )?;
 
+        // Transfer funds into the reserve
+        transfer_tokens(
+            &mut svm,
+            &authority,
+            &authority,
+            &usdc_mint,
+            &controller_authority,
+            1_000_000_000,
+        )?;
 
         let market = KAMINO_MAIN_MARKET;
         let reserve = KAMINO_USDC_RESERVE;
-        let reserve_farm = KAMINO_USDC_RESERVE_FARM_COLLATERAL;
+        let reserve_farm_collateral = KAMINO_USDC_RESERVE_FARM_COLLATERAL;
+        let reserve_farm_debt = Pubkey::default();
 
         let obligation_id = 0;
         // Initialize a kamino main market USDC Integration
@@ -86,7 +119,7 @@ mod tests {
             &KAMINO_LEND_PROGRAM_ID
         );
 
-        let _kamino_integration = initialize_integration(
+        let kamino_integration_pk = initialize_integration(
             &mut svm, 
             &controller_pk, 
             &authority, 
@@ -96,19 +129,51 @@ mod tests {
             1_000_000_000_000, 
             1_000_000_000_000, 
             &IntegrationConfig::UtilizationMarket(
-                UtilizationMarketConfig::KaminoConfig(KaminoConfig {
-                    market,
-                    reserve,
-                    reserve_farm,
-                    token_mint: usdc_mint,
-                    obligation,
-                    obligation_id
+                UtilizationMarketConfig::KaminoConfig(KaminoConfig { 
+                    market, 
+                    reserve, 
+                    reserve_farm_collateral,
+                    reserve_farm_debt,
+                    reserve_liquidity_mint: usdc_mint, 
+                    obligation, 
+                    obligation_id, 
+                    padding: [0; 30] 
                 })
             ), 
             &InitializeArgs::KaminoIntegration { obligation_id }
         )?;
 
+        // advance time to avoid math overflow in kamino refresh calls
+        let mut initial_clock = svm.get_sysvar::<Clock>();
+        initial_clock.unix_timestamp = 1754682844;
+        initial_clock.slot = 358753275;
+        svm.set_sysvar::<Clock>(&initial_clock);
 
+        // we refresh the reserve and the obligation
+        refresh_reserve(
+            &mut svm, 
+            &authority, 
+            &reserve, 
+            &market, 
+            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED
+        )?;
+
+        refresh_obligation(
+            &mut svm, 
+            &authority, 
+            &market, 
+            &obligation
+        )?;
+
+        // push the integration -- deposit reserve liquidity
+        let _ = push_integration(
+            &mut svm, 
+            &controller_pk, 
+            &kamino_integration_pk, 
+            &authority, 
+            &PushArgs::Kamino { amount: 1_000_000_000  } //1K
+        )
+        .await?;
 
         Ok(())
     }

@@ -5,13 +5,11 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::types::KaminoConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum UtilizationMarketConfig {
-    KaminoConfig(KaminoConfig),
-    Other,
+pub struct DepositLiquidityV2Args {
+    pub liquidity_amount: u64,
 }

@@ -8,12 +8,16 @@ pub struct KaminoConfig {
     pub market: Pubkey,
     /// the Kamino reserve, linked to token_mint
     pub reserve: Pubkey,
-    /// the reserve farm (can be Pubkey::default())
-    pub reserve_farm: Pubkey,
-    /// The mint that's pushed/pulled into/from market
-    pub token_mint: Pubkey,
+    /// the reserve farm collateral (can be Pubkey::default())
+    pub reserve_farm_collateral: Pubkey,
+    /// the reserve farm debt (can be Pubkey::default())
+    pub reserve_farm_debt: Pubkey,
+    /// The reserve liquidity mint 
+    pub reserve_liquidity_mint: Pubkey,
     /// The obligation, KaminoConfigs can share obligations
     pub obligation: Pubkey,
     /// obligation_id: helper for the UI?
     pub obligation_id: u8,
+    /// padding
+    pub _padding: [u8; 30]
 }

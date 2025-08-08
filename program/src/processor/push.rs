@@ -6,7 +6,7 @@ use crate::{
     integrations::{
         cctp_bridge::push::process_push_cctp_bridge, lz_bridge::push::process_push_lz_bridge,
         spl_token_external::push::process_push_spl_token_external,
-        spl_token_swap::push::process_push_spl_token_swap,
+        spl_token_swap::push::process_push_spl_token_swap, utilization_market::kamino::push::process_push_kamino,
     },
     state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
 };
@@ -23,7 +23,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct PushAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority: empty, @owner(pinocchio_system::ID);
+        controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
@@ -124,6 +124,16 @@ pub fn process_push(
                 &mut reserve_a,
                 &ctx,
                 &args,
+            )?;
+        }
+        PushArgs::Kamino { .. } => {
+            process_push_kamino(
+                &controller, 
+                &permission, 
+                &mut integration, 
+                &mut reserve_a, // TODO: ask about this
+                &ctx, 
+                &args
             )?;
         }
         _ => return Err(ProgramError::InvalidArgument),

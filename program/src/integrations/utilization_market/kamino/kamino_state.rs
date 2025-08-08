@@ -10,11 +10,13 @@ use crate::{integrations::utilization_market::kamino::{
 pub const RESERVE_SIZE: usize = 8616;
 pub const RESERVE_LENDING_MARKET_OFFSET: usize = 8 + 8 + 16;
 pub const FARM_COLLATERAL_OFFSET: usize = RESERVE_LENDING_MARKET_OFFSET + 32;
-pub const LIQUIDITY_MINT_OFFSET: usize = FARM_COLLATERAL_OFFSET + 32 + 32;
+pub const FARM_DEBT_OFFSET: usize = FARM_COLLATERAL_OFFSET + 32;
+pub const LIQUIDITY_MINT_OFFSET: usize = FARM_DEBT_OFFSET + 32;
 
 pub struct Reserve {
     pub lending_market: Pubkey,
     pub farm_collateral: Pubkey,
+    pub farm_debt: Pubkey,
     pub liquidity_mint: Pubkey,
 }
 
@@ -40,11 +42,15 @@ impl<'a> TryFrom<&'a [u8]> for Reserve {
             &data[FARM_COLLATERAL_OFFSET .. FARM_COLLATERAL_OFFSET + 32]
         ).map_err(|_| ProgramError::InvalidAccountData)?;
 
+        let farm_debt = Pubkey::try_from(
+            &data[FARM_DEBT_OFFSET .. FARM_DEBT_OFFSET + 32]
+        ).map_err(|_| ProgramError::InvalidAccountData)?;
+
         let liquidity_mint = Pubkey::try_from(
             &data[LIQUIDITY_MINT_OFFSET .. LIQUIDITY_MINT_OFFSET + 32]
         ).map_err(|_| ProgramError::InvalidAccountData)?;
 
-        Ok(Self { lending_market, farm_collateral, liquidity_mint })
+        Ok(Self { lending_market, farm_collateral, farm_debt, liquidity_mint })
     }
 }
 
@@ -64,13 +70,18 @@ impl Reserve {
             return Err(ProgramError::InvalidAccountData)
         }
 
-        if &self.liquidity_mint != inner_ctx.token_mint.key() {
+        if &self.liquidity_mint != inner_ctx.reserve_liquidity_mint.key() {
             msg! {"reserve: invalid reserve, liquidity mint does not match"}
             return Err(ProgramError::InvalidAccountData)
         }
 
-        if &self.farm_collateral != inner_ctx.reserve_farm.key() {
+        if &self.farm_collateral != inner_ctx.reserve_farm_collateral.key() {
             msg! {"reserve: farm collateral does not match reserve farm"}
+            return Err(ProgramError::InvalidAccountData)
+        }
+
+        if &self.farm_debt != inner_ctx.reserve_farm_debt.key() {
+            msg! {"reserve: farm debt does not match reserve farm"}
             return Err(ProgramError::InvalidAccountData)
         }
 
@@ -79,6 +90,10 @@ impl Reserve {
 
     pub fn has_collateral_farm(&self) -> bool {
         self.farm_collateral != Pubkey::default()
+    }
+
+    pub fn has_debt_farm(&self) -> bool {
+        self.farm_debt != Pubkey::default()
     }
 }
 
@@ -180,7 +195,7 @@ mod tests {
         let lending_market = pubkey!("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
         let farm_collateral = pubkey!("955xWFhSDcDiUgUr4sBRtCpTLiMd4H5uZLAmgtP3R3sX");
         let liquidity_mint = pubkey!("So11111111111111111111111111111111111111112");
-
+        let farm_debt = pubkey!("11111111111111111111111111111111");
 
         let raw = bs64.decode(RAW_SOL_RESERVE_B64).expect("Invalid base 64 string");
 
@@ -189,6 +204,7 @@ mod tests {
         assert_eq!(reserve.farm_collateral, farm_collateral);
         assert_eq!(reserve.lending_market, lending_market);
         assert_eq!(reserve.liquidity_mint, liquidity_mint);
+        assert_eq!(reserve.farm_debt, farm_debt);
     }
 
     #[test]
