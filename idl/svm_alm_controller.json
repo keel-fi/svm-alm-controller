@@ -979,6 +979,10 @@
             "type": "u64"
           },
           {
+            "name": "rateLimitRemainder",
+            "type": "u64"
+          },
+          {
             "name": "lastRefreshTimestamp",
             "type": "i64"
           },
@@ -1003,7 +1007,7 @@
             "type": {
               "array": [
                 "u8",
-                64
+                56
               ]
             }
           }
@@ -1161,6 +1165,10 @@
             "type": "u64"
           },
           {
+            "name": "rateLimitRemainder",
+            "type": "u64"
+          },
+          {
             "name": "lastBalance",
             "type": "u64"
           },
@@ -1177,7 +1185,7 @@
             "type": {
               "array": [
                 "u8",
-                128
+                120
               ]
             }
           }

@@ -4,7 +4,7 @@ use super::{
     Controller,
 };
 use crate::{
-    constants::RESERVE_SEED,
+    constants::{RESERVE_SEED, SECONDS_PER_DAY},
     enums::ReserveStatus,
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -21,8 +21,6 @@ use pinocchio::{
 };
 use pinocchio_token_interface::TokenAccount;
 use shank::ShankAccount;
-
-const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
 /// The Reserve account manages a specific TokenAccount ultimately owned by a specific Controller's
 /// authority PDA. The Reserve enforces certain policies like outflow rate limiting.
@@ -43,13 +41,18 @@ pub struct Reserve {
     pub rate_limit_max_outflow: u64,
     /// The current amount of tokens able to outflow on a rolling window basis
     pub rate_limit_outflow_amount_available: u64,
+    /// Remainder from previous refresh. This is necessary to avoid DOS
+    /// of the Reserve via the rate limit when the `rate_limit_max_outflow`
+    /// is set to a low value requiring longer time lapses before incrementing
+    /// the available outflow amount.
+    pub rate_limit_remainder: u64,
     /// The last recorded balance of the Reserve's vault TokenAccount
     pub last_balance: u64,
     /// Timestamp when the Reserve was last updated
     pub last_refresh_timestamp: i64,
     /// The Solana slot where the Reserve was last updated
     pub last_refresh_slot: u64,
-    pub _padding: [u8; 128],
+    pub _padding: [u8; 120],
 }
 
 impl Discriminator for Reserve {
@@ -132,7 +135,8 @@ impl Reserve {
             last_balance: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 128],
+            rate_limit_remainder: 0,
+            _padding: [0; 120],
         };
         // Derive the PDA
         let (pda, bump) = reserve.derive_pda()?;
@@ -193,22 +197,30 @@ impl Reserve {
     /// Refresh the rate limit amount based on the slope and the time since the last refresh.
     /// If the rate limit is set to `u64::MAX`, it will not refresh.
     pub fn refresh_rate_limit(&mut self, clock: Clock) -> Result<(), ProgramError> {
-        if self.rate_limit_max_outflow == u64::MAX
-            || self.last_refresh_timestamp == clock.unix_timestamp
+        if self.rate_limit_max_outflow != u64::MAX
+            && self.last_refresh_timestamp != clock.unix_timestamp
         {
-            () // Do nothing
-        } else {
-            let increment = (self.rate_limit_slope as u128
-                * clock
-                    .unix_timestamp
-                    .checked_sub(self.last_refresh_timestamp)
-                    .unwrap() as u128
-                / SECONDS_PER_DAY as u128) as u64;
+            let time_passed = clock
+                .unix_timestamp
+                .checked_sub(self.last_refresh_timestamp)
+                .unwrap();
+            // Calculate the amount of units that accrued via lapsed time.
+            // Carries the remainder over from the last time this ran to
+            // prevent precision errors that could lead to DOS.
+            let accrued_units = u128::from(self.rate_limit_slope)
+                .checked_mul(time_passed as u128)
+                .unwrap()
+                .checked_add(self.rate_limit_remainder as u128)
+                .unwrap();
+            let increment = (accrued_units / SECONDS_PER_DAY as u128) as u64;
+            let remainder = (accrued_units % SECONDS_PER_DAY as u128) as u64;
             self.rate_limit_outflow_amount_available = self
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
+            self.rate_limit_remainder = remainder;
         }
+
         self.last_refresh_timestamp = clock.unix_timestamp;
         self.last_refresh_slot = clock.slot;
         Ok(())

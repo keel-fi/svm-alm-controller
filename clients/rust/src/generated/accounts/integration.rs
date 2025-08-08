@@ -31,12 +31,13 @@ pub struct Integration {
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
     pub rate_limit_outflow_amount_available: u64,
+    pub rate_limit_remainder: u64,
     pub last_refresh_timestamp: i64,
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,
     pub state: IntegrationState,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 64],
+    pub padding: [u8; 56],
 }
 
 impl Integration {

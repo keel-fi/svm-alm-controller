@@ -44,6 +44,11 @@ pub struct Integration {
     pub rate_limit_max_outflow: u64,
     /// The current amount of tokens able to outflow (i.e. Integration "Pushes") on a rolling window basis
     pub rate_limit_outflow_amount_available: u64,
+    /// Remainder from previous refresh. This is necessary to avoid DOS
+    /// of the Reserve via the rate limit when the `rate_limit_max_outflow`
+    /// is set to a low value requiring longer time lapses before incrementing
+    /// the available outflow amount.
+    pub rate_limit_remainder: u64,
     /// Timestamp when the Integration was last updated
     pub last_refresh_timestamp: i64,
     /// The Solana slot where the Integration was last updated
@@ -52,7 +57,7 @@ pub struct Integration {
     pub config: IntegrationConfig,
     /// Integration specific state (i.e. LP balances)
     pub state: IntegrationState,
-    pub _padding: [u8; 64],
+    pub _padding: [u8; 56],
 }
 
 impl Discriminator for Integration {
@@ -143,9 +148,10 @@ impl Integration {
             rate_limit_slope,
             rate_limit_max_outflow,
             rate_limit_outflow_amount_available: rate_limit_max_outflow,
+            rate_limit_remainder: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 64],
+            _padding: [0; 56],
         };
 
         // Derive the PDA
@@ -217,22 +223,30 @@ impl Integration {
     }
 
     pub fn refresh_rate_limit(&mut self, clock: Clock) -> Result<(), ProgramError> {
-        if self.rate_limit_max_outflow == u64::MAX
-            || self.last_refresh_timestamp == clock.unix_timestamp
+        if self.rate_limit_max_outflow != u64::MAX
+            && self.last_refresh_timestamp != clock.unix_timestamp
         {
-            () // Do nothing
-        } else {
-            let increment = (self.rate_limit_slope as u128
-                * clock
-                    .unix_timestamp
-                    .checked_sub(self.last_refresh_timestamp)
-                    .unwrap() as u128
-                / SECONDS_PER_DAY as u128) as u64;
+            let time_passed = clock
+                .unix_timestamp
+                .checked_sub(self.last_refresh_timestamp)
+                .unwrap();
+            // Calculate the amount of units that accrued via lapsed time.
+            // Carries the remainder over from the last time this ran to
+            // prevent precision errors that could lead to DOS.
+            let accrued_units = u128::from(self.rate_limit_slope)
+                .checked_mul(time_passed as u128)
+                .unwrap()
+                .checked_add(self.rate_limit_remainder as u128)
+                .unwrap();
+            let increment = (accrued_units / SECONDS_PER_DAY as u128) as u64;
+            let remainder = (accrued_units % SECONDS_PER_DAY as u128) as u64;
             self.rate_limit_outflow_amount_available = self
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
+            self.rate_limit_remainder = remainder;
         }
+
         self.last_refresh_timestamp = clock.unix_timestamp;
         self.last_refresh_slot = clock.slot;
         Ok(())
