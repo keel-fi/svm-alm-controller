@@ -49,7 +49,8 @@ pub fn process_manage_integration(
 
     let ctx = ManageIntegrationAccounts::checked_from_accounts(accounts)?;
     // // Deserialize the args
-    let args = ManageIntegrationArgs::try_from_slice(instruction_data).unwrap();
+    let args = ManageIntegrationArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;

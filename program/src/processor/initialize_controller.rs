@@ -6,7 +6,7 @@ use crate::{
     state::{Controller, Permission},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 
 define_account_struct! {
     pub struct InitializeControllerAccounts<'info> {
@@ -30,7 +30,8 @@ pub fn process_initialize_controller(
     let ctx = InitializeControllerAccounts::from_accounts(accounts)?;
 
     // // Deserialize the args
-    let args = InitializeControllerArgs::try_from_slice(instruction_data).unwrap();
+    let args = InitializeControllerArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Initialize the controller data
     let controller = Controller::init_account(

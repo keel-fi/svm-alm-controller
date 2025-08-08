@@ -17,14 +17,14 @@ use pinocchio::{
 };
 use shank::ShankAccount;
 
-/// Integrations enable controlled interactions with third-party DeFi protocols, however there are also 
+/// Integrations enable controlled interactions with third-party DeFi protocols, however there are also
 /// a number of `Integration` “special cases” — namely, to support:
 /// - Transferring balances to an external wallet
 /// - Facilitating atomic swapping between tokens
 /// - Bridging specific tokens using canonical bridges (CCTP, LayerZero OFT)
-/// 
-/// Integration accounts stores the necessary use-case specific configurations to enforce account contexts in 
-/// CPIs to the relevant third party protocol(s), and stores the data necessary to support Integration-level 
+///
+/// Integration accounts stores the necessary use-case specific configurations to enforce account contexts in
+/// CPIs to the relevant third party protocol(s), and stores the data necessary to support Integration-level
 /// rate limiting, and use-case specific data to facilitate accounting.
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
@@ -93,7 +93,8 @@ impl Integration {
         }
         // Check PDA
 
-        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;
         Ok(integration)
@@ -107,8 +108,8 @@ impl Integration {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let integration: Self =
-            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;
         Ok(integration)
@@ -205,7 +206,8 @@ impl Integration {
                 .unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
             // Reset the rate_limit_outflow_amount_available such that the gap from the max remains the same
-            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow.saturating_sub(gap);
+            self.rate_limit_outflow_amount_available =
+                self.rate_limit_max_outflow.saturating_sub(gap);
         }
 
         // Commit the account on-chain
@@ -226,7 +228,7 @@ impl Integration {
                     .checked_sub(self.last_refresh_timestamp)
                     .unwrap() as u128
                 / SECONDS_PER_DAY as u128) as u64;
-            self.rate_limit_outflow_amount_available  = self
+            self.rate_limit_outflow_amount_available = self
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
@@ -248,7 +250,9 @@ impl Integration {
             return Err(ProgramError::InvalidArgument);
         }
         // Cap the rate_limit_outflow_amount_available at the rate_limit_max_outflow
-        let v = self.rate_limit_outflow_amount_available.saturating_add(inflow);
+        let v = self
+            .rate_limit_outflow_amount_available
+            .saturating_add(inflow);
         if v > self.rate_limit_max_outflow {
             // Cannot daily max outflow
             self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow;

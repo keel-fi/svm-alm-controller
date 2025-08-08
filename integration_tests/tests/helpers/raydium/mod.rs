@@ -96,7 +96,7 @@ pub fn setup_amm(
         &coin_mint_address,
         &amm_authority,
         coin_liquidity_amount,
-        &SPL_TOKEN_PROGRAM_ID,
+        &coin_acct.owner,
         coin_native,
     );
     let (pc_vault_address, _bump_seed) = Pubkey::find_program_address(
@@ -119,7 +119,7 @@ pub fn setup_amm(
         &pc_mint_address,
         &amm_authority,
         pc_liquidity_amount,
-        &SPL_TOKEN_PROGRAM_ID,
+        &pc_acct.owner,
         pc_native,
     );
 
@@ -139,6 +139,8 @@ pub fn setup_amm(
         &lp_mint_address,
         coin_mint.decimals,
         &amm_authority,
+        // LP Token should always be SPL Token
+        &SPL_TOKEN_PROGRAM_ID,
     );
 
     let sys_decimal_value = if pc_mint.decimals > coin_mint.decimals {

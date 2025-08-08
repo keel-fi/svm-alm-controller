@@ -31,7 +31,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-
     async fn initialize_controller_and_cctp() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -93,6 +92,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
         )?;
 
         // Transfer funds into the reserve

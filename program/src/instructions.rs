@@ -32,7 +32,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, name = "program_id")]
     ManageController(ManageControllerArgs),
-  
+
     /// Initialize or manage a permission account
     #[account(0, writable, signer, name = "payer")]
     #[account(1, name = "controller")]
@@ -81,7 +81,6 @@ pub enum SvmAlmControllerInstruction {
     #[account(8, name = "system_program")]
     InitializeIntegration(InitializeIntegrationArgs),
 
-  
     /// Manage an integration account
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
@@ -98,8 +97,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, writable, name = "reserve")]
-    #[account(3, name = "mint")]
-    #[account(4, name = "vault")]
+    #[account(3, name = "vault")]
     SyncReserve(SyncReserveArgs),
 
     /// SyncIntegration
@@ -159,13 +157,14 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "vault_a")]
-    #[account(7, writable, name = "reserve_b")]
-    #[account(8, name = "vault_b")]
-    #[account(9, writable, name = "recipient_token_account_a")]
-    #[account(10, writable, name = "recipient_token_account_b")]
-    #[account(11, name = "token_program")]
-    #[account(12, name = "sysvar_instruction")]
-    #[account(13, name = "program_id")]
+    #[account(7, name = "mint_a")]
+    #[account(8, writable, name = "reserve_b")]
+    #[account(9, name = "vault_b")]
+    #[account(10, writable, name = "recipient_token_account_a")]
+    #[account(11, writable, name = "recipient_token_account_b")]
+    #[account(12, name = "token_program_a")]
+    #[account(13, name = "sysvar_instruction")]
+    #[account(14, name = "program_id")]
     AtomicSwapBorrow(AtomicSwapBorrowArgs),
 
     /// Atomic swap repay
@@ -176,13 +175,16 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "vault_a")]
-    #[account(7, writable, name = "reserve_b")]
-    #[account(8, writable, name = "vault_b")]
-    #[account(9, name = "oracle")]
-    #[account(10, writable, name = "payer_account_a")]
-    #[account(11, writable, name = "payer_account_b")]
-    #[account(12, name = "token_program")]
-    AtomicSwapRepay(),
+    #[account(7, name = "mint_a")]
+    #[account(8, writable, name = "reserve_b")]
+    #[account(9, writable, name = "vault_b")]
+    #[account(10, name = "mint_b")]
+    #[account(11, name = "oracle")]
+    #[account(12, writable, name = "payer_account_a")]
+    #[account(13, writable, name = "payer_account_b")]
+    #[account(14, name = "token_program_a")]
+    #[account(15, name = "token_program_b")]
+    AtomicSwapRepay,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -234,10 +236,9 @@ pub struct InitializeIntegrationArgs {
     pub inner_args: InitializeArgs,
 }
 
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct ManageControllerArgs {
-    pub status: ControllerStatus
+    pub status: ControllerStatus,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

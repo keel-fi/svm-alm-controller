@@ -18,11 +18,11 @@ use pinocchio::{
     program_error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::{self, state::TokenAccount};
+use pinocchio_token_interface::TokenAccount;
 
 define_account_struct! {
     pub struct PushCctpBridgeAccounts<'info> {
-        mint: @owner(pinocchio_token::ID);
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         vault;
         sender_authority_pda;
         message_transmitter;
@@ -34,7 +34,7 @@ define_account_struct! {
         cctp_message_transmitter;
         cctp_token_messenger_minter;
         event_authority;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         system_program: @pubkey(pinocchio_system::ID);
     }
 }
@@ -122,8 +122,8 @@ pub fn process_push_cctp_bridge(
     };
 
     // Load in the CCTP Local Token Account and verify the mint matches
-    let local_mint =
-        LocalToken::deserialize(&mut &*inner_ctx.local_token.try_borrow_data()?).unwrap();
+    let local_mint = LocalToken::deserialize(&mut &*inner_ctx.local_token.try_borrow_data()?)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
     if local_mint.mint.ne(inner_ctx.mint.key()) {
         msg! {"mint: does not match local_mint state"};
         return Err(ProgramError::InvalidAccountData);
@@ -133,7 +133,7 @@ pub fn process_push_cctp_bridge(
     let remote_token_messenger = RemoteTokenMessenger::deserialize(
         &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?,
     )
-    .unwrap();
+    .map_err(|_| ProgramError::InvalidAccountData)?;
     if remote_token_messenger.domain.ne(&destination_domain) {
         msg! {"desination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);

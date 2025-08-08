@@ -93,7 +93,8 @@ impl Oracle {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         oracle.verify_pda(account_info)?;
         Ok(oracle)
     }
@@ -103,7 +104,8 @@ impl Oracle {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         oracle.verify_pda(account_info)?;
         Ok(oracle)
     }

@@ -115,6 +115,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID
         )?;
 
         // Transfer funds into the reserve

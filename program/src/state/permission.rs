@@ -54,7 +54,7 @@ impl Discriminator for Permission {
 }
 
 impl NovaAccount for Permission {
-    const LEN: usize = 65 + 7 + 32; 
+    const LEN: usize = 65 + 7 + 32;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -88,7 +88,8 @@ impl Permission {
         }
         // Check PDA
 
-        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
@@ -103,8 +104,8 @@ impl Permission {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let permission: Self =
-            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)

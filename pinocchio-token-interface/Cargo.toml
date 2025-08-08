@@ -1,0 +1,14 @@
+[package]
+name = "pinocchio-token-interface"
+version = { workspace = true }
+edition = { workspace = true }
+description = "A crate that allows the seamless deserialization of Token/Token2022 data structures."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+pinocchio = { workspace = true }
+pinocchio-pubkey = { workspace = true }
+pinocchio-token = { workspace = true }
+pinocchio-token2022 = { workspace = true }

@@ -7,7 +7,7 @@ use spl_associated_token_account_client::address::get_associated_token_address_w
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::Reserve,
-    instructions::{InitializeReserveBuilder, ManageReserveBuilder},
+    instructions::{InitializeReserveBuilder, ManageReserveBuilder, SyncReserveBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
     types::ReserveStatus,
 };
@@ -54,6 +54,7 @@ pub fn initialize_reserve(
     status: ReserveStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
+    token_program: &Pubkey,
 ) -> Result<ReserveKeys, Box<dyn Error>> {
     let calling_permission_pda: Pubkey = derive_permission_pda(controller, &authority.pubkey());
 
@@ -64,7 +65,7 @@ pub fn initialize_reserve(
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         mint,
-        &pinocchio_token::ID.into(),
+        token_program,
     );
 
     let ixn = InitializeReserveBuilder::new()
@@ -79,7 +80,7 @@ pub fn initialize_reserve(
         .reserve(reserve_pda)
         .mint(*mint)
         .vault(vault)
-        .token_program(pinocchio_token::ID.into())
+        .token_program(*token_program)
         .associated_token_program(pinocchio_associated_token_account::ID.into())
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
@@ -93,7 +94,12 @@ pub fn initialize_reserve(
     );
 
     let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
+    match tx_result {
+        Ok(_res) => {},
+        Err(e) => {
+            panic!("Transaction errored\n{:?}", e.meta.logs);
+        }
+    }
 
     let reserve =
         fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
@@ -189,5 +195,40 @@ pub fn manage_reserve(
         "Controller does not match expected value"
     );
 
+    Ok(())
+}
+
+pub fn sync_reserve(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    mint: &Pubkey,
+    payer: &Keypair,
+) -> Result<(), Box<dyn Error>> {
+    let controller_authority = derive_controller_authority_pda(controller);
+    let reserve_pda = derive_reserve_pda(controller, mint);
+    let reserve = fetch_reserve_account(svm, &reserve_pda)?.unwrap();
+
+    let ixn = SyncReserveBuilder::new()
+        .controller(*controller)
+        .controller_authority(controller_authority)
+        .reserve(reserve_pda)
+        .vault(reserve.vault)
+        .instruction();
+
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+
+    let tx_result = svm.send_transaction(txn);
+    match tx_result {
+        Ok(_res) => {},
+        Err(e) => {
+            panic!("Transaction errored\n{:?}", e.meta.logs);
+        }
+    }
     Ok(())
 }

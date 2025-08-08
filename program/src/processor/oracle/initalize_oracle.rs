@@ -1,6 +1,6 @@
 use crate::{define_account_struct, instructions::InitializeOracleArgs, state::Oracle};
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 
 define_account_struct! {
     pub struct InitializeOracle<'info> {
@@ -19,7 +19,8 @@ pub fn process_initialize_oracle(
 ) -> ProgramResult {
     msg!("initialize_oracle");
     let ctx = InitializeOracle::from_accounts(accounts)?;
-    let args = InitializeOracleArgs::try_from_slice(instruction_data).unwrap();
+    let args = InitializeOracleArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Validate that oracle_type matches price feed.
     Oracle::verify_oracle_type(args.oracle_type, ctx.price_feed)?;

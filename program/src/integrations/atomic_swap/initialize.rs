@@ -12,7 +12,7 @@ use pinocchio::{
     pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::state::Mint;
+use pinocchio_token_interface::Mint;
 
 define_account_struct! {
     pub struct InitializeAtomicSwapAccounts<'info> {

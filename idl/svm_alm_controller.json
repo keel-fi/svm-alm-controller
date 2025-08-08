@@ -437,11 +437,6 @@
           "isSigner": false
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "vault",
           "isMut": false,
           "isSigner": false
@@ -750,6 +745,11 @@
           "isSigner": false
         },
         {
+          "name": "mintA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "reserveB",
           "isMut": true,
           "isSigner": false
@@ -770,7 +770,7 @@
           "isSigner": false
         },
         {
-          "name": "tokenProgram",
+          "name": "tokenProgramA",
           "isMut": false,
           "isSigner": false
         },
@@ -837,6 +837,11 @@
           "isSigner": false
         },
         {
+          "name": "mintA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "reserveB",
           "isMut": true,
           "isSigner": false
@@ -844,6 +849,11 @@
         {
           "name": "vaultB",
           "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mintB",
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -862,7 +872,12 @@
           "isSigner": false
         },
         {
-          "name": "tokenProgram",
+          "name": "tokenProgramA",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgramB",
           "isMut": false,
           "isSigner": false
         }

@@ -6,7 +6,7 @@ use crate::{
     state::{nova_account::NovaAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
 
 define_account_struct! {
     pub struct ManageReserveAccounts<'info> {
@@ -28,7 +28,8 @@ pub fn process_manage_reserve(
 
     let ctx = ManageReserveAccounts::from_accounts(accounts)?;
 
-    let args = ManageReserveArgs::try_from_slice(instruction_data).unwrap();
+    let args = ManageReserveArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;

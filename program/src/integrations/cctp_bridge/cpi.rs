@@ -22,7 +22,8 @@ impl DepositForBurnArgs {
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized).unwrap();
+        BorshSerialize::serialize(self, &mut serialized)
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
         Ok(serialized)
     }
 }
@@ -54,8 +55,7 @@ pub fn deposit_for_burn_cpi(
         destination_domain: destination_domain,
         mint_recipient: mint_recipient,
     }
-    .to_vec()
-    .unwrap();
+    .to_vec()?;
     let data = args_vec.as_slice();
     invoke_signed(
         &Instruction {

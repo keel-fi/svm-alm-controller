@@ -16,7 +16,7 @@ use pinocchio::{
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token_interface::instructions::TransferChecked;
 use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
@@ -45,10 +45,8 @@ impl NovaAccount for Controller {
 
 impl Controller {
     pub fn derive_pda_bytes(id: u16) -> Result<(Pubkey, u8), ProgramError> {
-        try_find_program_address(
-            &[CONTROLLER_SEED, id.to_le_bytes().as_ref()],
-            &crate::ID,
-        ).ok_or(ProgramError::InvalidSeeds)
+        try_find_program_address(&[CONTROLLER_SEED, id.to_le_bytes().as_ref()], &crate::ID)
+            .ok_or(ProgramError::InvalidSeeds)
     }
 
     pub fn derive_authority(controller: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
@@ -64,7 +62,8 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
         Ok(controller)
     }
@@ -74,8 +73,8 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::IncorrectProgramId);
         }
-        let controller: Self =
-            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
         Ok(controller)
     }
@@ -139,17 +138,16 @@ impl Controller {
     pub fn update_and_save(
         &mut self,
         account_info: &AccountInfo,
-        status: ControllerStatus
+        status: ControllerStatus,
     ) -> Result<(), ProgramError> {
-
         // No change will take place
         if self.status == status {
             return Err(ProgramError::InvalidArgument.into());
         }
 
-        // Update the status, 
+        // Update the status,
         self.status = status;
-    
+
         // Commit the account on-chain
         self.save(account_info)?;
 
@@ -186,13 +184,19 @@ impl Controller {
         controller_authority: &AccountInfo,
         vault: &AccountInfo,
         recipient_token_account: &AccountInfo,
+        mint: &AccountInfo,
         amount: u64,
+        decimals: u8,
+        token_program: &Pubkey,
     ) -> Result<(), ProgramError> {
-        Transfer {
+        TransferChecked {
             from: vault,
             to: recipient_token_account,
+            mint,
             authority: controller_authority,
             amount,
+            decimals,
+            token_program,
         }
         .invoke_signed(&[Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),

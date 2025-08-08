@@ -11,7 +11,7 @@ use pinocchio::{
     },
     ProgramResult,
 };
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::{Mint, TokenAccount};
 
 use crate::{
     constants::{
@@ -36,11 +36,12 @@ define_account_struct! {
         integration: mut;
         reserve_a: mut;
         vault_a: mut;
+        mint_a;
         reserve_b: mut;
         vault_b;
         recipient_token_account_a: mut;
         recipient_token_account_b: mut;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program_a: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
         program_id: @pubkey(crate::ID);
     }
@@ -112,8 +113,8 @@ pub fn process_atomic_swap_borrow(
 ) -> ProgramResult {
     msg!("atomic_swap_borrow");
     let ctx = AtomicSwapBorrow::from_accounts(accounts)?;
-    let args: AtomicSwapBorrowArgs =
-        AtomicSwapBorrowArgs::try_from_slice(instruction_data).unwrap();
+    let args: AtomicSwapBorrowArgs = AtomicSwapBorrowArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
@@ -133,7 +134,7 @@ pub fn process_atomic_swap_borrow(
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
-    if reserve_a.vault != *ctx.vault_a.key() {
+    if reserve_a.vault.ne(ctx.vault_a.key()) || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     if reserve_a.status != ReserveStatus::Active {
@@ -141,7 +142,7 @@ pub fn process_atomic_swap_borrow(
     }
 
     let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
-    if reserve_b.vault != *ctx.vault_b.key() {
+    if reserve_b.vault.ne(ctx.vault_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     if reserve_b.status != ReserveStatus::Active {
@@ -209,12 +210,16 @@ pub fn process_atomic_swap_borrow(
         }
 
         // Transfer borrow amount of tokens from vault to recipient.
+        let mint_a = Mint::from_account_info(ctx.mint_a)?;
         controller.transfer_tokens(
             ctx.controller,
             ctx.controller_authority,
             ctx.vault_a,
             ctx.recipient_token_account_a,
+            ctx.mint_a,
             args.amount,
+            mint_a.decimals(),
+            ctx.token_program_a.key(),
         )?;
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
@@ -227,6 +232,8 @@ pub fn process_atomic_swap_borrow(
         ctx.recipient_token_account_b.key(),
     )?;
 
+    // NOTE: ok to use the amount from arguments as not Token Extension
+    // configuration sends more or less than the requested amount.
     reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
     reserve_b.save(ctx.reserve_b)?;

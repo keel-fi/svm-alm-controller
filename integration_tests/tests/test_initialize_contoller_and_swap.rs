@@ -35,10 +35,28 @@ mod tests {
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
 
         // Initialize a mint
-        let usds_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
+        let usds_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
 
         // Initialize a mint
-        let susds_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
+        let susds_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
 
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
@@ -77,6 +95,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
         )?;
 
         // Initialize a reserve for the sUSDS token
@@ -89,6 +108,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
         )?;
 
         // Mint a supply of both tokens to the authority -- needed to init the swap

@@ -6,7 +6,7 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_token::{instructions::Transfer, state::TokenAccount};
+use pinocchio_token_interface::{instructions::TransferChecked, Mint, TokenAccount};
 
 use crate::{
     constants::BPS_DENOMINATOR,
@@ -25,12 +25,15 @@ define_account_struct! {
         integration: mut;
         reserve_a: mut;
         vault_a: mut;
+        mint_a;
         reserve_b: mut;
         vault_b: mut;
+        mint_b;
         oracle;
         payer_account_a: mut;
         payer_account_b: mut;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program_a: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        token_program_b: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }
 }
 
@@ -53,18 +56,23 @@ pub fn process_atomic_swap_repay(
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
-    if reserve_a.vault != *ctx.vault_a.key() {
+    if reserve_a.vault != *ctx.vault_a.key() || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
-    if reserve_b.vault != *ctx.vault_b.key() {
+    if reserve_b.vault != *ctx.vault_b.key() || reserve_b.mint.ne(ctx.mint_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    // Amount over the users previous balance that still exists
     let mut excess_token_a = 0;
-
+    // Amount that the Reserve received as repayment
+    let mut balance_a_delta = 0;
+    // Amount that the Reserve received as repayment
+    let mut balance_b_delta = 0;
+    // Amount of Token B that the user accumulated between borrow & repay stages.
     let amount;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
@@ -104,30 +112,51 @@ pub fn process_atomic_swap_repay(
                 excess_token_a = payer_account_a
                     .amount()
                     .saturating_sub(state.recipient_token_a_pre);
-                // Calculate the final amount of token A that that external wallet spent.
-                // This is used for final slippage calculations.
-                final_input_amount = final_input_amount.saturating_sub(excess_token_a);
             }
         }
 
         // Transfer tokens to vault for repayment.
         if excess_token_a > 0 {
-            Transfer {
+            let balance_before = TokenAccount::from_account_info(ctx.vault_a)?.amount();
+            let mint_a = Mint::from_account_info(ctx.mint_a)?;
+            TransferChecked {
                 from: ctx.payer_account_a,
                 to: ctx.vault_a,
+                mint: ctx.mint_a,
                 authority: ctx.payer,
                 amount: excess_token_a,
+                decimals: mint_a.decimals(),
+                token_program: ctx.token_program_a.key(),
             }
             .invoke()?;
+            let balance_after = TokenAccount::from_account_info(ctx.vault_a)?.amount();
+            // Calculate the amount that was received by the Reserve. This accounts for
+            // a Transfer that has TransferFees enabled.
+            balance_a_delta = balance_after.checked_sub(balance_before).expect("overflow");
+            // Calculate the final amount the user spent from the Vault.
+            // Saturating sub used in the ~unlikely~ event the change in balance is
+            // greater than the amount borrowed.
+            final_input_amount = state.amount_borrowed.saturating_sub(balance_a_delta);
         }
 
-        Transfer {
+        let balance_b_before = TokenAccount::from_account_info(ctx.vault_b)?.amount();
+        let mint_b = Mint::from_account_info(ctx.mint_b)?;
+        TransferChecked {
             from: ctx.payer_account_b,
             to: ctx.vault_b,
+            mint: ctx.mint_b,
             authority: ctx.payer,
             amount,
+            decimals: mint_b.decimals(),
+            token_program: ctx.token_program_b.key(),
         }
         .invoke()?;
+        let balance_b_after = TokenAccount::from_account_info(ctx.vault_b)?.amount();
+        // Calculate the amount that was received by the Reserve. This accounts for
+        // a Transfer that has TransferFees enabled.
+        balance_b_delta = balance_b_after
+            .checked_sub(balance_b_before)
+            .expect("overflow");
 
         let oracle = Oracle::load_and_check(ctx.oracle)?;
 
@@ -140,7 +169,7 @@ pub fn process_atomic_swap_repay(
         check_swap_slippage(
             final_input_amount,
             cfg.input_mint_decimals,
-            amount,
+            balance_b_delta,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
             oracle.value,
@@ -154,12 +183,13 @@ pub fn process_atomic_swap_repay(
     }
 
     // Update for rate limits and save.
-    reserve_a.update_for_inflow(clock, excess_token_a)?;
+    reserve_a.update_for_inflow(clock, balance_a_delta)?;
     reserve_a.save(ctx.reserve_a)?;
-    reserve_b.update_for_inflow(clock, amount)?;
+    reserve_b.update_for_inflow(clock, balance_b_delta)?;
     reserve_b.save(ctx.reserve_b)?;
 
-    integration.update_rate_limit_for_inflow(clock, excess_token_a)?;
+    // Credit the Integration with the amount of Token A repaid.
+    integration.update_rate_limit_for_inflow(clock, balance_a_delta)?;
     integration.save(ctx.integration)?;
 
     Ok(())
@@ -215,7 +245,9 @@ fn check_swap_slippage(
     if input_amount == 0 {
         return Ok(());
     } else if output_amount == 0 {
-        return Err(ProgramError::InvalidArgument);
+        // Error with insufficient funds as we're using the wallets
+        // change in balance
+        return Err(ProgramError::InsufficientFunds);
     }
 
     let swap_price = calc_swap_price(

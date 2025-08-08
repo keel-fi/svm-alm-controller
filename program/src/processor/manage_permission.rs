@@ -104,7 +104,7 @@ fn suspend_permission(
     // Load the permission account
     let mut permission =
         Permission::load_and_check_mut(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    
+
     // A Permission with `can_suspend_permissions` cannot suspend Permissions
     // that can manage other permissions. This is to prevent a scenario where
     // All Permissions with management capabilities are suspended and thus no Permissions
@@ -140,7 +140,8 @@ pub fn process_manage_permission(
 
     let ctx = ManagePermissionAccounts::checked_from_accounts(accounts)?;
     // // Deserialize the args
-    let args = ManagePermissionArgs::try_from_slice(instruction_data).unwrap();
+    let args = ManagePermissionArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Don't allow a permission to suspend itself or remove it's own abilities
     // to manage permissions. This is to prevent a scenario where a Controller

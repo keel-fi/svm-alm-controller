@@ -14,7 +14,7 @@ use pinocchio::{
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_log::log;
-use pinocchio_token::{self, state::TokenAccount};
+use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
   pub struct PushSplTokenExternalAccounts<'info> {
@@ -22,7 +22,7 @@ define_account_struct! {
       vault;
       recipient;
       recipient_token_account: mut;
-      token_program;
+      token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       system_program: @pubkey(pinocchio_system::ID);
   }
@@ -146,12 +146,16 @@ pub fn process_push_spl_token_external(
     .invoke()?;
 
     // Perform the transfer
+    let mint = Mint::from_account_info(&inner_ctx.mint)?;
     controller.transfer_tokens(
         outer_ctx.controller,
         outer_ctx.controller_authority,
         inner_ctx.vault,
         inner_ctx.recipient_token_account,
+        inner_ctx.mint,
         amount,
+        mint.decimals(),
+        inner_ctx.token_program.key(),
     )?;
 
     // Reload the vault account to check it's balance

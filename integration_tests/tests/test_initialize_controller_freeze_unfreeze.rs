@@ -20,7 +20,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_controller_freeze_unfreeze_permissions() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_controller_freeze_unfreeze_permissions() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -35,7 +36,16 @@ mod tests {
         airdrop_lamports(&mut svm, &regular_user.pubkey(), 1_000_000_000)?;
 
         // Initialize a mint
-        let usdc_mint = initialize_mint(&mut svm, &authority, &authority.pubkey(), None, 6, None)?;
+        let usdc_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
 
         let _authority_usdc_ata =
             initialize_ata(&mut svm, &authority, &authority.pubkey(), &usdc_mint)?;
@@ -79,9 +89,9 @@ mod tests {
         let _freezer_permission_pk = manage_permission(
             &mut svm,
             &controller_pk,
-            &authority,          // payer
-            &authority,          // calling authority
-            &freezer.pubkey(),   // subject authority
+            &authority,        // payer
+            &authority,        // calling authority
+            &freezer.pubkey(), // subject authority
             PermissionStatus::Active,
             false, // can_execute_swap,
             false, // can_manage_permissions,
@@ -115,8 +125,8 @@ mod tests {
         let _regular_user_permission_pk = manage_permission(
             &mut svm,
             &controller_pk,
-            &authority,          // payer
-            &authority,          // calling authority
+            &authority,             // payer
+            &authority,             // calling authority
             &regular_user.pubkey(), // subject authority
             PermissionStatus::Active,
             false, // can_execute_swap,
@@ -133,8 +143,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &authority,          // payer
-            &authority,          // calling authority
+            &authority, // payer
+            &authority, // calling authority
             ControllerStatus::Suspended,
         )?;
 
@@ -142,8 +152,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &authority,          // payer
-            &authority,          // calling authority
+            &authority, // payer
+            &authority, // calling authority
             ControllerStatus::Active,
         )?;
 
@@ -151,8 +161,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer,            // payer
-            &freezer,            // calling authority
+            &freezer, // payer
+            &freezer, // calling authority
             ControllerStatus::Suspended,
         )?;
 
@@ -160,28 +170,34 @@ mod tests {
         let freezer_unfreeze_result = manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer,            // payer
-            &freezer,            // calling authority
+            &freezer, // payer
+            &freezer, // calling authority
             ControllerStatus::Active,
         );
-        assert!(freezer_unfreeze_result.is_err(), "Freezer should not be able to unfreeze controller");
+        assert!(
+            freezer_unfreeze_result.is_err(),
+            "Freezer should not be able to unfreeze controller"
+        );
 
         // Test 5: Unfreezer cannot freeze the controller (should fail)
         let unfreezer_freeze_result = manage_controller(
             &mut svm,
             &controller_pk,
-            &unfreezer,          // payer
-            &unfreezer,          // calling authority
+            &unfreezer, // payer
+            &unfreezer, // calling authority
             ControllerStatus::Suspended,
         );
-        assert!(unfreezer_freeze_result.is_err(), "Unfreezer should not be able to freeze controller");
+        assert!(
+            unfreezer_freeze_result.is_err(),
+            "Unfreezer should not be able to freeze controller"
+        );
 
         // Test 6: Unfreezer can unfreeze the controller
         manage_controller(
             &mut svm,
             &controller_pk,
-            &unfreezer,          // payer
-            &unfreezer,          // calling authority
+            &unfreezer, // payer
+            &unfreezer, // calling authority
             ControllerStatus::Active,
         )?;
 
@@ -189,23 +205,28 @@ mod tests {
         let regular_user_freeze_result = manage_controller(
             &mut svm,
             &controller_pk,
-            &regular_user,       // payer
-            &regular_user,       // calling authority
+            &regular_user, // payer
+            &regular_user, // calling authority
             ControllerStatus::Suspended,
         );
-        assert!(regular_user_freeze_result.is_err(), "Regular user should not be able to freeze controller");
+        assert!(
+            regular_user_freeze_result.is_err(),
+            "Regular user should not be able to freeze controller"
+        );
 
         // Test 8: Regular user cannot unfreeze the controller (should fail)
         let regular_user_unfreeze_result = manage_controller(
             &mut svm,
             &controller_pk,
-            &regular_user,       // payer
-            &regular_user,       // calling authority
+            &regular_user, // payer
+            &regular_user, // calling authority
             ControllerStatus::Active,
         );
-        assert!(regular_user_unfreeze_result.is_err(), "Regular user should not be able to unfreeze controller");
+        assert!(
+            regular_user_unfreeze_result.is_err(),
+            "Regular user should not be able to unfreeze controller"
+        );
 
         Ok(())
     }
-
-} 
+}

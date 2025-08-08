@@ -18,7 +18,7 @@ use pinocchio::{
 
 define_account_struct! {
     pub struct InitializeLzBridgeAccounts<'info> {
-        mint: @owner(pinocchio_token::ID);
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         oft_store;
         peer_config;
         lz_program;
