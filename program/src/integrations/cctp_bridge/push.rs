@@ -30,7 +30,7 @@ define_account_struct! {
         remote_token_messenger;
         token_minter;
         local_token;
-        message_sent_event_data;
+        message_sent_event_data: signer;
         cctp_message_transmitter;
         cctp_token_messenger_minter;
         event_authority;
