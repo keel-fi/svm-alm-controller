@@ -45,6 +45,8 @@ pub enum SvmAlmControllerErrors {
     InvalidPermission,
     // 20,
     InvalidTokenMintExtension,
+    // 21.
+    InvalidAtomicSwapConfiguration,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

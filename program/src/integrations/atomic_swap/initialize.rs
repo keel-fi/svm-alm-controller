@@ -1,6 +1,7 @@
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
+    error::SvmAlmControllerErrors,
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
     processor::InitializeIntegrationAccounts,
@@ -9,7 +10,6 @@ use crate::{
 use pinocchio::{
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token_interface::Mint;
@@ -29,6 +29,11 @@ pub fn process_initialize_atomic_swap(
     msg!("process_initialize_atomic_swap");
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
+
+    // Validate no same token swaps
+    if inner_ctx.input_mint.key().eq(inner_ctx.output_mint.key()) {
+        return Err(SvmAlmControllerErrors::InvalidAtomicSwapConfiguration.into());
+    }
 
     // Check that Oracle is a valid account.
     let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
