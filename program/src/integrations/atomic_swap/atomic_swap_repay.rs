@@ -1,4 +1,3 @@
-use borsh::BorshDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     msg,
@@ -14,7 +13,6 @@ use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    instructions::AtomicSwapRepayArgs,
     state::{nova_account::NovaAccount, Integration, Oracle, Permission, Reserve},
 };
 
@@ -42,12 +40,10 @@ define_account_struct! {
 pub fn process_atomic_swap_repay(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8],
+    _instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("atomic_swap_repay");
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
-    let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
     let clock = Clock::get()?;
 
     // Load in the super permission account
@@ -70,9 +66,14 @@ pub fn process_atomic_swap_repay(
 
     // Check that Integration account is valid and matches controller.
     let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    // Amount over the users previous balance that still exists
     let mut excess_token_a = 0;
+    // Amount that the Reserve received as repayment
     let mut balance_a_delta = 0;
+    // Amount that the Reserve received as repayment
     let mut balance_b_delta = 0;
+    // Amount of Token B that the user accumulated between borrow & repay stages.
+    let amount;
 
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
@@ -94,6 +95,10 @@ pub fn process_atomic_swap_repay(
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
             let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
+            amount = payer_account_b
+                .amount()
+                .checked_sub(state.recipient_token_b_pre)
+                .unwrap();
 
             // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
             if vault_a.amount().checked_add(state.amount_borrowed).unwrap() != state.last_balance_a
@@ -107,11 +112,6 @@ pub fn process_atomic_swap_repay(
                 excess_token_a = payer_account_a
                     .amount()
                     .saturating_sub(state.recipient_token_a_pre);
-                final_input_amount = final_input_amount.checked_sub(excess_token_a).unwrap();
-            }
-
-            if args.amount > payer_account_b.amount() {
-                return Err(ProgramError::InsufficientFunds);
             }
         }
 
@@ -130,7 +130,13 @@ pub fn process_atomic_swap_repay(
             }
             .invoke()?;
             let balance_after = TokenAccount::from_account_info(ctx.vault_a)?.amount();
+            // Calculate the amount that was received by the Reserve. This accounts for
+            // a Transfer that has TransferFees enabled.
             balance_a_delta = balance_after.checked_sub(balance_before).expect("overflow");
+            // Calculate the final amount the user spent from the Vault.
+            // Saturating sub used in the ~unlikely~ event the change in balance is
+            // greater than the amount borrowed.
+            final_input_amount = state.amount_borrowed.saturating_sub(balance_a_delta);
         }
 
         let balance_b_before = TokenAccount::from_account_info(ctx.vault_b)?.amount();
@@ -140,12 +146,14 @@ pub fn process_atomic_swap_repay(
             to: ctx.vault_b,
             mint: ctx.mint_b,
             authority: ctx.payer,
-            amount: args.amount,
+            amount,
             decimals: mint_b.decimals(),
             token_program: ctx.token_program_b.key(),
         }
         .invoke()?;
         let balance_b_after = TokenAccount::from_account_info(ctx.vault_b)?.amount();
+        // Calculate the amount that was received by the Reserve. This accounts for
+        // a Transfer that has TransferFees enabled.
         balance_b_delta = balance_b_after
             .checked_sub(balance_b_before)
             .expect("overflow");
@@ -180,6 +188,7 @@ pub fn process_atomic_swap_repay(
     reserve_b.update_for_inflow(clock, balance_b_delta)?;
     reserve_b.save(ctx.reserve_b)?;
 
+    // Credit the Integration with the amount of Token A repaid.
     integration.update_rate_limit_for_inflow(clock, balance_a_delta)?;
     integration.save(ctx.integration)?;
 
@@ -231,9 +240,16 @@ fn check_swap_slippage(
     oracle_price: i128,
     precision: u32,
 ) -> ProgramResult {
-    if input_amount == 0 || output_amount == 0 {
-        return Err(ProgramError::InvalidArgument);
+    // The External address repaid ALL of their tokens, thus we can skip
+    // the slippage check as any amount of output tokens is ok.
+    if input_amount == 0 {
+        return Ok(());
+    } else if output_amount == 0 {
+        // Error with insufficient funds as we're using the wallets
+        // change in balance
+        return Err(ProgramError::InsufficientFunds);
     }
+
     let swap_price = calc_swap_price(
         pow10(input_decimals.into()).unwrap(),
         pow10(output_decimals.into()).unwrap(),
@@ -272,6 +288,18 @@ mod tests {
             6,
         );
         assert!(res.is_ok());
+
+        // 0 input with any output is ok
+        let res = check_swap_slippage(
+            0,
+            6,
+            400_000_000, // output: $400
+            6,
+            100, // 1%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
@@ -290,18 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap_zero_input_or_output() {
-        let res = check_swap_slippage(
-            0,
-            6,
-            400_000_000, // output: $400
-            6,
-            100, // 1%
-            202_150_000,
-            6,
-        );
-        assert!(res.is_err());
-
+    fn test_swap_zero_output() {
         let res = check_swap_slippage(
             2_000_000,
             6,

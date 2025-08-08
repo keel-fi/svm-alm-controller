@@ -760,12 +760,17 @@
           "isSigner": false
         },
         {
-          "name": "recipientTokenAccount",
+          "name": "recipientTokenAccountA",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "tokenProgram",
+          "name": "recipientTokenAccountB",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgramA",
           "isMut": false,
           "isSigner": false
         },
@@ -877,14 +882,7 @@
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "atomicSwapRepayArgs",
-          "type": {
-            "defined": "AtomicSwapRepayArgs"
-          }
-        }
-      ],
+      "args": [],
       "discriminant": {
         "type": "u8",
         "value": 16
@@ -1676,18 +1674,6 @@
       }
     },
     {
-      "name": "AtomicSwapRepayArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
       "name": "AtomicSwapConfig",
       "type": {
         "kind": "struct",
@@ -1758,6 +1744,10 @@
             "type": "u64"
           },
           {
+            "name": "recipientTokenBPre",
+            "type": "u64"
+          },
+          {
             "name": "repayExcessTokenA",
             "type": "bool"
           },
@@ -1766,7 +1756,7 @@
             "type": {
               "array": [
                 "u8",
-                15
+                7
               ]
             }
           }
