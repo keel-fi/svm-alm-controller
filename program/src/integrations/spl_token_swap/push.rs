@@ -28,7 +28,7 @@ define_account_struct! {
         mint_a;
         mint_b;
         lp_mint: mut;
-        lp_token_account: mut;
+        lp_token_account: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         mint_a_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         mint_b_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         lp_mint_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -96,14 +96,6 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
         }
         if !ctx.lp_mint.is_owned_by(ctx.lp_mint_token_program.key()) {
             msg! {"lp_mint: not owned by lp_mint_token_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx
-            .lp_token_account
-            .is_owned_by(ctx.lp_mint_token_program.key())
-            && !ctx.lp_token_account.is_owned_by(&pinocchio_system::ID)
-        {
-            msg! {"lp_token_account: not owned by token_program or system_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.swap_token_a.is_owned_by(ctx.mint_a_token_program.key()) {
