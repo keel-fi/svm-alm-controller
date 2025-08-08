@@ -14,7 +14,10 @@ use pinocchio::{
 use pinocchio_token::state::TokenAccount;
 
 use crate::{
-    constants::{ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC},
+    constants::{
+        ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC,
+        ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX, ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX,
+    },
     define_account_struct,
     enums::{
         ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
@@ -35,7 +38,8 @@ define_account_struct! {
         vault_a: mut;
         reserve_b: mut;
         vault_b;
-        recipient_token_account: mut;
+        recipient_token_account_a: mut;
+        recipient_token_account_b: mut;
         token_program: @pubkey(pinocchio_token::ID);
         sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
         program_id: @pubkey(crate::ID);
@@ -46,6 +50,8 @@ define_account_struct! {
 pub fn verify_repay_ix_in_tx(
     sysvar_instruction: &AccountInfo,
     integration: &Pubkey,
+    recipient_token_account_a: &Pubkey,
+    recipient_token_account_b: &Pubkey,
 ) -> ProgramResult {
     // Get number of instructions in current transaction.
     let data = sysvar_instruction.try_borrow_data()?;
@@ -82,6 +88,18 @@ pub fn verify_repay_ix_in_tx(
         last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_INTEGRATION_IDX as usize)?;
     if integration_acc.key.ne(integration) {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    let payer_account_a =
+        last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX as usize)?;
+    let payer_account_b =
+        last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX as usize)?;
+
+    if payer_account_a.key.ne(recipient_token_account_a) {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+    }
+    if payer_account_b.key.ne(recipient_token_account_b) {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     Ok(())
@@ -169,8 +187,10 @@ pub fn process_atomic_swap_borrow(
         {
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
-            let recipient_token_account =
-                TokenAccount::from_account_info(ctx.recipient_token_account)?;
+            let recipient_token_a_account =
+                TokenAccount::from_account_info(ctx.recipient_token_account_a)?;
+            let recipient_token_b_account =
+                TokenAccount::from_account_info(ctx.recipient_token_account_b)?;
 
             if args.amount > vault_a.amount() {
                 return Err(ProgramError::InsufficientFunds);
@@ -183,7 +203,8 @@ pub fn process_atomic_swap_borrow(
             state.last_balance_a = vault_a.amount();
             state.last_balance_b = vault_b.amount();
             state.amount_borrowed = args.amount;
-            state.recipient_token_a_pre = recipient_token_account.amount();
+            state.recipient_token_a_pre = recipient_token_a_account.amount();
+            state.recipient_token_b_pre = recipient_token_b_account.amount();
             state.repay_excess_token_a = args.repay_excess_token_a;
         }
 
@@ -192,14 +213,19 @@ pub fn process_atomic_swap_borrow(
             ctx.controller,
             ctx.controller_authority,
             ctx.vault_a,
-            ctx.recipient_token_account,
+            ctx.recipient_token_account_a,
             args.amount,
         )?;
     } else {
         return Err(SvmAlmControllerErrors::Invalid.into());
     }
 
-    verify_repay_ix_in_tx(ctx.sysvar_instruction, ctx.integration.key())?;
+    verify_repay_ix_in_tx(
+        ctx.sysvar_instruction,
+        ctx.integration.key(),
+        ctx.recipient_token_account_a.key(),
+        ctx.recipient_token_account_b.key(),
+    )?;
 
     reserve_a.update_for_outflow(clock, args.amount)?;
     reserve_a.save(ctx.reserve_a)?;
