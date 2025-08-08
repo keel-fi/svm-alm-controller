@@ -362,8 +362,8 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.lp_mint,
             inner_ctx.lp_token_account,
             inner_ctx.mint_a,
-            inner_ctx.lp_mint_token_program,
             inner_ctx.mint_a_token_program,
+            inner_ctx.lp_mint_token_program,
             inner_ctx.swap_fee_account,
             maximum_pool_token_amount,
         )?;
@@ -386,8 +386,8 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.lp_mint,
             inner_ctx.lp_token_account,
             inner_ctx.mint_b,
-            inner_ctx.lp_mint_token_program,
             inner_ctx.mint_b_token_program,
+            inner_ctx.lp_mint_token_program,
             inner_ctx.swap_fee_account,
             maximum_pool_token_amount
         )?;
