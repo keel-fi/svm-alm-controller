@@ -450,6 +450,11 @@ pub async fn push_integration(
     integration: &Pubkey,
     authority: &Keypair,
     push_args: &PushArgs,
+    // Having assertions in here is convenient, but prevents
+    // us from being able to assert against edge cases. This
+    // flag will skip all assertions and simply return
+    // the tx_result.
+    skip_assertions: bool,
 ) -> Result<TransactionResult, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
@@ -978,6 +983,11 @@ pub async fn push_integration(
     );
 
     let tx_result = svm.send_transaction(txn);
+
+    if skip_assertions {
+        return Ok(tx_result);
+    }
+
     if tx_result.is_err() {
         println!("{:#?}", tx_result.clone().unwrap().logs);
     } else {
@@ -1116,7 +1126,12 @@ pub fn pull_integration(
     integration: &Pubkey,
     authority: &Keypair,
     pull_args: &PullArgs,
-) -> Result<(), Box<dyn Error>> {
+    // Having assertions in here is convenient, but prevents
+    // us from being able to assert against edge cases. This
+    // flag will skip all assertions and simply return
+    // the tx_result.
+    skip_assertions: bool,
+) -> Result<TransactionResult, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 
@@ -1317,8 +1332,11 @@ pub fn pull_integration(
     );
 
     let tx_result = svm.send_transaction(txn);
+    if skip_assertions {
+        return Ok(tx_result);
+    }
     if tx_result.is_err() {
-        println!("{:#?}", tx_result.unwrap().logs);
+        println!("{:#?}", tx_result.clone().unwrap().logs);
     } else {
         assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
@@ -1359,5 +1377,5 @@ pub fn pull_integration(
         _ => panic!("Not configured"),
     };
 
-    Ok(())
+    Ok(tx_result)
 }

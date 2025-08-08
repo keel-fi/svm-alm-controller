@@ -294,16 +294,30 @@ pub struct SyncIntegrationArgs {}
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PushArgs {
-    SplTokenExternal { amount: u64 },
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
-    CctpBridge { amount: u64 },
-    LzBridge { amount: u64 },
+    SplTokenExternal {
+        amount: u64,
+    },
+    SplTokenSwap {
+        amount_a: u64,
+        amount_b: u64,
+        minimum_pool_token_amount: u64,
+    },
+    CctpBridge {
+        amount: u64,
+    },
+    LzBridge {
+        amount: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PullArgs {
     SplTokenExternal,
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
+    SplTokenSwap {
+        amount_a: u64,
+        amount_b: u64,
+        maximum_pool_token_amount: u64,
+    },
     CctpBridge,
     LzBridge,
 }

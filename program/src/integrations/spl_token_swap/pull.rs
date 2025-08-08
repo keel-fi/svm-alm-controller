@@ -144,8 +144,12 @@ pub fn process_pull_spl_token_swap(
     // Get the current slot and time
     let clock = Clock::get()?;
 
-    let (amount_a, amount_b) = match outer_args {
-        PullArgs::SplTokenSwap { amount_a, amount_b } => (*amount_a, *amount_b),
+    let (amount_a, amount_b, maximum_pool_token_amount) = match outer_args {
+        PullArgs::SplTokenSwap {
+            amount_a,
+            amount_b,
+            maximum_pool_token_amount,
+        } => (*amount_a, *amount_b, *maximum_pool_token_amount),
         _ => return Err(ProgramError::InvalidAccountData),
     };
     if amount_a == 0 && amount_b == 0 {
@@ -361,6 +365,7 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.lp_mint_token_program,
             inner_ctx.mint_a_token_program,
             inner_ctx.swap_fee_account,
+            maximum_pool_token_amount,
         )?;
     }
     if amount_b > 0 {
@@ -384,6 +389,7 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.lp_mint_token_program,
             inner_ctx.mint_b_token_program,
             inner_ctx.swap_fee_account,
+            maximum_pool_token_amount
         )?;
     }
 

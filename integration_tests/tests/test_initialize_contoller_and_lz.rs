@@ -285,6 +285,7 @@ mod tests {
             &lz_usds_eth_bridge_integration_pk,
             &authority,
             &PushArgs::LzBridge { amount },
+            false,
         )
         .await?;
 

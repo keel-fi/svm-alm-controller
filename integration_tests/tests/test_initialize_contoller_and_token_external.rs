@@ -179,6 +179,7 @@ mod tests {
             &external_integration_pk,
             &authority,
             &PushArgs::SplTokenExternal { amount: 1_000_000 },
+            false,
         )
         .await?;
 

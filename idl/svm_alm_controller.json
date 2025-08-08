@@ -2640,6 +2640,10 @@
               {
                 "name": "amount_b",
                 "type": "u64"
+              },
+              {
+                "name": "minimum_pool_token_amount",
+                "type": "u64"
               }
             ]
           },
@@ -2681,6 +2685,10 @@
               },
               {
                 "name": "amount_b",
+                "type": "u64"
+              },
+              {
+                "name": "maximum_pool_token_amount",
                 "type": "u64"
               }
             ]
