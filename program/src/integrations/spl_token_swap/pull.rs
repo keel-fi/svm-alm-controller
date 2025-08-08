@@ -78,6 +78,14 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
             msg! {"lp_token_account: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
+        if config.mint_a.ne(ctx.mint_a.key()) {
+            msg! {"mint_a: does not match IntegrationConfig"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if config.mint_b.ne(ctx.mint_b.key()) {
+            msg! {"mint_b: does not match IntegrationConfig"};
+            return Err(ProgramError::InvalidAccountData);
+        }
         if !ctx.mint_a.is_owned_by(ctx.mint_a_token_program.key()) {
             msg! {"mint_a: not owned by mint_a_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -105,6 +113,16 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
         if !ctx.swap_token_b.is_owned_by(ctx.mint_b_token_program.key()) {
             msg! {"swap_token_b: not owned by mint_b_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
+        }
+        let swap_token_a = TokenAccount::from_account_info(ctx.swap_token_a)?;
+        if swap_token_a.mint().ne(&config.mint_a) {
+            msg! {"swap_token_a: invalid mint"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let swap_token_b = TokenAccount::from_account_info(ctx.swap_token_b)?;
+        if swap_token_b.mint().ne(&config.mint_b) {
+            msg! {"swap_token_b: invalid mint"};
+            return Err(ProgramError::InvalidAccountData);
         }
         let lp_token_account = TokenAccount::from_account_info(ctx.lp_token_account)?;
         if lp_token_account.mint().ne(&config.lp_mint) {
