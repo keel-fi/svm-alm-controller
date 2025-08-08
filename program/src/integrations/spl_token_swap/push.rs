@@ -188,7 +188,6 @@ pub fn process_push_spl_token_swap(
     let swap_data = inner_ctx.swap.try_borrow_data()?;
     let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1])
         .map_err(|_| ProgramError::InvalidInstructionData)?;
-    drop(swap_data);
 
     if swap_state.pool_mint.ne(inner_ctx.lp_mint.key()) {
         msg! {"lp_mint: does not match swap state"};
@@ -390,7 +389,6 @@ pub fn process_push_spl_token_swap(
     //  and swap pool owned balances for tokens a and b
     let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
     let post_deposit_balance_lp = lp_token_account.amount() as u128;
-    drop(lp_token_account);
 
     let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
     let lp_mint_supply = lp_mint.supply() as u128;
@@ -412,8 +410,6 @@ pub fn process_push_spl_token_swap(
         post_deposit_balance_a = 0u64;
         post_deposit_balance_b = 0u64;
     }
-    drop(swap_token_a);
-    drop(swap_token_b);
 
     // Emit the accounting event
     if step_2_balance_a != post_deposit_balance_a {
