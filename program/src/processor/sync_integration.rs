@@ -38,7 +38,7 @@ pub fn process_sync_integration(
     let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in controller state
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     // Refresh the rate limits
     integration.refresh_rate_limit(clock)?;

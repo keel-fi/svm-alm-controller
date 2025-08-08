@@ -95,22 +95,6 @@ impl Permission {
         Ok(permission)
     }
 
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo,
-        controller: &Pubkey,
-        authority: &Pubkey,
-    ) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-        permission.check_data(controller, authority)?;
-        permission.verify_pda(account_info)?;
-        Ok(permission)
-    }
-
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,

@@ -55,17 +55,17 @@ pub fn process_atomic_swap_repay(
     }
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
+    let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.vault != *ctx.vault_a.key() || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
-    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
+    let mut reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault != *ctx.vault_b.key() || reserve_b.mint.ne(ctx.mint_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     // Check that Integration account is valid and matches controller.
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
     // Amount over the users previous balance that still exists
     let mut excess_token_a = 0;
     // Amount that the Reserve received as repayment

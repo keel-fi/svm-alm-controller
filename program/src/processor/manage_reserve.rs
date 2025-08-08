@@ -43,7 +43,7 @@ pub fn process_manage_reserve(
     }
 
     // Load in the super permission account
-    let mut reserve = Reserve::load_and_check_mut(ctx.reserve, ctx.controller.key())?;
+    let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
     // Clone the old state for emitting
     let old_state = reserve.clone();

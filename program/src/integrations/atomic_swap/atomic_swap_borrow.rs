@@ -133,7 +133,7 @@ pub fn process_atomic_swap_borrow(
     let clock = Clock::get()?;
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
+    let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.vault.ne(ctx.vault_a.key()) || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -141,7 +141,7 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
+    let mut reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault.ne(ctx.vault_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -164,7 +164,7 @@ pub fn process_atomic_swap_borrow(
     )?;
 
     // Check that Integration account is valid and matches controller.
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
     if integration.status != IntegrationStatus::Active {
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
     }

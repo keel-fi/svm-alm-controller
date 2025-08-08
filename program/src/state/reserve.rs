@@ -96,21 +96,6 @@ impl Reserve {
         Ok(reserve)
     }
 
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo,
-        controller: &Pubkey,
-    ) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-        reserve.check_data(controller)?;
-        reserve.verify_pda(account_info)?;
-        Ok(reserve)
-    }
-
     /// Iniitalizes the PDA account for a reserve.
     pub fn init_account(
         account_info: &AccountInfo,

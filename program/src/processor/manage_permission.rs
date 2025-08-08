@@ -59,7 +59,7 @@ fn manage_permission(
         Ok((permission, None))
     } else {
         // Load the permission account
-        let mut permission = Permission::load_and_check_mut(
+        let mut permission = Permission::load_and_check(
             ctx.permission,
             ctx.controller.key(),
             ctx.authority.key(),
@@ -96,7 +96,7 @@ fn suspend_permission(
     }
     // Load the permission account
     let mut permission =
-        Permission::load_and_check_mut(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
+        Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
 
     // A Permission with `can_suspend_permissions` cannot suspend Permissions
     // that can manage other permissions. This is to prevent a scenario where

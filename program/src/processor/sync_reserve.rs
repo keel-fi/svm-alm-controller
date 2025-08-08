@@ -26,7 +26,7 @@ pub fn process_sync_reserve(
     let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in the super permission account
-    let mut reserve = Reserve::load_and_check_mut(ctx.reserve, ctx.controller.key())?;
+    let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
     // Call the method to synchronize the reserve's state
     //  and rate limits

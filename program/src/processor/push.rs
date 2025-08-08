@@ -62,21 +62,21 @@ pub fn process_push(
     }
 
     // Load in the integration account
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
     if integration.status != IntegrationStatus::Active {
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
     }
     integration.refresh_rate_limit(clock)?;
 
     // Load in the reserve account for a
-    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
+    let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.status != ReserveStatus::Active {
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
     // Load in the reserve account for b (if applicable)
     let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
-        let reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
+        let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
         if reserve_b.status != ReserveStatus::Active {
             return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
         }

@@ -24,7 +24,7 @@ define_account_struct! {
 pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     msg!("refresh_oracle");
     let ctx = RefreshOracle::from_accounts(accounts)?;
-    let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
+    let oracle = &mut Oracle::load_and_check(ctx.oracle)?;
 
     // Read only from first feed in current implementation.
     let feed = &oracle.feeds[0];
