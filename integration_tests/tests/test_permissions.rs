@@ -8,7 +8,7 @@ use helpers::lite_svm_with_programs;
 use litesvm::LiteSVM;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use svm_alm_controller_client::generated::types::{
-    ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
+    ControllerStatus, PermissionStatus,
 };
 
 #[cfg(test)]
