@@ -339,7 +339,7 @@ pub fn process_pull_spl_token_swap(
         step_2_balance_b = step_1_balance_b;
     }
 
-    // Carry out the actual deposit logic
+    // Carry out the actual withdraw logic
     //  CPI'ing into the SPL Token Swap program
     if amount_a > 0 {
         withdraw_single_token_type_exact_amount_out_cpi(
@@ -391,7 +391,7 @@ pub fn process_pull_spl_token_swap(
     // Refresh values for LP Mint supply, LP tokens held
     //  and swap pool owned balances for tokens a and b
     let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
-    let post_deposit_balance_lp = lp_token_account.amount() as u128;
+    let post_withdraw_balance_lp = lp_token_account.amount() as u128;
     let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
     let lp_mint_supply = lp_mint.supply() as u128;
     drop(lp_mint);
@@ -399,26 +399,26 @@ pub fn process_pull_spl_token_swap(
     let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
     let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
     let delta_lp = step_2_balance_lp
-        .checked_sub(post_deposit_balance_lp)
+        .checked_sub(post_withdraw_balance_lp)
         .unwrap();
 
     // Determine the share of the pool's a and b tokens that we have a claim on
-    let post_deposit_balance_a: u64;
-    let post_deposit_balance_b: u64;
-    if post_deposit_balance_lp > 0 {
-        post_deposit_balance_a =
-            (swap_token_a.amount() as u128 * post_deposit_balance_lp / lp_mint_supply) as u64;
-        post_deposit_balance_b =
-            (swap_token_b.amount() as u128 * post_deposit_balance_lp / lp_mint_supply) as u64;
+    let post_withdraw_balance_a: u64;
+    let post_withdraw_balance_b: u64;
+    if post_withdraw_balance_lp > 0 {
+        post_withdraw_balance_a =
+            (swap_token_a.amount() as u128 * post_withdraw_balance_lp / lp_mint_supply) as u64;
+        post_withdraw_balance_b =
+            (swap_token_b.amount() as u128 * post_withdraw_balance_lp / lp_mint_supply) as u64;
     } else {
-        post_deposit_balance_a = 0u64;
-        post_deposit_balance_b = 0u64;
+        post_withdraw_balance_a = 0u64;
+        post_withdraw_balance_b = 0u64;
     }
     drop(swap_token_a);
     drop(swap_token_b);
 
     // Emit the accounting event
-    if step_2_balance_a != post_deposit_balance_a {
+    if step_2_balance_a != post_withdraw_balance_a {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
@@ -428,12 +428,12 @@ pub fn process_pull_spl_token_swap(
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
                 before: step_2_balance_a,
-                after: post_deposit_balance_a,
+                after: post_withdraw_balance_a,
             }),
         )?;
     }
     // Emit the accounting event
-    if step_2_balance_b != post_deposit_balance_b {
+    if step_2_balance_b != post_withdraw_balance_b {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
@@ -443,7 +443,7 @@ pub fn process_pull_spl_token_swap(
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Withdrawal,
                 before: step_2_balance_b,
-                after: post_deposit_balance_b,
+                after: post_withdraw_balance_b,
             }),
         )?;
     }
@@ -451,9 +451,9 @@ pub fn process_pull_spl_token_swap(
     // Update the state for the Pre-Push changes
     match &mut integration.state {
         IntegrationState::SplTokenSwap(state) => {
-            state.last_balance_a = post_deposit_balance_a;
-            state.last_balance_b = post_deposit_balance_b;
-            state.last_balance_lp = post_deposit_balance_lp as u64;
+            state.last_balance_a = post_withdraw_balance_a;
+            state.last_balance_b = post_withdraw_balance_b;
+            state.last_balance_lp = post_withdraw_balance_lp as u64;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
