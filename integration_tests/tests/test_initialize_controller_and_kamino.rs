@@ -34,9 +34,11 @@ mod tests {
         let usdc_mint = USDC_TOKEN_MINT_PUBKEY;
 
         let authority = Keypair::new();
+        let authority_2 = Keypair::new();
         
         // Airdrop to payer
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &authority_2.pubkey(), 1_000_000_000)?;
 
         // Create an ATA for the USDC account
         let _authority_usdc_ata = initialize_ata(
@@ -155,14 +157,15 @@ mod tests {
             &authority, 
             &reserve, 
             &market, 
-            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED
+            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED,
         )?;
 
         refresh_obligation(
             &mut svm, 
             &authority, 
             &market, 
-            &obligation
+            &obligation,
+            None
         )?;
 
         // push the integration -- deposit reserve liquidity
@@ -175,6 +178,7 @@ mod tests {
         )
         .await?;
 
+
         // advance time again for pull
         let mut post_push_clock = svm.get_sysvar::<Clock>();
         post_push_clock.unix_timestamp = 1754948368;
@@ -184,17 +188,18 @@ mod tests {
         // we refresh the reserve and the obligation
         refresh_reserve(
             &mut svm, 
-            &authority, 
+            &authority_2, 
             &reserve, 
             &market, 
-            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED
+            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED,
         )?;
 
         refresh_obligation(
             &mut svm, 
-            &authority, 
+            &authority_2, 
             &market, 
-            &obligation
+            &obligation,
+            Some(&reserve)
         )?;
 
         let _ = pull_integration(
