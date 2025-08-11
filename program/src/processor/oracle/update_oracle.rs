@@ -1,5 +1,6 @@
 use crate::{
     define_account_struct,
+    error::SvmAlmControllerErrors,
     instructions::UpdateOracleArgs,
     state::{nova_account::NovaAccount, Oracle},
 };
@@ -7,6 +8,7 @@ use borsh::BorshDeserialize;
 use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
+use switchboard_on_demand::PRECISION;
 
 define_account_struct! {
     pub struct UpdateOracle<'info> {
@@ -40,7 +42,14 @@ pub fn process_update_oracle(
         oracle.feeds[0].price_feed = *ctx.price_feed.key();
         oracle.feeds[0].invert_price = feed_args.invert_price;
         oracle.value = 0;
-        oracle.precision = 0;
+        match feed_args.oracle_type {
+            0 => {
+                // Switchboard on demand has fixed precision
+                oracle.precision = PRECISION;
+                Ok::<(), ProgramError>(())
+            }
+            _ => Err(SvmAlmControllerErrors::UnsupportedOracleType.into()),
+        }?;
         oracle.last_update_slot = 0;
     }
 

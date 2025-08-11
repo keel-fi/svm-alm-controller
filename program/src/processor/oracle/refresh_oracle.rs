@@ -12,7 +12,7 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_log::log;
-use switchboard_on_demand::{PullFeedAccountData, PRECISION};
+use switchboard_on_demand::PullFeedAccountData;
 
 define_account_struct! {
     pub struct RefreshOracle<'info> {
@@ -36,7 +36,8 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
 
     match feed.oracle_type {
         0 => {
-            let data_source: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+            let data_source: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
+                .map_err(|_| ProgramError::InvalidAccountData)?;
             let price = data_source.result.value;
             let update_slot = data_source.result.slot;
 
@@ -51,14 +52,13 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
             // = 10^P / X = 10^(2*P) / (X * 10^P)
             if feed.invert_price {
                 oracle.value = 10_i128
-                    .checked_pow(PRECISION * 2)
+                    .checked_pow(oracle.precision * 2)
                     .unwrap()
                     .checked_div(price)
                     .unwrap();
             } else {
                 oracle.value = price;
             }
-            oracle.precision = PRECISION;
             oracle.last_update_slot = update_slot;
         }
         _ => {

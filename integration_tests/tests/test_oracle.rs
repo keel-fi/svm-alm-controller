@@ -44,7 +44,7 @@ mod tests {
         let oracle = oracle.unwrap();
         assert_eq!(oracle.version, 1);
         assert_eq!(oracle.value, 0);
-        assert_eq!(oracle.precision, 0);
+        assert_eq!(oracle.precision, PRECISION);
         assert_eq!(oracle.last_update_slot, 0);
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
@@ -114,7 +114,7 @@ mod tests {
         assert_eq!(oracle.authority, authority2.pubkey());
         assert_eq!(oracle.nonce, nonce);
         assert_eq!(oracle.value, 0);
-        assert_eq!(oracle.precision, 0);
+        assert_eq!(oracle.precision, PRECISION);
         assert_eq!(oracle.last_update_slot, 0);
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);

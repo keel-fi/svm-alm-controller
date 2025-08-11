@@ -66,6 +66,7 @@ impl NovaAccount for Oracle {
 }
 
 impl Oracle {
+    /// Validate that the Oracle is a supported Oracle [Switchboard].
     pub fn verify_oracle_type(
         oracle_type: u8,
         price_feed: &AccountInfo,
@@ -80,7 +81,10 @@ impl Oracle {
                 if !feed_account.starts_with(&PullFeedAccountData::discriminator()) {
                     return Err(ProgramError::InvalidAccountData);
                 };
-                let _feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+
+                // Deserialize account to check it's correct
+                let _feed: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
+                    .map_err(|_| ProgramError::InvalidAccountData)?;
 
                 Ok(())
             }
@@ -108,13 +112,18 @@ impl Oracle {
         price_feed: &AccountInfo,
         invert_price: bool,
     ) -> Result<Self, ProgramError> {
+        let precision = match oracle_type {
+            0 => Ok::<u32, ProgramError>(switchboard_on_demand::on_demand::PRECISION),
+            _ => Err(SvmAlmControllerErrors::UnsupportedOracleType.into()),
+        }?;
+
         // Create and serialize the oracle
         let oracle = Oracle {
             version: 1,
             authority: *authority_info.key(),
             nonce: *nonce,
             value: 0,
-            precision: 0,
+            precision,
             last_update_slot: 0,
             reserved: [0; 64],
             feeds: [Feed {
@@ -142,7 +151,7 @@ impl Oracle {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
             signer_seeds,
