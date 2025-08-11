@@ -245,7 +245,9 @@ pub fn process_pull_kamino(
         IntegrationState::UtilizationMarket(state) => {
             match state {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.assets -= final_amount;
+                    kamino_state.assets = kamino_state.assets
+                        .checked_sub(final_amount)
+                        .unwrap_or(0);
                 }
                 _ => return Err(ProgramError::InvalidAccountData.into()),
             }
