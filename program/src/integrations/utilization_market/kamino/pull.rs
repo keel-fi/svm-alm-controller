@@ -1,6 +1,7 @@
 use pinocchio::{
     account_info::AccountInfo, 
-    instruction::{Seed, Signer}, msg, 
+    instruction::{Seed, Signer}, 
+    msg, 
     program_error::ProgramError, 
     pubkey::Pubkey, 
     sysvars::{clock::Clock, instructions::INSTRUCTIONS_ID, Sysvar}
@@ -12,24 +13,26 @@ use crate::{
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
-    instructions::PushArgs, integrations::utilization_market::{
+    instructions::PullArgs, 
+    integrations::utilization_market::{
         config::UtilizationMarketConfig, kamino::cpi::{
-            deposit_reserve_liquidity_v2_cpi, 
             derive_market_authority_address, 
             derive_reserve_collateral_mint, 
             derive_reserve_collateral_supply, 
-            derive_reserve_liquidity_supply
+            derive_reserve_liquidity_supply, 
+            withdraw_obligation_collateral_v2_cpi
         }, 
         state::UtilizationMarketState, 
-        KAMINO_FARMS_PROGRAM_ID, 
+        KAMINO_FARMS_PROGRAM_ID,
         KAMINO_LEND_PROGRAM_ID
-    }, processor::PushAccounts, 
+    }, 
+    processor::PullAccounts, 
     state::{Controller, Integration, Permission, Reserve}
 };
 
 define_account_struct! {
-    pub struct PushKaminoAccounts<'info> {
-        liquidity_source: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
+    pub struct PullKaminoAccounts<'info> {
+        liquidity_destination: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
         obligation: mut @owner(KAMINO_LEND_PROGRAM_ID);
         reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         reserve_liquidity_mint: @owner(pinocchio_token::ID); // TODO: token 2022 support
@@ -48,7 +51,7 @@ define_account_struct! {
     }
 }
 
-impl<'info> PushKaminoAccounts<'info> {
+impl <'info> PullKaminoAccounts<'info> {
     pub fn checked_from_accounts(
         controller_authority: &Pubkey,
         config: &IntegrationConfig,
@@ -129,13 +132,13 @@ impl<'info> PushKaminoAccounts<'info> {
             return Err(ProgramError::InvalidSeeds)
         }
 
-        let liquidity_source_token_account 
-            = TokenAccount::from_account_info(ctx.liquidity_source)?;
-        if liquidity_source_token_account.mint().ne(&config.reserve_liquidity_mint) {
+        let liquidity_destination_token_account 
+            = TokenAccount::from_account_info(ctx.liquidity_destination)?;
+        if liquidity_destination_token_account.mint().ne(&config.reserve_liquidity_mint) {
             msg! {"liquidity_source: invalid mint"};
             return Err(ProgramError::InvalidAccountData);
         }
-        if liquidity_source_token_account.owner().ne(controller_authority) {
+        if liquidity_destination_token_account.owner().ne(controller_authority) {
             msg! {"liquidity_source: not owned by Controller authority PDA"};
             return Err(ProgramError::InvalidAccountData);
         }
@@ -144,21 +147,21 @@ impl<'info> PushKaminoAccounts<'info> {
     }
 }
 
-pub fn process_push_kamino(
+pub fn process_pull_kamino(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
     reserve: &mut Reserve,
-    outer_ctx: &PushAccounts,
-    outer_args: &PushArgs,
+    outer_ctx: &PullAccounts,
+    outer_args: &PullArgs
 ) -> Result<(), ProgramError> {
-    msg!("process_push_kamino");
+    msg!("process_pull_kamino");
 
     // Get the current slot and time
     let clock = Clock::get()?;
-    
+
     let amount = match outer_args {
-        PushArgs::Kamino { amount } => *amount,
+        PullArgs::Kamino { amount } => *amount,
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
@@ -172,15 +175,15 @@ pub fn process_push_kamino(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PushKaminoAccounts::checked_from_accounts(
+    let inner_ctx = PullKaminoAccounts::checked_from_accounts(
         outer_ctx.controller_authority.key(), 
         &integration.config, 
         outer_ctx.remaining_accounts
     )?;
-
+    
     // Check against reserve data
-    if inner_ctx.liquidity_source.key().ne(&reserve.vault) {
-        msg! {"liquidity_source: mismatch with reserve"};
+    if inner_ctx.liquidity_destination.key().ne(&reserve.vault) {
+        msg! {"liquidity_destination: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -190,20 +193,19 @@ pub fn process_push_kamino(
     }
 
     reserve.sync_balance(
-        inner_ctx.liquidity_source,
-        outer_ctx.controller_authority,
-        outer_ctx.controller.key(),
-        controller,
+        inner_ctx.liquidity_destination, 
+        outer_ctx.controller_authority, 
+        outer_ctx.controller.key(), 
+        controller
     )?;
 
     // TODO: Sync the integration and account Sync event
 
-    let liquidity_source_account = TokenAccount::from_account_info(inner_ctx.liquidity_source)?;
-    let amount_before = liquidity_source_account.amount();
-    drop(liquidity_source_account);
+    let liquidity_destination_account = TokenAccount::from_account_info(inner_ctx.liquidity_destination)?;
+    let amount_before = liquidity_destination_account.amount();
+    drop(liquidity_destination_account);
 
-    // perform kamino deposit liquidity cpi
-    deposit_reserve_liquidity_v2(
+    withdraw_obligation_collateral_v2(
         amount, 
         Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
@@ -214,11 +216,11 @@ pub fn process_push_kamino(
         &inner_ctx
     )?;
 
-    let liquidity_source_account = TokenAccount::from_account_info(inner_ctx.liquidity_source)?;
-    let amount_after = liquidity_source_account.amount();
-    drop(liquidity_source_account);
+    let liquidity_destination_account = TokenAccount::from_account_info(inner_ctx.liquidity_destination)?;
+    let amount_after = liquidity_destination_account.amount();
+    drop(liquidity_destination_account);    
 
-    let final_amount = amount_before.checked_sub(amount_after)
+    let final_amount = amount_after.checked_sub(amount_before)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // emit accounting event
@@ -231,7 +233,7 @@ pub fn process_push_kamino(
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
                 mint: *inner_ctx.reserve_liquidity_mint.key(),
-                action: AccountingAction::Withdrawal,
+                action: AccountingAction::Deposit,
                 before: amount_before,
                 after: amount_after,
             }),
@@ -243,33 +245,32 @@ pub fn process_push_kamino(
         IntegrationState::UtilizationMarket(state) => {
             match state {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.assets += final_amount;
+                    kamino_state.assets -= final_amount;
                 }
                 _ => return Err(ProgramError::InvalidAccountData.into()),
             }
         },
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
-
-    // update the integration rate limit for outflow
-    integration.update_rate_limit_for_outflow(clock, final_amount)?;
+    
+    // update the integration rate limit for inflow
+    integration.update_rate_limit_for_inflow(clock, final_amount)?;
 
     // update the reserves for the flows
-    reserve.update_for_outflow(clock, final_amount)?;
-
+    reserve.update_for_inflow(clock, final_amount)?;
+    
     Ok(())
 }
 
-
-fn deposit_reserve_liquidity_v2(
+fn withdraw_obligation_collateral_v2(
     amount: u64,
     signer: Signer,
     owner: &AccountInfo,
-    inner_ctx: &PushKaminoAccounts
+    inner_ctx: &PullKaminoAccounts
 ) -> Result<(), ProgramError> {
-    deposit_reserve_liquidity_v2_cpi(
+    withdraw_obligation_collateral_v2_cpi(
         amount, 
-        signer,
+        signer, 
         owner, 
         inner_ctx.obligation, 
         inner_ctx.market, 
@@ -279,14 +280,14 @@ fn deposit_reserve_liquidity_v2(
         inner_ctx.reserve_liquidity_supply, 
         inner_ctx.reserve_collateral_mint, 
         inner_ctx.reserve_collateral_supply, 
-        inner_ctx.liquidity_source, 
+        inner_ctx.liquidity_destination, 
         inner_ctx.collateral_token_program, 
         inner_ctx.liquidity_token_program, 
         inner_ctx.instruction_sysvar_account, 
         inner_ctx.obligation_farm_collateral, 
         inner_ctx.reserve_farm_collateral, 
         inner_ctx.kamino_farms_program, 
-        inner_ctx.kamino_program, 
+        inner_ctx.kamino_program
     )?;
 
     Ok(())

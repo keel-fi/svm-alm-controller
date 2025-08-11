@@ -122,7 +122,7 @@ pub enum SvmAlmControllerInstruction {
 
     /// Pull
     #[account(0, name = "controller")]
-    #[account(1, name = "controller_authority")]
+    #[account(1, writable, name = "controller_authority")]
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
@@ -308,6 +308,7 @@ pub enum PullArgs {
     SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge,
     LzBridge,
+    Kamino { amount: u64 }
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

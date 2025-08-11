@@ -48,7 +48,7 @@ impl Pull {
             self.controller,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             self.controller_authority,
             false,
         ));
@@ -118,7 +118,7 @@ pub struct PullInstructionArgs {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[]` controller_authority
+///   1. `[writable]` controller_authority
 ///   2. `[signer]` authority
 ///   3. `[]` permission
 ///   4. `[writable]` integration
@@ -332,7 +332,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
             *self.controller.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             *self.controller_authority.key,
             false,
         ));
@@ -403,7 +403,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[]` controller_authority
+///   1. `[writable]` controller_authority
 ///   2. `[signer]` authority
 ///   3. `[]` permission
 ///   4. `[writable]` integration

@@ -52,6 +52,7 @@ pub(crate) mod r#swap_v1_subset;
 pub(crate) mod r#utilization_market;
 pub(crate) mod r#utilization_market_config;
 pub(crate) mod r#utilization_market_state;
+pub(crate) mod r#withdraw_obligation_v2_args;
 pub(crate) mod r#withdraw_single_token_type_exact_amount_out_args;
 
 pub use self::r#account_discriminators::*;
@@ -101,4 +102,5 @@ pub use self::r#swap_v1_subset::*;
 pub use self::r#utilization_market::*;
 pub use self::r#utilization_market_config::*;
 pub use self::r#utilization_market_state::*;
+pub use self::r#withdraw_obligation_v2_args::*;
 pub use self::r#withdraw_single_token_type_exact_amount_out_args::*;

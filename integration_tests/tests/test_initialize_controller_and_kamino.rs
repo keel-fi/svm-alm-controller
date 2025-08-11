@@ -14,7 +14,7 @@ use svm_alm_controller_client::generated::types::{
 mod tests {
     use solana_sdk::{clock::Clock, pubkey::Pubkey};
     use svm_alm_controller_client::generated::types::{
-        InitializeArgs, KaminoConfig, PushArgs, ReserveStatus, UtilizationMarketConfig
+        InitializeArgs, KaminoConfig, PullArgs, PushArgs, ReserveStatus, UtilizationMarketConfig
     };
 
     use super::*;
@@ -23,7 +23,7 @@ mod tests {
         helpers::constants::{
             KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_FARM_COLLATERAL, KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY}, 
             subs::{
-                derive_controller_authority_pda, derive_vanilla_obligation_address, edit_ata_amount, initialize_ata, push_integration, refresh_obligation, refresh_reserve, transfer_tokens
+                derive_controller_authority_pda, derive_vanilla_obligation_address, edit_ata_amount, initialize_ata, pull_integration, push_integration, refresh_obligation, refresh_reserve, transfer_tokens
             }
     };
 
@@ -146,7 +146,7 @@ mod tests {
         // advance time to avoid math overflow in kamino refresh calls
         let mut initial_clock = svm.get_sysvar::<Clock>();
         initial_clock.unix_timestamp = 1754682844;
-        initial_clock.slot = 358753275;
+        initial_clock.slot = 358754275;
         svm.set_sysvar::<Clock>(&initial_clock);
 
         // we refresh the reserve and the obligation
@@ -174,6 +174,36 @@ mod tests {
             &PushArgs::Kamino { amount: 1_000_000_000  } //1K
         )
         .await?;
+
+        // advance time again for pull
+        let mut post_push_clock = svm.get_sysvar::<Clock>();
+        post_push_clock.unix_timestamp = 1754948368;
+        post_push_clock.slot = 359424320;
+        svm.set_sysvar::<Clock>(&post_push_clock);
+
+        // we refresh the reserve and the obligation
+        refresh_reserve(
+            &mut svm, 
+            &authority, 
+            &reserve, 
+            &market, 
+            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED
+        )?;
+
+        refresh_obligation(
+            &mut svm, 
+            &authority, 
+            &market, 
+            &obligation
+        )?;
+
+        let _ = pull_integration(
+            &mut svm, 
+            &controller_pk, 
+            &kamino_integration_pk, 
+            &authority, 
+            &PullArgs::Kamino { amount: 900_000_000 } // 0.9 K
+        )?;
 
         Ok(())
     }

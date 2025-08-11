@@ -599,3 +599,122 @@ pub fn deposit_reserve_liquidity_v2_cpi(
 
     Ok(())
 }
+
+
+// ---------- withdraw obligation collateral and redeem reserve collateral ----------
+
+#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
+
+pub struct WithdrawObligationV2Args {
+    pub collateral_amount: u64
+}
+
+impl WithdrawObligationV2Args {
+    pub const LEN: usize = 8;
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash(
+        "global", 
+        "withdraw_obligation_collateral_and_redeem_reserve_collateral_v2"
+    );
+
+    pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
+        let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
+        serialized.extend_from_slice(&Self::DISCRIMINATOR);
+        
+        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        
+        Ok(serialized)
+    }
+}
+
+pub fn withdraw_obligation_collateral_v2_cpi(
+    collateral_amount: u64,
+    signer: Signer,
+    owner: &AccountInfo,
+    obligation: &AccountInfo,
+    market: &AccountInfo,
+    market_authority: &AccountInfo,
+    reserve: &AccountInfo,
+    reserve_liquidity_mint: &AccountInfo,
+    reserve_liquidity_supply: &AccountInfo,
+    reserve_collateral_mint: &AccountInfo,
+    reserve_collateral_supply: &AccountInfo,
+    liquidity_destination: &AccountInfo,
+    collateral_token_program: &AccountInfo,
+    liquidity_token_program: &AccountInfo,
+    instruction_sysvar_account: &AccountInfo,
+    obligation_farm_collateral: &AccountInfo,
+    reserve_farm_collateral: &AccountInfo,
+    farms_program: &AccountInfo,
+    kamino_program: &AccountInfo,
+) -> Result<(), ProgramError> {
+    let args_vec = WithdrawObligationV2Args {
+        collateral_amount
+    }.to_vec().unwrap();
+
+    let data = args_vec.as_slice();
+
+    invoke_signed(
+        &Instruction { 
+            program_id: kamino_program.key(), 
+            data: &data, 
+            accounts: &[
+                // owner
+                AccountMeta::writable_signer(owner.key()),
+                // obligation
+                AccountMeta::writable(obligation.key()),
+                // market
+                AccountMeta::readonly(market.key()),
+                // market authority
+                AccountMeta::readonly(market_authority.key()),
+                // reserve
+                AccountMeta::writable(reserve.key()),
+                // reserve liquidity mint
+                AccountMeta::readonly(reserve_liquidity_mint.key()),
+                // reserve collateral supply vault
+                AccountMeta::writable(reserve_collateral_supply.key()),
+                // reserve collateral mint
+                AccountMeta::writable(reserve_collateral_mint.key()),
+                // reserve liquidity supply vault
+                AccountMeta::writable(reserve_liquidity_supply.key()),
+                // user destination collateral
+                AccountMeta::writable(liquidity_destination.key()),
+                // placeholder_user_destination_collateral OPTIONAL
+                AccountMeta::readonly(kamino_program.key()),
+                // collateral token program
+                AccountMeta::readonly(collateral_token_program.key()),
+                // liquidity_token_program
+                AccountMeta::readonly(liquidity_token_program.key()),
+                // instruction sysvar account
+                AccountMeta::readonly(instruction_sysvar_account.key()),
+                // obligation_farm_user_state
+                AccountMeta::writable(obligation_farm_collateral.key()),
+                // reserve_farm_state
+                AccountMeta::writable(reserve_farm_collateral.key()),
+                // farms program
+                AccountMeta::readonly(farms_program.key()),
+            ]
+        },
+        &[
+            owner,
+            obligation,
+            market,
+            market_authority,
+            reserve,
+            reserve_liquidity_mint,
+            reserve_collateral_supply,
+            reserve_collateral_mint,
+            reserve_liquidity_supply,
+            liquidity_destination,
+            kamino_program,
+            collateral_token_program,
+            liquidity_token_program,
+            instruction_sysvar_account,
+            obligation_farm_collateral,
+            reserve_farm_collateral,
+            farms_program
+        ], 
+        &[signer]
+    )?;
+
+    Ok(())
+}

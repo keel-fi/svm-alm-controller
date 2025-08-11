@@ -3,7 +3,7 @@ use crate::{
     enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
-    integrations::spl_token_swap::pull::process_pull_spl_token_swap,
+    integrations::{spl_token_swap::pull::process_pull_spl_token_swap, utilization_market::kamino::pull::process_pull_kamino},
     state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
@@ -87,6 +87,16 @@ pub fn process_pull(
                 &mut integration,
                 &mut reserve_a,
                 &mut reserve_b.unwrap(),
+                &ctx,
+                &args,
+            )?;
+        }
+        PullArgs::Kamino { .. } => {
+            process_pull_kamino(
+                &controller,
+                &permission,
+                &mut integration,
+                &mut reserve_a,
                 &ctx,
                 &args,
             )?;

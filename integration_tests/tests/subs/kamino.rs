@@ -214,7 +214,6 @@ pub fn refresh_reserve(
         ],
         data: data.to_vec()
     };
-
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
         &[instruction], 
         Some(&payer.pubkey()), 

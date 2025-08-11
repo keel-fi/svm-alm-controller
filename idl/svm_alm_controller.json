@@ -564,7 +564,7 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -2338,6 +2338,18 @@
       }
     },
     {
+      "name": "WithdrawObligationV2Args",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "collateralAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "KaminoState",
       "type": {
         "kind": "struct",
@@ -2841,6 +2853,15 @@
           },
           {
             "name": "LzBridge"
+          },
+          {
+            "name": "Kamino",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
           }
         ]
       }

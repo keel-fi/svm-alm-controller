@@ -10,10 +10,6 @@ use borsh::BorshSerialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum PullArgs {
-    SplTokenExternal,
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
-    CctpBridge,
-    LzBridge,
-    Kamino { amount: u64 },
+pub struct WithdrawObligationV2Args {
+    pub collateral_amount: u64,
 }
