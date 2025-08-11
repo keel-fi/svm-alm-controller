@@ -1,4 +1,5 @@
 use crate::{
+    constants::SPL_TOKEN_SWAP_LP_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::InitializeIntegrationArgs,
@@ -7,11 +8,16 @@ use crate::{
         state::SplTokenSwapState,
         swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET},
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::create_pda_account, InitializeIntegrationAccounts},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
-use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
+use pinocchio::{
+    instruction::{Seed, Signer},
+    msg,
+    program_error::ProgramError,
+    sysvars::{rent::Rent, Sysvar},
+};
+use pinocchio_token2022::instructions::InitializeAccount3;
 use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
@@ -20,27 +26,25 @@ define_account_struct! {
         mint_a;
         mint_b;
         lp_mint;
-        lp_token_account: mut;
+        lp_token_account: mut, @owner(pinocchio_system::ID);
         mint_a_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         mint_b_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         lp_mint_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         swap_token_a;
         swap_token_b;
         swap_program;
-        associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
     }
 }
 
 impl<'info> InitializeSplTokenSwapAccounts<'info> {
     pub fn checked_from_accounts(
-        account_infos: &'info [AccountInfo],
+        outer_ctx: &'info InitializeIntegrationAccounts,
     ) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(account_infos)?;
+        let ctx = Self::from_accounts(outer_ctx.remaining_accounts)?;
         if !ctx.swap.is_owned_by(ctx.swap_program.key()) {
             msg! {"pool: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        // TODO: More checks on swap
         if !ctx.mint_a.is_owned_by(ctx.mint_a_token_program.key()) {
             msg! {"mint_a: not owned by mint_a_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -51,14 +55,6 @@ impl<'info> InitializeSplTokenSwapAccounts<'info> {
         }
         if !ctx.lp_mint.is_owned_by(ctx.lp_mint_token_program.key()) {
             msg! {"lp_mint: not owned by lp_mint_token_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx
-            .lp_token_account
-            .is_owned_by(ctx.lp_mint_token_program.key())
-            && !ctx.lp_token_account.is_owned_by(&pinocchio_system::ID)
-        {
-            msg! {"lp_token_account: not owned by token_program or system_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
         if !ctx.swap_token_a.is_owned_by(ctx.mint_a_token_program.key()) {
@@ -79,8 +75,18 @@ pub fn process_initialize_spl_token_swap(
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_spl_token_swap");
 
-    let inner_ctx =
-        InitializeSplTokenSwapAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
+    let inner_ctx = InitializeSplTokenSwapAccounts::checked_from_accounts(&outer_ctx)?;
+
+    // Check proper PDA seeds for the LP TokenAccount.
+    let (lp_token_account_pda, lp_token_account_bump) =
+        SplTokenSwapConfig::derive_lp_token_account_pda(
+            outer_ctx.controller.key(),
+            inner_ctx.lp_mint.key(),
+        );
+    if inner_ctx.lp_token_account.key().ne(&lp_token_account_pda) {
+        msg! {"lp_token_account: does not match PDA"};
+        return Err(ProgramError::InvalidAccountData);
+    }
 
     // Load in the mint accounts, validating it in the process
     Mint::from_account_info(inner_ctx.mint_a)?;
@@ -113,27 +119,44 @@ pub fn process_initialize_spl_token_swap(
         msg! {"swap_token_b: does not match swap state"};
         return Err(ProgramError::InvalidAccountData);
     }
+    // Create PDA TokenAccount for LP Mint.
+    // TODO handle T22 by calculating Account len with extensions.
+    // TODO is it worth having immutable owner?
+    let account_len = pinocchio_token2022::state::TokenAccount::BASE_LEN;
+    let rent = Rent::get()?;
+    let bump_seed = [lp_token_account_bump];
+    let seeds = [
+        Seed::from(SPL_TOKEN_SWAP_LP_SEED),
+        Seed::from(outer_ctx.controller.key()),
+        Seed::from(inner_ctx.lp_mint.key()),
+        Seed::from(&bump_seed),
+    ];
+    create_pda_account(
+        outer_ctx.payer,
+        &rent,
+        account_len,
+        inner_ctx.lp_mint_token_program.key(),
+        inner_ctx.lp_token_account,
+        &seeds,
+    )?;
 
-    // Invoke the CreateIdempotent ixn for the lp_token_account (ATA)
-    // Will handle both the creation or the checking, if already created
-    CreateIdempotent {
-        funding_account: outer_ctx.payer,
+    // Initialize the TokenAccount
+    InitializeAccount3 {
         account: inner_ctx.lp_token_account,
-        wallet: outer_ctx.controller_authority,
         mint: inner_ctx.lp_mint,
-        system_program: outer_ctx.system_program,
-        token_program: inner_ctx.lp_mint_token_program,
+        owner: outer_ctx.controller_authority.key(),
+        token_program: inner_ctx.lp_mint_token_program.key(),
     }
-    .invoke()?;
+    .invoke_signed(&[Signer::from(&seeds)])?;
 
     // Create the Config
     let config = IntegrationConfig::SplTokenSwap(SplTokenSwapConfig {
-        program: Pubkey::from(*inner_ctx.swap_program.key()),
-        swap: Pubkey::from(*inner_ctx.swap.key()),
-        mint_a: Pubkey::from(*inner_ctx.mint_a.key()),
-        mint_b: Pubkey::from(*inner_ctx.mint_b.key()),
-        lp_mint: Pubkey::from(*inner_ctx.lp_mint.key()),
-        lp_token_account: Pubkey::from(*inner_ctx.lp_token_account.key()),
+        program: *inner_ctx.swap_program.key(),
+        swap: *inner_ctx.swap.key(),
+        mint_a: *inner_ctx.mint_a.key(),
+        mint_b: *inner_ctx.mint_b.key(),
+        lp_mint: *inner_ctx.lp_mint.key(),
+        lp_token_account: *inner_ctx.lp_token_account.key(),
         _padding: [0; 32],
     });
 

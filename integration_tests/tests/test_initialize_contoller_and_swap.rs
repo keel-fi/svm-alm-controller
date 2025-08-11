@@ -6,7 +6,6 @@ use crate::subs::{
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
-use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus, SplTokenSwapConfig,
 };
@@ -161,10 +160,9 @@ mod tests {
 
         // Initialize an Integration
 
-        let usds_susds_lp_vault_pk = get_associated_token_address_with_program_id(
-            &controller_authority,
+        let usds_susds_lp_vault_pk = svm_alm_controller_client::derive_spl_token_swap_lp_pda(
+            &controller_pk,
             &usds_susds_lp_mint_pk,
-            &pinocchio_token::ID.into(),
         );
 
         let usdc_external_integration_pk = initialize_integration(

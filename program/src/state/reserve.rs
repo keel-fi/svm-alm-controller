@@ -143,7 +143,7 @@ impl Reserve {
             Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
         // Commit the account on-chain
         reserve.save(account_info)?;
