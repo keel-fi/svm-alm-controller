@@ -11,7 +11,7 @@ use borsh::BorshSerialize;
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KaminoState {
-    pub assets: u64,
-    pub liabilities: u64,
+    pub deposited_liquidity_value: u64,
+    pub last_collateral_amount: u64,
     pub padding: [u8; 31],
 }

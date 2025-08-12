@@ -2355,11 +2355,11 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "assets",
+            "name": "depositedLiquidityValue",
             "type": "u64"
           },
           {
-            "name": "liabilities",
+            "name": "lastCollateralAmount",
             "type": "u64"
           },
           {

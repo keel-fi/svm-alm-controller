@@ -3,7 +3,7 @@ use crate::{
     helpers::{
         cctp::CctpDepositForBurnPdas,
         constants::{
-            DEVNET_RPC, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, KAMINO_REFERRER_METADATA, LUT_PROGRAM_ID, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER
+            DEVNET_RPC, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER
         },
     },
     subs::{
@@ -19,7 +19,6 @@ use oft_client::{
         Oft302SendPrograms,
     },
 };
-use pinocchio::sysvars::instructions::INSTRUCTIONS_ID;
 use solana_client::rpc_client::RpcClient;
 use solana_keccak_hasher::hash;
 use solana_program::pubkey;
@@ -1394,7 +1393,7 @@ pub async fn push_integration(
                     let actual_deposit_amount = match &integration_after.state {
                         IntegrationState::UtilizationMarket(s) => {
                             match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.assets,
+                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.deposited_liquidity_value,
                                 _ => panic!("Invalid type"),
                             }
                         }
@@ -1833,21 +1832,21 @@ pub fn pull_integration(
                         .checked_sub(vault_a_balance_before)
                         .unwrap();
 
-                    // get the change in state assets (decreases)
-                    let assets_before = match &integration_before.state {
+                    // get the change in deposited liquidity value (decreases)
+                    let liquidity_value_before = match &integration_before.state {
                         IntegrationState::UtilizationMarket(s) => {
                             match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.assets,
+                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.deposited_liquidity_value,
                                 _ => panic!("Invalid type"),
                             }
                         },
                         _ => panic!("Invalid type"),
                     };
 
-                    let assets_after = match &integration_after.state {
+                    let liquidity_value_after = match &integration_after.state {
                         IntegrationState::UtilizationMarket(s) => {
                             match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.assets,
+                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.deposited_liquidity_value,
                                 _ => panic!("Invalid type"),
                             }
                         },
@@ -1856,11 +1855,11 @@ pub fn pull_integration(
                     
                     println!("vault balance before {}", vault_a_balance_before);
                     println!("vault balance after {}", vault_a_balance_after);
-                    println!("assets before {}", assets_before);
-                    println!("assets after {}", assets_after);
+                    println!("assets before {}", liquidity_value_before);
+                    println!("assets after {}", liquidity_value_after);
 
-                    let assets_delta = assets_before
-                        .checked_sub(assets_after)
+                    let assets_delta = liquidity_value_before
+                        .checked_sub(liquidity_value_after)
                         .unwrap();
 
 

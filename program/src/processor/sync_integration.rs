@@ -1,7 +1,7 @@
 use crate::{
     define_account_struct,
     enums::IntegrationConfig,
-    integrations::spl_token_swap::sync::process_sync_spl_token_swap,
+    integrations::{spl_token_swap::sync::process_sync_spl_token_swap, utilization_market::{config::UtilizationMarketConfig, kamino::sync::process_sync_kamino}},
     state::{nova_account::NovaAccount, Controller, Integration},
 };
 use pinocchio::{
@@ -48,6 +48,14 @@ pub fn process_sync_integration(
     match integration.config {
         IntegrationConfig::SplTokenSwap(_config) => {
             process_sync_spl_token_swap(&controller, &mut integration, &ctx)?
+        },
+        IntegrationConfig::UtilizationMarket(c) => {
+            match c {
+                UtilizationMarketConfig::KaminoConfig(_config) => {
+                    process_sync_kamino(&controller, &mut integration, &ctx)?
+                }
+                _ => return Err(ProgramError::InvalidArgument),
+            }
         }
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),

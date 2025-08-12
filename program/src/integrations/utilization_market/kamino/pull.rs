@@ -199,11 +199,19 @@ pub fn process_pull_kamino(
         controller
     )?;
 
-    // TODO: Sync the integration and account Sync event
+    // TODO: Sync events
 
-    let liquidity_destination_account = TokenAccount::from_account_info(inner_ctx.liquidity_destination)?;
-    let amount_before = liquidity_destination_account.amount();
+    // for liquidity amount calculation
+    let liquidity_destination_account 
+        = TokenAccount::from_account_info(inner_ctx.liquidity_destination)?;
+    let liquidity_amount_before = liquidity_destination_account.amount();
     drop(liquidity_destination_account);
+
+    // for collateral amount calculation
+    let collateral_destination_account 
+        = TokenAccount::from_account_info(inner_ctx.reserve_collateral_supply)?;
+    let collateral_amount_before = collateral_destination_account.amount();
+    drop(collateral_destination_account);
 
     withdraw_obligation_collateral_v2(
         amount, 
@@ -216,16 +224,28 @@ pub fn process_pull_kamino(
         &inner_ctx
     )?;
 
-    let liquidity_destination_account = TokenAccount::from_account_info(inner_ctx.liquidity_destination)?;
-    let amount_after = liquidity_destination_account.amount();
-    drop(liquidity_destination_account);    
+    // for liquidity amount calculation
+    let liquidity_destination_account 
+        = TokenAccount::from_account_info(inner_ctx.liquidity_destination)?;
+    let liquidity_amount_after = liquidity_destination_account.amount();
+    drop(liquidity_destination_account);
 
-    let final_amount = amount_after.checked_sub(amount_before)
+    let final_liquidity_amount = liquidity_amount_after
+        .checked_sub(liquidity_amount_before)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    // for collateral amount calculation
+    let collateral_destination_account 
+        = TokenAccount::from_account_info(inner_ctx.reserve_collateral_supply)?;
+    let collateral_amount_after = collateral_destination_account.amount();
+    drop(collateral_destination_account);
+
+    let final_collateral_amount = collateral_amount_before
+        .checked_sub(collateral_amount_after)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // emit accounting event
-    // TODO: ask about this
-    if final_amount > 0 {
+    if final_liquidity_amount > 0 {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
@@ -234,8 +254,8 @@ pub fn process_pull_kamino(
                 integration: *outer_ctx.integration.key(),
                 mint: *inner_ctx.reserve_liquidity_mint.key(),
                 action: AccountingAction::Deposit,
-                before: amount_before,
-                after: amount_after,
+                before: liquidity_amount_before,
+                after: liquidity_amount_after,
             }),
         )?;
     }
@@ -245,9 +265,15 @@ pub fn process_pull_kamino(
         IntegrationState::UtilizationMarket(state) => {
             match state {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.assets = kamino_state.assets
-                        .checked_sub(final_amount)
+                    kamino_state.deposited_liquidity_value = kamino_state.deposited_liquidity_value
+                        .checked_sub(final_liquidity_amount)
                         .unwrap_or(0);
+                        // .ok_or(ProgramError::ArithmeticOverflow)?;
+
+                    kamino_state.last_collateral_amount
+                        .checked_sub(final_collateral_amount)
+                        .unwrap_or(0);
+                        // .ok_or(ProgramError::ArithmeticOverflow)?;
                 }
                 _ => return Err(ProgramError::InvalidAccountData.into()),
             }
@@ -256,10 +282,10 @@ pub fn process_pull_kamino(
     }
     
     // update the integration rate limit for inflow
-    integration.update_rate_limit_for_inflow(clock, final_amount)?;
+    integration.update_rate_limit_for_inflow(clock, final_liquidity_amount)?;
 
     // update the reserves for the flows
-    reserve.update_for_inflow(clock, final_amount)?;
+    reserve.update_for_inflow(clock, final_liquidity_amount)?;
     
     Ok(())
 }

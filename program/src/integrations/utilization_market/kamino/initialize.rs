@@ -185,7 +185,15 @@ pub fn process_initialize_kamino(
         let obligation = Obligation::try_from(
             inner_ctx.obligation.try_borrow_data()?.as_ref()
         )?;
-        obligation.check_from_accounts(outer_ctx, &inner_ctx)?;
+        obligation.check_from_accounts(
+            outer_ctx.controller_authority.key(), 
+            inner_ctx.market.key()
+        )?;
+
+        if obligation.is_deposits_full() {
+            msg! {"obligation: invalid obligation, collateral deposit slots are full"}
+            return Err(ProgramError::InvalidAccountData)
+        }
     }
 
     // initialize obligation farm for the reserve we are targeting,
@@ -216,8 +224,8 @@ pub fn process_initialize_kamino(
 
     // create the state
     let kamino_state = KaminoState {
-        assets: 0,
-        liabilities: 0,
+        deposited_liquidity_value: 0,
+        last_collateral_amount: 0,
         _padding: [0; 31]
     };
     let state = IntegrationState::UtilizationMarket(
