@@ -190,7 +190,6 @@ pub trait Extension {
     const BASE_STATE: BaseState;
 }
 
-// TODO need to modify iterators to join all extension types...
 
 pub fn get_extension_from_bytes<T: Extension + Clone + Copy>(acc_data_bytes: &[u8]) -> Option<&T> {
     let ext_bytes = match T::BASE_STATE {

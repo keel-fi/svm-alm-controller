@@ -1673,10 +1673,6 @@
           {
             "name": "amount",
             "type": "u64"
-          },
-          {
-            "name": "repayExcessTokenA",
-            "type": "bool"
           }
         ]
       }
@@ -1756,15 +1752,11 @@
             "type": "u64"
           },
           {
-            "name": "repayExcessTokenA",
-            "type": "bool"
-          },
-          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                7
+                8
               ]
             }
           }

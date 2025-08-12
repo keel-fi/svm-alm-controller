@@ -89,7 +89,6 @@ pub fn process_atomic_swap_repay(
             return Err(SvmAlmControllerErrors::SwapNotStarted.into());
         }
 
-        let mut final_input_amount = state.amount_borrowed;
         {
             // Check that vault_a and vault_b amounts remain same as after atomic borrow.
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
@@ -107,14 +106,14 @@ pub fn process_atomic_swap_repay(
                 return Err(SvmAlmControllerErrors::InvalidSwapState.into());
             }
 
-            if state.repay_excess_token_a {
-                let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
-                excess_token_a = payer_account_a
-                    .amount()
-                    .saturating_sub(state.recipient_token_a_pre);
-            }
+            let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
+            // No need to error if the user overspent and has less tokens than the borrowed amount.
+            excess_token_a = payer_account_a
+                .amount()
+                .saturating_sub(state.recipient_token_a_pre);
         }
 
+        let mut final_input_amount = state.amount_borrowed;
         // Transfer tokens to vault for repayment.
         if excess_token_a > 0 {
             let balance_before = TokenAccount::from_account_info(ctx.vault_a)?.amount();

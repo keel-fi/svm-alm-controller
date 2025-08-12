@@ -13,11 +13,7 @@ pub struct AtomicSwapState {
     pub recipient_token_a_pre: u64,
     // Recipient's token b account balance before borrow.
     pub recipient_token_b_pre: u64,
-    // If additional tokens in recipient's token account balance (compared to
-    // recipient_token_a_pre should be repaid. Note that this is for accounting
-    // purposes and that is no enforcement that the same token account has to be used.
-    pub repay_excess_token_a: bool,
-    pub _padding: [u8; 7],
+    pub _padding: [u8; 8],
 }
 
 impl AtomicSwapState {
@@ -31,6 +27,5 @@ impl AtomicSwapState {
         self.amount_borrowed = 0;
         self.recipient_token_a_pre = 0;
         self.recipient_token_b_pre = 0;
-        self.repay_excess_token_a = false;
     }
 }

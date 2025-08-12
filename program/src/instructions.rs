@@ -325,5 +325,4 @@ pub enum PullArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct AtomicSwapBorrowArgs {
     pub amount: u64,
-    pub repay_excess_token_a: bool,
 }

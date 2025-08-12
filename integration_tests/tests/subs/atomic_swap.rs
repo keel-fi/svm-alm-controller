@@ -32,11 +32,11 @@ pub fn atomic_swap_borrow_repay_ixs(
     payer_account_b: Pubkey,
     token_program_a: Pubkey,
     token_program_b: Pubkey,
-    repay_excess_token_a: bool,
     borrow_amount: u64,
     repay_amount: u64,
     mint_authority: &Keypair,
-) -> [Instruction; 4] {
+    spend_amount: u64,
+) -> [Instruction; 5] {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
     let controller_authority = derive_controller_authority_pda(&controller);
@@ -71,10 +71,10 @@ pub fn atomic_swap_borrow_repay_ixs(
         .recipient_token_account_b(payer_account_b)
         .token_program_a(token_program_a)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
-        .repay_excess_token_a(repay_excess_token_a)
         .amount(borrow_amount)
         .instruction();
 
+    // Mint Token B to simulate receiving leg of a "purchase"
     let mint_ix = spl_token_2022::instruction::mint_to(
         &token_program_b,
         &mint_b,
@@ -82,7 +82,19 @@ pub fn atomic_swap_borrow_repay_ixs(
         &mint_authority.pubkey(),
         &[],
         repay_amount,
-    ).unwrap();
+    )
+    .unwrap();
+
+    // Burn Token A to simulate spending leg of a "purchase"
+    let burn_ix = spl_token_2022::instruction::burn(
+        &token_program_a,
+        &payer_account_a,
+        &mint_a,
+        &authority.pubkey(),
+        &[],
+        spend_amount,
+    )
+    .unwrap();
 
     let repay_ix = AtomicSwapRepayBuilder::new()
         .payer(authority.pubkey())
@@ -102,7 +114,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         .token_program_a(token_program_a)
         .token_program_b(token_program_b)
         .instruction();
-    [borrow_ix, refresh_ix, mint_ix, repay_ix]
+    [borrow_ix, refresh_ix, mint_ix, burn_ix, repay_ix]
 }
 
 pub fn atomic_swap_borrow_repay(
@@ -119,10 +131,10 @@ pub fn atomic_swap_borrow_repay(
     payer_account_b: Pubkey,
     token_program_a: Pubkey,
     token_program_b: Pubkey,
-    repay_excess_token_a: bool,
     borrow_amount: u64,
     repay_amount: u64,
     mint_authority: &Keypair,
+    spend_amount: u64,
 ) -> TransactionResult {
     let instructions = atomic_swap_borrow_repay_ixs(
         authority,
@@ -137,10 +149,10 @@ pub fn atomic_swap_borrow_repay(
         payer_account_b,
         token_program_a,
         token_program_b,
-        repay_excess_token_a,
         borrow_amount,
         repay_amount,
         mint_authority,
+        spend_amount,
     );
     let txn = Transaction::new_signed_with_payer(
         &instructions,

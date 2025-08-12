@@ -206,7 +206,6 @@ pub fn process_atomic_swap_borrow(
             state.amount_borrowed = args.amount;
             state.recipient_token_a_pre = recipient_token_a_account.amount();
             state.recipient_token_b_pre = recipient_token_b_account.amount();
-            state.repay_excess_token_a = args.repay_excess_token_a;
         }
 
         // Transfer borrow amount of tokens from vault to recipient.
