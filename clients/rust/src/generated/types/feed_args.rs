@@ -12,5 +12,4 @@ use borsh::BorshSerialize;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FeedArgs {
     pub oracle_type: u8,
-    pub invert_price: bool,
 }

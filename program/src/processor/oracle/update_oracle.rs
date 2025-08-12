@@ -40,7 +40,6 @@ pub fn process_update_oracle(
         Oracle::verify_oracle_type(feed_args.oracle_type, ctx.price_feed)?;
         oracle.feeds[0].oracle_type = feed_args.oracle_type;
         oracle.feeds[0].price_feed = *ctx.price_feed.key();
-        oracle.feeds[0].invert_price = feed_args.invert_price;
         oracle.value = 0;
         match feed_args.oracle_type {
             0 => {

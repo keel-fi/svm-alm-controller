@@ -24,10 +24,8 @@ pub struct Feed {
     pub price_feed: Pubkey,
     /// Type of Oracle (0 = Switchboard)
     pub oracle_type: u8,
-    /// Transformations to apply
-    pub invert_price: bool,
     /// Reserved space (for additional context, transformations and operations).
-    pub reserved: [u8; 62],
+    pub reserved: [u8; 63],
 }
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
@@ -64,6 +62,8 @@ impl NovaAccount for Oracle {
         Ok((pda, bump))
     }
 }
+
+// TODO would need to add function for calculating value and handling the price inversion.
 
 impl Oracle {
     /// Validate that the Oracle is a supported Oracle [Switchboard].
@@ -110,7 +110,6 @@ impl Oracle {
         nonce: &Pubkey,
         oracle_type: u8,
         price_feed: &AccountInfo,
-        invert_price: bool,
     ) -> Result<Self, ProgramError> {
         let precision = match oracle_type {
             0 => Ok::<u32, ProgramError>(switchboard_on_demand::on_demand::PRECISION),
@@ -129,8 +128,7 @@ impl Oracle {
             feeds: [Feed {
                 oracle_type,
                 price_feed: *price_feed.key(),
-                invert_price,
-                reserved: [0; 62],
+                reserved: [0; 63],
             }],
         };
 
@@ -160,5 +158,23 @@ impl Oracle {
         // Commit the account on-chain
         oracle.save(account_info)?;
         Ok(oracle)
+    }
+
+    /// Get the Oracle's price allowing for inversion.
+    ///
+    /// Let P = precision of price and X = Price in decimals
+    /// Price is stored in data feed as X * (10^P).
+    /// By inverting, we want to get 1/X * (10^P)
+    /// = 10^P / X = 10^(2*P) / (X * 10^P)
+    pub fn get_price(&self, invert: bool) -> i128 {
+        if invert {
+            10_i128
+                .checked_pow(self.precision * 2)
+                .unwrap()
+                .checked_div(self.value)
+                .unwrap()
+        } else {
+            self.value
+        }
     }
 }

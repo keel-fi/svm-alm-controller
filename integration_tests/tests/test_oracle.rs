@@ -37,7 +37,7 @@ mod tests {
         set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        initalize_oracle(&mut svm, &authority, &nonce, &new_feed, 0, false)?;
+        initialize_oracle(&mut svm, &authority, &nonce, &new_feed, 0)?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
@@ -99,10 +99,7 @@ mod tests {
             &authority2,
             &oracle_pda,
             &new_feed2,
-            Some(FeedArgs {
-                oracle_type,
-                invert_price: true,
-            }),
+            Some(FeedArgs { oracle_type }),
             None,
         )?;
 
@@ -119,16 +116,6 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed2);
-
-        // Check that price is inverted after refresh
-        refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed2)?;
-
-        let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
-        assert!(oracle.is_some(), "Oracle account is not found");
-        let oracle = oracle.unwrap();
-        assert_eq!(oracle.value, 400_000_000_000_000_000); // 0.4 in 18 prec
-        assert_eq!(oracle.precision, PRECISION);
-        assert_eq!(oracle.last_update_slot, update_slot);
 
         Ok(())
     }

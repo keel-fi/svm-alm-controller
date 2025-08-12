@@ -32,7 +32,6 @@ pub fn process_initialize_oracle(
         &args.nonce,
         args.oracle_type,
         ctx.price_feed,
-        args.invert_price,
     )?;
 
     Ok(())

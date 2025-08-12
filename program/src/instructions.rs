@@ -253,7 +253,6 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
-    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -264,7 +263,6 @@ pub struct UpdateOracleArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct FeedArgs {
     pub oracle_type: u8,
-    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -283,6 +281,7 @@ pub enum InitializeArgs {
         max_slippage_bps: u16,
         max_staleness: u64,
         expiry_timestamp: i64,
+        oracle_price_inverted: bool,
     },
 }
 

@@ -34,5 +34,6 @@ pub enum InitializeArgs {
         max_slippage_bps: u16,
         max_staleness: u64,
         expiry_timestamp: i64,
+        oracle_price_inverted: bool,
     },
 }

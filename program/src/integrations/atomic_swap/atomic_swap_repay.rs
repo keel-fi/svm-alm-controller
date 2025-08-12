@@ -78,9 +78,9 @@ pub fn process_atomic_swap_repay(
     if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
         (&integration.config, &mut integration.state)
     {
-        if cfg.input_token != reserve_a.mint
-            || cfg.output_token != reserve_b.mint
-            || cfg.oracle != *ctx.oracle.key()
+        if cfg.input_token.ne(&reserve_a.mint)
+            || cfg.output_token.ne(&reserve_b.mint)
+            || cfg.oracle.ne(ctx.oracle.key())
         {
             return Err(SvmAlmControllerErrors::InvalidAccountData.into());
         }
@@ -171,7 +171,7 @@ pub fn process_atomic_swap_repay(
             balance_b_delta,
             cfg.output_mint_decimals,
             cfg.max_slippage_bps,
-            oracle.value,
+            oracle.get_price(cfg.oracle_price_inverted),
             oracle.precision,
         )?;
 

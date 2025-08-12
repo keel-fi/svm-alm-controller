@@ -5,7 +5,7 @@ use crate::{
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
     processor::InitializeIntegrationAccounts,
-    state::{nova_account::NovaAccount, Oracle},
+    state::Oracle,
 };
 use pinocchio::{
     msg,
@@ -36,12 +36,13 @@ pub fn process_initialize_atomic_swap(
     }
 
     // Check that Oracle is a valid account.
-    let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
+    let _oracle: Oracle = Oracle::load_and_check(&inner_ctx.oracle)?;
 
     let InitializeArgs::AtomicSwap {
         max_slippage_bps,
         max_staleness,
         expiry_timestamp,
+        oracle_price_inverted,
         ..
     } = outer_args.inner_args
     else {
@@ -66,7 +67,8 @@ pub fn process_initialize_atomic_swap(
         input_mint_decimals: input_mint.decimals(),
         output_mint_decimals: output_mint.decimals(),
         expiry_timestamp,
-        padding: [0u8; 108],
+        oracle_price_inverted,
+        padding: [0u8; 107],
     });
 
     // Create the initial integration state

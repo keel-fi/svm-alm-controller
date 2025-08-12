@@ -25,7 +25,7 @@ mod tests {
 
     use crate::subs::{
         initialize_contoller, initialize_integration, manage_permission,
-        oracle::{derive_oracle_pda, initalize_oracle, set_price_feed},
+        oracle::{derive_oracle_pda, initialize_oracle, set_price_feed},
     };
 
     fn lite_svm_with_programs() -> LiteSVM {
@@ -69,6 +69,7 @@ mod tests {
         coin_token_transfer_fee: Option<u16>,
         pc_token_program: &Pubkey,
         pc_token_transfer_fee: Option<u16>,
+        invert_price_feed: bool,
     ) -> Result<SwapEnv, Box<dyn std::error::Error>> {
         let relayer_authority_kp = Keypair::new();
         let price_feed = Pubkey::new_unique();
@@ -86,7 +87,7 @@ mod tests {
         let update_slot = 1000_000;
         svm.warp_to_slot(update_slot);
         set_price_feed(svm, &price_feed, 1_000_000_000_000)?; // $1
-        initalize_oracle(svm, &relayer_authority_kp, &nonce, &price_feed, 0, false)?;
+        initialize_oracle(svm, &relayer_authority_kp, &nonce, &price_feed, 0)?;
 
         initialize_mint(
             svm,
@@ -134,8 +135,6 @@ mod tests {
             true,  // can_manage_integrations
             false, // can_suspend_permissions
         )?;
-
-        let oracle = derive_oracle_pda(&nonce);
 
         // Setup relayer with funded token accounts.
         initialize_ata(
@@ -252,12 +251,14 @@ mod tests {
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
-                padding: [0u8; 108],
+                oracle_price_inverted: invert_price_feed,
+                padding: [0u8; 107],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
                 max_staleness: 100,
                 expiry_timestamp,
+                oracle_price_inverted: invert_price_feed,
             },
         )?;
 
@@ -300,6 +301,7 @@ mod tests {
             None,
             &pc_token_program,
             None,
+            false,
         )?;
 
         // Check that integration after init.
@@ -350,6 +352,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let _integration =
@@ -575,15 +578,17 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Inverted Oracle Price")]
     fn atomic_swap_slippage_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
         coin_token_transfer_fee: Option<u16>,
         pc_token_transfer_fee: Option<u16>,
+        invert_price_feed: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -595,6 +600,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            invert_price_feed,
         )?;
 
         let _integration =
@@ -603,7 +609,13 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300; // At rate of 3.0
 
-        set_price_feed(&mut svm, &swap_env.price_feed, 3_300_000_000_000_000_000)?; // rate of 3.3
+        if invert_price_feed {
+            // rate of .2, so inverted is 5
+            set_price_feed(&mut svm, &swap_env.price_feed, 200_000_000_000_000_000)?;
+        } else {
+            // rate of 3.3
+            set_price_feed(&mut svm, &swap_env.price_feed, 3_300_000_000_000_000_000)?;
+        }
 
         // Should fail when slippage is exceeded (since min price of 3.3*(1-0.0123) < 3.0)
         let res = atomic_swap_borrow_repay(
@@ -632,7 +644,13 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        set_price_feed(&mut svm, &swap_env.price_feed, 6_100_000_000_000_000_000)?; // rate of 6.1
+        if invert_price_feed {
+            // rate of .1, so inverted is 10
+            set_price_feed(&mut svm, &swap_env.price_feed, 100_000_000_000_000_000)?;
+        } else {
+            // rate of 6.1
+            set_price_feed(&mut svm, &swap_env.price_feed, 6_100_000_000_000_000_000)?;
+        }
 
         // Should fail when slippage is exceeded (since min price of 6.1*(1-0.0123) < 6.0)
 
@@ -681,6 +699,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let borrow_amount = 100;
@@ -756,6 +775,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let repay_amount = 300;
@@ -829,6 +849,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let borrow_amount = 100;
@@ -929,12 +950,13 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [borrow_ix, refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [borrow_ix, refresh_ix, _mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1021,12 +1043,13 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [borrow_ix, refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [borrow_ix, _refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1081,6 +1104,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let borrow_amount = 5_00_000;
@@ -1089,8 +1113,6 @@ mod tests {
         let integration_pre =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
         let reserve_pc_pre = fetch_reserve_account(&mut svm, &swap_env.pc_reserve_pubkey)?.unwrap();
-        let reserve_coin_pre =
-            fetch_reserve_account(&mut svm, &swap_env.coin_reserve_pubkey)?.unwrap();
 
         atomic_swap_borrow_repay(
             &mut svm,
@@ -1237,12 +1259,14 @@ mod tests {
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
-                padding: [0u8; 108],
+                oracle_price_inverted: false,
+                padding: [0u8; 107],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
                 max_staleness: 100,
                 expiry_timestamp,
+                oracle_price_inverted: false,
             },
         )?;
 
@@ -1251,7 +1275,7 @@ mod tests {
 
         let integration2_pre = fetch_integration_account(&mut svm, &integration_pk2)?.unwrap();
 
-        let res = atomic_swap_borrow_repay(
+        let _res = atomic_swap_borrow_repay(
             &mut svm,
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
@@ -1322,6 +1346,7 @@ mod tests {
             coin_token_transfer_fee,
             &pc_token_program,
             pc_token_transfer_fee,
+            false,
         )?;
 
         let repay_amount = 30_000_000;
@@ -1329,8 +1354,6 @@ mod tests {
         let integration_pre =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
         let reserve_pc_pre = fetch_reserve_account(&mut svm, &swap_env.pc_reserve_pubkey)?.unwrap();
-        let reserve_coin_pre =
-            fetch_reserve_account(&mut svm, &swap_env.coin_reserve_pubkey)?.unwrap();
 
         let res = atomic_swap_borrow_repay(
             &mut svm,
@@ -1372,12 +1395,14 @@ mod tests {
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
-                padding: [0u8; 108],
+                oracle_price_inverted: false,
+                padding: [0u8; 107],
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 100,
                 max_staleness: 100,
                 expiry_timestamp,
+                oracle_price_inverted: false,
             },
         )?;
 

@@ -1611,10 +1611,6 @@
           {
             "name": "nonce",
             "type": "publicKey"
-          },
-          {
-            "name": "invertPrice",
-            "type": "bool"
           }
         ]
       }
@@ -1643,10 +1639,6 @@
           {
             "name": "oracleType",
             "type": "u8"
-          },
-          {
-            "name": "invertPrice",
-            "type": "bool"
           }
         ]
       }
@@ -1695,12 +1687,16 @@
             "type": "publicKey"
           },
           {
-            "name": "maxSlippageBps",
-            "type": "u16"
-          },
-          {
             "name": "maxStaleness",
             "type": "u64"
+          },
+          {
+            "name": "expiryTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "maxSlippageBps",
+            "type": "u16"
           },
           {
             "name": "inputMintDecimals",
@@ -1711,15 +1707,15 @@
             "type": "u8"
           },
           {
-            "name": "expiryTimestamp",
-            "type": "i64"
+            "name": "oraclePriceInverted",
+            "type": "bool"
           },
           {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                108
+                107
               ]
             }
           }
@@ -2259,15 +2255,11 @@
             "type": "u8"
           },
           {
-            "name": "invertPrice",
-            "type": "bool"
-          },
-          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                62
+                63
               ]
             }
           }
@@ -2602,6 +2594,10 @@
               {
                 "name": "expiry_timestamp",
                 "type": "i64"
+              },
+              {
+                "name": "oracle_price_inverted",
+                "type": "bool"
               }
             ]
           }

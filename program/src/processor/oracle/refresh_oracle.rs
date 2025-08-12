@@ -46,19 +46,7 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
                 return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
             }
 
-            // Let P = precision of price and X = Price in decimals
-            // Price is stored in data feed as X * (10^P).
-            // By inverting, we want to get 1/X * (10^P)
-            // = 10^P / X = 10^(2*P) / (X * 10^P)
-            if feed.invert_price {
-                oracle.value = 10_i128
-                    .checked_pow(oracle.precision * 2)
-                    .unwrap()
-                    .checked_div(price)
-                    .unwrap();
-            } else {
-                oracle.value = price;
-            }
+            oracle.value = price;
             oracle.last_update_slot = update_slot;
         }
         _ => {
