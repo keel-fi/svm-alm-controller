@@ -1,4 +1,5 @@
 use crate::{
+    constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
@@ -16,8 +17,8 @@ define_account_struct! {
       mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
       local_token;
       remote_token_messenger;
-      cctp_message_transmitter;
-      cctp_token_messenger_minter;
+      cctp_message_transmitter @pubkey(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID);
+      cctp_token_messenger_minter @pubkey(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
   }
 }
 
