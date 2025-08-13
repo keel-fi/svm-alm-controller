@@ -23,7 +23,6 @@ define_account_struct! {
         oft_store;
         peer_config;
         lz_program;
-        // TODO: Do we need to check LZ program against a const?
         token_escrow;
     }
 }
@@ -102,7 +101,8 @@ pub fn process_initialize_lz_bridge(
 
     // Create the initial integration state
     let state = IntegrationState::LzBridge(LzBridgeState {
-        _padding: [0u8; 48],
+        push_in_flight: false,
+        _padding: [0u8; 47],
     });
 
     Ok((config, state))

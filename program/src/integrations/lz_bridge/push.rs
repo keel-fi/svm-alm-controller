@@ -1,12 +1,12 @@
 use crate::{
     define_account_struct,
-    enums::IntegrationConfig,
+    enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::lz_bridge::{config::LzBridgeConfig, cpi::OftSendParams},
     processor::PushAccounts,
-    state::{Controller, Integration, Permission, Reserve},
+    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -21,6 +21,7 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
+use pinocchio_log::log;
 use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
@@ -120,7 +121,7 @@ pub fn process_push_lz_bridge(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
-    reserve: &mut Reserve,
+    reserve_a: &mut Reserve,
     outer_ctx: &PushAccounts,
     outer_args: &PushArgs,
 ) -> Result<(), ProgramError> {
@@ -154,26 +155,40 @@ pub fn process_push_lz_bridge(
         IntegrationConfig::LzBridge(config) => config,
         _ => return Err(ProgramError::InvalidAccountData),
     };
+
+    // Validate no LZ push is in-flight and then
+    // update state so that a LZ Push is in-flight.
+    match &mut integration.state {
+        IntegrationState::LzBridge(state) => {
+            // Return Error when LZ Push already exists.
+            if state.push_in_flight {
+                return Err(SvmAlmControllerErrors::LZPushInFlight.into());
+            }
+            state.push_in_flight = true;
+        }
+        _ => return Err(ProgramError::InvalidAccountData),
+    }
+
     verify_send_ix_in_tx(outer_ctx.authority.key(), &inner_ctx, &config, amount)?;
 
     // Check against reserve data
-    if inner_ctx.vault.key().ne(&reserve.vault) {
+    if inner_ctx.vault.key().ne(&reserve_a.vault) {
         msg! {"vault: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
-    if inner_ctx.mint.key().ne(&reserve.mint) {
+    if inner_ctx.mint.key().ne(&reserve_a.mint) {
         msg! {"mint: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
 
     // Sync the balance before doing anything else
-    reserve.sync_balance(
+    reserve_a.sync_balance(
         inner_ctx.vault,
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         controller,
     )?;
-    let post_sync_balance = reserve.last_balance;
+    let post_sync_balance = reserve_a.last_balance;
 
     // Creates the authority token_account, if necessary, or validates it
     CreateIdempotent {
@@ -219,7 +234,7 @@ pub fn process_push_lz_bridge(
     // No state transitions for LzBridge
 
     // Update the reserve for the outflow
-    reserve.update_for_outflow(clock, amount)?;
+    reserve_a.update_for_outflow(clock, amount)?;
 
     // Emit the accounting event
     controller.emit_event(
@@ -234,6 +249,10 @@ pub fn process_push_lz_bridge(
             after: post_transfer_balance,
         }),
     )?;
+
+    // Persist state changes
+    integration.save(outer_ctx.integration)?;
+    reserve_a.save(outer_ctx.reserve_a)?;
 
     Ok(())
 }

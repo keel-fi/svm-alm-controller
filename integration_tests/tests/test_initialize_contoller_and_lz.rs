@@ -27,8 +27,12 @@ mod tests {
     use litesvm::LiteSVM;
     use oft_client::{
         instructions::SendInstructionArgs,
-        oft302::{Oft302, Oft302SendAccounts, Oft302SendPrograms},
+        oft302::{
+            Oft302, Oft302Accounts, Oft302Programs, Oft302QuoteParams, Oft302SendAccounts,
+            Oft302SendPrograms,
+        },
     };
+    use solana_client::rpc_client::RpcClient;
     use solana_sdk::{
         compute_budget::ComputeBudgetInstruction,
         instruction::{AccountMeta, Instruction},
@@ -37,7 +41,9 @@ mod tests {
         transaction::Transaction,
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-    use svm_alm_controller::{error::SvmAlmControllerErrors, state::controller};
+    use svm_alm_controller::{
+        enums::IntegrationState, error::SvmAlmControllerErrors, state::controller,
+    };
     use svm_alm_controller_client::generated::{instructions::PushBuilder, types::LzBridgeConfig};
 
     use crate::{
@@ -48,15 +54,19 @@ mod tests {
                 DEVNET_RPC, LZ_DESTINATION_DOMAIN_EID, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW,
                 LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY, LZ_USDS_PEER_CONFIG_PUBKEY,
             },
+            spl::setup_token_account,
         },
-        subs::{derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda},
+        subs::{
+            derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
+            fetch_integration_account, fetch_reserve_account, ReserveKeys,
+        },
     };
 
     use super::*;
 
     fn setup_env(
         svm: &mut LiteSVM,
-    ) -> Result<(Pubkey, Pubkey, Keypair), Box<dyn std::error::Error>> {
+    ) -> Result<(Pubkey, Pubkey, Keypair, ReserveKeys), Box<dyn std::error::Error>> {
         let authority: Keypair = Keypair::new();
 
         // Airdrop to payer
@@ -106,7 +116,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the token
-        let _usds_reserve_pk = initialize_reserve(
+        let usds_reserve_keys = initialize_reserve(
             svm,
             &controller_pk,
             &USDS_TOKEN_MINT_PUBKEY, // mint
@@ -115,7 +125,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
-            &spl_token::ID
+            &spl_token::ID,
         )?;
 
         // Transfer funds into the reserve
@@ -157,10 +167,15 @@ mod tests {
                 destination_eid: LZ_DESTINATION_DOMAIN_EID,
             },
         )?;
-        Ok((controller_pk, lz_usds_eth_bridge_integration_pk, authority))
+        Ok((
+            controller_pk,
+            lz_usds_eth_bridge_integration_pk,
+            authority,
+            usds_reserve_keys,
+        ))
     }
 
-    fn setup_main_ix(
+    fn create_lz_push_ix(
         controller: &Pubkey,
         integration: &Pubkey,
         authority: &Keypair,
@@ -232,18 +247,48 @@ mod tests {
         Ok(main_ixn)
     }
 
-    async fn setup_send_ix(
+    async fn create_oft_send_ix(
+        svm: &mut LiteSVM,
         controller: &Pubkey,
         integration: &Pubkey,
         authority: &Keypair,
         token_source: Pubkey,
         amount: u64,
+        skip_setup: bool,
     ) -> Result<Instruction, Box<dyn std::error::Error>> {
         // Serialize the destination address appropriately
         let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
         let oft302 = Oft302::new(LZ_USDS_OFT_PROGRAM_ID, DEVNET_RPC.to_owned());
+        let (native_fee, lz_token_fee) = if !skip_setup {
+            let quote_accounts = Oft302Accounts {
+                // dummy payer for devnet fetch
+                payer: pubkey!("Fty7h4FYAN7z8yjqaJExMHXbUoJYMcRjWYmggSxLbHp8"),
+                token_mint: USDS_TOKEN_MINT_PUBKEY,
+                token_escrow: LZ_USDS_ESCROW,
+                peer_address: None,
+            };
+            let quote_params = Oft302QuoteParams {
+                dst_eid: LZ_DESTINATION_DOMAIN_EID,
+                to: destination_address.to_bytes(),
+                amount_ld: amount,
+                min_amount_ld: amount,
+            };
+            let quote = oft302
+                .quote(
+                    quote_accounts.clone(),
+                    quote_params.clone(),
+                    Oft302Programs { endpoint: None },
+                    vec![],
+                )
+                .await
+                .unwrap();
+            (quote.native_fee, quote.lz_token_fee)
+        } else {
+            (0, 0)
+        };
+
         let send_accs = Oft302SendAccounts {
             payer: authority.pubkey(),
             token_mint: USDS_TOKEN_MINT_PUBKEY,
@@ -258,8 +303,8 @@ mod tests {
             min_amount_ld: amount,
             options: vec![],
             compose_msg: None,
-            native_fee: 0,
-            lz_token_fee: 0,
+            native_fee: native_fee,
+            lz_token_fee: lz_token_fee,
         };
         let send_programs = Oft302SendPrograms {
             endpoint: Some(LZ_ENDPOINT_PROGRAM_ID),
@@ -268,14 +313,40 @@ mod tests {
         let send_ixn = oft302
             .send(send_accs, send_params, send_programs, vec![])
             .await?;
+
+        // Load required Layer Zero accounts from devnet into litesvm environment.
+        if !skip_setup {
+            let rpc = RpcClient::new(DEVNET_RPC);
+            for acc in send_ixn.accounts.clone() {
+                match rpc.get_account(&acc.pubkey) {
+                    Ok(account) => {
+                        if !account.executable {
+                            svm.set_account(acc.pubkey, account)?
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to fetch account {}: {:?}", acc.pubkey, e);
+                    }
+                }
+            }
+        }
         Ok(send_ixn)
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn initialize_controller_and_lz() -> Result<(), Box<dyn std::error::Error>> {
+    async fn lz_push_with_oft_send_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
-        let (controller_pk, lz_usds_eth_bridge_integration_pk, authority) = setup_env(&mut svm)?;
+        let (controller_pk, lz_usds_eth_bridge_integration_pk, authority, reserve_keys) =
+            setup_env(&mut svm)?;
+
+        let integration_before =
+            fetch_integration_account(&svm, &lz_usds_eth_bridge_integration_pk)
+                .unwrap()
+                .unwrap();
+        let reserve_before = fetch_reserve_account(&mut svm, &reserve_keys.pubkey)
+            .unwrap()
+            .unwrap();
 
         // Push the integration -- i.e. bridge using LZ OFT
         let amount = 2000;
@@ -298,15 +369,37 @@ mod tests {
         assert_eq!(oft_receipt.amount_sent_ld, amount);
         assert_eq!(oft_receipt.amount_received_ld, amount);
 
+        let integration_after = fetch_integration_account(&svm, &lz_usds_eth_bridge_integration_pk)
+            .unwrap()
+            .unwrap();
+        let reserve_after = fetch_reserve_account(&mut svm, &reserve_keys.pubkey)
+            .unwrap()
+            .unwrap();
+
+        // Validate the in-flight state was reset to false
+        match integration_after.state {
+            svm_alm_controller_client::generated::types::IntegrationState::LzBridge(state) => {
+                assert!(!state.push_in_flight, "LZ Push should not be in-flight");
+            }
+            _ => panic!("Incorrect account state"),
+        }
+
+        // Assert the rate limit changed for outflow
+        let integration_rate_limit_diff = integration_before.rate_limit_outflow_amount_available
+            - integration_after.rate_limit_outflow_amount_available;
+        assert_eq!(integration_rate_limit_diff, amount);
+        let reserve_rate_limit_diff = reserve_before.rate_limit_outflow_amount_available
+            - reserve_after.rate_limit_outflow_amount_available;
+        assert_eq!(reserve_rate_limit_diff, amount);
+
         Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn initialize_controller_and_lz_tx_introspection(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn lz_push_tx_introspection_fails() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
-        let (controller, integration, authority) = setup_env(&mut svm)?;
+        let (controller, integration, authority, _reserve_keys) = setup_env(&mut svm)?;
 
         let authority_token_account = get_associated_token_address_with_program_id(
             &authority.pubkey(),
@@ -315,13 +408,15 @@ mod tests {
         );
         let amount = 2000;
 
-        let main_ixn = setup_main_ix(&controller, &integration, &authority)?;
-        let send_ixn = setup_send_ix(
+        let main_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
+        let send_ixn = create_oft_send_ix(
+            &mut svm,
             &controller,
             &integration,
             &authority,
             authority_token_account,
             amount,
+            true,
         )
         .await?;
         let cu_limit_ixn: Instruction = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
@@ -352,12 +447,14 @@ mod tests {
             &USDS_TOKEN_MINT_PUBKEY,
             &pinocchio_token::ID.into(),
         );
-        let send_ixn = setup_send_ix(
+        let send_ixn = create_oft_send_ix(
+            &mut svm,
             &controller,
             &integration,
             &authority,
             Pubkey::new_unique(),
             amount,
+            true,
         )
         .await?;
         let txn = Transaction::new_signed_with_payer(
@@ -370,12 +467,14 @@ mod tests {
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when send amount doesn't match.
-        let send_ixn = setup_send_ix(
+        let send_ixn = create_oft_send_ix(
+            &mut svm,
             &controller,
             &integration,
             &authority,
             authority_token_account,
             111,
+            true,
         )
         .await?;
         let txn = Transaction::new_signed_with_payer(
@@ -387,6 +486,42 @@ mod tests {
         let tx_result = svm.send_transaction(txn);
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidInstructions);
 
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn multiple_push_with_single_send_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let (controller, integration, authority, _reserve_keys) = setup_env(&mut svm)?;
+
+        let authority_token_account = get_associated_token_address_with_program_id(
+            &authority.pubkey(),
+            &USDS_TOKEN_MINT_PUBKEY,
+            &pinocchio_token::ID.into(),
+        );
+        let amount = 2000;
+
+        let lz_push_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
+        let send_ixn = create_oft_send_ix(
+            &mut svm,
+            &controller,
+            &integration,
+            &authority,
+            authority_token_account,
+            amount,
+            false,
+        )
+        .await?;
+
+        let txn = Transaction::new_signed_with_payer(
+            &[lz_push_ixn.clone(), lz_push_ixn.clone(), send_ixn],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::LZPushInFlight);
         Ok(())
     }
 }

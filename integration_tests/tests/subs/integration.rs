@@ -56,7 +56,7 @@ pub fn derive_integration_pda(controller_pda: &Pubkey, hash: &[u8; 32]) -> Pubke
 }
 
 pub fn fetch_integration_account(
-    svm: &mut LiteSVM,
+    svm: &LiteSVM,
     integration_pda: &Pubkey,
 ) -> Result<Option<Integration>, Box<dyn Error>> {
     let info = svm.get_account(integration_pda);

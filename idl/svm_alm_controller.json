@@ -2034,11 +2034,15 @@
         "kind": "struct",
         "fields": [
           {
+            "name": "pushInFlight",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                48
+                47
               ]
             }
           }
