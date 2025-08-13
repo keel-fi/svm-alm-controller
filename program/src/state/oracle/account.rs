@@ -8,8 +8,9 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
+    msg,
     program_error::ProgramError,
-    pubkey::{find_program_address, Pubkey},
+    pubkey::{find_program_address, try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
 use shank::{ShankAccount, ShankType};
@@ -58,12 +59,10 @@ impl NovaAccount for Oracle {
     const LEN: usize = 253;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID);
-        Ok((pda, bump))
+        try_find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID)
+            .ok_or(ProgramError::InvalidSeeds)
     }
 }
-
-// TODO would need to add function for calculating value and handling the price inversion.
 
 impl Oracle {
     /// Validate that the Oracle is a supported Oracle [Switchboard].
@@ -135,7 +134,8 @@ impl Oracle {
         // Derive the PDA
         let (pda, bump) = oracle.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds); // PDA was invalid
+            msg!("Oracle PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Account creation PDA

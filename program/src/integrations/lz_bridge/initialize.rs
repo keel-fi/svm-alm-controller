@@ -1,6 +1,7 @@
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
+    error::SvmAlmControllerErrors,
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::lz_bridge::{
         config::LzBridgeConfig,
@@ -82,7 +83,7 @@ pub fn process_initialize_lz_bridge(
     .ok_or(ProgramError::InvalidSeeds)?;
     if inner_ctx.peer_config.key().ne(&expected_peer_config_pda) {
         msg! {"peer_config: expected PDA for destination_eid and oft store do not match"};
-        return Err(ProgramError::InvalidSeeds);
+        return Err(SvmAlmControllerErrors::InvalidPda.into());
     }
     // Load in the LZ Peer Config Account (if it doesn't load it's not configured)
     PeerConfig::deserialize(&mut &*inner_ctx.peer_config.try_borrow_data()?).map_err(|e| e)?;

@@ -12,7 +12,7 @@ use pinocchio::{
     instruction::Seed,
     msg,
     program_error::ProgramError,
-    pubkey::{find_program_address, Pubkey},
+    pubkey::{find_program_address, try_find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
 use shank::ShankAccount;
@@ -68,15 +68,15 @@ impl NovaAccount for Integration {
     const LEN: usize = 4 * 32 + 1 + 5 * 8 + 225 + 49 + 64;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = find_program_address(
+        try_find_program_address(
             &[
                 INTEGRATION_SEED,
                 self.controller.as_ref(),
                 self.hash.as_ref(),
             ],
             &crate::ID,
-        );
-        Ok((pda, bump))
+        )
+        .ok_or(ProgramError::InvalidSeeds)
     }
 }
 
@@ -142,7 +142,8 @@ impl Integration {
         // Derive the PDA
         let (pda, bump) = integration.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Integration PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into()); // PDA was invalid
         }
 
         // Account creation PDA

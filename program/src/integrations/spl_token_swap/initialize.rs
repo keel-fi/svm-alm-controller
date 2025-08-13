@@ -82,7 +82,7 @@ pub fn process_initialize_spl_token_swap(
         SplTokenSwapConfig::derive_lp_token_account_pda(
             outer_ctx.controller.key(),
             inner_ctx.lp_mint.key(),
-        );
+        )?;
     if inner_ctx.lp_token_account.key().ne(&lp_token_account_pda) {
         msg! {"lp_token_account: does not match PDA"};
         return Err(ProgramError::InvalidAccountData);
@@ -120,7 +120,7 @@ pub fn process_initialize_spl_token_swap(
         return Err(ProgramError::InvalidAccountData);
     }
     // Create PDA TokenAccount for LP Mint.
-    // Must get the Account len dynamically in the case the mint has 
+    // Must get the Account len dynamically in the case the mint has
     // Token Extensions that are required on the TokenAccount.
     let account_len = get_account_data_size(&[], inner_ctx.lp_mint)?;
     let rent = Rent::get()?;

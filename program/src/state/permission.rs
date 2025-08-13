@@ -3,12 +3,14 @@ use super::{
     nova_account::NovaAccount,
 };
 use crate::{
-    constants::PERMISSION_SEED, enums::PermissionStatus, processor::shared::create_pda_account,
+    constants::PERMISSION_SEED, enums::PermissionStatus, error::SvmAlmControllerErrors,
+    processor::shared::create_pda_account,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
+    msg,
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
@@ -129,7 +131,8 @@ impl Permission {
         // Derive the PDA
         let (pda, bump) = permission.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Permission PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Account creation PDA

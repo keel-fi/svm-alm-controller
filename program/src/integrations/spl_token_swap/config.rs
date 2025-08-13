@@ -1,5 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use pinocchio::pubkey::{find_program_address, Pubkey};
+use pinocchio::{
+    program_error::ProgramError,
+    pubkey::{try_find_program_address, Pubkey},
+};
 use shank::ShankType;
 
 use crate::constants::SPL_TOKEN_SWAP_LP_SEED;
@@ -24,7 +27,11 @@ pub struct SplTokenSwapConfig {
 
 impl SplTokenSwapConfig {
     /// Derive the SplTokenSwap LP Token Account address for a given Controller.
-    pub fn derive_lp_token_account_pda(controller: &Pubkey, lp_mint: &Pubkey) -> (Pubkey, u8) {
-        find_program_address(&[SPL_TOKEN_SWAP_LP_SEED, controller, lp_mint], &crate::ID)
+    pub fn derive_lp_token_account_pda(
+        controller: &Pubkey,
+        lp_mint: &Pubkey,
+    ) -> Result<(Pubkey, u8), ProgramError> {
+        try_find_program_address(&[SPL_TOKEN_SWAP_LP_SEED, controller, lp_mint], &crate::ID)
+            .ok_or(ProgramError::InvalidSeeds)
     }
 }

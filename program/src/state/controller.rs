@@ -5,6 +5,7 @@ use super::{
 use crate::{
     constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     enums::ControllerStatus,
+    error::SvmAlmControllerErrors,
     events::SvmAlmControllerEvent,
     processor::shared::{create_pda_account, emit_cpi},
 };
@@ -12,6 +13,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
+    msg,
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
@@ -79,7 +81,8 @@ impl Controller {
         let controller_id = id.to_le_bytes();
         let (pda, bump) = Self::derive_pda_bytes(id)?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Controller PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Derive authority PDA that has no SOL or data
@@ -88,7 +91,8 @@ impl Controller {
 
         if authority_info.key().ne(&controller_authority) {
             // Authority PDA was invalid
-            return Err(ProgramError::InvalidSeeds.into());
+            msg!("Controller Authority PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Create and serialize the controller

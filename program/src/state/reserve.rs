@@ -126,7 +126,8 @@ impl Reserve {
         // Derive the PDA
         let (pda, bump) = reserve.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Reserve PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
         // Account creation PDA
         let rent = Rent::get()?;
