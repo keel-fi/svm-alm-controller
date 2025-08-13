@@ -179,7 +179,9 @@ impl ExtensionType {
 pub const EXTENSION_LENGTH_LEN: usize = 2;
 pub const EXTENSION_TYPE_LEN: usize = 2;
 
+#[derive(PartialEq)]
 pub enum BaseState {
+    Uninitialized,
     Mint,
     TokenAccount,
 }
@@ -190,13 +192,15 @@ pub trait Extension {
     const BASE_STATE: BaseState;
 }
 
-
 pub fn get_extension_from_bytes<T: Extension + Clone + Copy>(acc_data_bytes: &[u8]) -> Option<&T> {
     let ext_bytes = match T::BASE_STATE {
         BaseState::Mint => {
             &acc_data_bytes[Mint::BASE_LEN + EXTENSIONS_PADDING + EXTENSION_START_OFFSET..]
         }
-        BaseState::TokenAccount => &acc_data_bytes[TokenAccount::BASE_LEN + EXTENSION_START_OFFSET..],
+        BaseState::TokenAccount => {
+            &acc_data_bytes[TokenAccount::BASE_LEN + EXTENSION_START_OFFSET..]
+        }
+        _ => return None,
     };
     let mut start = 0;
     let end = ext_bytes.len();
@@ -233,7 +237,10 @@ pub fn get_extension_data_bytes_for_variable_pack<T: Extension + Clone>(
         BaseState::Mint => {
             &acc_data_bytes[Mint::BASE_LEN + EXTENSIONS_PADDING + EXTENSION_START_OFFSET..]
         }
-        BaseState::TokenAccount => &acc_data_bytes[TokenAccount::BASE_LEN + EXTENSION_START_OFFSET..],
+        BaseState::TokenAccount => {
+            &acc_data_bytes[TokenAccount::BASE_LEN + EXTENSION_START_OFFSET..]
+        }
+        _ => return None,
     };
     let mut start = 0;
     let end = ext_bytes.len();

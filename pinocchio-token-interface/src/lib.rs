@@ -10,6 +10,10 @@ use pinocchio_token2022::extensions::{
 };
 pub use pinocchio_token2022::instructions;
 
+pub mod utils;
+
+pub use utils::*;
+
 pub struct TokenAccount<'info>(Ref<'info, pinocchio_token2022::state::TokenAccount>);
 
 impl<'info> TokenAccount<'info> {
