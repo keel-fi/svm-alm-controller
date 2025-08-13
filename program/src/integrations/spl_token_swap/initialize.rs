@@ -18,7 +18,7 @@ use pinocchio::{
     sysvars::{rent::Rent, Sysvar},
 };
 use pinocchio_token2022::instructions::InitializeAccount3;
-use pinocchio_token_interface::{Mint, TokenAccount};
+use pinocchio_token_interface::{get_account_data_size, Mint, TokenAccount};
 
 define_account_struct! {
     pub struct InitializeSplTokenSwapAccounts<'info> {
@@ -120,9 +120,9 @@ pub fn process_initialize_spl_token_swap(
         return Err(ProgramError::InvalidAccountData);
     }
     // Create PDA TokenAccount for LP Mint.
-    // TODO handle T22 by calculating Account len with extensions.
-    // TODO is it worth having immutable owner?
-    let account_len = pinocchio_token2022::state::TokenAccount::BASE_LEN;
+    // Must get the Account len dynamically in the case the mint has 
+    // Token Extensions that are required on the TokenAccount.
+    let account_len = get_account_data_size(&[], inner_ctx.lp_mint)?;
     let rent = Rent::get()?;
     let bump_seed = [lp_token_account_bump];
     let seeds = [

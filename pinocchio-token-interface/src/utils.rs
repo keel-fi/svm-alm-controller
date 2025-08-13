@@ -69,6 +69,10 @@ pub fn get_account_data_size(
     new_extension_types: &[ExtensionType],
     mint_account: &AccountInfo,
 ) -> Result<usize, ProgramError> {
+    if mint_account.is_owned_by(&pinocchio_token::ID) {
+        // Short circuit when owned by SPL Token program
+        return Ok(pinocchio_token2022::state::TokenAccount::BASE_LEN);
+    }
     if new_extension_types
         .iter()
         .any(|&t| get_account_type(t) != BaseState::TokenAccount)

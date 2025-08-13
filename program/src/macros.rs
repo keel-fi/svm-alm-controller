@@ -12,6 +12,28 @@ macro_rules! key_as_str {
     };
 }
 
+/// Panic handle that prints the file and line:column numbers.
+#[macro_export]
+macro_rules! dev_panic_handler {
+    () => {
+        /// Default panic handler.
+        #[cfg(target_os = "solana")]
+        #[no_mangle]
+        fn custom_panic(info: &core::panic::PanicInfo<'_>) {
+            if let Some(location) = info.location() {
+                pinocchio_log::log!(
+                    "file: {} line {}:{}",
+                    location.file(),
+                    location.line() as u64,
+                    location.column() as u64
+                );
+            }
+            // Panic reporting.
+            pinocchio::log::sol_log("** PANICKED **");
+        }
+    };
+}
+
 /// Defines an account context struct and its `from_accounts` validator.
 ///
 /// ### Example
