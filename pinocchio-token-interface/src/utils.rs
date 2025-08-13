@@ -90,7 +90,8 @@ pub fn get_account_data_size(
 /// any account with extensions
 const BASE_ACCOUNT_AND_TYPE_LENGTH: usize = TokenAccount::BASE_LEN + 1;
 
-// TODO make this more generic for Mint and TokenAccount
+// TODO make this more generic for Mint and TokenAccount.
+// Only works for TokenAccount right now.
 /// Get the required account data length for the given `ExtensionType`s
 ///
 /// Fails if any of the extension types has a variable length
@@ -178,13 +179,18 @@ pub fn get_required_init_account_extensions(
 ///
 /// Fails if the extension type has a variable length
 fn try_get_type_len(extension_type: &ExtensionType) -> Result<usize, ProgramError> {
-    // if !extension_type.sized() {
-    //     return Err(ProgramError::InvalidArgument);
-    // }
+    if !extension_type.sized() {
+        return Err(ProgramError::InvalidArgument);
+    }
     Ok(match extension_type {
         ExtensionType::Uninitialized => 0,
         ExtensionType::TransferFeeConfig => TransferFeeConfig::LEN,
-        ExtensionType::TransferFeeAmount => panic!("Not implemented"),
+        // TODO replace with value when available.
+        // Len of 8 as type is:
+        // pub struct TransferFeeAmount {
+        //    pub withheld_amount: PodU64,
+        // }
+        ExtensionType::TransferFeeAmount => 8,
         ExtensionType::MintCloseAuthority => MintCloseAuthority::LEN,
         ExtensionType::ImmutableOwner => ImmutableOwner::LEN,
         ExtensionType::ConfidentialTransferMint => ConfidentialTransferMint::LEN,
@@ -211,4 +217,41 @@ fn try_get_type_len(extension_type: &ExtensionType) -> Result<usize, ProgramErro
         ExtensionType::Pausable => PausableConfig::LEN,
         ExtensionType::PausableAccount => PausableAccount::LEN,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_try_calculate_account_len() {
+        let size = try_calculate_account_len(&[ExtensionType::ImmutableOwner]).unwrap();
+        assert_eq!(
+            size,
+            BASE_ACCOUNT_AND_TYPE_LENGTH + EXTENSION_TYPE_LEN + EXTENSION_LENGTH_LEN
+        );
+
+        // Should handle multiple
+        let size = try_calculate_account_len(&[
+            ExtensionType::ImmutableOwner,
+            ExtensionType::TransferFeeAmount,
+        ])
+        .unwrap();
+        assert_eq!(
+            size,
+            BASE_ACCOUNT_AND_TYPE_LENGTH + 2 * (EXTENSION_TYPE_LEN + EXTENSION_LENGTH_LEN) + 8
+        );
+
+        // Should dedupe
+        let size = try_calculate_account_len(&[
+            ExtensionType::ImmutableOwner,
+            ExtensionType::TransferFeeAmount,
+            ExtensionType::TransferFeeAmount,
+        ])
+        .unwrap();
+        assert_eq!(
+            size,
+            BASE_ACCOUNT_AND_TYPE_LENGTH + 2 * (EXTENSION_TYPE_LEN + EXTENSION_LENGTH_LEN) + 8
+        );
+    }
 }

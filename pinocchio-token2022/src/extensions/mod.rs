@@ -135,6 +135,17 @@ pub enum ExtensionType {
 }
 
 impl ExtensionType {
+    /// Returns true if the given extension type is sized
+    ///
+    /// Most extension types should be sized, so any variable-length extension
+    /// types should be added here by hand
+    pub const fn sized(&self) -> bool {
+        match self {
+            ExtensionType::TokenMetadata => false,
+            _ => true,
+        }
+    }
+
     pub fn from_bytes(val: [u8; 2]) -> Option<Self> {
         let val = u16::from_le_bytes(val);
         let ext = match val {
