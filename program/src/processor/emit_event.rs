@@ -2,7 +2,7 @@ use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
-use crate::state::Controller;
+use crate::{error::SvmAlmControllerErrors, state::Controller};
 
 pub fn process_emit_event(
     _program_id: &Pubkey,
@@ -25,7 +25,8 @@ pub fn process_emit_event(
 
     // Validate the authority is the expected controller's PDA
     if authority_info.key().ne(&controller_authority) {
-        return Err(ProgramError::MissingRequiredSignature.into());
+        msg!("Controller Authority PDA mismatch");
+        return Err(SvmAlmControllerErrors::InvalidPda.into());
     }
 
     // The authority must be the signer

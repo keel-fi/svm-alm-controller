@@ -74,7 +74,8 @@ impl NovaAccount for Reserve {
 impl Reserve {
     pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+            msg!("Controller does not match Reserve controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -85,7 +86,7 @@ impl Reserve {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 
@@ -260,10 +261,12 @@ impl Reserve {
         controller: &Controller,
     ) -> Result<(), ProgramError> {
         if vault_info.key().ne(&self.vault) {
+            msg!("Vault does not match Reserve vault");
             return Err(ProgramError::InvalidAccountData);
         }
         if controller_key.ne(&self.controller) {
-            return Err(ProgramError::InvalidAccountData);
+            msg!("Controller does not match Reserve controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
 
         // Get the current slot and time

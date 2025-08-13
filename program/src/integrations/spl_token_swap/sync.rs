@@ -219,7 +219,7 @@ pub fn process_sync_spl_token_swap(
                 && state.last_balance_b == step_2_balance_b
                 && state.last_balance_lp == new_balance_lp as u64
             {
-                return Err(ProgramError::InvalidInstructionData.into());
+                return Err(ProgramError::InvalidAccountData.into());
             }
             state.last_balance_a = step_2_balance_a;
             state.last_balance_b = step_2_balance_b;

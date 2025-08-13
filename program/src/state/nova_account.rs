@@ -29,7 +29,7 @@ pub trait NovaAccount: Discriminator + BorshDeserialize + BorshSerialize {
     fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         let mut serialized = Vec::with_capacity(Self::DISCRIMINATOR_SIZE + Self::LEN);

@@ -62,7 +62,7 @@ impl Controller {
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
@@ -135,6 +135,7 @@ impl Controller {
     ) -> Result<(), ProgramError> {
         // No change will take place
         if self.status == status {
+            msg!("Controller status must change");
             return Err(ProgramError::InvalidArgument.into());
         }
 

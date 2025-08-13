@@ -83,7 +83,8 @@ impl NovaAccount for Integration {
 impl Integration {
     pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+            msg!("Controller does not match Integration controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -94,7 +95,7 @@ impl Integration {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 

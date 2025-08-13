@@ -31,6 +31,7 @@ pub fn process_update_oracle(
 
     let oracle = &mut Oracle::load_and_check(ctx.oracle)?;
     if oracle.authority.ne(ctx.authority.key()) {
+        msg!("Oracle authority mismatch");
         return Err(ProgramError::IncorrectAuthority);
     }
 

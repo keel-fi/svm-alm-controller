@@ -47,6 +47,8 @@ pub enum SvmAlmControllerErrors {
     InvalidTokenMintExtension,
     // 21.
     InvalidAtomicSwapConfiguration,
+    // 22.
+    ControllerDoesNotMatchAccountData,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

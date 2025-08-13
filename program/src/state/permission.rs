@@ -73,8 +73,12 @@ impl NovaAccount for Permission {
 
 impl Permission {
     pub fn check_data(&self, controller: &Pubkey, authority: &Pubkey) -> Result<(), ProgramError> {
-        if self.authority.ne(authority) || self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+        if self.authority.ne(authority) {
+            msg!("Permission authority mismatch");
+            return Err(ProgramError::IncorrectAuthority);
+        } else if self.controller.ne(controller) {
+            msg!("Controller does not match Permission controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -86,7 +90,7 @@ impl Permission {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 
