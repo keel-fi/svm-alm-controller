@@ -622,11 +622,6 @@ pub async fn push_integration(
                 &c.mint_b,
                 &token_program_b,
             );
-            let vault_lp = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.lp_mint,
-                &token_program_lp,
-            );
             let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
             let swap_token_a = get_associated_token_address_with_program_id(
                 &swap_authority,
@@ -1196,11 +1191,6 @@ pub fn pull_integration(
                     &controller_authority,
                     &c.mint_b,
                     &token_program_b,
-                );
-                let vault_lp = get_associated_token_address_with_program_id(
-                    &controller_authority,
-                    &c.lp_mint,
-                    &token_program_lp,
                 );
                 let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
                 let swap_token_a = get_associated_token_address_with_program_id(

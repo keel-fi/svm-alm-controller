@@ -9,6 +9,7 @@ crate-type = ["cdylib", "lib"]
 [features]
 no-entrypoint = []
 idl = []
+verbose = []
 
 [dependencies]
 byteorder = { workspace = true }
