@@ -267,9 +267,5 @@ pub fn process_push_lz_bridge(
         }),
     )?;
 
-    // Persist state changes
-    integration.save(outer_ctx.integration)?;
-    reserve_a.save(outer_ctx.reserve_a)?;
-
     Ok(())
 }
