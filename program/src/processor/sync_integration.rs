@@ -49,7 +49,7 @@ pub fn process_sync_integration(
         IntegrationConfig::SplTokenSwap(_config) => {
             process_sync_spl_token_swap(&controller, &mut integration, &ctx)?
         }
-        // TODO: More integration types to be supported
+        // More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };
 

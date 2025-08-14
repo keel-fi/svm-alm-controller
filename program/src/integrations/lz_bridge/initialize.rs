@@ -20,10 +20,12 @@ use pinocchio::{
 define_account_struct! {
     pub struct InitializeLzBridgeAccounts<'info> {
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // No addresses enforced for the following accounts in order to support
+        // multiple OFTs. This is safe since only a Permissioned address may
+        // create this Integration.
         oft_store;
         peer_config;
         lz_program;
-        // TODO: Do we need to check LZ program against a const?
         token_escrow;
     }
 }
