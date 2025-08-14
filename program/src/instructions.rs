@@ -185,6 +185,11 @@ pub enum SvmAlmControllerInstruction {
     #[account(14, name = "token_program_a")]
     #[account(15, name = "token_program_b")]
     AtomicSwapRepay,
+
+    #[account(0, name = "controller")]
+    #[account(1, writable, name = "integration")]
+    #[account(2, writable, name = "sysvar_instruction")]
+    ResetLzPushInFlight,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

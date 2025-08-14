@@ -4,7 +4,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::lz_bridge::{config::LzBridgeConfig, cpi::OftSendParams},
+    integrations::lz_bridge::{config::LzBridgeConfig, cpi::OftSendParams, reset_lz_push_in_flight::RESET_LZ_PUSH_IN_FLIGHT_DISC},
     processor::PushAccounts,
     state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
 };
@@ -21,7 +21,6 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_log::log;
 use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
@@ -56,6 +55,8 @@ impl<'info> PushLzBridgeAccounts<'info> {
 }
 
 /// Checks that LZ OFT send ix is the last instruction in the same transaction.
+/// Transaction should include the LZ Push IX, OFT Send IX and the Reset IX.
+/// [push, ..., oft send, reset]
 pub fn verify_send_ix_in_tx(
     authority: &Pubkey,
     accounts: &PushLzBridgeAccounts,
@@ -77,22 +78,36 @@ pub fn verify_send_ix_in_tx(
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
-    // Load last instruction in transaction and check that its for OFT program.
-    let last_ix = instructions.load_instruction_at((ix_len - 1).into())?;
-    if last_ix.get_program_id().ne(&config.program) {
+    // Load last instruction in transaction and check that its the reset instruction.
+    let reset_ix = instructions.load_instruction_at((ix_len - 1).into())?;
+    if reset_ix.get_program_id().ne(&crate::ID) {
+        msg!("ResetLzPushInFlight invalid program");
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+    // Check Reset instruction discriminator
+    let reset_ix_data = reset_ix.get_instruction_data();
+    if reset_ix_data[0] != RESET_LZ_PUSH_IN_FLIGHT_DISC {
+        msg!("ResetLzPushInFlight invalid instruction");
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    // Load second to last instruction in transaction and check that its for OFT program.
+    let oft_send_ix = instructions.load_instruction_at((ix_len - 2).into())?;
+    if oft_send_ix.get_program_id().ne(&config.program) {
+        msg!("OFT Send invalid program");
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 
     // Deserializes and checks that ix discriminator matches known send_ix discriminator.
-    let send_args = OftSendParams::deserialize(last_ix.get_instruction_data())?;
+    let send_args = OftSendParams::deserialize(oft_send_ix.get_instruction_data())?;
 
-    let signer = last_ix.get_account_meta_at(0)?.key;
-    let peer_config = last_ix.get_account_meta_at(1)?.key;
-    let oft_store = last_ix.get_account_meta_at(2)?.key;
-    let token_source = last_ix.get_account_meta_at(3)?.key;
-    let token_escrow = last_ix.get_account_meta_at(4)?.key;
-    let token_mint = last_ix.get_account_meta_at(5)?.key;
-    let token_program = last_ix.get_account_meta_at(6)?.key;
+    let signer = oft_send_ix.get_account_meta_at(0)?.key;
+    let peer_config = oft_send_ix.get_account_meta_at(1)?.key;
+    let oft_store = oft_send_ix.get_account_meta_at(2)?.key;
+    let token_source = oft_send_ix.get_account_meta_at(3)?.key;
+    let token_escrow = oft_send_ix.get_account_meta_at(4)?.key;
+    let token_mint = oft_send_ix.get_account_meta_at(5)?.key;
+    let token_program = oft_send_ix.get_account_meta_at(6)?.key;
 
     // Check that accounts for send_ix matches known accounts.
     if signer.ne(authority)
@@ -103,6 +118,7 @@ pub fn verify_send_ix_in_tx(
         || token_mint.ne(accounts.mint.key())
         || token_program.ne(accounts.token_program.key())
     {
+        msg!("OFT Send invalid accounts");
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 
@@ -111,6 +127,7 @@ pub fn verify_send_ix_in_tx(
         || send_args.to != config.destination_address
         || send_args.dst_eid != config.destination_eid
     {
+        msg!("OFT Send invalid instruction data");
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 

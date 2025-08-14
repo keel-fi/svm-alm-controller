@@ -9,7 +9,12 @@ use pinocchio::{
 use crate::dev_panic_handler;
 use crate::{
     constants::ATOMIC_SWAP_REPAY_IX_DISC,
-    integrations::atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
+    integrations::{
+        atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
+        lz_bridge::reset_lz_push_in_flight::{
+            process_reset_lz_push_in_flight, RESET_LZ_PUSH_IN_FLIGHT_DISC,
+        },
+    },
     processor::{
         process_emit_event, process_initialize_controller, process_initialize_integration,
         process_initialize_oracle, process_initialize_reserve, process_manage_controller,
@@ -55,6 +60,9 @@ pub fn process_instruction(
         &ATOMIC_SWAP_REPAY_IX_DISC => {
             process_atomic_swap_repay(program_id, accounts, instruction_data)
         } // 16
+        &RESET_LZ_PUSH_IN_FLIGHT_DISC => {
+            process_reset_lz_push_in_flight(program_id, accounts, instruction_data)
+        }
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

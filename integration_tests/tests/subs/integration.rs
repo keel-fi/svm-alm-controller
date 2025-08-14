@@ -39,6 +39,7 @@ use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
         InitializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,
+        ResetLzPushInFlightBuilder,
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
@@ -900,6 +901,13 @@ pub async fn push_integration(
             }
             post_ixns.push(send_ix.clone());
 
+            // Clean up instruction
+            let reset_ix = ResetLzPushInFlightBuilder::new()
+                .controller(*controller)
+                .integration(*integration)
+                .instruction();
+            post_ixns.push(reset_ix);
+
             (
                 reserve_pda,
                 reserve_pda, // repeat since only one required
@@ -993,6 +1001,8 @@ pub async fn push_integration(
         .expect("Failed to fetch reserve account")
         .unwrap();
 
+    let integration_rate_limit_diff = integration_account.rate_limit_outflow_amount_available
+        - integration_after.rate_limit_outflow_amount_available;
     // Checks afterwards
     match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
@@ -1079,6 +1089,10 @@ pub async fn push_integration(
             );
         }
         IntegrationConfig::LzBridge(ref c) => {
+            let amount = match push_args {
+                PushArgs::LzBridge { amount } => *amount,
+                _ => panic!("No push args"),
+            };
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
                 &controller_authority,
@@ -1088,6 +1102,10 @@ pub async fn push_integration(
             let reserve_a_after = fetch_reserve_account(svm, &reserve_pda)
                 .expect("Failed to fetch reserve account")
                 .unwrap();
+            let reserve_rate_limit_diff = reserve_a_before
+                .unwrap()
+                .rate_limit_outflow_amount_available
+                - reserve_a_after.rate_limit_outflow_amount_available;
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
             let vault_a_delta = vault_a_balance_before
                 .checked_sub(vault_a_balance_after)
@@ -1098,8 +1116,8 @@ pub async fn push_integration(
                 PushArgs::LzBridge { amount } => *amount,
                 _ => panic!("Invalid type"),
             };
-            println!("{:?}", integration_after);
-            println!("{:?}", other_vault_delta);
+            assert_eq!(integration_rate_limit_diff, amount);
+            assert_eq!(reserve_rate_limit_diff, amount);
             assert_eq!(
                 vault_a_delta, expected_amount,
                 "Vault balance should have reduced by the amount"

@@ -10,6 +10,7 @@ use pinocchio::{
 use crate::{
     define_account_struct,
     enums::IntegrationState,
+    error::SvmAlmControllerErrors,
     state::{nova_account::NovaAccount, Integration},
 };
 
@@ -25,6 +26,9 @@ define_account_struct! {
     sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
   }
 }
+
+/// Discriminator for ResetLzPushInFlight
+pub const RESET_LZ_PUSH_IN_FLIGHT_DISC: u8 = 17;
 
 /// Checks that ResetLzPushInFlight instruction is last in the Transaction
 /// and has not been called via CPI.
@@ -48,7 +52,10 @@ pub fn validate_instruction(
         return Err(SvmAlmControllerErrors::InvalidInstructionIndex.into());
     }
 
-    let curr_ix = instructions.load_instruction_at(curr_index)?;
+    // Load the top level instruction at the current index and
+    // validate that it matches our program. If not, error as this
+    // was called via a CPI.
+    let curr_ix = instructions.load_instruction_at(curr_index as usize)?;
     if curr_ix.get_program_id().ne(program_id) {
         msg!("Cannot call ResetLzPushInFlight via CPI");
         return Err(ProgramError::IncorrectProgramId);

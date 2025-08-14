@@ -44,7 +44,10 @@ mod tests {
     use svm_alm_controller::{
         enums::IntegrationState, error::SvmAlmControllerErrors, state::controller,
     };
-    use svm_alm_controller_client::generated::{instructions::PushBuilder, types::LzBridgeConfig};
+    use svm_alm_controller_client::generated::{
+        instructions::{PushBuilder, ResetLzPushInFlightBuilder},
+        types::LzBridgeConfig,
+    };
 
     use crate::{
         helpers::{
@@ -55,6 +58,7 @@ mod tests {
                 LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY, LZ_USDS_PEER_CONFIG_PUBKEY,
             },
             spl::setup_token_account,
+            utils::get_program_return_data,
         },
         subs::{
             derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
@@ -340,14 +344,6 @@ mod tests {
         let (controller_pk, lz_usds_eth_bridge_integration_pk, authority, reserve_keys) =
             setup_env(&mut svm)?;
 
-        let integration_before =
-            fetch_integration_account(&svm, &lz_usds_eth_bridge_integration_pk)
-                .unwrap()
-                .unwrap();
-        let reserve_before = fetch_reserve_account(&mut svm, &reserve_keys.pubkey)
-            .unwrap()
-            .unwrap();
-
         // Push the integration -- i.e. bridge using LZ OFT
         let amount = 2000;
         let result = push_integration(
@@ -361,36 +357,14 @@ mod tests {
         .await?;
 
         // Check that OFT return data exists and amount matches.
-        let return_data = result.unwrap().return_data.data;
+        let return_data =
+            get_program_return_data(result.clone().unwrap().logs, &LZ_USDS_OFT_PROGRAM_ID).unwrap();
         let (messaging_receipt, oft_receipt) =
             <(MessagingReceipt, oft_client::types::OFTReceipt)>::try_from_slice(&return_data)
                 .map_err(|err| format!("Failed to parse result: {}", err))
                 .unwrap();
         assert_eq!(oft_receipt.amount_sent_ld, amount);
         assert_eq!(oft_receipt.amount_received_ld, amount);
-
-        let integration_after = fetch_integration_account(&svm, &lz_usds_eth_bridge_integration_pk)
-            .unwrap()
-            .unwrap();
-        let reserve_after = fetch_reserve_account(&mut svm, &reserve_keys.pubkey)
-            .unwrap()
-            .unwrap();
-
-        // Validate the in-flight state was reset to false
-        match integration_after.state {
-            svm_alm_controller_client::generated::types::IntegrationState::LzBridge(state) => {
-                assert!(!state.push_in_flight, "LZ Push should not be in-flight");
-            }
-            _ => panic!("Incorrect account state"),
-        }
-
-        // Assert the rate limit changed for outflow
-        let integration_rate_limit_diff = integration_before.rate_limit_outflow_amount_available
-            - integration_after.rate_limit_outflow_amount_available;
-        assert_eq!(integration_rate_limit_diff, amount);
-        let reserve_rate_limit_diff = reserve_before.rate_limit_outflow_amount_available
-            - reserve_after.rate_limit_outflow_amount_available;
-        assert_eq!(reserve_rate_limit_diff, amount);
 
         Ok(())
     }
@@ -513,9 +487,13 @@ mod tests {
             false,
         )
         .await?;
+        let reset_ix = ResetLzPushInFlightBuilder::new()
+            .controller(controller)
+            .integration(integration)
+            .instruction();
 
         let txn = Transaction::new_signed_with_payer(
-            &[lz_push_ixn.clone(), lz_push_ixn.clone(), send_ixn],
+            &[lz_push_ixn.clone(), lz_push_ixn.clone(), send_ixn, reset_ix],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
