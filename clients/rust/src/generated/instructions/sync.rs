@@ -15,7 +15,11 @@ pub struct Sync {
 
     pub controller_authority: solana_program::pubkey::Pubkey,
 
+    pub authority: solana_program::pubkey::Pubkey,
+
     pub integration: solana_program::pubkey::Pubkey,
+
+    pub reserve: solana_program::pubkey::Pubkey,
 
     pub program_id: solana_program::pubkey::Pubkey,
 }
@@ -30,17 +34,25 @@ impl Sync {
         &self,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             self.controller_authority,
             false,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.authority,
+            true,
+        ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.integration,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            self.reserve,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -81,14 +93,18 @@ impl Default for SyncInstructionData {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[]` controller_authority
-///   2. `[writable]` integration
-///   3. `[]` program_id
+///   1. `[writable]` controller_authority
+///   2. `[signer]` authority
+///   3. `[writable]` integration
+///   4. `[writable]` reserve
+///   5. `[]` program_id
 #[derive(Clone, Debug, Default)]
 pub struct SyncBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
     controller_authority: Option<solana_program::pubkey::Pubkey>,
+    authority: Option<solana_program::pubkey::Pubkey>,
     integration: Option<solana_program::pubkey::Pubkey>,
+    reserve: Option<solana_program::pubkey::Pubkey>,
     program_id: Option<solana_program::pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -111,8 +127,18 @@ impl SyncBuilder {
         self
     }
     #[inline(always)]
+    pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.authority = Some(authority);
+        self
+    }
+    #[inline(always)]
     pub fn integration(&mut self, integration: solana_program::pubkey::Pubkey) -> &mut Self {
         self.integration = Some(integration);
+        self
+    }
+    #[inline(always)]
+    pub fn reserve(&mut self, reserve: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.reserve = Some(reserve);
         self
     }
     #[inline(always)]
@@ -145,7 +171,9 @@ impl SyncBuilder {
             controller_authority: self
                 .controller_authority
                 .expect("controller_authority is not set"),
+            authority: self.authority.expect("authority is not set"),
             integration: self.integration.expect("integration is not set"),
+            reserve: self.reserve.expect("reserve is not set"),
             program_id: self.program_id.expect("program_id is not set"),
         };
 
@@ -159,7 +187,11 @@ pub struct SyncCpiAccounts<'a, 'b> {
 
     pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
@@ -173,7 +205,11 @@ pub struct SyncCpi<'a, 'b> {
 
     pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub reserve: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
@@ -187,7 +223,9 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             __program: program,
             controller: accounts.controller,
             controller_authority: accounts.controller_authority,
+            authority: accounts.authority,
             integration: accounts.integration,
+            reserve: accounts.reserve,
             program_id: accounts.program_id,
         }
     }
@@ -225,17 +263,25 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_program::instruction::AccountMeta::new(
             *self.controller_authority.key,
             false,
         ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.authority.key,
+            true,
+        ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.integration.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new(
+            *self.reserve.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -256,11 +302,13 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
+        account_infos.push(self.authority.clone());
         account_infos.push(self.integration.clone());
+        account_infos.push(self.reserve.clone());
         account_infos.push(self.program_id.clone());
         remaining_accounts
             .iter()
@@ -279,9 +327,11 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[]` controller_authority
-///   2. `[writable]` integration
-///   3. `[]` program_id
+///   1. `[writable]` controller_authority
+///   2. `[signer]` authority
+///   3. `[writable]` integration
+///   4. `[writable]` reserve
+///   5. `[]` program_id
 #[derive(Clone, Debug)]
 pub struct SyncCpiBuilder<'a, 'b> {
     instruction: Box<SyncCpiBuilderInstruction<'a, 'b>>,
@@ -293,7 +343,9 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
             __program: program,
             controller: None,
             controller_authority: None,
+            authority: None,
             integration: None,
+            reserve: None,
             program_id: None,
             __remaining_accounts: Vec::new(),
         });
@@ -316,11 +368,27 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
+    pub fn authority(
+        &mut self,
+        authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.authority = Some(authority);
+        self
+    }
+    #[inline(always)]
     pub fn integration(
         &mut self,
         integration: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.integration = Some(integration);
+        self
+    }
+    #[inline(always)]
+    pub fn reserve(
+        &mut self,
+        reserve: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.reserve = Some(reserve);
         self
     }
     #[inline(always)]
@@ -382,10 +450,14 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
                 .controller_authority
                 .expect("controller_authority is not set"),
 
+            authority: self.instruction.authority.expect("authority is not set"),
+
             integration: self
                 .instruction
                 .integration
                 .expect("integration is not set"),
+
+            reserve: self.instruction.reserve.expect("reserve is not set"),
 
             program_id: self.instruction.program_id.expect("program_id is not set"),
         };
@@ -401,7 +473,9 @@ struct SyncCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    reserve: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

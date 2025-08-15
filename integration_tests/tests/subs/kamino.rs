@@ -72,6 +72,55 @@ pub fn derive_obligation_farm_address(
     address
 }
 
+pub fn derive_rewards_vault(
+    farm_state: &Pubkey,
+    rewards_vault_mint: &Pubkey,
+    farms_program: &Pubkey,
+) -> Pubkey {
+    let (address, _) = Pubkey::find_program_address(
+        &[
+            b"rvault",
+            farm_state.as_ref(),
+            rewards_vault_mint.as_ref()
+        ], 
+        farms_program
+    );
+
+    address
+}
+
+pub fn derive_rewards_treasury_vault(
+    global_config: &Pubkey,
+    rewards_vault_mint: &Pubkey,
+    farms_program: &Pubkey,
+) -> Pubkey {
+    let (address, _) = Pubkey::find_program_address(
+        &[
+            b"tvault",
+            global_config.as_ref(),
+            rewards_vault_mint.as_ref()
+        ], 
+        farms_program
+    );
+
+    address
+}
+
+pub fn derive_farm_vaults_authority(
+    farm_state: &Pubkey,
+    farms_program: &Pubkey,
+) -> Pubkey {
+    let (address, _) = Pubkey::find_program_address(
+        &[
+            b"authority",
+            farm_state.as_ref(),
+        ], 
+        farms_program
+    );
+
+    address
+}
+
 pub fn derive_vanilla_obligation_address(
     obligation_id: u8,
     authority: &Pubkey,

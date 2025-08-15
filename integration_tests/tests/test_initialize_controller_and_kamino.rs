@@ -12,7 +12,8 @@ use svm_alm_controller_client::generated::types::{
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{clock::Clock, pubkey::Pubkey};
+    use solana_sdk::{clock::Clock, pubkey::Pubkey, system_program};
+    use spl_associated_token_account_client::address::get_associated_token_address;
     use svm_alm_controller_client::generated::types::{
         InitializeArgs, KaminoConfig, PullArgs, PushArgs, ReserveStatus, UtilizationMarketConfig
     };
@@ -21,9 +22,9 @@ mod tests {
 
       use crate::{
         helpers::constants::{
-            KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_FARM_COLLATERAL, KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY}, 
+            BONK_MINT, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_FARM_COLLATERAL, KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY}, 
             subs::{
-                derive_controller_authority_pda, derive_vanilla_obligation_address, edit_ata_amount, initialize_ata, pull_integration, push_integration, refresh_obligation, refresh_reserve, transfer_tokens
+                derive_controller_authority_pda, derive_vanilla_obligation_address, edit_ata_amount, initialize_ata, pull_integration, push_integration, refresh_obligation, refresh_reserve, sync_integration, transfer_tokens, KaminoSyncArgs
             }
     };
 
@@ -200,6 +201,28 @@ mod tests {
             &market, 
             &obligation,
             Some(&reserve)
+        )?;
+
+        let rewards_ata = get_associated_token_address(
+            &controller_authority, 
+            &BONK_MINT
+        );
+
+        // let rewards_ata = Pubkey::default();
+
+        // sync the integration with bonk as reward args
+        let _ = sync_integration(
+            &mut svm, 
+            &controller_pk, 
+            &kamino_integration_pk, 
+            &authority,
+            Some(KaminoSyncArgs {
+                rewards_mint: BONK_MINT,
+                global_config: KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG,
+                rewards_ata,
+                scope_prices: KAMINO_FARMS_PROGRAM_ID,
+                rewards_token_program: spl_token::ID
+            })
         )?;
 
         let _ = pull_integration(

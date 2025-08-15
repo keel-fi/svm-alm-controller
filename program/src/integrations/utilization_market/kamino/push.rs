@@ -31,7 +31,7 @@ define_account_struct! {
     pub struct PushKaminoAccounts<'info> {
         liquidity_source: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
         obligation: mut @owner(KAMINO_LEND_PROGRAM_ID);
-        reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
+        kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         reserve_liquidity_mint: @owner(pinocchio_token::ID); // TODO: token 2022 support
         reserve_liquidity_supply: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
         reserve_collateral_mint: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
@@ -70,7 +70,7 @@ impl<'info> PushKaminoAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        if ctx.reserve.key().ne(&config.reserve) {
+        if ctx.kamino_reserve.key().ne(&config.reserve) {
             msg! {"reserve: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
@@ -144,6 +144,13 @@ impl<'info> PushKaminoAccounts<'info> {
     }
 }
 
+
+/// This function performs a "Push" on a `KaminoIntegration`.
+/// In order to do so it:
+/// - CPIs into KLEND program.
+/// - Tracks the change in balances of `liquidity_source` account ("our" vault) and
+///     `lp_destination_account` (the `kamino_reserve` vault for LP tokens), and
+///     uses these change of balances to emit  the corresponding accounting events.
 pub fn process_push_kamino(
     controller: &Controller,
     permission: &Permission,
@@ -196,17 +203,19 @@ pub fn process_push_kamino(
         controller,
     )?;
 
-    // TODO: Sync events
-
     // for liquidity amount calculation
-    let liquidity_source_account = TokenAccount::from_account_info(inner_ctx.liquidity_source)?;
-    let liquidity_amount_before = liquidity_source_account.amount();
-    drop(liquidity_source_account);
+    let liquidity_amount_before = {
+        let vault 
+            = TokenAccount::from_account_info(inner_ctx.liquidity_source)?;
+        vault.amount()
+    };
 
     // for collateral amount calculation
-    let collateral_destination_account = TokenAccount::from_account_info(inner_ctx.reserve_collateral_supply)?;
-    let collateral_amount_before = collateral_destination_account.amount();
-    drop(collateral_destination_account);
+    let lp_amount_before = {
+        let lp_destination_account 
+            = TokenAccount::from_account_info(inner_ctx.reserve_collateral_supply)?;
+        lp_destination_account.amount()
+    };
 
     // perform kamino deposit liquidity cpi
     deposit_reserve_liquidity_v2(
@@ -221,20 +230,24 @@ pub fn process_push_kamino(
     )?;
 
     // for liquidity amount calculation
-    let liquidity_source_account = TokenAccount::from_account_info(inner_ctx.liquidity_source)?;
-    let liquidity_amount_after = liquidity_source_account.amount();
-    drop(liquidity_source_account);
+    let liquidity_amount_after = {
+        let vault 
+            = TokenAccount::from_account_info(inner_ctx.liquidity_source)?;
+        vault.amount()
+    };
 
     let final_liquidity_amount = liquidity_amount_before.checked_sub(liquidity_amount_after)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // for collateral amount calculation
-    let collateral_destination_account = TokenAccount::from_account_info(inner_ctx.reserve_collateral_supply)?;
-    let collateral_amount_after = collateral_destination_account.amount();
-    drop(collateral_destination_account);
+    let lp_amount_after = {
+        let lp_destination_account 
+        = TokenAccount::from_account_info(inner_ctx.reserve_collateral_supply)?;
+        lp_destination_account.amount()
+    };
 
-    // collateral is minted (increases)
-    let final_collateral_amount = collateral_amount_after.checked_sub(collateral_amount_before)
+    // lp is minted (increases)
+    let final_lp_amount = lp_amount_after.checked_sub(lp_amount_before)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // emit accounting event
@@ -246,25 +259,9 @@ pub fn process_push_kamino(
                 controller: *outer_ctx.controller.key(),
                 integration: *outer_ctx.integration.key(),
                 mint: *inner_ctx.reserve_liquidity_mint.key(),
-                action: AccountingAction::Withdrawal, // TODO: is it withdrawal or deposit?
+                action: AccountingAction::Deposit,
                 before: liquidity_amount_before,
                 after: liquidity_amount_after,
-            }),
-        )?;
-    }
-
-    // emit accounting event
-    if final_collateral_amount > 0 {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.reserve_collateral_mint.key(),
-                action: AccountingAction::Deposit, // TODO: is it deposit or withdrawal?
-                before: collateral_amount_before,
-                after: collateral_amount_after,
             }),
         )?;
     }
@@ -274,12 +271,12 @@ pub fn process_push_kamino(
         IntegrationState::UtilizationMarket(state) => {
             match state {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.deposited_liquidity_value += final_liquidity_amount;
-                    kamino_state.last_collateral_amount += final_collateral_amount;
+                    kamino_state.last_liquidity_value += final_liquidity_amount;
+                    kamino_state.last_lp_amount += final_lp_amount;
                 }
                 _ => return Err(ProgramError::InvalidAccountData.into()),
             }
-        },
+        },                   
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
 
@@ -306,7 +303,7 @@ fn deposit_reserve_liquidity_v2(
         inner_ctx.obligation, 
         inner_ctx.market, 
         inner_ctx.market_authority, 
-        inner_ctx.reserve, 
+        inner_ctx.kamino_reserve, 
         inner_ctx.reserve_liquidity_mint, 
         inner_ctx.reserve_liquidity_supply, 
         inner_ctx.reserve_collateral_mint, 

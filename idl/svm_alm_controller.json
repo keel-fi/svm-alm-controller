@@ -470,11 +470,21 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
           "isMut": true,
           "isSigner": false
         },
@@ -2350,16 +2360,28 @@
       }
     },
     {
+      "name": "HarvestRewardArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rewardIndex",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "KaminoState",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "depositedLiquidityValue",
+            "name": "lastLiquidityValue",
             "type": "u64"
           },
           {
-            "name": "lastCollateralAmount",
+            "name": "lastLpAmount",
             "type": "u64"
           },
           {

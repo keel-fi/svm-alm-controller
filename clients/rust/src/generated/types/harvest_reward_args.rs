@@ -10,8 +10,6 @@ use borsh::BorshSerialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct KaminoState {
-    pub last_liquidity_value: u64,
-    pub last_lp_amount: u64,
-    pub padding: [u8; 31],
+pub struct HarvestRewardArgs {
+    pub reward_index: u64,
 }

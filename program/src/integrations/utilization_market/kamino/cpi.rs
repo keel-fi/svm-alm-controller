@@ -89,8 +89,7 @@ pub fn initialize_obligation_cpi(
 ) -> Result<(), ProgramError> {
 
     let args_vec = InitObligationArgs { tag: VANILLA_OBLIGATION_TAG, id }
-        .to_vec()
-        .unwrap();
+        .to_vec()?;
 
     let data = args_vec.as_slice();
 
@@ -186,7 +185,7 @@ pub fn initialize_user_metadata_cpi(
 
     let args_vec = InitUserMetadataArgs {
         user_lookup_table: user_lookup_table.key()
-    }.to_vec().unwrap();
+    }.to_vec()?;
 
     let data = args_vec.as_slice();
 
@@ -378,7 +377,7 @@ pub fn initialize_obligation_farm_for_reserve_cpi(
         // 0 for ReserveFarmKind::Collateral, meaning reserve_farm_state == reserve.farm_collateral
         // 1 for ReserveFarmKind::Debt, meaning reserve_farm_state == reserve.farm_debt
         mode
-    }.to_vec().unwrap();
+    }.to_vec()?;
 
     let data = args_vec.as_slice();
 
@@ -530,7 +529,7 @@ pub fn deposit_reserve_liquidity_v2_cpi(
 ) -> Result<(), ProgramError> {
     let args_vec = DepositLiquidityV2Args {
         liquidity_amount
-    }.to_vec().unwrap();
+    }.to_vec()?;
 
     let data = args_vec.as_slice();
 
@@ -649,7 +648,7 @@ pub fn withdraw_obligation_collateral_v2_cpi(
 ) -> Result<(), ProgramError> {
     let args_vec = WithdrawObligationV2Args {
         collateral_amount
-    }.to_vec().unwrap();
+    }.to_vec()?;
 
     let data = args_vec.as_slice();
 
@@ -713,6 +712,151 @@ pub fn withdraw_obligation_collateral_v2_cpi(
             reserve_farm_collateral,
             farms_program
         ], 
+        &[signer]
+    )?;
+
+    Ok(())
+}
+
+
+// -------- harvest farm rewards --------
+
+pub fn derive_rewards_vault(
+    farm_state: &Pubkey,
+    rewards_vault_mint: &Pubkey,
+    farms_program: &Pubkey,
+) -> Pubkey {
+    let (address, _) = find_program_address(
+        &[
+            b"rvault",
+            farm_state.as_ref(),
+            rewards_vault_mint.as_ref()
+        ], 
+        farms_program
+    );
+
+    address
+}
+
+pub fn derive_rewards_treasury_vault(
+    global_config: &Pubkey,
+    rewards_vault_mint: &Pubkey,
+    farms_program: &Pubkey,
+) -> Pubkey {
+    let (address, _) = find_program_address(
+        &[
+            b"tvault",
+            global_config.as_ref(),
+            rewards_vault_mint.as_ref()
+        ], 
+        farms_program
+    );
+
+    address
+}
+
+pub fn derive_farm_vaults_authority(
+    farm_state: &Pubkey,
+    farms_program: &Pubkey,
+) -> Pubkey {
+    let (address, _) = find_program_address(
+        &[
+            b"authority",
+            farm_state.as_ref(),
+        ], 
+        farms_program
+    );
+
+    address
+}
+
+
+#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
+pub struct HarvestRewardArgs {
+    pub reward_index: u64
+}
+
+impl HarvestRewardArgs {
+    pub const LEN: usize = 8;
+    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash(
+        "global", 
+        "harvest_reward"
+    );
+
+    pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
+        let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
+        serialized.extend_from_slice(&Self::DISCRIMINATOR);
+        
+        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        
+        Ok(serialized)
+    }
+}
+
+pub fn harvest_reward_cpi(
+    reward_index: u64,
+    signer: Signer,
+    owner: &AccountInfo,
+    user_state: &AccountInfo,
+    farm_state: &AccountInfo,
+    global_config: &AccountInfo,
+    reward_mint: &AccountInfo,
+    user_reward_ata: &AccountInfo,
+    rewards_vault: &AccountInfo,
+    rewards_treasury_vault: &AccountInfo,
+    farm_vaults_authority: &AccountInfo,
+    scope_prices: &AccountInfo,
+    token_program: &AccountInfo,
+    farms_program: &AccountInfo
+) -> Result<(), ProgramError> {
+    let args_vec = HarvestRewardArgs {
+        reward_index
+    }.to_vec()?;
+
+    let data = args_vec.as_slice();
+
+    invoke_signed(
+        &Instruction { 
+            program_id: farms_program.key(), 
+            data: &data, 
+            accounts: &[
+                // owner
+                AccountMeta::writable_signer(owner.key()),
+                // user state
+                AccountMeta::writable(user_state.key()),
+                // farm_state
+                AccountMeta::writable(farm_state.key()),
+                // global_config
+                AccountMeta::readonly(global_config.key()),
+                // reward_mint
+                AccountMeta::readonly(reward_mint.key()),
+                // user reward ata
+                AccountMeta::writable(user_reward_ata.key()),
+                // rewards_vault
+                AccountMeta::writable(rewards_vault.key()),
+                // rewards_treasury_vault
+                AccountMeta::writable(rewards_treasury_vault.key()),
+                // farm_vaults_authority
+                AccountMeta::readonly(farm_vaults_authority.key()),
+                // scope_prices
+                AccountMeta::readonly(scope_prices.key()),
+                // token_progra
+                AccountMeta::readonly(token_program.key()),
+            ] 
+        }, 
+        &[
+            owner,
+            user_state,
+            farm_state,
+            global_config,
+            reward_mint,
+            user_reward_ata,
+            rewards_vault,
+            rewards_treasury_vault,
+            farm_vaults_authority,
+            scope_prices,
+            token_program,
+        ],
         &[signer]
     )?;
 

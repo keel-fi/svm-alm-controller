@@ -56,3 +56,7 @@ pub const KAMINO_USDC_RESERVE_LIQUIDITY_SUPPLY: Pubkey = pubkey!("Bgq7trRgVMeq33
 pub const KAMINO_USDC_RESERVE_COLLATERAL_MINT: Pubkey = pubkey!("B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D");
 pub const KAMINO_USDC_RESERVE_COLLATERAL_SUPPLY: Pubkey = pubkey!("3DzjXRfxRm6iejfyyMynR4tScddaanrePJ1NJU2XnPPL");
 pub const KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED: Pubkey= pubkey!("3NJYftD5sjVfxSnUdZ1wVML8f3aC6mp1CXCL6L7TnU8C");
+pub const KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG: Pubkey = pubkey!("6UodrBjL2ZreDy7QdR4YV1oxqMBjVYSEyrFpctqqwGwL");
+pub const BONK_MINT: Pubkey = pubkey!("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263");
+pub const KAMINO_USDC_RESERVE_BONK_VAULT: Pubkey = pubkey!("5JehzcYZjvqhijhhavULvgsM9BQfRyqVoztqhfJ7mdBn");
+pub const KAMINO_USDC_RESERVE_BONK_TREASURY_VAULT: Pubkey = pubkey!("76Nzx5DqDre5SSP7wyNTHzYTvqeQaf1V9ZSCV7pofcH8");
