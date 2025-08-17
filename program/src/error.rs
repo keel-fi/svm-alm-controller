@@ -49,6 +49,10 @@ pub enum SvmAlmControllerErrors {
     InvalidAtomicSwapConfiguration,
     // 22.
     ControllerDoesNotMatchAccountData,
+    // 23.
+    LZPushInFlight,
+    // 24.
+    InvalidInstructionIndex,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

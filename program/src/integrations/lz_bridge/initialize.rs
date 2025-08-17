@@ -104,7 +104,8 @@ pub fn process_initialize_lz_bridge(
 
     // Create the initial integration state
     let state = IntegrationState::LzBridge(LzBridgeState {
-        _padding: [0u8; 48],
+        push_in_flight: false,
+        _padding: [0u8; 47],
     });
 
     Ok((config, state))

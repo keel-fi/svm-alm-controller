@@ -887,6 +887,31 @@
         "type": "u8",
         "value": 16
       }
+    },
+    {
+      "name": "ResetLzPushInFlight",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sysvarInstruction",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 17
+      }
     }
   ],
   "accounts": [
@@ -2034,11 +2059,15 @@
         "kind": "struct",
         "fields": [
           {
+            "name": "pushInFlight",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                48
+                47
               ]
             }
           }
