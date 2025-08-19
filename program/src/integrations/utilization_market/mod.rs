@@ -2,9 +2,8 @@ pub mod kamino;
 pub mod config;
 pub mod state;
 
-use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::program_error::ProgramError;
 use borsh::{BorshDeserialize, BorshSerialize};
-use pinocchio_pubkey::pubkey;
 use shank::ShankType;
 
 use crate::{
@@ -13,14 +12,6 @@ use crate::{
     integrations::utilization_market::kamino::initialize::process_initialize_kamino, 
     processor::InitializeIntegrationAccounts, state::Controller
 };
-
-pub const KAMINO_LEND_PROGRAM_ID: Pubkey = pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
-pub const KAMINO_FARMS_PROGRAM_ID: Pubkey = pubkey!("FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr");
-pub const LOOKUP_TABLE_PROGRAM_ID: Pubkey = pubkey!("AddressLookupTab1e1111111111111111111111111");
-
-pub trait BorrowLendUtilizationMarket {
-
-}
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, Default, PartialEq, ShankType)]
 pub enum UtilizationMarket {

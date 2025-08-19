@@ -7,13 +7,14 @@ use pinocchio::{
 };
 
 use crate::{
-    constants::CONTROLLER_AUTHORITY_SEED, 
+    constants::{ADDRESS_LOOKUP_TABLE_PROGRAM_ID, CONTROLLER_AUTHORITY_SEED}, 
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
     instructions::{InitializeArgs, InitializeIntegrationArgs}, 
     integrations::utilization_market::{
         config::UtilizationMarketConfig, kamino::{
             config::KaminoConfig, 
+            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
             cpi::{
                 derive_market_authority_address, 
                 derive_obligation_farm_address, 
@@ -24,12 +25,9 @@ use crate::{
                 initialize_user_lookup_table, 
                 initialize_user_metadata_cpi, 
                 OBLIGATION_FARM_COLLATERAL_MODE,
-            }, 
-            kamino_state::{Obligation, KaminoReserve}, state::KaminoState
-        }, state::UtilizationMarketState, 
-        KAMINO_FARMS_PROGRAM_ID, 
-        KAMINO_LEND_PROGRAM_ID, 
-        LOOKUP_TABLE_PROGRAM_ID
+            }, kamino_state::{KaminoReserve, Obligation}, state::KaminoState
+        }, 
+        state::UtilizationMarketState, 
     }, 
     processor::InitializeIntegrationAccounts, 
     state::Controller
@@ -49,7 +47,7 @@ define_account_struct! {
         reserve_farm_debt: mut;
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
-        lookup_table_program: @pubkey(LOOKUP_TABLE_PROGRAM_ID);
+        lookup_table_program: @pubkey(ADDRESS_LOOKUP_TABLE_PROGRAM_ID);
         kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);

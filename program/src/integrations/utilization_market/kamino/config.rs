@@ -12,7 +12,7 @@ pub struct KaminoConfig {
     pub reserve_farm_collateral: Pubkey,
     /// the reserve farm debt (can be Pubkey::default())
     pub reserve_farm_debt: Pubkey,
-    /// The reserve liquidity mint 
+    /// The reserve liquidity mint. This is the mint that is deposited (lent) into the reserve.
     pub reserve_liquidity_mint: Pubkey,
     /// The obligation, KaminoConfigs can share obligations
     pub obligation: Pubkey,

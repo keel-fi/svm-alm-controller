@@ -15,16 +15,18 @@ use crate::{
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PullArgs, 
     integrations::utilization_market::{
-        config::UtilizationMarketConfig, kamino::cpi::{
-            derive_market_authority_address, 
-            derive_reserve_collateral_mint, 
-            derive_reserve_collateral_supply, 
-            derive_reserve_liquidity_supply, 
-            withdraw_obligation_collateral_v2_cpi
-        }, 
+        config::UtilizationMarketConfig, 
+        kamino::{
+            cpi::{
+                derive_market_authority_address, 
+                derive_reserve_collateral_mint, 
+                derive_reserve_collateral_supply, 
+                derive_reserve_liquidity_supply, 
+                withdraw_obligation_collateral_v2_cpi
+            },
+        constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
+    }, 
         state::UtilizationMarketState, 
-        KAMINO_FARMS_PROGRAM_ID,
-        KAMINO_LEND_PROGRAM_ID
     }, 
     processor::PullAccounts, 
     state::{Controller, Integration, Permission, Reserve}
@@ -62,7 +64,6 @@ impl <'info> PullKaminoAccounts<'info> {
             IntegrationConfig::UtilizationMarket(c) => {
                 match c {
                     UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-                    _ => return Err(ProgramError::InvalidAccountData),
                 }
             },
             _ => return Err(ProgramError::InvalidAccountData),
@@ -281,7 +282,6 @@ pub fn process_pull_kamino(
                         .checked_sub(final_collateral_amount)
                         .ok_or(ProgramError::ArithmeticOverflow)?;
                 }
-                _ => return Err(ProgramError::InvalidAccountData.into()),
             }
         },
         _ => return Err(ProgramError::InvalidAccountData.into()),

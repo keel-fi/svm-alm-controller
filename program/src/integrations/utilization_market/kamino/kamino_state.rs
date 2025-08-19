@@ -2,9 +2,15 @@ use core::ops::{Div, Mul};
 
 use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use fixed::{FixedU128, types::extra::U60, traits::FromFixed};
-use crate::integrations::utilization_market::kamino::{
-    cpi::anchor_sighash, 
-    initialize::InitializeKaminoAccounts
+use crate::{
+    integrations::utilization_market::kamino::{
+        constants::{
+            FARM_STATE_DISCRIMINATOR, 
+            OBLIGATION_DISCRIMINATOR, 
+            RESERVE_DISCRIMINATOR
+        }, 
+        initialize::InitializeKaminoAccounts
+    }
 };
 
 
@@ -99,6 +105,8 @@ const LIQUIDITY_PENDING_REFERRER_FEES: usize = LIQUIDITY_ACC_REFERRER_FEES_OFFSE
 const COLLATERAL_MINT_OFFSET: usize = LIQUIDITY_PENDING_REFERRER_FEES + 2184;
 const COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET: usize = COLLATERAL_MINT_OFFSET + 32;
 
+/// This is a slimmed down version of the `Reserve` state from `KLEND` program.
+/// For more details, see: https://github.com/Kamino-Finance/klend/blob/master/programs/klend/src/state/reserve.rs#L60-L91
 pub struct KaminoReserve {
     pub lending_market: Pubkey,
     pub farm_collateral: Pubkey,
@@ -200,7 +208,7 @@ impl<'a> TryFrom<&'a [u8]> for KaminoReserve {
 }
 
 impl KaminoReserve {
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("account", "Reserve");
+    pub const DISCRIMINATOR: [u8; 8] = RESERVE_DISCRIMINATOR;
 
     /// Verifies that:
     /// - the `Reserve` belongs to the market
@@ -288,6 +296,8 @@ pub const OWNER_OFFSET: usize = OBLIGATION_LENDING_MARKET_OFFSET + 32;
 pub const DEPOSITS_OFFSET: usize = OWNER_OFFSET + 32;
 pub const OBLIGATION_COLLATERAL_LEN: usize = 136;
 
+/// This is a slimmed down version of the `Obligation` state from `KLEND` program.
+/// For more details, see: https://github.com/Kamino-Finance/klend/blob/master/programs/klend/src/state/obligation.rs#L26-L71
 pub struct Obligation {
     pub lending_market: Pubkey,
     pub owner: Pubkey,
@@ -346,7 +356,7 @@ impl<'a> TryFrom<&'a [u8]> for Obligation {
 }
 
 impl Obligation {
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("account", "Obligation");
+    pub const DISCRIMINATOR: [u8; 8] = OBLIGATION_DISCRIMINATOR;
 
     /// Verifies that:
     /// - the `Obligation` `owner` field matches `controller_authority`
@@ -406,6 +416,8 @@ pub struct RewardInfo {
     pub rewards_vault: Pubkey,
 }
 
+/// This is a slimmed down version of the `FarmState` state from `KFARMS` program.
+/// For more details, see: https://github.com/Kamino-Finance/kfarms/blob/master/programs/kfarms/src/state.rs#L70-L128
 pub struct FarmState {
     pub global_config: Pubkey,
     pub rewards_info: [RewardInfo; 10],
@@ -413,10 +425,7 @@ pub struct FarmState {
 }
 
 impl FarmState {
-    const DISCRIMINATOR: [u8; 8] = anchor_sighash(
-        "account", 
-        "FarmState"
-    );
+    const DISCRIMINATOR: [u8; 8] = FARM_STATE_DISCRIMINATOR;
 
     pub fn find_reward_index(
         &self, 

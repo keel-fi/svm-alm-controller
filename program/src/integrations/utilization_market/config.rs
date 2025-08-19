@@ -7,5 +7,4 @@ use crate::integrations::utilization_market::kamino::config::KaminoConfig;
 #[repr(u8)]
 pub enum UtilizationMarketConfig {
     KaminoConfig(KaminoConfig),
-    Other,
 }

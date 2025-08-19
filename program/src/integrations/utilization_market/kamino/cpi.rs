@@ -6,22 +6,10 @@ use pinocchio::{
     program_error::ProgramError, pubkey::{find_program_address, Pubkey}, 
     sysvars::clock::Slot,
 };
-use sha2_const_stable::{Sha256};
 
-/// compute the first 8 bytes of SHA256(namespace:name) in a `const fn`.
-pub const fn anchor_sighash(namespace: &str, name: &str) -> [u8; 8] {
-    let hash = Sha256::new()
-        .update(namespace.as_bytes())
-        .update(b":")
-        .update(name.as_bytes())
-        .finalize();
-
-    // return the first 8 bytes as the discriminator
-    [
-        hash[0], hash[1], hash[2], hash[3],
-        hash[4], hash[5], hash[6], hash[7],
-    ]
-}
+use crate::integrations::utilization_market::kamino::constants::{
+    DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, HARVEST_REWARD_DISCRIMINATOR, INIT_METADATA_DISCRIMINATOR, INIT_OBLIGATION_DISCRIMINATOR, INIT_OBLIGATION_FARM_DISCRIMINATOR, WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
+};
 
 // ------------ init obligation ------------
 
@@ -35,7 +23,7 @@ pub struct InitObligationArgs {
 
 impl InitObligationArgs {
     pub const LEN: usize = 2;
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("global", "init_obligation");
+    pub const DISCRIMINATOR: [u8; 8] = INIT_OBLIGATION_DISCRIMINATOR;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
 
@@ -144,7 +132,7 @@ pub struct InitUserMetadataArgs<'a> {
 
 impl<'a> InitUserMetadataArgs<'a> {
     pub const LEN: usize = 32;
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("global", "init_user_metadata");
+    pub const DISCRIMINATOR: [u8; 8] = INIT_METADATA_DISCRIMINATOR;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
@@ -340,7 +328,7 @@ pub struct InitObligationFarmArgs {
 
 impl InitObligationFarmArgs {
     pub const LEN: usize = 1;
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash("global", "init_obligation_farms_for_reserve");
+    pub const DISCRIMINATOR: [u8; 8] = INIT_OBLIGATION_FARM_DISCRIMINATOR;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
@@ -491,10 +479,7 @@ pub struct DepositLiquidityV2Args {
 
 impl DepositLiquidityV2Args {
     pub const LEN: usize = 8;
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash(
-        "global", 
-        "deposit_reserve_liquidity_and_obligation_collateral_v2"
-    );
+    pub const DISCRIMINATOR: [u8; 8] = DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
@@ -610,10 +595,7 @@ pub struct WithdrawObligationV2Args {
 
 impl WithdrawObligationV2Args {
     pub const LEN: usize = 8;
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash(
-        "global", 
-        "withdraw_obligation_collateral_and_redeem_reserve_collateral_v2"
-    );
+    pub const DISCRIMINATOR: [u8; 8] = WITHDRAW_OBLIGATION_V2_DISCRIMINATOR;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
@@ -778,10 +760,7 @@ pub struct HarvestRewardArgs {
 
 impl HarvestRewardArgs {
     pub const LEN: usize = 8;
-    pub const DISCRIMINATOR: [u8; 8] = anchor_sighash(
-        "global", 
-        "harvest_reward"
-    );
+    pub const DISCRIMINATOR: [u8; 8] = HARVEST_REWARD_DISCRIMINATOR;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);

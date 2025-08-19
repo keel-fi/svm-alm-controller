@@ -59,7 +59,6 @@ pub fn process_sync_integration(
                 UtilizationMarketConfig::KaminoConfig(_config) => {
                     process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?
                 }
-                _ => return Err(ProgramError::InvalidArgument),
             }
         }
         // TODO: More integration types to be supported

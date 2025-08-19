@@ -14,19 +14,17 @@ use crate::{
     integrations::utilization_market::{
         config::UtilizationMarketConfig, 
         kamino::{
-            config::KaminoConfig, 
-            cpi::{
+            config::KaminoConfig, cpi::{
                 derive_farm_vaults_authority, 
                 derive_obligation_farm_address, 
                 derive_rewards_treasury_vault, 
                 derive_rewards_vault, 
                 harvest_reward_cpi
             }, 
-            kamino_state::{FarmState, KaminoReserve, Obligation}
+            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
+            kamino_state::{FarmState, KaminoReserve, Obligation}, 
         }, 
-            state::UtilizationMarketState, 
-            KAMINO_FARMS_PROGRAM_ID, 
-            KAMINO_LEND_PROGRAM_ID
+        state::UtilizationMarketState,
     }, processor::SyncIntegrationAccounts, state::{Controller, Integration, Reserve}
 };
 
@@ -134,7 +132,6 @@ pub fn process_sync_kamino(
         IntegrationConfig::UtilizationMarket(c) => {
             match c {
                 UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-                _ => return Err(ProgramError::InvalidAccountData),
             }
         },
         _ => return Err(ProgramError::InvalidAccountData),
@@ -265,7 +262,6 @@ pub fn process_sync_kamino(
                 UtilizationMarketState::KaminoState(state) => {
                     state.last_liquidity_value
                 },
-                _ => return Err(ProgramError::InvalidAccountData),
             }
         },
         _ => return Err(ProgramError::InvalidAccountData),
@@ -299,7 +295,6 @@ pub fn process_sync_kamino(
                     kamino_state.last_liquidity_value = current_liquidity_value;
                     kamino_state.last_lp_amount = current_lp_amount;
                 },
-                _ => return Err(ProgramError::InvalidAccountData.into()),
             }
         },
         _ => return Err(ProgramError::InvalidAccountData.into()),

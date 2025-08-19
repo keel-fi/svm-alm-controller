@@ -48,3 +48,5 @@ switchboard-on-demand = "0.3.8"
 oft-client = { git = "https://github.com/nova-dot-gg/lz-rust-client", branch = "mods", package = "oft-client" }
 endpoint-client = { git = "https://github.com/nova-dot-gg/lz-rust-client", branch = "mods", package = "endpoint-client" }
 uln-client = { git = "https://github.com/nova-dot-gg/lz-rust-client", branch = "mods", package = "uln-client" }
+fixed = "1.23.1"
+uint = "0.9.5"

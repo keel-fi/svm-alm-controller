@@ -19,3 +19,6 @@ borsh = { workspace = true }
 solana-program = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true}
+solana-sdk = { workspace = true }
+spl-associated-token-account-client = { workspace = true }
+spl-token = { workspace = true }

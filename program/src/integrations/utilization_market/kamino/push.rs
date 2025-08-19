@@ -13,16 +13,18 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState}, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, integrations::utilization_market::{
-        config::UtilizationMarketConfig, kamino::cpi::{
-            deposit_reserve_liquidity_v2_cpi, 
-            derive_market_authority_address, 
-            derive_reserve_collateral_mint, 
-            derive_reserve_collateral_supply, 
-            derive_reserve_liquidity_supply
+        config::UtilizationMarketConfig, 
+        kamino::{
+            cpi::{
+                deposit_reserve_liquidity_v2_cpi, 
+                derive_market_authority_address, 
+                derive_reserve_collateral_mint, 
+                derive_reserve_collateral_supply, 
+                derive_reserve_liquidity_supply
+            },
+            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
         }, 
         state::UtilizationMarketState, 
-        KAMINO_FARMS_PROGRAM_ID, 
-        KAMINO_LEND_PROGRAM_ID
     }, processor::PushAccounts, 
     state::{Controller, Integration, Permission, Reserve}
 };
@@ -59,7 +61,6 @@ impl<'info> PushKaminoAccounts<'info> {
             IntegrationConfig::UtilizationMarket(c) => {
                 match c {
                     UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-                    _ => return Err(ProgramError::InvalidAccountData),
                 }
             },
             _ => return Err(ProgramError::InvalidAccountData),
@@ -274,7 +275,6 @@ pub fn process_push_kamino(
                     kamino_state.last_liquidity_value += final_liquidity_amount;
                     kamino_state.last_lp_amount += final_lp_amount;
                 }
-                _ => return Err(ProgramError::InvalidAccountData.into()),
             }
         },                   
         _ => return Err(ProgramError::InvalidAccountData.into()),

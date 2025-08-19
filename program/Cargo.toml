@@ -28,8 +28,8 @@ switchboard-on-demand = { workspace = true }
 bytemuck = { workspace = true }
 sha2-const-stable = "0.1.0"
 solana-keccak-hasher = { workspace = true }
-fixed = { version = "1.23.1" }
-uint = "0.9.5"
+fixed = { workspace = true }
+uint = { workspace = true }
 
 [dev-dependencies]
 base64 = "0.22"
