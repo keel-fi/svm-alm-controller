@@ -69,10 +69,6 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg! {"cctp_message_transmitter: does not match config"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if ctx.mint.key().ne(&config.mint) {
-            msg! {"mint: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
         if !ctx
             .remote_token_messenger
             .is_owned_by(&config.cctp_token_messenger_minter)
