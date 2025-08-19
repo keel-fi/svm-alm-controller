@@ -62,6 +62,12 @@ pub fn validate_instruction(
         msg!("Cannot call ResetLzPushInFlight via CPI");
         return Err(ProgramError::IncorrectProgramId);
     }
+    let curr_ix_data = curr_ix.get_instruction_data();
+    if curr_ix_data[0] != RESET_LZ_PUSH_IN_FLIGHT_DISC {
+        msg!("ResetLzPushInFlight invalid instruction");
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
     Ok(())
 }
 
