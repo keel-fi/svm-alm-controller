@@ -42,7 +42,7 @@ pub fn process_initialize_controller(
         args.status,
     )?;
 
-    // Initialize the controller data
+    // Initialize the Controller's super Permission account.
     Permission::init_account(
         ctx.permission,
         ctx.payer,

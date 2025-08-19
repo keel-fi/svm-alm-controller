@@ -171,7 +171,7 @@ pub fn process_push_spl_token_swap(
 
     // Check against reserve data
     if inner_ctx.vault_a.key().ne(&reserve_a.vault) {
-        msg! {"mint_a: mismatch with reserve"};
+        msg! {"vault_a: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.vault_b.key().ne(&reserve_b.vault) {
