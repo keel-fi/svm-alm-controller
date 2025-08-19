@@ -73,6 +73,20 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg! {"mint: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
+        if !ctx
+            .remote_token_messenger
+            .is_owned_by(&config.cctp_token_messenger_minter)
+        {
+            msg! {"remote_token_messenger: invalid owner"};
+            return Err(ProgramError::IllegalOwner);
+        }
+        if !ctx
+            .local_token
+            .is_owned_by(&config.cctp_token_messenger_minter)
+        {
+            msg! {"local_token: invalid owner"};
+            return Err(ProgramError::IllegalOwner);
+        }
 
         Ok(ctx)
     }
