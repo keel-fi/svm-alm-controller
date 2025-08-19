@@ -1,9 +1,7 @@
 use solana_sdk::{
     instruction::{AccountMeta, Instruction}, 
     keccak::hash, 
-    pubkey::Pubkey, 
-    signature::Keypair, 
-    signer::Signer, 
+    pubkey::Pubkey,
     system_program, 
     sysvar::rent
 };
@@ -39,8 +37,8 @@ use crate::{
 
 pub fn get_kamino_init_ix(
     controller: &Pubkey,
-    payer: &Keypair,
-    authority: &Keypair,
+    payer: &Pubkey,
+    authority: &Pubkey,
     description: &str,
     status: IntegrationStatus,
     rate_limit_slope: u64,
@@ -49,7 +47,7 @@ pub fn get_kamino_init_ix(
     slot: u64,
     obligation_id: u8
 ) -> (Instruction, Pubkey) {
-    let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let calling_permission_pda = derive_permission_pda(controller, authority);
     let controller_authority = derive_controller_authority_pda(controller);
     let description_bytes = description.as_bytes();
     let mut description_encoding: [u8; 32] = [0; 32];
@@ -187,10 +185,10 @@ pub fn get_kamino_init_ix(
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
         .inner_args(InitializeArgs::KaminoIntegration { obligation_id })
-        .payer(payer.pubkey())
+        .payer(*payer)
         .controller(*controller)
         .controller_authority(controller_authority)
-        .authority(authority.pubkey())
+        .authority(*authority)
         .permission(calling_permission_pda)
         .integration(integration_pda)
         .lookup_table(system_program::ID)

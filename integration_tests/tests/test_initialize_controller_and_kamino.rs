@@ -174,8 +174,8 @@ mod tests {
             kamino_integration_pk
         ) = get_kamino_init_ix(
             &controller_pk, 
-            &authority, 
-            &authority, 
+            &authority.pubkey(), 
+            &authority.pubkey(), 
             "Kamino main market/USDC",
             IntegrationStatus::Active,
             1_000_000_000_000, 
@@ -221,7 +221,7 @@ mod tests {
         let push_ix = get_kamino_push_ix(
             &controller_pk, 
             &kamino_integration_pk, 
-            &authority, 
+            &authority.pubkey(), 
             &kamino_config, 
             1_000_000_000
         );
@@ -267,7 +267,7 @@ mod tests {
         let sync_ix = get_kamino_sync_ix(
             &controller_pk, 
             &kamino_integration_pk, 
-            &authority, 
+            &authority.pubkey(), 
             &kamino_config, 
             &BONK_MINT, 
             &KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, 
@@ -286,7 +286,7 @@ mod tests {
         let pull_ix = get_kamino_pull_ix(
             &controller_pk, 
             &kamino_integration_pk, 
-            &authority, 
+            &authority.pubkey(), 
             &kamino_config, 
             900_000_000
         );

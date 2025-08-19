@@ -1,8 +1,6 @@
 use solana_sdk::{
     instruction::{AccountMeta, Instruction}, 
     pubkey::Pubkey, 
-    signature::Keypair, 
-    signer::Signer, 
     system_program
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
@@ -27,7 +25,7 @@ use crate::{
 pub fn get_kamino_sync_ix(
     controller: &Pubkey,
     integration: &Pubkey,
-    authority: &Keypair,
+    authority: &Pubkey,
     kamino_config: &KaminoConfig,
     rewards_mint: &Pubkey,
     global_config: &Pubkey,
@@ -150,7 +148,7 @@ pub fn get_kamino_sync_ix(
     SyncBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
-        .authority(authority.pubkey())
+        .authority(*authority)
         .integration(*integration)
         .reserve(reserve_pda)
         .program_id(SVM_ALM_CONTROLLER_ID)

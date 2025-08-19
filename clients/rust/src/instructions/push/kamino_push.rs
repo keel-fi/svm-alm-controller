@@ -1,7 +1,7 @@
 use solana_sdk::{
     instruction::{AccountMeta, Instruction}, 
     pubkey::Pubkey, 
-    signature::Keypair, signer::Signer, sysvar
+    sysvar
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
@@ -26,11 +26,11 @@ use crate::{
 pub fn get_kamino_push_ix(
     controller: &Pubkey,
     integration: &Pubkey,
-    authority: &Keypair,
+    authority: &Pubkey,
     kamino_config: &KaminoConfig,
     amount: u64 
 ) -> Instruction {
-    let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
+    let calling_permission_pda = derive_permission_pda(controller, authority);
     let controller_authority = derive_controller_authority_pda(controller);
 
     let obligation = kamino_config.obligation;
@@ -151,7 +151,7 @@ pub fn get_kamino_push_ix(
         .push_args(PushArgs::Kamino { amount })
         .controller(*controller)
         .controller_authority(controller_authority)
-        .authority(authority.pubkey())
+        .authority(*authority)
         .permission(calling_permission_pda)
         .integration(*integration)
         .reserve_a(reserve_pda)
