@@ -4,9 +4,13 @@ use crate::{
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::lz_bridge::{config::LzBridgeConfig, cpi::OftSendParams, reset_lz_push_in_flight::RESET_LZ_PUSH_IN_FLIGHT_DISC},
+    integrations::lz_bridge::{
+        config::LzBridgeConfig,
+        cpi::OftSendParams,
+        reset_lz_push_in_flight::{RESET_LZ_PUSH_INTEGRATIC_INDEX, RESET_LZ_PUSH_IN_FLIGHT_DISC},
+    },
     processor::PushAccounts,
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{Controller, Integration, Permission, Reserve},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -61,6 +65,7 @@ pub fn verify_send_ix_in_tx(
     authority: &Pubkey,
     accounts: &PushLzBridgeAccounts,
     config: &LzBridgeConfig,
+    integration_pubkey: &Pubkey,
     amount: u64,
 ) -> ProgramResult {
     // Get number of instructions in current transaction.
@@ -88,6 +93,15 @@ pub fn verify_send_ix_in_tx(
     let reset_ix_data = reset_ix.get_instruction_data();
     if reset_ix_data[0] != RESET_LZ_PUSH_IN_FLIGHT_DISC {
         msg!("ResetLzPushInFlight invalid instruction");
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+    // Validate that the Reset instruction has the same integration as the
+    // LZ Push instruction.
+    let reset_integration = reset_ix
+        .get_account_meta_at(RESET_LZ_PUSH_INTEGRATIC_INDEX)?
+        .key;
+    if reset_integration.ne(integration_pubkey) {
+        msg!("ResetLzPushInFlight invalid integration account");
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 
@@ -186,7 +200,13 @@ pub fn process_push_lz_bridge(
         _ => return Err(ProgramError::InvalidAccountData),
     }
 
-    verify_send_ix_in_tx(outer_ctx.authority.key(), &inner_ctx, &config, amount)?;
+    verify_send_ix_in_tx(
+        outer_ctx.authority.key(),
+        &inner_ctx,
+        &config,
+        outer_ctx.integration.key(),
+        amount,
+    )?;
 
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve_a.vault) {
