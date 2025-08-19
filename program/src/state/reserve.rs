@@ -8,7 +8,7 @@ use crate::{
     enums::ReserveStatus,
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
-    processor::shared::create_pda_account,
+    processor::shared::{calculate_rate_limit_increment, create_pda_account},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -187,20 +187,12 @@ impl Reserve {
         if self.rate_limit_max_outflow != u64::MAX
             && self.last_refresh_timestamp != clock.unix_timestamp
         {
-            let time_passed = clock
-                .unix_timestamp
-                .checked_sub(self.last_refresh_timestamp)
-                .unwrap();
-            // Calculate the amount of units that accrued via lapsed time.
-            // Carries the remainder over from the last time this ran to
-            // prevent precision errors that could lead to DOS.
-            let accrued_units = u128::from(self.rate_limit_slope)
-                .checked_mul(time_passed as u128)
-                .unwrap()
-                .checked_add(self.rate_limit_remainder as u128)
-                .unwrap();
-            let increment = (accrued_units / SECONDS_PER_DAY as u128) as u64;
-            let remainder = (accrued_units % SECONDS_PER_DAY as u128) as u64;
+            let (increment, remainder) = calculate_rate_limit_increment(
+                clock.unix_timestamp,
+                self.last_refresh_timestamp,
+                self.rate_limit_slope,
+                self.rate_limit_remainder,
+            );
             self.rate_limit_outflow_amount_available = self
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
