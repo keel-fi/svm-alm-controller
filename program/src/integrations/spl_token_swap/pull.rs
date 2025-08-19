@@ -403,7 +403,8 @@ pub fn process_pull_spl_token_swap(
 
     // Calculate the change in vault balances.
     // We must use the amounts in the TokenAccounts to ensure
-    // proper accounting when TransferFee is enabled.
+    // proper accounting when TransferFee is enabled OR 
+    // withdrawal is not exact amount.
     let (vault_balance_a_after, vault_balance_b_after) = {
         (
             TokenAccount::from_account_info(inner_ctx.vault_a)?.amount(),

@@ -342,6 +342,14 @@ pub fn process_push_spl_token_swap(
         step_2_balance_b = step_1_balance_b;
     }
 
+    // Track vault balances before withdraw for balance change.
+    let (vault_balance_a_before, vault_balance_b_before) = {
+        (
+            TokenAccount::from_account_info(inner_ctx.vault_a)?.amount(),
+            TokenAccount::from_account_info(inner_ctx.vault_b)?.amount(),
+        )
+    };
+
     // Carry out the actual deposit logic
     //  CPI'ing into the SPL Token Swap program
     if amount_a > 0 {
@@ -390,6 +398,22 @@ pub fn process_push_spl_token_swap(
             minimum_pool_token_amount,
         )?;
     }
+
+    // Calculate the change in vault balances.
+    // We must use the amounts in the TokenAccounts to ensure
+    // proper accounting in the event deposits are not exact amount.
+    let (vault_balance_a_after, vault_balance_b_after) = {
+        (
+            TokenAccount::from_account_info(inner_ctx.vault_a)?.amount(),
+            TokenAccount::from_account_info(inner_ctx.vault_b)?.amount(),
+        )
+    };
+    let vault_balance_a_delta = vault_balance_a_before
+        .checked_sub(vault_balance_a_after)
+        .unwrap();
+    let vault_balance_b_delta = vault_balance_b_before
+        .checked_sub(vault_balance_b_after)
+        .unwrap();
 
     // Refresh values for LP Mint supply, LP tokens held
     //  and swap pool owned balances for tokens a and b
@@ -464,11 +488,11 @@ pub fn process_push_spl_token_swap(
     integration.update_rate_limit_for_outflow(clock, delta_lp as u64)?;
 
     // Update the reserves for the flows
-    if amount_a > 0 {
-        reserve_a.update_for_outflow(clock, amount_a)?;
+    if vault_balance_a_delta > 0 {
+        reserve_a.update_for_outflow(clock, vault_balance_a_delta)?;
     }
-    if amount_b > 0 {
-        reserve_b.update_for_outflow(clock, amount_b)?;
+    if vault_balance_b_delta > 0 {
+        reserve_b.update_for_outflow(clock, vault_balance_b_delta)?;
     }
 
     Ok(())
