@@ -53,6 +53,8 @@ pub enum SvmAlmControllerErrors {
     LZPushInFlight,
     // 24.
     InvalidInstructionIndex,
+    // 25.
+    InvalidReserve,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

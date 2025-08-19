@@ -97,11 +97,16 @@ pub fn process_push(
             )?;
         }
         PushArgs::SplTokenSwap { .. } => {
+            if reserve_b.is_none() {
+                msg!("Reserve B is required for SplTokenSwap integration");
+                return Err(SvmAlmControllerErrors::InvalidReserve.into());
+            }
             process_push_spl_token_swap(
                 &controller,
                 &permission,
                 &mut integration,
                 &mut reserve_a,
+                // Ok with check above
                 &mut reserve_b.unwrap(),
                 &ctx,
                 &args,
