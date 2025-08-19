@@ -176,6 +176,7 @@ impl Integration {
         account_info: &AccountInfo,
         status: Option<IntegrationStatus>,
         lookup_table: Option<Pubkey>,
+        description: Option<[u8; 32]>,
         rate_limit_slope: Option<u64>,
         rate_limit_max_outflow: Option<u64>,
     ) -> Result<(), ProgramError> {
@@ -191,6 +192,9 @@ impl Integration {
         }
         if let Some(rate_limit_slope) = rate_limit_slope {
             self.rate_limit_slope = rate_limit_slope;
+        }
+        if let Some(description) = description {
+            self.description = description;
         }
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
             let gap = self

@@ -76,6 +76,7 @@ pub fn process_manage_integration(
         } else {
             None
         },
+        args.description,
         args.rate_limit_slope,
         args.rate_limit_max_outflow,
     )?;
