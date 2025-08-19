@@ -4,7 +4,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
     state::Oracle,
 };
 use pinocchio::{
@@ -55,7 +55,9 @@ pub fn process_initialize_atomic_swap(
     }
 
     let input_mint = Mint::from_account_info(inner_ctx.input_mint)?;
+    validate_mint_extensions(inner_ctx.input_mint)?;
     let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
+    validate_mint_extensions(inner_ctx.output_mint)?;
 
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {

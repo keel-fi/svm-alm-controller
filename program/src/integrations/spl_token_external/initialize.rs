@@ -5,7 +5,7 @@ use crate::{
     integrations::spl_token_external::{
         config::SplTokenExternalConfig, state::SplTokenExternalState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
 };
 use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_associated_token_account::{self, instructions::CreateIdempotent};
@@ -32,6 +32,7 @@ pub fn process_initialize_spl_token_external(
 
     // Load in the mint account, validating it in the process
     Mint::from_account_info(inner_ctx.mint)?;
+    validate_mint_extensions(inner_ctx.mint)?;
 
     // Invoke the CreateIdempotent ixn for the token_accout (ATA)
     // Will handle both the creation or the checking, if already created

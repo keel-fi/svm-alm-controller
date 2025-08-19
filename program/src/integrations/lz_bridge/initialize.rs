@@ -8,7 +8,7 @@ use crate::{
         lz_state::{OFTStore, PeerConfig, OFT_PEER_CONFIG_SEED},
         state::LzBridgeState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -35,6 +35,10 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
+
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.mint)?;
+
         if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
             msg! {"oft_store: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);

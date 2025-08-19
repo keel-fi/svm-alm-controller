@@ -8,7 +8,10 @@ use crate::{
         state::SplTokenSwapState,
         swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET},
     },
-    processor::{shared::create_pda_account, InitializeIntegrationAccounts},
+    processor::{
+        shared::{create_pda_account, validate_mint_extensions},
+        InitializeIntegrationAccounts,
+    },
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -90,8 +93,11 @@ pub fn process_initialize_spl_token_swap(
 
     // Load in the mint accounts, validating it in the process
     Mint::from_account_info(inner_ctx.mint_a)?;
+    validate_mint_extensions(inner_ctx.mint_a)?;
     Mint::from_account_info(inner_ctx.mint_b)?;
+    validate_mint_extensions(inner_ctx.mint_b)?;
     let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
+    validate_mint_extensions(inner_ctx.lp_mint)?;
 
     // Load in the Pool state and verify the accounts
     //  w.r.t it's stored state
