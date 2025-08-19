@@ -12,7 +12,7 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_log::log;
-use switchboard_on_demand::PullFeedAccountData;
+use switchboard_on_demand::{Discriminator, PullFeedAccountData};
 
 define_account_struct! {
     pub struct RefreshOracle<'info> {
@@ -36,6 +36,10 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
 
     match feed.oracle_type {
         0 => {
+            if &feed_account[..8] != PullFeedAccountData::DISCRIMINATOR {
+                msg!("Invalid PullFeedAccount discriminator");
+                return Err(ProgramError::InvalidAccountData);
+            }
             let data_source: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
                 .map_err(|_| ProgramError::InvalidAccountData)?;
             let price = data_source.result.value;

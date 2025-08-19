@@ -10,7 +10,7 @@ use pinocchio::{
     instruction::Seed,
     msg,
     program_error::ProgramError,
-    pubkey::{find_program_address, try_find_program_address, Pubkey},
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
 use shank::{ShankAccount, ShankType};
@@ -82,6 +82,10 @@ impl Oracle {
                 };
 
                 // Deserialize account to check it's correct
+                if &feed_account[..8] != PullFeedAccountData::DISCRIMINATOR {
+                    msg!("Invalid PullFeedAccount discriminator");
+                    return Err(ProgramError::InvalidAccountData);
+                }
                 let _feed: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
                     .map_err(|_| ProgramError::InvalidAccountData)?;
 
