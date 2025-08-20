@@ -342,6 +342,29 @@ pub fn process_push_spl_token_swap(
         post_deposit_balance_b = 0u64;
     }
 
+    // Update the state for the changes in balances
+    match &mut integration.state {
+        IntegrationState::SplTokenSwap(state) => {
+            state.last_balance_a = post_deposit_balance_a;
+            state.last_balance_b = post_deposit_balance_b;
+            state.last_balance_lp = post_deposit_balance_lp as u64;
+        }
+        _ => return Err(ProgramError::InvalidAccountData.into()),
+    }
+
+    // Update the integration rate limit for the outflow
+    //  Rate limit for the SplTokenSwap is (counterintuitively) tracked in
+    //  units of LP tokens (in, for tokens a or b out)
+    integration.update_rate_limit_for_outflow(clock, delta_lp as u64)?;
+
+    // Update the reserves for the flows
+    if vault_balance_a_delta > 0 {
+        reserve_a.update_for_outflow(clock, vault_balance_a_delta, false)?;
+    }
+    if vault_balance_b_delta > 0 {
+        reserve_b.update_for_outflow(clock, vault_balance_b_delta, false)?;
+    }
+
     // Emit the accounting event
     if latest_balance_a != post_deposit_balance_a {
         controller.emit_event(
@@ -371,29 +394,6 @@ pub fn process_push_spl_token_swap(
                 after: post_deposit_balance_b,
             }),
         )?;
-    }
-
-    // Update the state for the changes in balances
-    match &mut integration.state {
-        IntegrationState::SplTokenSwap(state) => {
-            state.last_balance_a = post_deposit_balance_a;
-            state.last_balance_b = post_deposit_balance_b;
-            state.last_balance_lp = post_deposit_balance_lp as u64;
-        }
-        _ => return Err(ProgramError::InvalidAccountData.into()),
-    }
-
-    // Update the integration rate limit for the outflow
-    //  Rate limit for the SplTokenSwap is (counterintuitively) tracked in
-    //  units of LP tokens (in, for tokens a or b out)
-    integration.update_rate_limit_for_outflow(clock, delta_lp as u64)?;
-
-    // Update the reserves for the flows
-    if vault_balance_a_delta > 0 {
-        reserve_a.update_for_outflow(clock, vault_balance_a_delta, false)?;
-    }
-    if vault_balance_b_delta > 0 {
-        reserve_b.update_for_outflow(clock, vault_balance_b_delta, false)?;
     }
 
     Ok(())
