@@ -99,6 +99,7 @@ pub fn atomic_swap_borrow_repay_ixs(
     let repay_ix = AtomicSwapRepayBuilder::new()
         .payer(authority.pubkey())
         .controller(controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(permission)
         .integration(integration)
