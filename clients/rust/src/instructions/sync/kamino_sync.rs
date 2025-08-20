@@ -1,25 +1,19 @@
 use solana_sdk::{
-    instruction::{AccountMeta, Instruction}, 
-    pubkey::Pubkey, 
-    system_program
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    system_program,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
 use crate::{
-    constants::{
-        ASSOCIATED_TOKEN_PROGRAM_ID, 
-        KAMINO_FARMS_PROGRAM_ID
-    }, 
-    generated::{instructions::SyncBuilder, types::KaminoConfig}, 
+    constants::{ASSOCIATED_TOKEN_PROGRAM_ID, KAMINO_FARMS_PROGRAM_ID},
+    generated::{instructions::SyncBuilder, types::KaminoConfig},
     pdas::{
-        derive_controller_authority_pda, 
-        derive_farm_vaults_authority, 
-        derive_obligation_farm_address, 
-        derive_reserve_pda, 
-        derive_rewards_treasury_vault, 
-        derive_rewards_vault
-    }, 
-    SVM_ALM_CONTROLLER_ID
+        derive_controller_authority_pda, derive_farm_vaults_authority,
+        derive_obligation_farm_address, derive_reserve_pda, derive_rewards_treasury_vault,
+        derive_rewards_vault,
+    },
+    SVM_ALM_CONTROLLER_ID,
 };
 
 pub fn get_kamino_sync_ix(
@@ -45,23 +39,12 @@ pub fn get_kamino_sync_ix(
     let kamino_reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
     let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
     let reserve_farm = &kamino_config.reserve_farm_collateral;
-    let obligation_farm_pda = derive_obligation_farm_address(
-        reserve_farm, 
-        &obligation, 
-    );
-    let rewards_vault_pda = derive_rewards_vault(
-        reserve_farm, 
-        &rewards_mint, 
-    );                        
-    let rewards_treasury_vault_pda = derive_rewards_treasury_vault(
-        &global_config, 
-        &rewards_mint, 
-    );
+    let obligation_farm_pda = derive_obligation_farm_address(reserve_farm, &obligation);
+    let rewards_vault_pda = derive_rewards_vault(reserve_farm, &rewards_mint);
+    let rewards_treasury_vault_pda = derive_rewards_treasury_vault(&global_config, &rewards_mint);
 
-    let farms_vault_authority_pda = derive_farm_vaults_authority(
-        reserve_farm, 
-    );
-    
+    let farms_vault_authority_pda = derive_farm_vaults_authority(reserve_farm);
+
     let remaining_accounts = &[
         AccountMeta {
             pubkey: vault,
@@ -76,7 +59,7 @@ pub fn get_kamino_sync_ix(
         AccountMeta {
             pubkey: obligation,
             is_signer: false,
-            is_writable: false
+            is_writable: false,
         },
         AccountMeta {
             pubkey: obligation_farm_pda,
@@ -91,12 +74,12 @@ pub fn get_kamino_sync_ix(
         AccountMeta {
             pubkey: rewards_vault_pda,
             is_signer: false,
-            is_writable: true
+            is_writable: true,
         },
         AccountMeta {
             pubkey: rewards_treasury_vault_pda,
             is_signer: false,
-            is_writable: true
+            is_writable: true,
         },
         AccountMeta {
             pubkey: farms_vault_authority_pda,
@@ -142,9 +125,9 @@ pub fn get_kamino_sync_ix(
             pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
             is_signer: false,
             is_writable: false,
-        }
+        },
     ];
-    
+
     SyncBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)

@@ -7,7 +7,7 @@ use crate::subs::{
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
 use svm_alm_controller_client::generated::types::{
-    ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
+    ControllerStatus, IntegrationStatus, PermissionStatus,
 };
 
 #[cfg(test)]
@@ -15,21 +15,12 @@ mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
         clock::Clock, 
-        compute_budget::ComputeBudgetInstruction, 
-        instruction::Instruction, 
         pubkey::Pubkey, 
-        transaction::Transaction
     };
     use spl_associated_token_account_client::address::get_associated_token_address;
-    use svm_alm_controller_client::{generated::types::{
-        KaminoConfig, ReserveStatus, UtilizationMarketConfig
-    }, 
-    instructions::{
-        initialize::kamino_init::get_kamino_init_ix, 
-        pull::kamino_pull::get_kamino_pull_ix, 
-        push::kamino_push::get_kamino_push_ix, 
-        sync::kamino_sync::get_kamino_sync_ix
-    }};
+    use svm_alm_controller_client::{
+        generated::types::{KaminoConfig, ReserveStatus}, 
+};
 
     use super::*;
 
@@ -55,9 +46,13 @@ mod tests {
             derive_controller_authority_pda, 
             derive_vanilla_obligation_address, 
             edit_ata_amount, 
+            init_kamino_integration, 
             initialize_ata, 
+            pull_kamino_integration, 
+            push_kamino_integration, 
             refresh_obligation, 
             refresh_reserve, 
+            sync_kamino_integration, 
             transfer_tokens
         }
     };
@@ -167,31 +162,18 @@ mod tests {
             padding: [0; 30] 
         };
 
-        let cu_limit_ix = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
-
-        let (
-            init_kamino_ix, 
-            kamino_integration_pk
-        ) = get_kamino_init_ix(
+        let kamino_integration_pk = init_kamino_integration(
+            &mut svm, 
             &controller_pk, 
-            &authority.pubkey(), 
-            &authority.pubkey(), 
-            "Kamino main market/USDC",
-            IntegrationStatus::Active,
-            1_000_000_000_000, 
-            1_000_000_000_000, 
-            &IntegrationConfig::UtilizationMarket(
-                UtilizationMarketConfig::KaminoConfig(kamino_config.clone())
-            ), 
-            svm.get_sysvar::<Clock>().slot, 
-            obligation_id
-        );
-        build_and_send_tx(
-            &mut svm,
-            &[cu_limit_ix.clone(), init_kamino_ix],
+            &authority, 
             &authority,
-            &authority
-        );
+            "Kamino main market/USDC", 
+            IntegrationStatus::Active, 
+            1_000_000_000_000, 
+            1_000_000_000_000, 
+            kamino_config.clone(), 
+            obligation_id
+        )?;
 
         // advance time to avoid math overflow in kamino refresh calls
         let mut initial_clock = svm.get_sysvar::<Clock>();
@@ -218,19 +200,14 @@ mod tests {
 
         // push the integration -- deposit reserve liquidity
 
-        let push_ix = get_kamino_push_ix(
+        let _ = push_kamino_integration(
+            &mut svm, 
             &controller_pk, 
             &kamino_integration_pk, 
-            &authority.pubkey(), 
+            &authority, 
             &kamino_config, 
             1_000_000_000
-        );
-        build_and_send_tx(
-            &mut svm,
-            &[cu_limit_ix.clone(), push_ix],
-            &authority,
-            &authority
-        );
+        )?;
 
         // advance time again for pull
         let mut post_push_clock = svm.get_sysvar::<Clock>();
@@ -263,61 +240,31 @@ mod tests {
         // let rewards_ata = Pubkey::default();
 
         // sync the integration with bonk as reward args
-
-        let sync_ix = get_kamino_sync_ix(
+        let _ = sync_kamino_integration(
+            &mut svm, 
             &controller_pk, 
             &kamino_integration_pk, 
-            &authority.pubkey(), 
+            &authority, 
             &kamino_config, 
             &BONK_MINT, 
             &KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, 
             &rewards_ata, 
             &KAMINO_FARMS_PROGRAM_ID, 
             &spl_token::ID
-        );
-        build_and_send_tx(
-            &mut svm,
-            &[cu_limit_ix.clone(), sync_ix],
-            &authority,
-            &authority
-        );
+        )?;
 
         // pull
-        let pull_ix = get_kamino_pull_ix(
+        let _ = pull_kamino_integration(
+            &mut svm, 
             &controller_pk, 
-            &kamino_integration_pk, 
-            &authority.pubkey(), 
+            &kamino_integration_pk,
+            &authority, 
             &kamino_config, 
             900_000_000
-        );
-        build_and_send_tx(
-            &mut svm,
-            &[cu_limit_ix.clone(), pull_ix],
-            &authority,
-            &authority
-        );
+        )?;
+
 
         Ok(())
-    }
-
-    fn build_and_send_tx(
-        svm: &mut LiteSVM,
-        ixs: &[Instruction],
-        authority: &Keypair,
-        payer: &Keypair
-    ) {
-        let tx = Transaction::new_signed_with_payer(
-            ixs, 
-            Some(&payer.pubkey()), 
-            &[&authority, payer], 
-            svm.latest_blockhash()
-        );
-        let tx_result = svm.send_transaction(tx);
-        if tx_result.is_err() {
-            println!("{:#?}", tx_result.unwrap().logs);
-        } else {
-            assert!(tx_result.is_ok(), "Transaction failed to execute");
-        }
     }
 
     fn set_kamino_accounts(svm: &mut LiteSVM) {

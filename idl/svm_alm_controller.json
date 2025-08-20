@@ -2911,9 +2911,6 @@
                 "defined": "KaminoConfig"
               }
             ]
-          },
-          {
-            "name": "Other"
           }
         ]
       }
@@ -2930,9 +2927,6 @@
                 "defined": "KaminoState"
               }
             ]
-          },
-          {
-            "name": "Other"
           }
         ]
       }

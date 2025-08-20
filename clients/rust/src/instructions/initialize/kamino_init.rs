@@ -1,38 +1,26 @@
 use solana_sdk::{
-    instruction::{AccountMeta, Instruction}, 
-    keccak::hash, 
+    instruction::{AccountMeta, Instruction},
+    keccak::hash,
     pubkey::Pubkey,
-    system_program, 
-    sysvar::rent
+    system_program,
+    sysvar::rent,
 };
 
 use crate::{
-    constants::{
-        KAMINO_FARMS_PROGRAM_ID, 
-        KAMINO_LEND_PROGRAM_ID, 
-        LUT_PROGRAM_ID
-    }, 
+    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID},
     generated::{
-        instructions::InitializeIntegrationBuilder, 
+        instructions::InitializeIntegrationBuilder,
         types::{
-            InitializeArgs, 
-            IntegrationConfig, 
-            IntegrationStatus, 
-            IntegrationType, 
-            UtilizationMarket, 
-            UtilizationMarketConfig
-        }
-    }, 
+            InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType,
+            UtilizationMarket, UtilizationMarketConfig,
+        },
+    },
     pdas::{
-        derive_controller_authority_pda,
-        derive_integration_pda, 
-        derive_lookup_table_address, 
-        derive_market_authority_address, 
-        derive_obligation_farm_address, 
-        derive_permission_pda, 
-        derive_user_metadata_address
-    }, 
-    SVM_ALM_CONTROLLER_ID
+        derive_controller_authority_pda, derive_integration_pda, derive_lookup_table_address,
+        derive_market_authority_address, derive_obligation_farm_address, derive_permission_pda,
+        derive_user_metadata_address,
+    },
+    SVM_ALM_CONTROLLER_ID,
 };
 
 pub fn get_kamino_init_ix(
@@ -45,7 +33,7 @@ pub fn get_kamino_init_ix(
     rate_limit_max_outflow: u64,
     config: &IntegrationConfig,
     slot: u64,
-    obligation_id: u8
+    obligation_id: u8,
 ) -> (Instruction, Pubkey) {
     let calling_permission_pda = derive_permission_pda(controller, authority);
     let controller_authority = derive_controller_authority_pda(controller);
@@ -56,13 +44,10 @@ pub fn get_kamino_init_ix(
     let integration_pda = derive_integration_pda(controller, &hash);
 
     let kamino_config = match config {
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-                _ => panic!("config error")
-            }
+        IntegrationConfig::UtilizationMarket(c) => match c {
+            UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
         },
-        _ => panic!("config error")
+        _ => panic!("config error"),
     };
 
     let obligation = kamino_config.obligation;
@@ -71,30 +56,18 @@ pub fn get_kamino_init_ix(
     let reserve = kamino_config.reserve;
     let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
     let reserve_farm_debt = kamino_config.reserve_farm_debt;
-    let user_metadata = derive_user_metadata_address(
-        &controller_authority, 
-    );
-    let user_lookup_table = derive_lookup_table_address(
-        &controller_authority,
-        slot, 
-    );
-    let obligation_farm_collateral = derive_obligation_farm_address(
-        &reserve_farm_collateral, 
-        &obligation, 
-    );
-    let obligation_farm_debt = derive_obligation_farm_address(
-        &reserve_farm_debt, 
-        &obligation, 
-    );
-    let market_authority = derive_market_authority_address(
-        &market, 
-    );
+    let user_metadata = derive_user_metadata_address(&controller_authority);
+    let user_lookup_table = derive_lookup_table_address(&controller_authority, slot);
+    let obligation_farm_collateral =
+        derive_obligation_farm_address(&reserve_farm_collateral, &obligation);
+    let obligation_farm_debt = derive_obligation_farm_address(&reserve_farm_debt, &obligation);
+    let market_authority = derive_market_authority_address(&market);
 
     let remaining_accounts = &[
         AccountMeta {
             pubkey: obligation,
             is_signer: false,
-            is_writable: true
+            is_writable: true,
         },
         AccountMeta {
             pubkey: reserve_liquidity_mint,
@@ -119,12 +92,12 @@ pub fn get_kamino_init_ix(
         AccountMeta {
             pubkey: obligation_farm_collateral,
             is_signer: false,
-            is_writable: true
+            is_writable: true,
         },
         AccountMeta {
             pubkey: obligation_farm_debt,
             is_signer: false,
-            is_writable: true
+            is_writable: true,
         },
         AccountMeta {
             pubkey: reserve,
@@ -144,7 +117,7 @@ pub fn get_kamino_init_ix(
         AccountMeta {
             pubkey: market_authority,
             is_signer: false,
-            is_writable: false
+            is_writable: false,
         },
         AccountMeta {
             pubkey: market,
@@ -154,12 +127,12 @@ pub fn get_kamino_init_ix(
         AccountMeta {
             pubkey: LUT_PROGRAM_ID,
             is_signer: false,
-            is_writable: false
+            is_writable: false,
         },
         AccountMeta {
             pubkey: KAMINO_LEND_PROGRAM_ID,
             is_signer: false,
-            is_writable: false
+            is_writable: false,
         },
         AccountMeta {
             pubkey: KAMINO_FARMS_PROGRAM_ID,
@@ -174,12 +147,14 @@ pub fn get_kamino_init_ix(
         AccountMeta {
             pubkey: rent::ID,
             is_signer: false,
-            is_writable: false
-        }
+            is_writable: false,
+        },
     ];
-    
+
     let instruction = InitializeIntegrationBuilder::new()
-        .integration_type(IntegrationType::UtilizationMarket(UtilizationMarket::Kamino))
+        .integration_type(IntegrationType::UtilizationMarket(
+            UtilizationMarket::Kamino,
+        ))
         .status(status)
         .description(description_encoding)
         .rate_limit_slope(rate_limit_slope)

@@ -11,21 +11,24 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED, 
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
+    error::SvmAlmControllerErrors, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
-    instructions::PushArgs, integrations::utilization_market::{
+    instructions::PushArgs, 
+    integrations::utilization_market::{
         config::UtilizationMarketConfig, 
         kamino::{
+            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
             cpi::{
                 deposit_reserve_liquidity_v2_cpi, 
                 derive_market_authority_address, 
                 derive_reserve_collateral_mint, 
                 derive_reserve_collateral_supply, 
                 derive_reserve_liquidity_supply
-            },
-            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
+            }
         }, 
         state::UtilizationMarketState, 
-    }, processor::PushAccounts, 
+    }, 
+    processor::PushAccounts, 
     state::{Controller, Integration, Permission, Reserve}
 };
 
@@ -86,34 +89,34 @@ impl<'info> PushKaminoAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        let reserve_collateral_mint_address = derive_reserve_collateral_mint(
+        let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
             &ctx.market.key(), 
             &ctx.reserve_liquidity_mint.key(), 
             &KAMINO_LEND_PROGRAM_ID
-        );
-        if ctx.reserve_collateral_mint.key().ne(&reserve_collateral_mint_address) {
+        )?;
+        if ctx.reserve_collateral_mint.key().ne(&reserve_collateral_mint_pda) {
             msg! {"reserve_collateral_mint: does not match PDA"};
-            return Err(ProgramError::InvalidAccountData);
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
-        let reserve_collateral_supply_address = derive_reserve_collateral_supply(
+        let reserve_collateral_supply_pda = derive_reserve_collateral_supply(
             &ctx.market.key(), 
             &ctx.reserve_liquidity_mint.key(), 
             &KAMINO_LEND_PROGRAM_ID
-        );
-        if ctx.reserve_collateral_supply.key().ne(&reserve_collateral_supply_address) {
+        )?;
+        if ctx.reserve_collateral_supply.key().ne(&reserve_collateral_supply_pda) {
             msg! {"reserve_collateral_supply: does not match PDA"};
-            return Err(ProgramError::InvalidAccountData);
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
-        let reserve_liquidity_supply_address = derive_reserve_liquidity_supply(
+        let reserve_liquidity_supply_pda = derive_reserve_liquidity_supply(
             &ctx.market.key(), 
             &ctx.reserve_liquidity_mint.key(), 
             &KAMINO_LEND_PROGRAM_ID
-        );
-        if ctx.reserve_liquidity_supply.key().ne(&reserve_liquidity_supply_address) {
+        )?;
+        if ctx.reserve_liquidity_supply.key().ne(&reserve_liquidity_supply_pda) {
             msg! {"reserve_liquidity_supply: does not match PDA"};
-            return Err(ProgramError::InvalidAccountData);
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         if ctx.obligation.key().ne(&config.obligation) {
@@ -124,10 +127,10 @@ impl<'info> PushKaminoAccounts<'info> {
         let market_authority_pda = derive_market_authority_address(
             ctx.market.key(), 
             &KAMINO_LEND_PROGRAM_ID
-        );
+        )?;
         if &market_authority_pda != ctx.market_authority.key() {
             msg! {"market authority: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         let liquidity_source_token_account 
@@ -167,7 +170,7 @@ pub fn process_push_kamino(
     
     let amount = match outer_args {
         PushArgs::Kamino { amount } => *amount,
-        _ => return Err(ProgramError::InvalidAccountData),
+        _ => return Err(ProgramError::InvalidArgument),
     };
 
     if amount == 0 {
@@ -277,7 +280,7 @@ pub fn process_push_kamino(
                 }
             }
         },                   
-        _ => return Err(ProgramError::InvalidAccountData.into()),
+        _ => return Err(ProgramError::InvalidAccountData),
     }
 
     // update the integration rate limit for outflow

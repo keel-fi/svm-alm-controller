@@ -10,22 +10,24 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED, 
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
+    error::SvmAlmControllerErrors, 
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
     integrations::utilization_market::{
         config::UtilizationMarketConfig, 
         kamino::{
-            config::KaminoConfig, cpi::{
+            config::KaminoConfig, constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
+            cpi::{
                 derive_farm_vaults_authority, 
                 derive_obligation_farm_address, 
                 derive_rewards_treasury_vault, 
                 derive_rewards_vault, 
                 harvest_reward_cpi
-            }, 
-            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
-            kamino_state::{FarmState, KaminoReserve, Obligation}, 
+            }, kamino_state::{FarmState, KaminoReserve, Obligation} 
         }, 
         state::UtilizationMarketState,
-    }, processor::SyncIntegrationAccounts, state::{Controller, Integration, Reserve}
+    }, 
+    processor::SyncIntegrationAccounts, 
+    state::{Controller, Integration, Reserve}
 };
 
 define_account_struct! {
@@ -70,10 +72,10 @@ impl<'info> SyncKaminoAccounts<'info> {
             ctx.reserve_farm.key(), 
             ctx.obligation.key(), 
             ctx.kamino_farms_program.key()
-        );
+        )?;
         if obligation_farm_pda.ne(ctx.obligation_farm.key()) {
-            msg! {"rewards_vault: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            msg! {"obligation_farm: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // validate rewards vault
@@ -81,10 +83,10 @@ impl<'info> SyncKaminoAccounts<'info> {
             ctx.reserve_farm.key(), 
             ctx.rewards_mint.key(), 
             ctx.kamino_farms_program.key()
-        );
+        )?;
         if rewards_vault_pda.ne(ctx.rewards_vault.key()) {
             msg! {"rewards_vault: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // validate rewards treasury vault
@@ -92,20 +94,20 @@ impl<'info> SyncKaminoAccounts<'info> {
             ctx.farms_global_config.key(), 
             ctx.rewards_mint.key(), 
             ctx.kamino_farms_program.key()
-        );
+        )?;
         if rewards_treasury_vault_pda.ne(ctx.rewards_treasury_vault.key()) {
             msg! {"rewards_treasury_vault: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // validate farm vaults authority
         let farm_vaults_authority_pda = derive_farm_vaults_authority(
             ctx.reserve_farm.key(), 
             ctx.kamino_farms_program.key()
-        );
+        )?;
         if farm_vaults_authority_pda.ne(ctx.farm_vaults_authority.key()) {
             msg! {"farm_vaults_authority: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         Ok(ctx)

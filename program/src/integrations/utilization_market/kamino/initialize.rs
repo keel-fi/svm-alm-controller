@@ -10,6 +10,7 @@ use crate::{
     constants::{ADDRESS_LOOKUP_TABLE_PROGRAM_ID, CONTROLLER_AUTHORITY_SEED}, 
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
+    error::SvmAlmControllerErrors, 
     instructions::{InitializeArgs, InitializeIntegrationArgs}, 
     integrations::utilization_market::{
         config::UtilizationMarketConfig, kamino::{
@@ -69,20 +70,20 @@ impl<'info> InitializeKaminoAccounts<'info> {
             controller_authority.key(), 
             ctx.market.key(), 
             ctx.kamino_program.key()
-        );
+        )?;
         if &obligation_pda != ctx.obligation.key() {
             msg! {"kamino obligation: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // verify metadata pubkey is valid
         let user_metadata_pda = derive_user_metadata_address(
             controller_authority.key(), 
             ctx.kamino_program.key()
-        );
+        )?;
         if &user_metadata_pda != ctx.user_metadata.key() {
             msg! {"user metadata: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // verify obligation farm collateral is valid 
@@ -90,10 +91,10 @@ impl<'info> InitializeKaminoAccounts<'info> {
             ctx.reserve_farm_collateral.key(), 
             ctx.obligation.key(), 
             ctx.kamino_farms_program.key()
-        );
+        )?;
         if &obligation_farm_collateral_pda != ctx.obligation_farm_collateral.key() {
             msg! {"Obligation farm collateral: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // verify obligation farm debt is valid
@@ -102,20 +103,20 @@ impl<'info> InitializeKaminoAccounts<'info> {
             ctx.reserve_farm_debt.key(), 
             ctx.obligation.key(), 
             ctx.kamino_farms_program.key()
-        );
+        )?;
         if &obligation_farm_debt_pda != ctx.obligation_farm_debt.key() {
             msg! {"Obligation farm collateral: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         // verify market authority is valid
         let market_authority_pda = derive_market_authority_address(
             ctx.market.key(), 
             ctx.kamino_program.key()
-        );
+        )?;
         if &market_authority_pda != ctx.market_authority.key() {
             msg! {"market authority: Invalid address"}
-            return Err(ProgramError::InvalidSeeds)
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         Ok(ctx)

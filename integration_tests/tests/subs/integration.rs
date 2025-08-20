@@ -3,14 +3,14 @@ use crate::{
     helpers::{
         cctp::CctpDepositForBurnPdas,
         constants::{
-            DEVNET_RPC, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER
-        }, spl::ASSOCIATED_TOKEN_PROGRAM_ID,
+            DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER
+        }
     },
     subs::{
-        derive_controller_authority_pda, derive_farm_vaults_authority, derive_lookup_table_address, derive_market_authority_address, derive_obligation_farm_address, derive_permission_pda, derive_reserve_collateral_mint, derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_reserve_pda, derive_rewards_treasury_vault, derive_rewards_vault, derive_swap_authority_pda_and_bump, derive_user_metadata_address, get_mint_supply_or_zero
+        derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda, derive_swap_authority_pda_and_bump, get_mint_supply_or_zero
     },
 };
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshDeserialize;
 use litesvm::{types::TransactionResult, LiteSVM};
 use oft_client::{
     instructions::SendInstructionArgs,
@@ -23,29 +23,21 @@ use solana_client::rpc_client::RpcClient;
 use solana_keccak_hasher::hash;
 use solana_program::pubkey;
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction,
-    instruction::{AccountMeta, Instruction},
-    msg,
-    pubkey::Pubkey,
-    signature::{Keypair, Signer},
-    system_program, sysvar,
-    transaction::Transaction,
-    sysvar::clock::Clock
+    compute_budget::ComputeBudgetInstruction, instruction::{AccountMeta, Instruction}, program_error::ProgramError, pubkey::Pubkey, signature::{Keypair, Signer}, system_program, sysvar::{self, clock::Clock}, transaction::Transaction
 };
-use spl_token::ID as SPL_TOKEN_PROGRAM_ID;
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use svm_alm_controller::integrations::utilization_market::kamino::kamino_state::{KaminoReserve, Obligation};
 use std::error::Error;
-use svm_alm_controller::state::controller;
-use svm_alm_controller_client::generated::{
+use svm_alm_controller_client::{generated::{
     accounts::{Integration, Reserve},
     instructions::{
-        InitializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder, SyncBuilder,
+        InitializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
-        InitializeArgs, IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationType, PullArgs, PushArgs, SplTokenExternalConfig, UtilizationMarket, UtilizationMarketConfig, UtilizationMarketState
+        InitializeArgs, IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationType, KaminoConfig, PullArgs, PushArgs, UtilizationMarket, UtilizationMarketConfig, UtilizationMarketState
     },
-};
+}, instructions::{initialize::kamino_init::get_kamino_init_ix, pull::kamino_pull::get_kamino_pull_ix, push::kamino_push::get_kamino_push_ix, sync::kamino_sync::get_kamino_sync_ix}, pdas::{derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_rewards_treasury_vault}};
 
 pub fn derive_integration_pda(controller_pda: &Pubkey, hash: &[u8; 32]) -> Pubkey {
     let (integration_pda, _integration_bump) = Pubkey::find_program_address(
@@ -68,6 +60,44 @@ pub fn fetch_integration_account(
                 Integration::try_from_slice(&info.data[1..])
                     .map(Some)
                     .map_err(Into::into)
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+pub fn fetch_kamino_reserve_account(
+    svm: &mut LiteSVM,
+    kamino_reserve: &Pubkey,
+) -> Result<Option<KaminoReserve>, Box<dyn Error>> {
+    let info = svm.get_account(kamino_reserve);
+    match info {
+        Some(info) => {
+            if info.data.is_empty() {
+                Ok(None)
+            } else {
+                let reserve = KaminoReserve::try_from(&info.data[..])
+                    .map_err(|_| ProgramError::InvalidAccountData)?;
+                Ok(Some(reserve))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+pub fn fetch_kamino_obligation_account(
+    svm: &mut LiteSVM,
+    obligation: &Pubkey
+) -> Result<Option<Obligation>, Box<dyn Error>> {
+    let info = svm.get_account(obligation);
+    match info {
+        Some(info) => {
+            if info.data.is_empty() {
+                Ok(None)
+            } else {
+                let reserve = Obligation::try_from(&info.data[..])
+                    .map_err(|_| ProgramError::InvalidAccountData)?;
+                Ok(Some(reserve))
             }
         }
         None => Ok(None),
@@ -291,138 +321,6 @@ pub fn initialize_integration(
                 is_writable: false,
             },
         ],
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let kamino_program = KAMINO_LEND_PROGRAM_ID;
-                    let kamino_farms_program = KAMINO_FARMS_PROGRAM_ID;
-                    let lookup_table_program = LUT_PROGRAM_ID;
-
-                    let obligation = kamino_config.obligation;
-                    let market = kamino_config.market;
-                    let reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
-                    let reserve = kamino_config.reserve;
-                    let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
-                    let reserve_farm_debt = kamino_config.reserve_farm_debt;
-
-                    let slot = svm.get_sysvar::<Clock>().slot;
-
-                    let market_authority = derive_market_authority_address(
-                        &market, 
-                        &kamino_program
-                    );
-                    let user_metadata = derive_user_metadata_address(
-                        &controller_authority, 
-                        &kamino_program
-                    );
-                    let user_lookup_table = derive_lookup_table_address(
-                        &controller_authority,
-                        slot, 
-                        &lookup_table_program
-                    );
-                    let obligation_farm_collateral = derive_obligation_farm_address(
-                        &reserve_farm_collateral, 
-                        &obligation, 
-                        &kamino_farms_program
-                    );
-                    let obligation_farm_debt = derive_obligation_farm_address(
-                        &reserve_farm_debt, 
-                        &obligation, 
-                        &kamino_farms_program
-                    );
-
-
-                    &[
-                        AccountMeta {
-                            pubkey: obligation,
-                            is_signer: false,
-                            is_writable: true
-                        },
-                        AccountMeta {
-                            pubkey: reserve_liquidity_mint,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: user_metadata,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: user_lookup_table,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: KAMINO_LEND_PROGRAM_ID,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: obligation_farm_collateral,
-                            is_signer: false,
-                            is_writable: true
-                        },
-                        AccountMeta {
-                            pubkey: obligation_farm_debt,
-                            is_signer: false,
-                            is_writable: true
-                        },
-                        AccountMeta {
-                            pubkey: reserve,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: reserve_farm_collateral,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: reserve_farm_debt,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: market_authority,
-                            is_signer: false,
-                            is_writable: false
-                        },
-                        AccountMeta {
-                            pubkey: market,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: lookup_table_program,
-                            is_signer: false,
-                            is_writable: false
-                        },
-                        AccountMeta {
-                            pubkey: kamino_program,
-                            is_signer: false,
-                            is_writable: false
-                        },
-                        AccountMeta {
-                            pubkey: kamino_farms_program,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: pinocchio_system::ID.into(),
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: pinocchio::sysvars::rent::RENT_ID.into(),
-                            is_signer: false,
-                            is_writable: false
-                        }
-                    ]
-                },
-                _ => panic!("Not specified"),
-            }
-        },
         _ => panic!("Not specified"),
     };
 
@@ -664,25 +562,6 @@ pub async fn push_integration(
             println!("{:?}", reserve_a_before);
             println!("{:?}", integration_before);
             println!("{:?}", other_value_before);
-        }
-        IntegrationConfig::UtilizationMarket(ref c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let reserve_pda = derive_reserve_pda(controller, &kamino_config.reserve_liquidity_mint);
-                    let vault = get_associated_token_address_with_program_id(
-                        &controller_authority,
-                        &kamino_config.reserve_liquidity_mint,
-                        &pinocchio_token::ID.into(),
-                    );
-                    reserve_a_before =
-                        fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
-                    vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
-                    println!("{:?}", reserve_a_before);
-                    println!("{:?}", integration_before);
-                    println!("{:?}", other_value_before);
-                },
-                _ => panic!("Not configured"),
-            }
         }
         _ => panic!("Not configured"),
     };
@@ -1084,138 +963,7 @@ pub async fn push_integration(
                 ],
                 &[],
             )
-        }
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let obligation = kamino_config.obligation;
-                    let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
-                    let kamino_reserve = kamino_config.reserve;
-                    let kamino_market = kamino_config.market;
-                    let kamino_reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
-                    let kamino_reserve_liquidity_supply = derive_reserve_liquidity_supply(
-                        &kamino_market, 
-                        &kamino_reserve_liquidity_mint, 
-                        &KAMINO_LEND_PROGRAM_ID
-                    );
-                    let kamino_reserve_collateral_mint = derive_reserve_collateral_mint(
-                        &kamino_market, 
-                        &kamino_reserve_liquidity_mint, 
-                        &KAMINO_LEND_PROGRAM_ID
-                    );
-                    let kamino_reserve_collateral_supply = derive_reserve_collateral_supply(
-                        &kamino_market, 
-                        &kamino_reserve_liquidity_mint, 
-                        &KAMINO_LEND_PROGRAM_ID
-                    );
-                    let market_authority = derive_market_authority_address(
-                        &kamino_market, 
-                        &KAMINO_LEND_PROGRAM_ID
-                    );
-                    let obligation_farm_collateral = derive_obligation_farm_address(
-                        &reserve_farm_collateral, 
-                        &obligation, 
-                        &KAMINO_FARMS_PROGRAM_ID
-                    );
-
-                    let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
-                    let vault = get_associated_token_address_with_program_id(
-                        &controller_authority,
-                        &kamino_reserve_liquidity_mint,
-                        &pinocchio_token::ID.into(),
-                    ); 
-
-                    (
-                        reserve_pda,
-                        reserve_pda,
-                        &[
-                            AccountMeta {
-                                pubkey: vault,
-                                is_signer: false,
-                                is_writable: true
-                            },
-                            AccountMeta {
-                                pubkey: obligation,
-                                is_signer: false,
-                                is_writable: true
-                            },
-                            AccountMeta {
-                                pubkey: kamino_reserve,
-                                is_signer: false,
-                                is_writable: true,
-                            },
-                            AccountMeta {
-                                pubkey: kamino_reserve_liquidity_mint,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: kamino_reserve_liquidity_supply,
-                                is_signer: false,
-                                is_writable: true,
-                            },
-                            AccountMeta {
-                                pubkey: kamino_reserve_collateral_mint,
-                                is_signer: false,
-                                is_writable: true,
-                            },
-                            AccountMeta {
-                                pubkey: kamino_reserve_collateral_supply,
-                                is_signer: false,
-                                is_writable: true,
-                            },
-                            AccountMeta {
-                                pubkey: market_authority,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: kamino_market,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: SPL_TOKEN_PROGRAM_ID,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: SPL_TOKEN_PROGRAM_ID,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: sysvar::instructions::ID,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: obligation_farm_collateral,
-                                is_signer: false,
-                                is_writable: true,
-                            },
-                            AccountMeta {
-                                pubkey: reserve_farm_collateral,
-                                is_signer: false,
-                                is_writable: true,
-                            },
-                            AccountMeta {
-                                pubkey: KAMINO_FARMS_PROGRAM_ID,
-                                is_signer: false,
-                                is_writable: false,
-                            },
-                            AccountMeta {
-                                pubkey: KAMINO_LEND_PROGRAM_ID,
-                                is_signer: false,
-                                is_writable: false,
-                            }
-                        ],
-                        &[]
-                    )
-                },
-                _ => panic!("Invalid config for this type of PushArgs"),
-            }
-        }
+        },
         _ => panic!("Invalid config for this type of PushArgs"),
     };
 
@@ -1376,43 +1124,7 @@ pub async fn push_integration(
                 other_vault_delta, expected_amount,
                 "Mint supply should have reduced by the amount"
             );
-        }
-        IntegrationConfig::UtilizationMarket(ref c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let vault = get_associated_token_address_with_program_id(
-                        &controller_authority,
-                        &kamino_config.reserve_liquidity_mint,
-                        &pinocchio_token::ID.into(),
-                    );
-                    let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
-                    let vault_a_delta = vault_a_balance_before
-                        .checked_sub(vault_a_balance_after)
-                        .unwrap();
-
-                    let actual_deposit_amount = match &integration_after.state {
-                        IntegrationState::UtilizationMarket(s) => {
-                            match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.last_liquidity_value,
-                                _ => panic!("Invalid type"),
-                            }
-                        }
-                        _ => panic!("Invalid type"),
-                    };
-
-                    println!("{:?}", integration_after);
-                    println!("vault balance before {}", vault_a_balance_before);
-                    println!("vault balance after {}", vault_a_balance_after);
-                    println!("actual deposit amount {}", actual_deposit_amount);
-
-                    assert_eq!(
-                        vault_a_delta, actual_deposit_amount,
-                        "Vault balance should have reduced by the amount"
-                    );
-                },
-                _ => panic!("Not configured"),
-            }
-        }
+        },
         _ => panic!("Not configured"),
     };
 
@@ -1470,28 +1182,6 @@ pub fn pull_integration(
             println!("{:?}", other_value_before);
             println!("{:?}", integration_before);
         },
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let reserve_a_pda = derive_reserve_pda(controller, &kamino_config.reserve_liquidity_mint);
-                    let token_program_a = Pubkey::from(pinocchio_token::ID);
-                    let vault_a = get_associated_token_address_with_program_id(
-                        &controller_authority,
-                        &kamino_config.reserve_liquidity_mint,
-                        &token_program_a,
-                    );
-                    reserve_a_before = fetch_reserve_account(svm, &reserve_a_pda)
-                        .expect("Failed to fetch reserve account");
-                    vault_a_balance_before = get_token_balance_or_zero(svm, &vault_a);
-                    reserve_b_before = None;
-                    vault_b_balance_before = 0;
-                    other_value_before = 0;
-                    println!("{:?}", reserve_a_before);
-                    println!("{:?}", integration_before);
-                },
-                _ => panic!("Not configured"),
-            }
-        }
         _ => panic!("Not configured"),
     };
 
@@ -1621,136 +1311,6 @@ pub fn pull_integration(
                     ],
                 )
             }
-            IntegrationConfig::UtilizationMarket(c) => {
-                match c {
-                    UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                        let obligation = kamino_config.obligation;
-                        let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
-                        let kamino_reserve = kamino_config.reserve;
-                        let kamino_market = kamino_config.market;
-                        let kamino_reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
-                        let kamino_reserve_liquidity_supply = derive_reserve_liquidity_supply(
-                            &kamino_market, 
-                            &kamino_reserve_liquidity_mint, 
-                            &KAMINO_LEND_PROGRAM_ID
-                        );
-                        let kamino_reserve_collateral_mint = derive_reserve_collateral_mint(
-                            &kamino_market, 
-                            &kamino_reserve_liquidity_mint, 
-                            &KAMINO_LEND_PROGRAM_ID
-                        );
-                        let kamino_reserve_collateral_supply = derive_reserve_collateral_supply(
-                            &kamino_market, 
-                            &kamino_reserve_liquidity_mint, 
-                            &KAMINO_LEND_PROGRAM_ID
-                        );
-                        let market_authority = derive_market_authority_address(
-                            &kamino_market, 
-                            &KAMINO_LEND_PROGRAM_ID
-                        );
-                        let obligation_farm_collateral = derive_obligation_farm_address(
-                            &reserve_farm_collateral, 
-                            &obligation, 
-                            &KAMINO_FARMS_PROGRAM_ID
-                        );
-
-                        let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
-                        let vault = get_associated_token_address_with_program_id(
-                            &controller_authority,
-                            &kamino_reserve_liquidity_mint,
-                            &pinocchio_token::ID.into(),
-                        ); 
-                        let reserve_b_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
-                        (
-                            reserve_pda,
-                            reserve_b_pda,
-                            &[
-                                AccountMeta {
-                                    pubkey: vault,
-                                    is_signer: false,
-                                    is_writable: true
-                                },
-                                AccountMeta {
-                                    pubkey: obligation,
-                                    is_signer: false,
-                                    is_writable: true
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_reserve,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_reserve_liquidity_mint,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_reserve_liquidity_supply,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_reserve_collateral_mint,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_reserve_collateral_supply,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: market_authority,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_market,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: SPL_TOKEN_PROGRAM_ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: SPL_TOKEN_PROGRAM_ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: sysvar::instructions::ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: obligation_farm_collateral,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: reserve_farm_collateral,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: KAMINO_FARMS_PROGRAM_ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: KAMINO_LEND_PROGRAM_ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                }
-                            ]
-                        )
-                    },
-                    _ => panic!("Invalid config for this type of PushArgs"),
-                }
-            }
             _ => panic!("Invalid config for this type of PushArgs"),
         };
 
@@ -1817,281 +1377,47 @@ pub fn pull_integration(
             println!("{:?}", other_value_after);
             println!("{:?}", integration_after);
         }
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let vault = get_associated_token_address_with_program_id(
-                        &controller_authority,
-                        &kamino_config.reserve_liquidity_mint,
-                        &pinocchio_token::ID.into(),
-                    );
-
-                    // get the change in vault balance (increases)
-                    let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
-                    let vault_a_delta = vault_a_balance_after
-                        .checked_sub(vault_a_balance_before)
-                        .unwrap();
-
-                    // get the change in deposited liquidity value (decreases)
-                    let liquidity_value_before = match &integration_before.state {
-                        IntegrationState::UtilizationMarket(s) => {
-                            match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.last_liquidity_value,
-                                _ => panic!("Invalid type"),
-                            }
-                        },
-                        _ => panic!("Invalid type"),
-                    };
-
-                    let liquidity_value_after = match &integration_after.state {
-                        IntegrationState::UtilizationMarket(s) => {
-                            match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.last_liquidity_value,
-                                _ => panic!("Invalid type"),
-                            }
-                        },
-                        _ => panic!("Invalid type"),
-                    };
-                    
-                    println!("vault balance before {}", vault_a_balance_before);
-                    println!("vault balance after {}", vault_a_balance_after);
-                    println!("liquidity value before {}", liquidity_value_before);
-                    println!("liquidity value after {}", liquidity_value_after);
-
-                    let liquidity_value_delta = liquidity_value_before
-                        .checked_sub(liquidity_value_after)
-                        .unwrap();
-
-                    println!("assets delta {}", liquidity_value_delta);
-
-                    // the deltas should be equal
-                    assert_eq!(
-                        vault_a_delta, liquidity_value_delta,
-                        "Vault balance delta and assets delta do not match"
-                    )
-
-                },
-                _ => panic!("Not configured"),
-            }
-        }
         _ => panic!("Not configured"),
     };
 
     Ok(())
 }
 
-#[derive(Clone, Copy)]
-pub struct KaminoSyncArgs {
-    pub rewards_mint: Pubkey,
-    pub global_config: Pubkey,
-    pub rewards_ata: Pubkey,
-    pub scope_prices: Pubkey,
-    pub rewards_token_program: Pubkey,
-}
-
-pub fn sync_integration(
+pub fn init_kamino_integration(
     svm: &mut LiteSVM,
     controller: &Pubkey,
-    integration: &Pubkey,
+    payer: &Keypair,
     authority: &Keypair,
-    kamino_sync: Option<KaminoSyncArgs>,
-) -> Result<(), Box<dyn Error>> {
-    let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
-    let controller_authority = derive_controller_authority_pda(controller);
-
-    let integration_account = fetch_integration_account(svm, integration)
-        .expect("Failed to fetch integration account")
-        .unwrap();
-    let integration_before = fetch_integration_account(svm, &integration)
-        .expect("Failed to fetch reserve account")
-        .unwrap();
-    let mut reserve_a_before: Option<Reserve> = None;
-    let mut reserve_b_before: Option<Reserve> = None;
-    let mut vault_a_balance_before = 0u64;
-    let mut vault_b_balance_before = 0u64;
-    let mut other_value_before = 0u64;
-    let mut rewards_ata_balance_before = None;
-
-    match &integration_account.config {
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                    let reserve_a_pda = derive_reserve_pda(controller, &kamino_config.reserve_liquidity_mint);
-                    let token_program_a = Pubkey::from(pinocchio_token::ID);
-                    let vault_a = get_associated_token_address_with_program_id(
-                        &controller_authority,
-                        &kamino_config.reserve_liquidity_mint,
-                        &token_program_a,
-                    );
-                    reserve_a_before = fetch_reserve_account(svm, &reserve_a_pda)
-                        .expect("Failed to fetch reserve account");
-                    vault_a_balance_before = get_token_balance_or_zero(svm, &vault_a);
-                    reserve_b_before = None;
-                    vault_b_balance_before = 0;
-                    other_value_before = 0;
-                    rewards_ata_balance_before = Some(get_token_balance_or_zero(svm, &kamino_sync.unwrap().clone().rewards_ata));
-                    println!("{:?}", reserve_a_before);
-                    println!("{:?}", integration_before);
-                },
-                _ => panic!("Not configured"),
-            }
-        }
-        _ => panic!("Not configured"),
-    }
-
-    let (reserve_a_pk, _reserve_b_pk, remaining_accounts): (Pubkey, Pubkey, &[AccountMeta]) =
-        match &integration_account.config {
-            IntegrationConfig::UtilizationMarket(c) => {
-                match c {
-                    UtilizationMarketConfig::KaminoConfig(kamino_config) => {
-                        let kamino_sync_args = kamino_sync.expect("Kamino args not configured");
-
-                        let vault = get_associated_token_address_with_program_id(
-                            &controller_authority,
-                            &kamino_config.reserve_liquidity_mint,
-                            &pinocchio_token::ID.into(),
-                        );
-                        let obligation = kamino_config.obligation;
-                        let kamino_reserve = kamino_config.reserve;
-                        let kamino_reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
-                        let reserve_farm = &kamino_config.reserve_farm_collateral;
-
-                        let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
-                        let reserve_b_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
-                        let obligation_farm_pda = derive_obligation_farm_address(
-                            reserve_farm, 
-                            &obligation, 
-                            &KAMINO_FARMS_PROGRAM_ID
-                        );
-                        let rewards_vault_pda = derive_rewards_vault(
-                            reserve_farm, 
-                            &kamino_sync_args.rewards_mint, 
-                            &KAMINO_FARMS_PROGRAM_ID
-                        );                        
-                        let rewards_treasury_vault_pda = derive_rewards_treasury_vault(
-                            &kamino_sync_args.global_config, 
-                            &kamino_sync_args.rewards_mint, 
-                            &KAMINO_FARMS_PROGRAM_ID
-                        );
-                        println!("rewards treasury vault {}", rewards_treasury_vault_pda);
-
-                        let farms_vault_authority_pda = derive_farm_vaults_authority(
-                            reserve_farm, 
-                            &KAMINO_FARMS_PROGRAM_ID
-                        );
-
-
-                        (
-                            reserve_pda,
-                            reserve_b_pda,
-                            &[
-                                AccountMeta {
-                                    pubkey: vault,
-                                    is_writable: true,
-                                    is_signer: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_reserve,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: obligation,
-                                    is_signer: false,
-                                    is_writable: false
-                                },
-                                AccountMeta {
-                                    pubkey: obligation_farm_pda,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: *reserve_farm,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: rewards_vault_pda,
-                                    is_signer: false,
-                                    is_writable: true
-                                },
-                                AccountMeta {
-                                    pubkey: rewards_treasury_vault_pda,
-                                    is_signer: false,
-                                    is_writable: true
-                                },
-                                AccountMeta {
-                                    pubkey: farms_vault_authority_pda,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_sync_args.global_config,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_sync_args.rewards_ata,
-                                    is_signer: false,
-                                    is_writable: true,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_sync_args.rewards_mint,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_sync_args.scope_prices,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: kamino_sync_args.rewards_token_program,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: KAMINO_FARMS_PROGRAM_ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: system_program::ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                },
-                                AccountMeta {
-                                    pubkey: ASSOCIATED_TOKEN_PROGRAM_ID,
-                                    is_signer: false,
-                                    is_writable: false,
-                                }
-
-                            ]
-                        )
-                    }
-                    _ => panic!("Invalid config for this type of Sync"),
-                }
-            }
-            _ => panic!("Invalid config for this type of Sync"),
-        };
-
+    description: &str,
+    status: IntegrationStatus,
+    rate_limit_slope: u64,
+    rate_limit_max_outflow: u64,
+    kamino_config: KaminoConfig,
+    obligation_id: u8
+) -> Result<Pubkey, Box<dyn Error>>{
+    let (
+        init_kamino_ix, 
+        kamino_integration_pk
+    ) = get_kamino_init_ix(
+        controller, 
+        &authority.pubkey(), 
+        &authority.pubkey(), 
+        description,
+        IntegrationStatus::Active,
+        1_000_000_000_000, 
+        1_000_000_000_000, 
+        &IntegrationConfig::UtilizationMarket(
+            UtilizationMarketConfig::KaminoConfig(kamino_config.clone())
+        ), 
+        svm.get_sysvar::<Clock>().slot, 
+        obligation_id
+    );
     let cu_limit_ixn = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
-    let cu_price_ixn = ComputeBudgetInstruction::set_compute_unit_price(1);
-
-    let main_ixn = SyncBuilder::new()
-        .controller(*controller)
-        .controller_authority(controller_authority)
-        .authority(authority.pubkey())
-        .integration(*integration)
-        .reserve(reserve_a_pk)
-        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
-        .add_remaining_accounts(remaining_accounts)
-        .instruction();
 
     let txn = Transaction::new_signed_with_payer(
-        &[cu_limit_ixn, cu_price_ixn, main_ixn],
-        Some(&authority.pubkey()),
-        &[&authority],
+        &[cu_limit_ixn, init_kamino_ix],
+        Some(&payer.pubkey()),
+        &[&authority, &payer],
         svm.latest_blockhash(),
     );
 
@@ -2102,47 +1428,423 @@ pub fn sync_integration(
         assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
 
+    let integration = fetch_integration_account(svm, &kamino_integration_pk)
+        .expect("Failed to fetch integration account");
+    assert!(
+        integration.is_some(),
+        "Integration must exist after the transaction"
+    );
+
+    let integration = integration.unwrap();
+    assert_eq!(
+        integration.status, status,
+        "Status does not match expected value"
+    );
+    assert_eq!(
+        integration.rate_limit_slope, rate_limit_slope,
+        "Rate limit slope does not match expected value"
+    );
+    assert_eq!(
+        integration.rate_limit_max_outflow, rate_limit_max_outflow,
+        "Rate limit max outflow does not match expected value"
+    );
+    assert_eq!(
+        integration.controller, *controller,
+        "Controller does not match expected value"
+    );
+    assert_eq!(
+        integration.config, IntegrationConfig::UtilizationMarket(
+            UtilizationMarketConfig::KaminoConfig(kamino_config.clone())
+        ),
+        "Config does not match expected value"
+    );
+
+    Ok(kamino_integration_pk)
+
+}
+
+pub fn push_kamino_integration(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    integration: &Pubkey,
+    authority: &Keypair,
+    kamino_config: &KaminoConfig,
+    amount: u64
+) -> Result<(), Box<dyn Error>> {
+    let controller_authority = derive_controller_authority_pda(controller);
+
+    let vault = get_associated_token_address_with_program_id(
+        &controller_authority,
+        &kamino_config.reserve_liquidity_mint,
+        &pinocchio_token::ID.into(),
+    );
+    let vault_balance_before = get_token_balance_or_zero(svm, &vault);
+    let integration_before = fetch_integration_account(svm, &integration)
+        .expect("Failed to fetch reserve account")
+        .unwrap();
+
+    let (liquidity_value_before, lp_amount_before) = match &integration_before.state {
+        IntegrationState::UtilizationMarket(s) => {
+            match s {
+                UtilizationMarketState::KaminoState(kamino_state) => {
+                    (kamino_state.last_liquidity_value, kamino_state.last_lp_amount)
+                }
+            }
+        }
+        _ => panic!("Invalid type"),
+    };
+
+    let kamino_liquidity_vault = derive_reserve_liquidity_supply(&kamino_config.market, &kamino_config.reserve_liquidity_mint);
+    let kamino_liquidity_vault_balance_before = get_token_balance_or_zero(svm, &kamino_liquidity_vault);
+    
+    let kamino_lp_vault = derive_reserve_collateral_supply(&kamino_config.market, &kamino_config.reserve_liquidity_mint);
+    let kamino_lp_vault_balance_before = get_token_balance_or_zero(svm, &kamino_lp_vault);
+
+    let rate_limit_outflow_available_before = integration_before.rate_limit_outflow_amount_available;
+
+    let push_ix = get_kamino_push_ix(
+        &*controller, 
+        &*integration, 
+        &authority.pubkey(), 
+        &kamino_config, 
+        amount
+    );
+    let cu_limit_ixn = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
+    let cu_price_ixn = ComputeBudgetInstruction::set_compute_unit_price(1);
+    let txn = Transaction::new_signed_with_payer(
+        &[cu_limit_ixn, cu_price_ixn, push_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        svm.latest_blockhash(),
+    );
+    let tx_result = svm.send_transaction(txn);
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.clone().unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
+    }
+
     let integration_after = fetch_integration_account(svm, &integration)
         .expect("Failed to fetch reserve account")
         .unwrap();
 
-    // Checks afterwards
-    match &integration_account.config {
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(_kamino_config) => {
-                    let liquidity_value_before = match &integration_before.state {
-                        IntegrationState::UtilizationMarket(s) => {
-                            match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.last_liquidity_value,
-                                _ => panic!("Invalid type"),
-                            }
-                        },
-                        _ => panic!("Invalid type"),
-                    };
+    let vault_balance_after = get_token_balance_or_zero(svm, &vault);
+    let vault_delta = vault_balance_before
+        .checked_sub(vault_balance_after)
+        .unwrap();
 
-                    let liquidity_value_after = match &integration_after.state {
-                        IntegrationState::UtilizationMarket(s) => {
-                            match s {
-                                UtilizationMarketState::KaminoState(kamino_state) => kamino_state.last_liquidity_value,
-                                _ => panic!("Invalid type"),
-                            }
-                        },
-                        _ => panic!("Invalid type"),
-                    };
-
-                    let rewards_ata_balance_after = get_token_balance_or_zero(svm, &kamino_sync.unwrap().rewards_ata);
-
-                    println!("rewards ata balance before: {}", rewards_ata_balance_before.unwrap());
-                    println!("rewards ata balance after: {}", rewards_ata_balance_after);
-                    println!("liquidity value before {}", liquidity_value_before);
-                    println!("liquidity value after {}", liquidity_value_after);
+    let (liquidity_value_after, lp_amount_after) = match &integration_after.state {
+        IntegrationState::UtilizationMarket(s) => {
+            match s {
+                UtilizationMarketState::KaminoState(kamino_state) => {
+                    (kamino_state.last_liquidity_value, kamino_state.last_lp_amount)
                 }
-                _ => panic!("Not configured"),
             }
         }
-        _ => panic!("Not configured"),
+        _ => panic!("Invalid type"),
+    };
+
+    let state_liquidity_delta = liquidity_value_after
+        .checked_sub(liquidity_value_before)
+        .unwrap();
+
+    let state_lp_delta = lp_amount_after
+        .checked_sub(lp_amount_before)
+        .unwrap();
+
+    let kamino_liquidity_vault_balance_after = get_token_balance_or_zero(svm, &kamino_liquidity_vault);
+    let kamino_liquidity_delta = kamino_liquidity_vault_balance_after
+        .checked_sub(kamino_liquidity_vault_balance_before)
+        .unwrap();
+
+    let kamino_lp_vault_balance_after = get_token_balance_or_zero(svm, &kamino_lp_vault);
+    let kamino_lp_vault_delta = kamino_lp_vault_balance_after
+        .checked_sub(kamino_lp_vault_balance_before)
+        .unwrap();
+
+    let rate_limit_outflow_available_after = integration_after.rate_limit_outflow_amount_available;
+    let outflow_available_delta = rate_limit_outflow_available_before
+        .checked_sub(rate_limit_outflow_available_after)
+        .unwrap();
+
+    // check that the vault decreased by the liquidity value added to the kamino state
+    assert_eq!(
+        vault_delta, state_liquidity_delta,
+        "Vault balance should have decreased by the amount"
+    );
+
+    // check that the kamino liquidity vault increases by the amount deposited
+    assert_eq!(
+        vault_delta, kamino_liquidity_delta,
+        "Kamino balance should have increased by the amount"
+    );
+
+    // check that the lp tokens increase matches with the amount minted
+    assert_eq!(
+        kamino_lp_vault_delta, state_lp_delta,
+        "LP minted should have increased by the increase in supply"
+    );
+
+    // check that rate limit outflow available decreased by the deposited amount
+    assert_eq!(
+        outflow_available_delta, vault_delta,
+        "Rate limit should have decreased by the amount deposited into Kamino"
+    );
+
+    Ok(())
+}
+
+pub fn sync_kamino_integration(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    integration: &Pubkey,
+    authority: &Keypair,
+    kamino_config: &KaminoConfig,
+    rewards_mint: &Pubkey, 
+    global_config: &Pubkey, 
+    rewards_ata: &Pubkey, 
+    scope_prices: &Pubkey, 
+    rewards_token_program: &Pubkey
+) -> Result<(), Box<dyn Error>> {
+    let integration_before = fetch_integration_account(svm, &integration)
+        .expect("Failed to fetch reserve account")
+        .unwrap();
+
+    let rewards_ata_balance_before = get_token_balance_or_zero(svm, rewards_ata);
+    
+    let rewards_treasury_vault = derive_rewards_treasury_vault(
+        global_config, 
+        rewards_mint
+    );
+    let rewards_treasury_balance_before = get_token_balance_or_zero(svm, &rewards_treasury_vault);
+
+    let (_liquidity_value_before, _lp_amount_before) = match &integration_before.state {
+        IntegrationState::UtilizationMarket(s) => {
+            match s {
+                UtilizationMarketState::KaminoState(kamino_state) => {
+                    (kamino_state.last_liquidity_value, kamino_state.last_lp_amount)
+                }
+            }
+        },
+         _ => panic!("Invalid type"),
+    };
+
+    let kamino_reserve = fetch_kamino_reserve_account(svm, &kamino_config.reserve)?
+        .unwrap();
+    let kamino_obligation = fetch_kamino_obligation_account(svm, &kamino_config.obligation)?
+        .unwrap();
+    let deposited_amount_collateral = kamino_obligation
+        .get_obligation_collateral_for_reserve(&kamino_config.reserve.to_bytes())
+        .unwrap()
+        .deposited_amount;
+
+    let new_liquidity_value = kamino_reserve.collateral_to_liquidity(deposited_amount_collateral);
+
+    let sync_ix = get_kamino_sync_ix(
+        controller, 
+        integration, 
+        &authority.pubkey(), 
+        &kamino_config, 
+        rewards_mint, 
+        global_config, 
+        &rewards_ata, 
+        scope_prices, 
+        rewards_token_program
+    );
+
+    let txn = Transaction::new_signed_with_payer(
+        &[sync_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        svm.latest_blockhash(),
+    );
+    let tx_result = svm.send_transaction(txn);
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.clone().unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
+
+    let integration_after = fetch_integration_account(svm, &integration)
+        .expect("Failed to fetch reserve account")
+        .unwrap();
+
+    let (liquidity_value_after, _lp_amount_after) = match &integration_after.state {
+        IntegrationState::UtilizationMarket(s) => {
+            match s {
+                UtilizationMarketState::KaminoState(kamino_state) => {
+                    (kamino_state.last_liquidity_value, kamino_state.last_lp_amount)
+                }
+            }
+        },
+        _ => panic!("Invalid type"),
+    };
+
+
+    let rewards_ata_balance_after = get_token_balance_or_zero(svm, rewards_ata);
+    let rewards_treasury_balance_after = get_token_balance_or_zero(svm, &rewards_treasury_vault);
+
+    let rewards_ata_balance_delta = rewards_ata_balance_after
+        .checked_sub(rewards_ata_balance_before)
+        .unwrap();
+
+    let rewards_treasury_balance_delta = rewards_treasury_balance_before
+        .checked_sub(rewards_treasury_balance_after)
+        .unwrap();
+
+    // rewards ata balance did not decrease
+    // depending on accrual timing it can be 0, but it must never go negative
+    assert!(rewards_ata_balance_after >= rewards_ata_balance_before);
+
+    // assert that the delta in the rewards vault equals the delta in rewards ata
+    assert_eq!(
+        rewards_treasury_balance_delta, rewards_ata_balance_delta,
+        "change in rewards ata balance should equal change in rewards treasury balance"
+    );
+
+    // assert that liquidity value change is correct according to the formula from Kamino state
+    assert_eq!(
+        new_liquidity_value, liquidity_value_after,
+        "new_liquidity_value does not match stored value"
+    );
+
+    Ok(())
+}
+
+pub fn pull_kamino_integration(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    integration: &Pubkey,
+    authority: &Keypair,
+    kamino_config: &KaminoConfig,
+    amount: u64
+) -> Result<(), Box<dyn Error>> {
+    let controller_authority = derive_controller_authority_pda(controller);
+
+    let vault = get_associated_token_address_with_program_id(
+        &controller_authority,
+        &kamino_config.reserve_liquidity_mint,
+        &pinocchio_token::ID.into(),
+    );
+    let vault_balance_before = get_token_balance_or_zero(svm, &vault);
+
+    let integration_before = fetch_integration_account(svm, &integration)
+            .expect("Failed to fetch reserve account")
+            .unwrap();
+
+    let (liquidity_value_before, lp_amount_before) = match &integration_before.state {
+        IntegrationState::UtilizationMarket(s) => {
+            match s {
+                UtilizationMarketState::KaminoState(kamino_state) => {
+                    (kamino_state.last_liquidity_value, kamino_state.last_lp_amount)
+                }
+            }
+        }
+        _ => panic!("Invalid type"),
+    };
+
+    let kamino_liquidity_vault = derive_reserve_liquidity_supply(&kamino_config.market, &kamino_config.reserve_liquidity_mint);
+    let kamino_liquidity_vault_balance_before = get_token_balance_or_zero(svm, &kamino_liquidity_vault);
+    
+    let kamino_lp_vault = derive_reserve_collateral_supply(&kamino_config.market, &kamino_config.reserve_liquidity_mint);
+    let kamino_lp_vault_balance_before = get_token_balance_or_zero(svm, &kamino_lp_vault);
+
+    let rate_limit_outflow_available_before = integration_before.rate_limit_outflow_amount_available;
+    let rate_limit_max_outflow = integration_before.rate_limit_max_outflow;
+
+    let pull_ix = get_kamino_pull_ix(
+        controller, 
+        integration, 
+        &authority.pubkey(), 
+        &kamino_config, 
+        amount
+    );
+
+    let txn = Transaction::new_signed_with_payer(
+        &[pull_ix],
+        Some(&authority.pubkey()),
+        &[authority],
+        svm.latest_blockhash(),
+    );
+    let tx_result = svm.send_transaction(txn);
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.clone().unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
+    }
+
+    let integration_after = fetch_integration_account(svm, &integration)
+            .expect("Failed to fetch reserve account")
+            .unwrap();
+
+    // get the change in vault balance (increases)
+    let vault_balance_after = get_token_balance_or_zero(svm, &vault);
+    let vault_delta = vault_balance_after
+        .checked_sub(vault_balance_before)
+        .unwrap();
+
+    let (liquidity_value_after, lp_amount_after) = match &integration_after.state {
+        IntegrationState::UtilizationMarket(s) => {
+            match s {
+                UtilizationMarketState::KaminoState(kamino_state) => {
+                    (kamino_state.last_liquidity_value, kamino_state.last_lp_amount)
+                }
+            }
+        },
+        _ => panic!("Invalid type"),
+    };
+
+    let state_liquidity_delta = liquidity_value_before
+        .checked_sub(liquidity_value_after)
+        .unwrap();
+
+    let state_lp_delta = lp_amount_before
+        .checked_sub(lp_amount_after)
+        .unwrap();
+
+    let kamino_liquidity_vault_balance_after = get_token_balance_or_zero(svm, &kamino_liquidity_vault);
+    let kamino_liquidity_delta = kamino_liquidity_vault_balance_before
+        .checked_sub(kamino_liquidity_vault_balance_after)
+        .unwrap();
+
+    let kamino_lp_vault_balance_after = get_token_balance_or_zero(svm, &kamino_lp_vault);
+    let kamino_lp_vault_delta = kamino_lp_vault_balance_before
+        .checked_sub(kamino_lp_vault_balance_after)
+        .unwrap();
+
+    let rate_limit_outflow_available_after = integration_after.rate_limit_outflow_amount_available;
+    let outflow_available_delta = rate_limit_outflow_available_after
+        .checked_sub(rate_limit_outflow_available_before)
+        .unwrap();
+
+    // check that the vault increased by the liquidity value removed from the integration state
+    assert_eq!(
+        vault_delta, state_liquidity_delta,
+        "Vault balance delta and assets delta do not match"
+    );
+
+    // check that the kamino liquidity vault decreases by the amount withdrawn
+    assert_eq!(
+        vault_delta, kamino_liquidity_delta,
+        "Kamino vault balance should have decreased by the amount "
+    );
+
+    // check that the lp tokens decrease matches with the amount burned
+    assert_eq!(
+        kamino_lp_vault_delta, state_lp_delta,
+        "LP tokens burned should match the change in integration state LP"
+    );
+
+    // check that rate limit outflow available increased by the withdrawn amount
+    // only if rate limit will actually be increased:
+    // self.rate_limit_outflow_amount_available.saturating_add(inflow) <= rate_limit_max_outflow
+    if rate_limit_max_outflow >= rate_limit_outflow_available_before.saturating_add(state_liquidity_delta) {
+        assert_eq!(
+            outflow_available_delta, vault_delta,
+            "Rate limit should have increased by the amount withdrawn from Kamino"
+        );
+    }
+
 
     Ok(())
 }

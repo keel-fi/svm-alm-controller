@@ -3,13 +3,18 @@ use borsh::{maybestd::vec::Vec, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo, cpi::{invoke, invoke_signed}, 
     instruction::{AccountMeta, Instruction, Signer}, msg, 
-    program_error::ProgramError, pubkey::{find_program_address, Pubkey}, 
+    program_error::ProgramError, pubkey::{try_find_program_address, Pubkey}, 
     sysvars::clock::Slot,
 };
 
-use crate::integrations::utilization_market::kamino::constants::{
-    DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, HARVEST_REWARD_DISCRIMINATOR, INIT_METADATA_DISCRIMINATOR, INIT_OBLIGATION_DISCRIMINATOR, INIT_OBLIGATION_FARM_DISCRIMINATOR, WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
-};
+use crate::{error::SvmAlmControllerErrors, integrations::utilization_market::kamino::constants::{
+    DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, 
+    HARVEST_REWARD_DISCRIMINATOR, 
+    INIT_METADATA_DISCRIMINATOR, 
+    INIT_OBLIGATION_DISCRIMINATOR, 
+    INIT_OBLIGATION_FARM_DISCRIMINATOR, 
+    WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
+}};
 
 // ------------ init obligation ------------
 
@@ -30,7 +35,8 @@ impl InitObligationArgs {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
-        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        BorshSerialize::serialize(&self, &mut serialized)
+            .map_err(|_| ProgramError::from(SvmAlmControllerErrors::SerializationFailed))?;
         
         Ok(serialized)
     }
@@ -41,8 +47,8 @@ pub fn derive_vanilla_obligation_address(
     authority: &Pubkey,
     market: &Pubkey,
     kamino_program: &Pubkey
-) -> Pubkey {
-    let (obligation_pda, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (obligation_pda, _) = try_find_program_address(
         &[
             // tag 0 for vanilla obligation
             &VANILLA_OBLIGATION_TAG.to_le_bytes(),
@@ -58,9 +64,9 @@ pub fn derive_vanilla_obligation_address(
             Pubkey::default().as_ref(),
         ],
         kamino_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    obligation_pda
+    Ok(obligation_pda)
 }
 
 pub fn initialize_obligation_cpi(
@@ -138,7 +144,8 @@ impl<'a> InitUserMetadataArgs<'a> {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
-        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        BorshSerialize::serialize(&self, &mut serialized)
+            .map_err(|_| ProgramError::from(SvmAlmControllerErrors::SerializationFailed))?;
         
         Ok(serialized)
     }
@@ -147,16 +154,16 @@ impl<'a> InitUserMetadataArgs<'a> {
 pub fn derive_user_metadata_address(
     user: &Pubkey,
     kamino_program: &Pubkey
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"user_meta",
             &user.as_ref()
         ], 
         &kamino_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 pub fn initialize_user_metadata_cpi(
@@ -216,14 +223,16 @@ pub fn derive_lookup_table_address(
     authority_address: &Pubkey,
     recent_block_slot: Slot,
     lookup_table_program: &Pubkey
-) -> (Pubkey, u8) {
-    find_program_address(
+) -> Result<(Pubkey, u8), ProgramError> {
+    let result = try_find_program_address(
         &[
             authority_address.as_ref(),
             &recent_block_slot.to_le_bytes()
         ], 
         lookup_table_program
-    )
+    ).ok_or(ProgramError::InvalidSeeds)?;
+
+    Ok(result)
 }
 
 const CREATE_VARIANT_INDEX: u32 = 0;
@@ -250,11 +259,11 @@ pub fn initialize_user_lookup_table(
         authority.key(), 
         recent_slot, 
         lookup_table_program
-    );
+    )?;
 
     if &lookup_table_address != lookup_table.key() {
         msg! {"Lookup table: Invalid lookup table"}
-        return Err(ProgramError::InvalidSeeds)
+        return Err(SvmAlmControllerErrors::InvalidPda.into())
     }
 
     let data = encode_create_lookup_table(recent_slot, bump_seed);
@@ -293,37 +302,38 @@ pub fn derive_obligation_farm_address(
     reserve_farm: &Pubkey, 
     obligation: &Pubkey,
     kamino_farms_program: &Pubkey
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"user",
             reserve_farm.as_ref(),
             &obligation.as_ref()
         ], 
         &kamino_farms_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 pub fn derive_market_authority_address(
     market: &Pubkey,
     kamino_program: &Pubkey
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"lma",
             market.as_ref(),
         ], 
         kamino_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 #[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
 pub struct InitObligationFarmArgs {
-    pub mode: u8 // TODO: verify this mode
+    /// Mode 0 for collateral farm and mode 1 for debt farm
+    pub mode: u8 
 }
 
 impl InitObligationFarmArgs {
@@ -334,7 +344,8 @@ impl InitObligationFarmArgs {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
-        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        BorshSerialize::serialize(&self, &mut serialized)
+            .map_err(|_| ProgramError::from(SvmAlmControllerErrors::SerializationFailed))?;
         
         Ok(serialized)
     }
@@ -423,51 +434,51 @@ pub fn derive_reserve_collateral_mint(
     market: &Pubkey,
     reserve_liquidity_mint: &Pubkey,
     kamino_program: &Pubkey
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"reserve_coll_mint",
             market.as_ref(), 
             reserve_liquidity_mint.as_ref()
         ], 
         kamino_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 pub fn derive_reserve_collateral_supply(
     market: &Pubkey,
     reserve_liquidity_mint: &Pubkey,
     kamino_program: &Pubkey
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"reserve_coll_supply",
             market.as_ref(), 
             reserve_liquidity_mint.as_ref()
         ], 
         kamino_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 pub fn derive_reserve_liquidity_supply(
     market: &Pubkey,
     reserve_liquidity_mint: &Pubkey,
     kamino_program: &Pubkey
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"reserve_liq_supply",
             market.as_ref(), 
             reserve_liquidity_mint.as_ref()
         ], 
         kamino_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 // ---------- deposit reserve liquidity and obligation collateral ----------
@@ -485,7 +496,8 @@ impl DepositLiquidityV2Args {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
-        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        BorshSerialize::serialize(&self, &mut serialized)
+            .map_err(|_| ProgramError::from(SvmAlmControllerErrors::SerializationFailed))?;
         
         Ok(serialized)
     }
@@ -601,7 +613,8 @@ impl WithdrawObligationV2Args {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
-        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        BorshSerialize::serialize(&self, &mut serialized)
+            .map_err(|_| ProgramError::from(SvmAlmControllerErrors::SerializationFailed))?;
         
         Ok(serialized)
     }
@@ -707,49 +720,49 @@ pub fn derive_rewards_vault(
     farm_state: &Pubkey,
     rewards_vault_mint: &Pubkey,
     farms_program: &Pubkey,
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"rvault",
             farm_state.as_ref(),
             rewards_vault_mint.as_ref()
         ], 
         farms_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 pub fn derive_rewards_treasury_vault(
     global_config: &Pubkey,
     rewards_vault_mint: &Pubkey,
     farms_program: &Pubkey,
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"tvault",
             global_config.as_ref(),
             rewards_vault_mint.as_ref()
         ], 
         farms_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 pub fn derive_farm_vaults_authority(
     farm_state: &Pubkey,
     farms_program: &Pubkey,
-) -> Pubkey {
-    let (address, _) = find_program_address(
+) -> Result<Pubkey, ProgramError> {
+    let (address, _) = try_find_program_address(
         &[
             b"authority",
             farm_state.as_ref(),
         ], 
         farms_program
-    );
+    ).ok_or(ProgramError::InvalidSeeds)?;
 
-    address
+    Ok(address)
 }
 
 
@@ -766,7 +779,8 @@ impl HarvestRewardArgs {
         let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
         serialized.extend_from_slice(&Self::DISCRIMINATOR);
         
-        BorshSerialize::serialize(&self, &mut serialized).unwrap();
+        BorshSerialize::serialize(&self, &mut serialized)
+            .map_err(|_| ProgramError::from(SvmAlmControllerErrors::SerializationFailed))?;
         
         Ok(serialized)
     }
