@@ -489,10 +489,10 @@ pub fn process_push_spl_token_swap(
 
     // Update the reserves for the flows
     if vault_balance_a_delta > 0 {
-        reserve_a.update_for_outflow(clock, vault_balance_a_delta)?;
+        reserve_a.update_for_outflow(clock, vault_balance_a_delta, false)?;
     }
     if vault_balance_b_delta > 0 {
-        reserve_b.update_for_outflow(clock, vault_balance_b_delta)?;
+        reserve_b.update_for_outflow(clock, vault_balance_b_delta, false)?;
     }
 
     Ok(())

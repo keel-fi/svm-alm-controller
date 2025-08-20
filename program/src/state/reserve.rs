@@ -4,7 +4,7 @@ use super::{
     Controller,
 };
 use crate::{
-    constants::{RESERVE_SEED, SECONDS_PER_DAY},
+    constants::RESERVE_SEED,
     enums::ReserveStatus,
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
@@ -228,17 +228,33 @@ impl Reserve {
     }
 
     /// Decrement the rate limit amount for outflows and update the last balance by the amount sent.
-    pub fn update_for_outflow(&mut self, clock: Clock, outflow: u64) -> Result<(), ProgramError> {
+    /// NOTE: Due to Token2022 and PermanentDelegate extensions, it's possible for the outflow
+    /// to be larger than the available amount. In this scenario, we must skip the underflow check
+    /// in order to allow operations to proceed.
+    pub fn update_for_outflow(
+        &mut self,
+        clock: Clock,
+        outflow: u64,
+        allow_underflow: bool,
+    ) -> Result<(), ProgramError> {
         if !(self.last_refresh_timestamp == clock.unix_timestamp
             && self.last_refresh_slot == clock.slot)
         {
             msg! {"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument);
         }
-        self.rate_limit_outflow_amount_available = self
-            .rate_limit_outflow_amount_available
-            .checked_sub(outflow)
-            .ok_or(SvmAlmControllerErrors::RateLimited)?;
+
+        // Under certain conditions, we prevent erroring on underflow.
+        if allow_underflow {
+            self.rate_limit_outflow_amount_available = self
+                .rate_limit_outflow_amount_available
+                .saturating_sub(outflow);
+        } else {
+            self.rate_limit_outflow_amount_available = self
+                .rate_limit_outflow_amount_available
+                .checked_sub(outflow)
+                .ok_or(SvmAlmControllerErrors::RateLimited)?;
+        }
         self.last_balance = self.last_balance.checked_sub(outflow).unwrap();
         Ok(())
     }
@@ -280,10 +296,11 @@ impl Reserve {
                 // => inflow
                 self.update_for_inflow(clock, new_balance.checked_sub(self.last_balance).unwrap())?;
             } else {
-                // new_balance < previous_balance => outflow (should not be possible)
+                // new_balance < previous_balance => outflow (possible with Token2022 and PermanentDelegate extension)
                 self.update_for_outflow(
                     clock,
                     self.last_balance.checked_sub(new_balance).unwrap(),
+                    true, // Allow underflow since this can happen with Token2022 and PermanentDelegate
                 )?;
             }
 
@@ -303,5 +320,43 @@ impl Reserve {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reserve_update_for_outflow_allow_underflow() {
+        let mut reserve = Reserve {
+            controller: Pubkey::default(),
+            mint: Pubkey::default(),
+            vault: Pubkey::default(),
+            status: ReserveStatus::Active,
+            rate_limit_slope: 100,
+            rate_limit_max_outflow: 1000,
+            rate_limit_outflow_amount_available: 500,
+            rate_limit_remainder: 0,
+            last_balance: 1000,
+            last_refresh_timestamp: 0,
+            last_refresh_slot: 0,
+            _padding: [0; 120],
+        };
+
+        reserve
+            .update_for_outflow(Clock::default(), 600, true)
+            .unwrap();
+        assert_eq!(
+            reserve.rate_limit_outflow_amount_available, 0,
+            "Should clamp to 0 with allow_underflow"
+        );
+
+        assert!(
+            reserve
+                .update_for_outflow(Clock::default(), 600, false)
+                .is_err(),
+            "Should error on underflow without allow_underflow"
+        );
     }
 }

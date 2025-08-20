@@ -213,7 +213,7 @@ pub fn process_push_cctp_bridge(
     // No state transitions for CctpBridge
 
     // Update the reserve for the outflow
-    reserve.update_for_outflow(clock, amount)?;
+    reserve.update_for_outflow(clock, amount, false)?;
 
     // Emit the accounting event
     controller.emit_event(

@@ -271,7 +271,7 @@ pub fn process_push_lz_bridge(
     // No state transitions for LzBridge
 
     // Update the reserve for the outflow
-    reserve_a.update_for_outflow(clock, amount)?;
+    reserve_a.update_for_outflow(clock, amount, false)?;
 
     // Emit the accounting event
     controller.emit_event(
