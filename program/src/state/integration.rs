@@ -1,6 +1,6 @@
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use crate::{
-    constants::{INTEGRATION_SEED, SECONDS_PER_DAY},
+    constants::INTEGRATION_SEED,
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
     error::SvmAlmControllerErrors,
     processor::shared::{calculate_rate_limit_increment, create_pda_account},
@@ -12,7 +12,7 @@ use pinocchio::{
     instruction::Seed,
     msg,
     program_error::ProgramError,
-    pubkey::{find_program_address, try_find_program_address, Pubkey},
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
 use shank::ShankAccount;

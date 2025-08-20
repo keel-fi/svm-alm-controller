@@ -233,7 +233,7 @@ pub fn process_atomic_swap_borrow(
 
     // NOTE: ok to use the amount from arguments as not Token Extension
     // configuration sends more or less than the requested amount.
-    reserve_a.update_for_outflow(clock, args.amount)?;
+    reserve_a.update_for_outflow(clock, args.amount, false)?;
     reserve_a.save(ctx.reserve_a)?;
     reserve_b.save(ctx.reserve_b)?;
 
