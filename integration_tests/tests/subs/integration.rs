@@ -634,11 +634,6 @@ pub async fn push_integration(
                 &c.mint_b,
                 &token_program_b,
             );
-            let swap_fee_account = get_associated_token_address_with_program_id(
-                &NOVA_TOKEN_SWAP_FEE_OWNER,
-                &c.lp_mint,
-                &token_program_lp,
-            );
             (
                 reserve_a_pda,
                 reserve_b_pda,
@@ -717,11 +712,6 @@ pub async fn push_integration(
                         pubkey: swap_authority,
                         is_signer: false,
                         is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: swap_fee_account,
-                        is_signer: false,
-                        is_writable: true,
                     },
                 ],
                 &[],

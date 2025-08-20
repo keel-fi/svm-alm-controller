@@ -39,7 +39,6 @@ define_account_struct! {
         swap_program;
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
         swap_authority;
-        swap_fee_account;
     }
 }
 
