@@ -14,9 +14,9 @@ pub fn create_pda_account<const N: usize>(
     space: usize,
     owner: &Pubkey,
     new_pda_account: &AccountInfo,
-    new_pda_signer_seeds: [Seed; N],
+    new_pda_signer_seeds: &[Seed; N],
 ) -> ProgramResult {
-    let signers = [Signer::from(&new_pda_signer_seeds)];
+    let signers = [Signer::from(new_pda_signer_seeds)];
     if new_pda_account.lamports() > 0 {
         // someone can transfer lamports to accounts before they're initialized
         // in that case, creating the account won't work.

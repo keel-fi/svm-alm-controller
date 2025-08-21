@@ -8,8 +8,9 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
+    msg,
     program_error::ProgramError,
-    pubkey::{find_program_address, Pubkey},
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
 use shank::{ShankAccount, ShankType};
@@ -24,10 +25,8 @@ pub struct Feed {
     pub price_feed: Pubkey,
     /// Type of Oracle (0 = Switchboard)
     pub oracle_type: u8,
-    /// Transformations to apply
-    pub invert_price: bool,
     /// Reserved space (for additional context, transformations and operations).
-    pub reserved: [u8; 62],
+    pub reserved: [u8; 63],
 }
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
@@ -60,12 +59,13 @@ impl NovaAccount for Oracle {
     const LEN: usize = 253;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID);
-        Ok((pda, bump))
+        try_find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID)
+            .ok_or(ProgramError::InvalidSeeds)
     }
 }
 
 impl Oracle {
+    /// Validate that the Oracle is a supported Oracle [Switchboard].
     pub fn verify_oracle_type(
         oracle_type: u8,
         price_feed: &AccountInfo,
@@ -80,7 +80,14 @@ impl Oracle {
                 if !feed_account.starts_with(&PullFeedAccountData::discriminator()) {
                     return Err(ProgramError::InvalidAccountData);
                 };
-                let _feed: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+
+                // Deserialize account to check it's correct
+                if &feed_account[..8] != PullFeedAccountData::DISCRIMINATOR {
+                    msg!("Invalid PullFeedAccount discriminator");
+                    return Err(ProgramError::InvalidAccountData);
+                }
+                let _feed: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
+                    .map_err(|_| ProgramError::InvalidAccountData)?;
 
                 Ok(())
             }
@@ -91,20 +98,9 @@ impl Oracle {
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-        oracle.verify_pda(account_info)?;
-        Ok(oracle)
-    }
-
-    pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         oracle.verify_pda(account_info)?;
         Ok(oracle)
@@ -117,29 +113,33 @@ impl Oracle {
         nonce: &Pubkey,
         oracle_type: u8,
         price_feed: &AccountInfo,
-        invert_price: bool,
     ) -> Result<Self, ProgramError> {
+        let precision = match oracle_type {
+            0 => Ok::<u32, ProgramError>(switchboard_on_demand::on_demand::PRECISION),
+            _ => Err(SvmAlmControllerErrors::UnsupportedOracleType.into()),
+        }?;
+
         // Create and serialize the oracle
         let oracle = Oracle {
             version: 1,
             authority: *authority_info.key(),
             nonce: *nonce,
             value: 0,
-            precision: 0,
+            precision,
             last_update_slot: 0,
             reserved: [0; 64],
             feeds: [Feed {
                 oracle_type,
                 price_feed: *price_feed.key(),
-                invert_price,
-                reserved: [0; 62],
+                reserved: [0; 63],
             }],
         };
 
         // Derive the PDA
         let (pda, bump) = oracle.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds); // PDA was invalid
+            msg!("Oracle PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Account creation PDA
@@ -153,14 +153,32 @@ impl Oracle {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
 
         // Commit the account on-chain
         oracle.save(account_info)?;
         Ok(oracle)
+    }
+
+    /// Get the Oracle's price allowing for inversion.
+    ///
+    /// Let P = precision of price and X = Price in decimals
+    /// Price is stored in data feed as X * (10^P).
+    /// By inverting, we want to get 1/X * (10^P)
+    /// = 10^P / X = 10^(2*P) / (X * 10^P)
+    pub fn get_price(&self, invert: bool) -> i128 {
+        if invert {
+            10_i128
+                .checked_pow(self.precision * 2)
+                .unwrap()
+                .checked_div(self.value)
+                .unwrap()
+        } else {
+            self.value
+        }
     }
 }

@@ -12,6 +12,7 @@ pub mod constants;
 pub mod logs_parser;
 pub mod raydium;
 pub mod spl;
+pub mod utils;
 use base64;
 pub use logs_parser::print_inner_instructions;
 use serde_json::Value;

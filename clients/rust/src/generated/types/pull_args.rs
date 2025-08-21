@@ -12,7 +12,11 @@ use borsh::BorshSerialize;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PullArgs {
     SplTokenExternal,
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
+    SplTokenSwap {
+        amount_a: u64,
+        amount_b: u64,
+        maximum_pool_token_amount: u64,
+    },
     CctpBridge,
     LzBridge,
 }

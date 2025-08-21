@@ -80,7 +80,7 @@ pub fn process_initialize_integration(
         IntegrationType::CctpBridge => process_initialize_cctp_bridge(&ctx, &args)?,
         IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
         IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
-        // TODO: More integration types to be supported
+        // More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };
 

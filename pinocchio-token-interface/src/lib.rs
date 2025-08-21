@@ -10,11 +10,38 @@ use pinocchio_token2022::extensions::{
 };
 pub use pinocchio_token2022::instructions;
 
+pub mod utils;
+
+pub use utils::*;
+
 pub struct TokenAccount<'info>(Ref<'info, pinocchio_token2022::state::TokenAccount>);
+
+/// Size of multisig account for TokenAccount and Mint.
+pub const MULTISIG_ACCOUNT_LENGTH: usize = 355;
+
+/// Get the account type for a T22 account.
+pub fn get_account_type(account_info: &AccountInfo) -> Result<u8, ProgramError> {
+    let data = account_info.try_borrow_data()?;
+    // AccountType is at byte 165 (aka TokenAccount::BASE_LEN) for both Mint and TokenAccount.
+    let account_type = data[pinocchio_token2022::state::TokenAccount::BASE_LEN];
+    Ok(account_type)
+}
 
 impl<'info> TokenAccount<'info> {
     pub fn from_account_info(account_info: &'info AccountInfo) -> Result<Self, ProgramError> {
         if account_info.is_owned_by(&pinocchio_token2022::ID) {
+            let data_len = account_info.data_len();
+            if data_len > pinocchio_token2022::state::TokenAccount::BASE_LEN {
+                let account_type = get_account_type(account_info)?;
+                // TokenAccount must have account type 2.
+                if account_type != 2 {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+                // Multisig accounts are not supported.
+                if data_len == MULTISIG_ACCOUNT_LENGTH {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+            }
             pinocchio_token2022::state::TokenAccount::from_account_info(account_info)
                 .map(|t| TokenAccount(t))
                 .map_err(|_| ProgramError::InvalidAccountData)
@@ -49,6 +76,18 @@ pub struct Mint<'info>(Ref<'info, pinocchio_token2022::state::Mint>);
 impl<'info> Mint<'info> {
     pub fn from_account_info(account_info: &'info AccountInfo) -> Result<Self, ProgramError> {
         if account_info.is_owned_by(&pinocchio_token2022::ID) {
+            let data_len = account_info.data_len();
+            if data_len > pinocchio_token2022::state::Mint::BASE_LEN {
+                let account_type = get_account_type(account_info)?;
+                // Mint must have account type 1.
+                if account_type != 1 {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+                // Multisig accounts are not supported.
+                if data_len == MULTISIG_ACCOUNT_LENGTH {
+                    return Err(ProgramError::InvalidAccountData);
+                }
+            }
             pinocchio_token2022::state::Mint::from_account_info(account_info)
                 .map(|t| Mint(t))
                 .map_err(|_| ProgramError::InvalidAccountData)

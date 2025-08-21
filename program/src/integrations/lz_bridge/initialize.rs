@@ -1,13 +1,14 @@
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
+    error::SvmAlmControllerErrors,
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::lz_bridge::{
         config::LzBridgeConfig,
         lz_state::{OFTStore, PeerConfig, OFT_PEER_CONFIG_SEED},
         state::LzBridgeState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -19,10 +20,12 @@ use pinocchio::{
 define_account_struct! {
     pub struct InitializeLzBridgeAccounts<'info> {
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // No addresses enforced for the following accounts in order to support
+        // multiple OFTs. This is safe since only a Permissioned address may
+        // create this Integration.
         oft_store;
         peer_config;
         lz_program;
-        // TODO: Do we need to check LZ program against a const?
         token_escrow;
     }
 }
@@ -32,6 +35,10 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
+
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.mint)?;
+
         if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
             msg! {"oft_store: not owned by cctp_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -82,7 +89,7 @@ pub fn process_initialize_lz_bridge(
     .ok_or(ProgramError::InvalidSeeds)?;
     if inner_ctx.peer_config.key().ne(&expected_peer_config_pda) {
         msg! {"peer_config: expected PDA for destination_eid and oft store do not match"};
-        return Err(ProgramError::InvalidSeeds);
+        return Err(SvmAlmControllerErrors::InvalidPda.into());
     }
     // Load in the LZ Peer Config Account (if it doesn't load it's not configured)
     PeerConfig::deserialize(&mut &*inner_ctx.peer_config.try_borrow_data()?).map_err(|e| e)?;
@@ -101,7 +108,8 @@ pub fn process_initialize_lz_bridge(
 
     // Create the initial integration state
     let state = IntegrationState::LzBridge(LzBridgeState {
-        _padding: [0u8; 48],
+        push_in_flight: false,
+        _padding: [0u8; 47],
     });
 
     Ok((config, state))

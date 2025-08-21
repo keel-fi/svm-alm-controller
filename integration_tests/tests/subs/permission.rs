@@ -100,7 +100,11 @@ pub fn manage_permission(
     );
 
     let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
+    if tx_result.is_err() {
+        println!("{:#?}", tx_result.unwrap().logs);
+    } else {
+        assert!(tx_result.is_ok(), "Transaction failed to execute");
+    }
 
     let calling_permission_account_after = fetch_permission_account(svm, &calling_permission_pda)?;
     let subject_permission_account_after = fetch_permission_account(svm, &subject_permission_pda)?;

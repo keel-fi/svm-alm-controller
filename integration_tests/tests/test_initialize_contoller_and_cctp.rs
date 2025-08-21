@@ -140,6 +140,7 @@ mod tests {
             &cctp_usdc_eth_bridge_integration_pk,
             &authority,
             &PushArgs::CctpBridge { amount: 1_000_000 },
+            false,
         )
         .await?;
 

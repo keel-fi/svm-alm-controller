@@ -3,12 +3,14 @@ use super::{
     nova_account::NovaAccount,
 };
 use crate::{
-    constants::PERMISSION_SEED, enums::PermissionStatus, processor::shared::create_pda_account,
+    constants::PERMISSION_SEED, enums::PermissionStatus, error::SvmAlmControllerErrors,
+    processor::shared::create_pda_account,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
+    msg,
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
@@ -71,8 +73,12 @@ impl NovaAccount for Permission {
 
 impl Permission {
     pub fn check_data(&self, controller: &Pubkey, authority: &Pubkey) -> Result<(), ProgramError> {
-        if self.authority.ne(authority) || self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+        if self.authority.ne(authority) {
+            msg!("Permission authority mismatch");
+            return Err(ProgramError::IncorrectAuthority);
+        } else if self.controller.ne(controller) {
+            msg!("Controller does not match Permission controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -84,27 +90,11 @@ impl Permission {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 
         let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-        permission.check_data(controller, authority)?;
-        permission.verify_pda(account_info)?;
-        Ok(permission)
-    }
-
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo,
-        controller: &Pubkey,
-        authority: &Pubkey,
-    ) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
@@ -145,7 +135,8 @@ impl Permission {
         // Derive the PDA
         let (pda, bump) = permission.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Permission PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Account creation PDA
@@ -160,10 +151,10 @@ impl Permission {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
 
         // Commit the account on-chain

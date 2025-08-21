@@ -64,7 +64,7 @@ pub fn process_manage_integration(
     }
 
     // Load in and check the integration
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     let old_state = integration.clone();
 
@@ -76,6 +76,7 @@ pub fn process_manage_integration(
         } else {
             None
         },
+        args.description,
         args.rate_limit_slope,
         args.rate_limit_max_outflow,
     )?;

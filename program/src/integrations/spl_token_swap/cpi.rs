@@ -60,10 +60,11 @@ pub fn deposit_single_token_type_exact_amount_in_cpi(
     mint: &AccountInfo,
     mint_token_program: &AccountInfo,
     lp_mint_token_program: &AccountInfo,
+    minimum_pool_token_amount: u64,
 ) -> Result<(), ProgramError> {
     let args_vec = DepositSingleTokenTypeExactAmountInArgs {
         source_token_amount: amount,
-        minimum_pool_token_amount: 0,
+        minimum_pool_token_amount,
     }
     .to_vec()?;
     let data = args_vec.as_slice();
@@ -119,10 +120,11 @@ pub fn withdraw_single_token_type_exact_amount_out_cpi(
     mint_token_program: &AccountInfo,
     lp_mint_token_program: &AccountInfo,
     swap_fee_account: &AccountInfo,
+    maximum_pool_token_amount: u64,
 ) -> Result<(), ProgramError> {
     let args_vec = WithdrawSingleTokenTypeExactAmountOutArgs {
         destination_token_amount: amount,
-        maximum_pool_token_amount: u64::MAX,
+        maximum_pool_token_amount,
     }
     .to_vec()?;
     let data = args_vec.as_slice();

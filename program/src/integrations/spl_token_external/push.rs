@@ -177,7 +177,7 @@ pub fn process_push_spl_token_external(
     // No state transitions for SplTokenExternal
 
     // Update reserve balance and rate limits for the outflow
-    reserve.update_for_outflow(clock, amount)?;
+    reserve.update_for_outflow(clock, amount, false)?;
 
     // Emit the accounting event
     controller.emit_event(

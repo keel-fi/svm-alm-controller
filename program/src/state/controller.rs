@@ -5,6 +5,7 @@ use super::{
 use crate::{
     constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     enums::ControllerStatus,
+    error::SvmAlmControllerErrors,
     events::SvmAlmControllerEvent,
     processor::shared::{create_pda_account, emit_cpi},
 };
@@ -12,6 +13,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
+    msg,
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
@@ -60,20 +62,9 @@ impl Controller {
     pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-        controller.verify_pda(account_info)?;
-        Ok(controller)
-    }
-
-    pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
         Ok(controller)
@@ -90,7 +81,8 @@ impl Controller {
         let controller_id = id.to_le_bytes();
         let (pda, bump) = Self::derive_pda_bytes(id)?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Controller PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Derive authority PDA that has no SOL or data
@@ -99,7 +91,8 @@ impl Controller {
 
         if authority_info.key().ne(&controller_authority) {
             // Authority PDA was invalid
-            return Err(ProgramError::InvalidSeeds.into());
+            msg!("Controller Authority PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Create and serialize the controller
@@ -123,10 +116,10 @@ impl Controller {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
 
         // Commit the account on-chain
@@ -142,6 +135,7 @@ impl Controller {
     ) -> Result<(), ProgramError> {
         // No change will take place
         if self.status == status {
+            msg!("Controller status must change");
             return Err(ProgramError::InvalidArgument.into());
         }
 

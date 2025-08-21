@@ -90,13 +90,12 @@ pub fn set_price_feed(
     Ok(())
 }
 
-pub fn initalize_oracle(
+pub fn initialize_oracle(
     svm: &mut LiteSVM,
     authority: &Keypair,
     nonce: &Pubkey,
     price_feed: &Pubkey,
     oracle_type: u8,
-    invert_price: bool,
 ) -> Result<(), Box<dyn Error>> {
     let oracle_pda = derive_oracle_pda(&nonce);
     let ixn = InitializeOracleBuilder::new()
@@ -107,7 +106,6 @@ pub fn initalize_oracle(
         .payer(authority.pubkey())
         .oracle_type(oracle_type)
         .nonce(*nonce)
-        .invert_price(invert_price)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(

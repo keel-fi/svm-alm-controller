@@ -1,15 +1,15 @@
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
+    error::SvmAlmControllerErrors,
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::atomic_swap::{config::AtomicSwapConfig, state::AtomicSwapState},
-    processor::InitializeIntegrationAccounts,
-    state::{nova_account::NovaAccount, Oracle},
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
+    state::Oracle,
 };
 use pinocchio::{
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token_interface::Mint;
@@ -30,13 +30,19 @@ pub fn process_initialize_atomic_swap(
 
     let inner_ctx = InitializeAtomicSwapAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
+    // Validate no same token swaps
+    if inner_ctx.input_mint.key().eq(inner_ctx.output_mint.key()) {
+        return Err(SvmAlmControllerErrors::InvalidAtomicSwapConfiguration.into());
+    }
+
     // Check that Oracle is a valid account.
-    let _oracle: Oracle = NovaAccount::deserialize(&inner_ctx.oracle.try_borrow_data()?)?;
+    let _oracle: Oracle = Oracle::load_and_check(&inner_ctx.oracle)?;
 
     let InitializeArgs::AtomicSwap {
         max_slippage_bps,
         max_staleness,
         expiry_timestamp,
+        oracle_price_inverted,
         ..
     } = outer_args.inner_args
     else {
@@ -45,11 +51,13 @@ pub fn process_initialize_atomic_swap(
 
     let clock = Clock::get()?;
     if max_staleness >= clock.slot || expiry_timestamp <= clock.unix_timestamp {
-        return Err(ProgramError::InvalidArgument);
+        return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
     }
 
     let input_mint = Mint::from_account_info(inner_ctx.input_mint)?;
+    validate_mint_extensions(inner_ctx.input_mint)?;
     let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
+    validate_mint_extensions(inner_ctx.output_mint)?;
 
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {
@@ -61,7 +69,8 @@ pub fn process_initialize_atomic_swap(
         input_mint_decimals: input_mint.decimals(),
         output_mint_decimals: output_mint.decimals(),
         expiry_timestamp,
-        padding: [0u8; 108],
+        oracle_price_inverted,
+        padding: [0u8; 107],
     });
 
     // Create the initial integration state
@@ -71,8 +80,7 @@ pub fn process_initialize_atomic_swap(
         amount_borrowed: 0,
         recipient_token_a_pre: 0,
         recipient_token_b_pre: 0,
-        repay_excess_token_a: false,
-        _padding: [0u8; 7],
+        _padding: [0u8; 8],
     });
 
     Ok((config, state))

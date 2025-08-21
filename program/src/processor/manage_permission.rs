@@ -28,14 +28,7 @@ define_account_struct! {
 
 impl<'info> ManagePermissionAccounts<'info> {
     pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-        if !(ctx.permission.is_owned_by(&pinocchio_system::id()) && !ctx.permission.data_is_empty())
-            && !ctx.super_permission.is_owned_by(&crate::ID)
-        {
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-
-        Ok(ctx)
+        Self::from_accounts(accounts)
     }
 }
 
@@ -66,7 +59,7 @@ fn manage_permission(
         Ok((permission, None))
     } else {
         // Load the permission account
-        let mut permission = Permission::load_and_check_mut(
+        let mut permission = Permission::load_and_check(
             ctx.permission,
             ctx.controller.key(),
             ctx.authority.key(),
@@ -103,7 +96,7 @@ fn suspend_permission(
     }
     // Load the permission account
     let mut permission =
-        Permission::load_and_check_mut(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
+        Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
 
     // A Permission with `can_suspend_permissions` cannot suspend Permissions
     // that can manage other permissions. This is to prevent a scenario where

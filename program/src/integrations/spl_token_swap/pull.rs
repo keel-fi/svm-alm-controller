@@ -6,6 +6,7 @@ use crate::{
     instructions::PullArgs,
     integrations::spl_token_swap::{
         cpi::withdraw_single_token_type_exact_amount_out_cpi,
+        shared_sync::{calculate_prorated_balance, sync_spl_token_swap_integration},
         swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET},
     },
     processor::PullAccounts,
@@ -28,7 +29,7 @@ define_account_struct! {
         mint_a;
         mint_b;
         lp_mint: mut;
-        lp_token_account: mut;
+        lp_token_account: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         mint_a_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         mint_b_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         lp_mint_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -78,6 +79,14 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
             msg! {"lp_token_account: does not match config"};
             return Err(ProgramError::InvalidAccountData);
         }
+        if config.mint_a.ne(ctx.mint_a.key()) {
+            msg! {"mint_a: does not match IntegrationConfig"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if config.mint_b.ne(ctx.mint_b.key()) {
+            msg! {"mint_b: does not match IntegrationConfig"};
+            return Err(ProgramError::InvalidAccountData);
+        }
         if !ctx.mint_a.is_owned_by(ctx.mint_a_token_program.key()) {
             msg! {"mint_a: not owned by mint_a_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -90,14 +99,6 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
             msg! {"lp_mint: not owned by lp_mint_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx
-            .lp_token_account
-            .is_owned_by(ctx.lp_mint_token_program.key())
-            && !ctx.lp_token_account.is_owned_by(&pinocchio_system::ID)
-        {
-            msg! {"lp_token_account: not owned by token_program or system_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
         if !ctx.swap_token_a.is_owned_by(ctx.mint_a_token_program.key()) {
             msg! {"swap_token_a: not owned by mint_a_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -105,6 +106,16 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
         if !ctx.swap_token_b.is_owned_by(ctx.mint_b_token_program.key()) {
             msg! {"swap_token_b: not owned by mint_b_token_program"};
             return Err(ProgramError::InvalidAccountOwner);
+        }
+        let swap_token_a = TokenAccount::from_account_info(ctx.swap_token_a)?;
+        if swap_token_a.mint().ne(&config.mint_a) {
+            msg! {"swap_token_a: invalid mint"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let swap_token_b = TokenAccount::from_account_info(ctx.swap_token_b)?;
+        if swap_token_b.mint().ne(&config.mint_b) {
+            msg! {"swap_token_b: invalid mint"};
+            return Err(ProgramError::InvalidAccountData);
         }
         let lp_token_account = TokenAccount::from_account_info(ctx.lp_token_account)?;
         if lp_token_account.mint().ne(&config.lp_mint) {
@@ -134,8 +145,12 @@ pub fn process_pull_spl_token_swap(
     // Get the current slot and time
     let clock = Clock::get()?;
 
-    let (amount_a, amount_b) = match outer_args {
-        PullArgs::SplTokenSwap { amount_a, amount_b } => (*amount_a, *amount_b),
+    let (amount_a, amount_b, maximum_pool_token_amount) = match outer_args {
+        PullArgs::SplTokenSwap {
+            amount_a,
+            amount_b,
+            maximum_pool_token_amount,
+        } => (*amount_a, *amount_b, *maximum_pool_token_amount),
         _ => return Err(ProgramError::InvalidAccountData),
     };
     if amount_a == 0 && amount_b == 0 {
@@ -178,7 +193,6 @@ pub fn process_pull_spl_token_swap(
     let swap_data = inner_ctx.swap.try_borrow_data()?;
     let swap_state = SwapV1Subset::try_from_slice(&swap_data[1..LEN_SWAP_V1_SUBSET + 1])
         .map_err(|_| ProgramError::InvalidInstructionData)?;
-    drop(swap_data);
 
     if swap_state.pool_mint.ne(inner_ctx.lp_mint.key()) {
         msg! {"lp_mint: does not match swap state"};
@@ -209,127 +223,30 @@ pub fn process_pull_spl_token_swap(
         controller,
     )?;
 
-    // Perform SYNC on LP Tokens
+    // Perform Sync to calcualte the updated balances and emit pre-pull accounting events.
+    let (latest_balance_a, latest_balance_b, latest_balance_lp) = sync_spl_token_swap_integration(
+        controller,
+        integration,
+        outer_ctx.controller,
+        outer_ctx.controller_authority,
+        outer_ctx.integration,
+        inner_ctx.swap_token_a,
+        inner_ctx.swap_token_b,
+        inner_ctx.lp_token_account,
+        inner_ctx.lp_mint,
+        inner_ctx.mint_a.key(),
+        inner_ctx.mint_b.key(),
+    )?;
 
-    // Extract the values from the last update
-    let (last_balance_a, last_balance_b, last_balance_lp) = match integration.state {
-        IntegrationState::SplTokenSwap(state) => (
-            state.last_balance_a,
-            state.last_balance_b,
-            state.last_balance_lp as u128,
-        ),
-        _ => return Err(ProgramError::InvalidAccountData),
+    // Track vault balances before withdraw for balance change.
+    let (vault_balance_a_before, vault_balance_b_before) = {
+        (
+            TokenAccount::from_account_info(inner_ctx.vault_a)?.amount(),
+            TokenAccount::from_account_info(inner_ctx.vault_b)?.amount(),
+        )
     };
 
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
-    let lp_mint_supply = lp_mint.supply() as u128;
-    drop(lp_mint);
-
-    // STEP 1: Get the changes due to relative movement between token A and B
-    // LP tokens constant, relative balance of A and B changed
-    // (based on the old number of lp tokens)
-
-    let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
-    let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
-    let swap_token_a_balance = swap_token_a.amount();
-    let swap_token_b_balance = swap_token_b.amount();
-    drop(swap_token_a);
-    drop(swap_token_b);
-
-    let step_1_balance_a: u64;
-    let step_1_balance_b: u64;
-    if last_balance_lp > 0 {
-        step_1_balance_a = (swap_token_a_balance as u128 * last_balance_lp / lp_mint_supply) as u64;
-        step_1_balance_b = (swap_token_b_balance as u128 * last_balance_lp / lp_mint_supply) as u64;
-    } else {
-        step_1_balance_a = 0u64;
-        step_1_balance_b = 0u64;
-    }
-
-    // Emit the accounting events for the change in A and B's relative balances
-    if last_balance_a != step_1_balance_a {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.mint_a.key(),
-                action: AccountingAction::Sync,
-                before: last_balance_a,
-                after: step_1_balance_a,
-            }),
-        )?;
-    }
-    if last_balance_b != step_1_balance_b {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.mint_b.key(),
-                action: AccountingAction::Sync,
-                before: last_balance_b,
-                after: step_1_balance_b,
-            }),
-        )?;
-    }
-
-    // Load in the vault, since it could have an opening balance
-    let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
-    let step_2_balance_lp = lp_token_account.amount() as u128;
-    drop(lp_token_account);
-
-    // STEP 2: If the number of LP tokens changed
-    // We need to account for the change in our claim
-    //  on the underlying A and B tokens as a result of this
-    //  change in LP tokens
-
-    let step_2_balance_a: u64;
-    let step_2_balance_b: u64;
-    if step_2_balance_lp != last_balance_lp {
-        if step_2_balance_lp > 0 {
-            step_2_balance_a =
-                (swap_token_a_balance as u128 * step_2_balance_lp / lp_mint_supply) as u64;
-            step_2_balance_b =
-                (swap_token_b_balance as u128 * step_2_balance_lp / lp_mint_supply) as u64;
-        } else {
-            step_2_balance_a = 0u64;
-            step_2_balance_b = 0u64;
-        }
-        // Emit the accounting events for the change in A and B's relative balances
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.mint_a.key(),
-                action: AccountingAction::Sync,
-                before: step_1_balance_a,
-                after: step_2_balance_a,
-            }),
-        )?;
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.mint_b.key(),
-                action: AccountingAction::Sync,
-                before: step_1_balance_b,
-                after: step_2_balance_b,
-            }),
-        )?;
-    } else {
-        // No change
-        step_2_balance_a = step_1_balance_a;
-        step_2_balance_b = step_1_balance_b;
-    }
-
-    // Carry out the actual deposit logic
+    // Carry out the actual withdraw logic
     //  CPI'ing into the SPL Token Swap program
     if amount_a > 0 {
         withdraw_single_token_type_exact_amount_out_cpi(
@@ -349,9 +266,10 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.lp_mint,
             inner_ctx.lp_token_account,
             inner_ctx.mint_a,
-            inner_ctx.lp_mint_token_program,
             inner_ctx.mint_a_token_program,
+            inner_ctx.lp_mint_token_program,
             inner_ctx.swap_fee_account,
+            maximum_pool_token_amount,
         )?;
     }
     if amount_b > 0 {
@@ -372,78 +290,68 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.lp_mint,
             inner_ctx.lp_token_account,
             inner_ctx.mint_b,
-            inner_ctx.lp_mint_token_program,
             inner_ctx.mint_b_token_program,
+            inner_ctx.lp_mint_token_program,
             inner_ctx.swap_fee_account,
+            maximum_pool_token_amount,
         )?;
     }
+
+    // Calculate the change in vault balances.
+    // We must use the amounts in the TokenAccounts to ensure
+    // proper accounting when TransferFee is enabled OR
+    // withdrawal is not exact amount.
+    let (vault_balance_a_after, vault_balance_b_after) = {
+        (
+            TokenAccount::from_account_info(inner_ctx.vault_a)?.amount(),
+            TokenAccount::from_account_info(inner_ctx.vault_b)?.amount(),
+        )
+    };
+    let vault_balance_a_delta = vault_balance_a_after
+        .checked_sub(vault_balance_a_before)
+        .unwrap();
+    let vault_balance_b_delta = vault_balance_b_after
+        .checked_sub(vault_balance_b_before)
+        .unwrap();
 
     // Refresh values for LP Mint supply, LP tokens held
     //  and swap pool owned balances for tokens a and b
     let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
-    let post_deposit_balance_lp = lp_token_account.amount() as u128;
+    let post_withdraw_balance_lp = lp_token_account.amount();
     let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
-    let lp_mint_supply = lp_mint.supply() as u128;
-    drop(lp_mint);
+    let lp_mint_supply = lp_mint.supply();
 
     let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
     let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
-    let delta_lp = step_2_balance_lp
-        .checked_sub(post_deposit_balance_lp)
+    let delta_lp = latest_balance_lp
+        .checked_sub(post_withdraw_balance_lp)
         .unwrap();
 
     // Determine the share of the pool's a and b tokens that we have a claim on
-    let post_deposit_balance_a: u64;
-    let post_deposit_balance_b: u64;
-    if post_deposit_balance_lp > 0 {
-        post_deposit_balance_a =
-            (swap_token_a.amount() as u128 * post_deposit_balance_lp / lp_mint_supply) as u64;
-        post_deposit_balance_b =
-            (swap_token_b.amount() as u128 * post_deposit_balance_lp / lp_mint_supply) as u64;
+    let post_withdraw_balance_a: u64;
+    let post_withdraw_balance_b: u64;
+    if post_withdraw_balance_lp > 0 {
+        post_withdraw_balance_a = calculate_prorated_balance(
+            swap_token_a.amount(),
+            post_withdraw_balance_lp,
+            lp_mint_supply,
+        );
+        post_withdraw_balance_b = calculate_prorated_balance(
+            swap_token_b.amount(),
+            post_withdraw_balance_lp,
+            lp_mint_supply,
+        );
     } else {
-        post_deposit_balance_a = 0u64;
-        post_deposit_balance_b = 0u64;
-    }
-    drop(swap_token_a);
-    drop(swap_token_b);
-
-    // Emit the accounting event
-    if step_2_balance_a != post_deposit_balance_a {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.mint_a.key(),
-                action: AccountingAction::Withdrawal,
-                before: step_2_balance_a,
-                after: post_deposit_balance_a,
-            }),
-        )?;
-    }
-    // Emit the accounting event
-    if step_2_balance_b != post_deposit_balance_b {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.mint_b.key(),
-                action: AccountingAction::Withdrawal,
-                before: step_2_balance_b,
-                after: post_deposit_balance_b,
-            }),
-        )?;
+        post_withdraw_balance_a = 0u64;
+        post_withdraw_balance_b = 0u64;
     }
 
     // Update the state for the Pre-Push changes
     match &mut integration.state {
         IntegrationState::SplTokenSwap(state) => {
-            state.last_balance_a = post_deposit_balance_a;
-            state.last_balance_b = post_deposit_balance_b;
-            state.last_balance_lp = post_deposit_balance_lp as u64;
+            state.last_balance_a = post_withdraw_balance_a;
+            state.last_balance_b = post_withdraw_balance_b;
+            state.last_balance_lp = post_withdraw_balance_lp as u64;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
@@ -454,11 +362,42 @@ pub fn process_pull_spl_token_swap(
     integration.update_rate_limit_for_inflow(clock, delta_lp as u64)?;
 
     // Update the reserves for the flows
-    if amount_a > 0 {
-        reserve_a.update_for_inflow(clock, amount_a)?;
+    if vault_balance_a_delta > 0 {
+        reserve_a.update_for_inflow(clock, vault_balance_a_delta)?;
     }
-    if amount_b > 0 {
-        reserve_b.update_for_inflow(clock, amount_b)?;
+    if vault_balance_b_delta > 0 {
+        reserve_b.update_for_inflow(clock, vault_balance_b_delta)?;
+    }
+
+    // Emit the accounting event
+    if latest_balance_a != post_withdraw_balance_a {
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: *outer_ctx.integration.key(),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Withdrawal,
+                before: latest_balance_a,
+                after: post_withdraw_balance_a,
+            }),
+        )?;
+    }
+    // Emit the accounting event
+    if latest_balance_b != post_withdraw_balance_b {
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: *outer_ctx.integration.key(),
+                mint: *inner_ctx.mint_b.key(),
+                action: AccountingAction::Withdrawal,
+                before: latest_balance_b,
+                after: post_withdraw_balance_b,
+            }),
+        )?;
     }
 
     Ok(())

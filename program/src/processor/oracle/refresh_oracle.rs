@@ -12,7 +12,7 @@ use pinocchio::{
     ProgramResult,
 };
 use pinocchio_log::log;
-use switchboard_on_demand::{PullFeedAccountData, PRECISION};
+use switchboard_on_demand::{Discriminator, PullFeedAccountData};
 
 define_account_struct! {
     pub struct RefreshOracle<'info> {
@@ -24,7 +24,7 @@ define_account_struct! {
 pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     msg!("refresh_oracle");
     let ctx = RefreshOracle::from_accounts(accounts)?;
-    let oracle = &mut Oracle::load_and_check_mut(ctx.oracle)?;
+    let oracle = &mut Oracle::load_and_check(ctx.oracle)?;
 
     // Read only from first feed in current implementation.
     let feed = &oracle.feeds[0];
@@ -36,7 +36,12 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
 
     match feed.oracle_type {
         0 => {
-            let data_source: &PullFeedAccountData = bytemuck::from_bytes(&feed_account[8..]);
+            if &feed_account[..8] != PullFeedAccountData::DISCRIMINATOR {
+                msg!("Invalid PullFeedAccount discriminator");
+                return Err(ProgramError::InvalidAccountData);
+            }
+            let data_source: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
+                .map_err(|_| ProgramError::InvalidAccountData)?;
             let price = data_source.result.value;
             let update_slot = data_source.result.slot;
 
@@ -45,20 +50,7 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
                 return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
             }
 
-            // Let P = precision of price and X = Price in decimals
-            // Price is stored in data feed as X * (10^P).
-            // By inverting, we want to get 1/X * (10^P)
-            // = 10^P / X = 10^(2*P) / (X * 10^P)
-            if feed.invert_price {
-                oracle.value = 10_i128
-                    .checked_pow(PRECISION * 2)
-                    .unwrap()
-                    .checked_div(price)
-                    .unwrap();
-            } else {
-                oracle.value = price;
-            }
-            oracle.precision = PRECISION;
+            oracle.value = price;
             oracle.last_update_slot = update_slot;
         }
         _ => {

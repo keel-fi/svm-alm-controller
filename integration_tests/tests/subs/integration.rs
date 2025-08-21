@@ -39,6 +39,7 @@ use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
         InitializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,
+        ResetLzPushInFlightBuilder,
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
@@ -56,7 +57,7 @@ pub fn derive_integration_pda(controller_pda: &Pubkey, hash: &[u8; 32]) -> Pubke
 }
 
 pub fn fetch_integration_account(
-    svm: &mut LiteSVM,
+    svm: &LiteSVM,
     integration_pda: &Pubkey,
 ) -> Result<Option<Integration>, Box<dyn Error>> {
     let info = svm.get_account(integration_pda);
@@ -325,7 +326,7 @@ pub fn initialize_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(integration_pda)
-        .lookup_table(system_program::ID) // TODO: Add this in the future
+        .lookup_table(system_program::ID)
         .add_remaining_accounts(remaining_accounts)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
@@ -450,6 +451,11 @@ pub async fn push_integration(
     integration: &Pubkey,
     authority: &Keypair,
     push_args: &PushArgs,
+    // Having assertions in here is convenient, but prevents
+    // us from being able to assert against edge cases. This
+    // flag will skip all assertions and simply return
+    // the tx_result.
+    skip_assertions: bool,
 ) -> Result<TransactionResult, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
@@ -617,11 +623,6 @@ pub async fn push_integration(
                 &c.mint_b,
                 &token_program_b,
             );
-            let vault_lp = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.lp_mint,
-                &token_program_lp,
-            );
             let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
             let swap_token_a = get_associated_token_address_with_program_id(
                 &swap_authority,
@@ -632,11 +633,6 @@ pub async fn push_integration(
                 &swap_authority,
                 &c.mint_b,
                 &token_program_b,
-            );
-            let swap_fee_account = get_associated_token_address_with_program_id(
-                &NOVA_TOKEN_SWAP_FEE_OWNER,
-                &c.lp_mint,
-                &token_program_lp,
             );
             (
                 reserve_a_pda,
@@ -716,11 +712,6 @@ pub async fn push_integration(
                         pubkey: swap_authority,
                         is_signer: false,
                         is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: swap_fee_account,
-                        is_signer: false,
-                        is_writable: true,
                     },
                 ],
                 &[],
@@ -900,6 +891,13 @@ pub async fn push_integration(
             }
             post_ixns.push(send_ix.clone());
 
+            // Clean up instruction
+            let reset_ix = ResetLzPushInFlightBuilder::new()
+                .controller(*controller)
+                .integration(*integration)
+                .instruction();
+            post_ixns.push(reset_ix);
+
             (
                 reserve_pda,
                 reserve_pda, // repeat since only one required
@@ -978,6 +976,11 @@ pub async fn push_integration(
     );
 
     let tx_result = svm.send_transaction(txn);
+
+    if skip_assertions {
+        return Ok(tx_result);
+    }
+
     if tx_result.is_err() {
         println!("{:#?}", tx_result.clone().unwrap().logs);
     } else {
@@ -988,6 +991,8 @@ pub async fn push_integration(
         .expect("Failed to fetch reserve account")
         .unwrap();
 
+    let integration_rate_limit_diff = integration_account.rate_limit_outflow_amount_available
+        - integration_after.rate_limit_outflow_amount_available;
     // Checks afterwards
     match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
@@ -1074,6 +1079,10 @@ pub async fn push_integration(
             );
         }
         IntegrationConfig::LzBridge(ref c) => {
+            let amount = match push_args {
+                PushArgs::LzBridge { amount } => *amount,
+                _ => panic!("No push args"),
+            };
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
                 &controller_authority,
@@ -1083,6 +1092,10 @@ pub async fn push_integration(
             let reserve_a_after = fetch_reserve_account(svm, &reserve_pda)
                 .expect("Failed to fetch reserve account")
                 .unwrap();
+            let reserve_rate_limit_diff = reserve_a_before
+                .unwrap()
+                .rate_limit_outflow_amount_available
+                - reserve_a_after.rate_limit_outflow_amount_available;
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
             let vault_a_delta = vault_a_balance_before
                 .checked_sub(vault_a_balance_after)
@@ -1093,8 +1106,8 @@ pub async fn push_integration(
                 PushArgs::LzBridge { amount } => *amount,
                 _ => panic!("Invalid type"),
             };
-            println!("{:?}", integration_after);
-            println!("{:?}", other_vault_delta);
+            assert_eq!(integration_rate_limit_diff, amount);
+            assert_eq!(reserve_rate_limit_diff, amount);
             assert_eq!(
                 vault_a_delta, expected_amount,
                 "Vault balance should have reduced by the amount"
@@ -1116,7 +1129,12 @@ pub fn pull_integration(
     integration: &Pubkey,
     authority: &Keypair,
     pull_args: &PullArgs,
-) -> Result<(), Box<dyn Error>> {
+    // Having assertions in here is convenient, but prevents
+    // us from being able to assert against edge cases. This
+    // flag will skip all assertions and simply return
+    // the tx_result.
+    skip_assertions: bool,
+) -> Result<TransactionResult, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 
@@ -1181,11 +1199,6 @@ pub fn pull_integration(
                     &controller_authority,
                     &c.mint_b,
                     &token_program_b,
-                );
-                let vault_lp = get_associated_token_address_with_program_id(
-                    &controller_authority,
-                    &c.lp_mint,
-                    &token_program_lp,
                 );
                 let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
                 let swap_token_a = get_associated_token_address_with_program_id(
@@ -1317,8 +1330,11 @@ pub fn pull_integration(
     );
 
     let tx_result = svm.send_transaction(txn);
+    if skip_assertions {
+        return Ok(tx_result);
+    }
     if tx_result.is_err() {
-        println!("{:#?}", tx_result.unwrap().logs);
+        println!("{:#?}", tx_result.clone().unwrap().logs);
     } else {
         assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
@@ -1359,5 +1375,5 @@ pub fn pull_integration(
         _ => panic!("Not configured"),
     };
 
-    Ok(())
+    Ok(tx_result)
 }

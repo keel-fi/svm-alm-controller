@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::acc_info_as_str;
+use crate::{acc_info_as_str, error::SvmAlmControllerErrors};
 use alloc::vec::Vec;
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
@@ -17,10 +17,10 @@ pub trait NovaAccount: Discriminator + BorshDeserialize + BorshSerialize {
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError>;
 
     fn verify_pda(&self, acc_info: &AccountInfo) -> Result<(), ProgramError> {
-        let (controller_pda, _controller_bump) = self.derive_pda()?;
-        if acc_info.key().ne(&controller_pda) {
-            log!("PDA Mismatch for {}", acc_info_as_str!(acc_info));
-            return Err(ProgramError::InvalidSeeds);
+        let (pda, _bump) = self.derive_pda()?;
+        if acc_info.key().ne(&pda) {
+            log!("PDA mismatch for {}", acc_info_as_str!(acc_info));
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
         Ok(())
     }
@@ -29,7 +29,7 @@ pub trait NovaAccount: Discriminator + BorshDeserialize + BorshSerialize {
     fn save(&self, account_info: &AccountInfo) -> Result<(), ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         let mut serialized = Vec::with_capacity(Self::DISCRIMINATOR_SIZE + Self::LEN);

@@ -1,17 +1,35 @@
+#[cfg(not(feature = "verbose"))]
+use pinocchio::default_panic_handler;
 use pinocchio::{
-    account_info::AccountInfo, entrypoint, program_error::ProgramError, pubkey::Pubkey,
-    ProgramResult,
+    account_info::AccountInfo, default_allocator, program_entrypoint, program_error::ProgramError,
+    pubkey::Pubkey, ProgramResult,
 };
 
+#[cfg(feature = "verbose")]
+use crate::dev_panic_handler;
 use crate::{
     constants::ATOMIC_SWAP_REPAY_IX_DISC,
-    integrations::atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
+    integrations::{
+        atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
+        lz_bridge::reset_lz_push_in_flight::{
+            process_reset_lz_push_in_flight, RESET_LZ_PUSH_IN_FLIGHT_DISC,
+        },
+    },
     processor::{
-        process_emit_event, process_initialize_controller, process_initialize_integration, process_initialize_oracle, process_initialize_reserve, process_manage_controller, process_manage_integration, process_manage_permission, process_manage_reserve, process_pull, process_push, process_refresh_oracle, process_sync_integration, process_sync_reserve, process_update_oracle
+        process_emit_event, process_initialize_controller, process_initialize_integration,
+        process_initialize_oracle, process_initialize_reserve, process_manage_controller,
+        process_manage_integration, process_manage_permission, process_manage_reserve,
+        process_pull, process_push, process_refresh_oracle, process_sync_integration,
+        process_sync_reserve, process_update_oracle,
     },
 };
 
-entrypoint!(process_instruction);
+program_entrypoint!(process_instruction, { pinocchio::MAX_TX_ACCOUNTS });
+default_allocator!();
+#[cfg(not(feature = "verbose"))]
+default_panic_handler!();
+#[cfg(feature = "verbose")]
+dev_panic_handler!();
 
 pub fn process_instruction(
     program_id: &Pubkey,
@@ -42,6 +60,9 @@ pub fn process_instruction(
         &ATOMIC_SWAP_REPAY_IX_DISC => {
             process_atomic_swap_repay(program_id, accounts, instruction_data)
         } // 16
+        &RESET_LZ_PUSH_IN_FLIGHT_DISC => {
+            process_reset_lz_push_in_flight(program_id, accounts, instruction_data)
+        }
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

@@ -15,6 +15,8 @@ pub struct AtomicSwapRepay {
 
     pub controller: solana_program::pubkey::Pubkey,
 
+    pub controller_authority: solana_program::pubkey::Pubkey,
+
     pub authority: solana_program::pubkey::Pubkey,
 
     pub permission: solana_program::pubkey::Pubkey,
@@ -54,12 +56,16 @@ impl AtomicSwapRepay {
         &self,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(16 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(17 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.controller_authority,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -153,24 +159,26 @@ impl Default for AtomicSwapRepayInstructionData {
 ///
 ///   0. `[writable, signer]` payer
 ///   1. `[]` controller
-///   2. `[signer]` authority
-///   3. `[]` permission
-///   4. `[writable]` integration
-///   5. `[writable]` reserve_a
-///   6. `[writable]` vault_a
-///   7. `[]` mint_a
-///   8. `[writable]` reserve_b
-///   9. `[writable]` vault_b
-///   10. `[]` mint_b
-///   11. `[]` oracle
-///   12. `[writable]` payer_account_a
-///   13. `[writable]` payer_account_b
-///   14. `[]` token_program_a
-///   15. `[]` token_program_b
+///   2. `[]` controller_authority
+///   3. `[signer]` authority
+///   4. `[]` permission
+///   5. `[writable]` integration
+///   6. `[writable]` reserve_a
+///   7. `[writable]` vault_a
+///   8. `[]` mint_a
+///   9. `[writable]` reserve_b
+///   10. `[writable]` vault_b
+///   11. `[]` mint_b
+///   12. `[]` oracle
+///   13. `[writable]` payer_account_a
+///   14. `[writable]` payer_account_b
+///   15. `[]` token_program_a
+///   16. `[]` token_program_b
 #[derive(Clone, Debug, Default)]
 pub struct AtomicSwapRepayBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
     controller: Option<solana_program::pubkey::Pubkey>,
+    controller_authority: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
     integration: Option<solana_program::pubkey::Pubkey>,
@@ -200,6 +208,14 @@ impl AtomicSwapRepayBuilder {
     #[inline(always)]
     pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -307,6 +323,9 @@ impl AtomicSwapRepayBuilder {
         let accounts = AtomicSwapRepay {
             payer: self.payer.expect("payer is not set"),
             controller: self.controller.expect("controller is not set"),
+            controller_authority: self
+                .controller_authority
+                .expect("controller_authority is not set"),
             authority: self.authority.expect("authority is not set"),
             permission: self.permission.expect("permission is not set"),
             integration: self.integration.expect("integration is not set"),
@@ -332,6 +351,8 @@ pub struct AtomicSwapRepayCpiAccounts<'a, 'b> {
     pub payer: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -371,6 +392,8 @@ pub struct AtomicSwapRepayCpi<'a, 'b> {
 
     pub controller: &'b solana_program::account_info::AccountInfo<'a>,
 
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub permission: &'b solana_program::account_info::AccountInfo<'a>,
@@ -409,6 +432,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             __program: program,
             payer: accounts.payer,
             controller: accounts.controller,
+            controller_authority: accounts.controller_authority,
             authority: accounts.authority,
             permission: accounts.permission,
             integration: accounts.integration,
@@ -459,13 +483,17 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(16 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(17 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.controller_authority.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -538,10 +566,11 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(17 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(18 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
+        account_infos.push(self.controller_authority.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.permission.clone());
         account_infos.push(self.integration.clone());
@@ -574,20 +603,21 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
 ///
 ///   0. `[writable, signer]` payer
 ///   1. `[]` controller
-///   2. `[signer]` authority
-///   3. `[]` permission
-///   4. `[writable]` integration
-///   5. `[writable]` reserve_a
-///   6. `[writable]` vault_a
-///   7. `[]` mint_a
-///   8. `[writable]` reserve_b
-///   9. `[writable]` vault_b
-///   10. `[]` mint_b
-///   11. `[]` oracle
-///   12. `[writable]` payer_account_a
-///   13. `[writable]` payer_account_b
-///   14. `[]` token_program_a
-///   15. `[]` token_program_b
+///   2. `[]` controller_authority
+///   3. `[signer]` authority
+///   4. `[]` permission
+///   5. `[writable]` integration
+///   6. `[writable]` reserve_a
+///   7. `[writable]` vault_a
+///   8. `[]` mint_a
+///   9. `[writable]` reserve_b
+///   10. `[writable]` vault_b
+///   11. `[]` mint_b
+///   12. `[]` oracle
+///   13. `[writable]` payer_account_a
+///   14. `[writable]` payer_account_b
+///   15. `[]` token_program_a
+///   16. `[]` token_program_b
 #[derive(Clone, Debug)]
 pub struct AtomicSwapRepayCpiBuilder<'a, 'b> {
     instruction: Box<AtomicSwapRepayCpiBuilderInstruction<'a, 'b>>,
@@ -599,6 +629,7 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
             __program: program,
             payer: None,
             controller: None,
+            controller_authority: None,
             authority: None,
             permission: None,
             integration: None,
@@ -628,6 +659,14 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
         controller: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
@@ -790,6 +829,11 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
 
             controller: self.instruction.controller.expect("controller is not set"),
 
+            controller_authority: self
+                .instruction
+                .controller_authority
+                .expect("controller_authority is not set"),
+
             authority: self.instruction.authority.expect("authority is not set"),
 
             permission: self.instruction.permission.expect("permission is not set"),
@@ -845,6 +889,7 @@ struct AtomicSwapRepayCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
     payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,

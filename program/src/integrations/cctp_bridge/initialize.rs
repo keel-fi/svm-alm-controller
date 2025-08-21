@@ -1,4 +1,5 @@
 use crate::{
+    constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
@@ -7,7 +8,7 @@ use crate::{
         config::CctpBridgeConfig,
         state::CctpBridgeState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
 };
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
@@ -16,8 +17,8 @@ define_account_struct! {
       mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
       local_token;
       remote_token_messenger;
-      cctp_message_transmitter;
-      cctp_token_messenger_minter;
+      cctp_message_transmitter @pubkey(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID);
+      cctp_token_messenger_minter @pubkey(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
   }
 }
 
@@ -26,6 +27,10 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
         let ctx = InitializeCctpBridgeAccounts::from_accounts(account_infos)?;
+
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.mint)?;
+
         if !ctx
             .local_token
             .is_owned_by(ctx.cctp_token_messenger_minter.key())

@@ -170,21 +170,27 @@ pub enum SvmAlmControllerInstruction {
     /// Atomic swap repay
     #[account(0, signer, writable, name = "payer")]
     #[account(1, name = "controller")]
-    #[account(2, signer, name = "authority")]
-    #[account(3, name = "permission")]
-    #[account(4, writable, name = "integration")]
-    #[account(5, writable, name = "reserve_a")]
-    #[account(6, writable, name = "vault_a")]
-    #[account(7, name = "mint_a")]
-    #[account(8, writable, name = "reserve_b")]
-    #[account(9, writable, name = "vault_b")]
-    #[account(10, name = "mint_b")]
-    #[account(11, name = "oracle")]
-    #[account(12, writable, name = "payer_account_a")]
-    #[account(13, writable, name = "payer_account_b")]
-    #[account(14, name = "token_program_a")]
-    #[account(15, name = "token_program_b")]
+    #[account(2, name = "controller_authority")]
+    #[account(3, signer, name = "authority")]
+    #[account(4, name = "permission")]
+    #[account(5, writable, name = "integration")]
+    #[account(6, writable, name = "reserve_a")]
+    #[account(7, writable, name = "vault_a")]
+    #[account(8, name = "mint_a")]
+    #[account(9, writable, name = "reserve_b")]
+    #[account(10, writable, name = "vault_b")]
+    #[account(11, name = "mint_b")]
+    #[account(12, name = "oracle")]
+    #[account(13, writable, name = "payer_account_a")]
+    #[account(14, writable, name = "payer_account_b")]
+    #[account(15, name = "token_program_a")]
+    #[account(16, name = "token_program_b")]
     AtomicSwapRepay,
+
+    #[account(0, name = "controller")]
+    #[account(1, writable, name = "integration")]
+    #[account(2, writable, name = "sysvar_instruction")]
+    ResetLzPushInFlight,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -253,7 +259,6 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
-    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -264,7 +269,6 @@ pub struct UpdateOracleArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct FeedArgs {
     pub oracle_type: u8,
-    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -283,6 +287,7 @@ pub enum InitializeArgs {
         max_slippage_bps: u16,
         max_staleness: u64,
         expiry_timestamp: i64,
+        oracle_price_inverted: bool,
     },
 }
 
@@ -294,16 +299,30 @@ pub struct SyncIntegrationArgs {}
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PushArgs {
-    SplTokenExternal { amount: u64 },
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
-    CctpBridge { amount: u64 },
-    LzBridge { amount: u64 },
+    SplTokenExternal {
+        amount: u64,
+    },
+    SplTokenSwap {
+        amount_a: u64,
+        amount_b: u64,
+        minimum_pool_token_amount: u64,
+    },
+    CctpBridge {
+        amount: u64,
+    },
+    LzBridge {
+        amount: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PullArgs {
     SplTokenExternal,
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
+    SplTokenSwap {
+        amount_a: u64,
+        amount_b: u64,
+        maximum_pool_token_amount: u64,
+    },
     CctpBridge,
     LzBridge,
 }
@@ -311,5 +330,4 @@ pub enum PullArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct AtomicSwapBorrowArgs {
     pub amount: u64,
-    pub repay_excess_token_a: bool,
 }

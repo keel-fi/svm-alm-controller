@@ -6,7 +6,6 @@ use crate::subs::{
 };
 use helpers::lite_svm_with_programs;
 use solana_sdk::{signature::Keypair, signer::Signer};
-use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus, SplTokenSwapConfig,
 };
@@ -161,10 +160,9 @@ mod tests {
 
         // Initialize an Integration
 
-        let usds_susds_lp_vault_pk = get_associated_token_address_with_program_id(
-            &controller_authority,
+        let usds_susds_lp_vault_pk = svm_alm_controller_client::derive_spl_token_swap_lp_pda(
+            &controller_pk,
             &usds_susds_lp_mint_pk,
-            &pinocchio_token::ID.into(),
         );
 
         let usdc_external_integration_pk = initialize_integration(
@@ -188,6 +186,24 @@ mod tests {
             &InitializeArgs::SplTokenSwap,
         )?;
 
+        let tx_res = push_integration(
+            &mut svm,
+            &controller_pk,
+            &usdc_external_integration_pk,
+            &authority,
+            &PushArgs::SplTokenSwap {
+                amount_a: 100_000_000,
+                amount_b: 120_000_000,
+                minimum_pool_token_amount: u64::MAX,
+            },
+            true,
+        )
+        .await?;
+        assert!(
+            tx_res.is_err(),
+            "TX should have errored with too much slippage"
+        );
+
         // Push the integration -- Add Liquidity to the swap pool
         push_integration(
             &mut svm,
@@ -197,9 +213,29 @@ mod tests {
             &PushArgs::SplTokenSwap {
                 amount_a: 100_000_000,
                 amount_b: 120_000_000,
+                minimum_pool_token_amount: 0,
             },
+            false,
         )
-        .await?;
+        .await?
+        .unwrap();
+
+        let tx_res = pull_integration(
+            &mut svm,
+            &controller_pk,
+            &usdc_external_integration_pk,
+            &authority,
+            &PullArgs::SplTokenSwap {
+                amount_a: 50_000_000,
+                amount_b: 60_000_000,
+                maximum_pool_token_amount: 0,
+            },
+            true,
+        )?;
+        assert!(
+            tx_res.is_err(),
+            "TX should have errored with too much slippage"
+        );
 
         // Pull the integration -- Withdraw liquidity from the swap pool
         pull_integration(
@@ -210,8 +246,11 @@ mod tests {
             &PullArgs::SplTokenSwap {
                 amount_a: 50_000_000,
                 amount_b: 60_000_000,
+                maximum_pool_token_amount: u64::MAX,
             },
-        )?;
+            false,
+        )?
+        .unwrap();
 
         Ok(())
     }

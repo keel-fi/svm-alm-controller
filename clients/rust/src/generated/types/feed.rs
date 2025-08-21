@@ -18,7 +18,6 @@ pub struct Feed {
     )]
     pub price_feed: Pubkey,
     pub oracle_type: u8,
-    pub invert_price: bool,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub reserved: [u8; 62],
+    pub reserved: [u8; 63],
 }

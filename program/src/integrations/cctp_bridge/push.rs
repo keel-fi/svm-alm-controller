@@ -30,7 +30,7 @@ define_account_struct! {
         remote_token_messenger;
         token_minter;
         local_token;
-        message_sent_event_data;
+        message_sent_event_data: signer;
         cctp_message_transmitter;
         cctp_token_messenger_minter;
         event_authority;
@@ -69,9 +69,19 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg! {"cctp_message_transmitter: does not match config"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if ctx.mint.key().ne(&config.mint) {
-            msg! {"mint: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
+        if !ctx
+            .remote_token_messenger
+            .is_owned_by(&config.cctp_token_messenger_minter)
+        {
+            msg! {"remote_token_messenger: invalid owner"};
+            return Err(ProgramError::IllegalOwner);
+        }
+        if !ctx
+            .local_token
+            .is_owned_by(&config.cctp_token_messenger_minter)
+        {
+            msg! {"local_token: invalid owner"};
+            return Err(ProgramError::IllegalOwner);
         }
 
         Ok(ctx)
@@ -203,7 +213,7 @@ pub fn process_push_cctp_bridge(
     // No state transitions for CctpBridge
 
     // Update the reserve for the outflow
-    reserve.update_for_outflow(clock, amount)?;
+    reserve.update_for_outflow(clock, amount, false)?;
 
     // Emit the accounting event
     controller.emit_event(

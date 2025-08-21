@@ -42,6 +42,7 @@ pub(crate) mod r#spl_token_external_state;
 pub(crate) mod r#spl_token_swap_config;
 pub(crate) mod r#spl_token_swap_state;
 pub(crate) mod r#svm_alm_controller_event;
+pub(crate) mod r#swap_event;
 pub(crate) mod r#swap_v1_subset;
 pub(crate) mod r#withdraw_single_token_type_exact_amount_out_args;
 
@@ -82,5 +83,6 @@ pub use self::r#spl_token_external_state::*;
 pub use self::r#spl_token_swap_config::*;
 pub use self::r#spl_token_swap_state::*;
 pub use self::r#svm_alm_controller_event::*;
+pub use self::r#swap_event::*;
 pub use self::r#swap_v1_subset::*;
 pub use self::r#withdraw_single_token_type_exact_amount_out_args::*;

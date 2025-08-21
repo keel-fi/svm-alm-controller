@@ -11,28 +11,31 @@ use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AtomicSwapConfig {
+pub struct SwapEvent {
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub input_token: Pubkey,
+    pub controller: Pubkey,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub output_token: Pubkey,
+    pub integration: Pubkey,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub oracle: Pubkey,
-    pub max_staleness: u64,
-    pub expiry_timestamp: i64,
-    pub max_slippage_bps: u16,
-    pub input_mint_decimals: u8,
-    pub output_mint_decimals: u8,
-    pub oracle_price_inverted: bool,
-    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 107],
+    pub input_mint: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub output_mint: Pubkey,
+    pub input_amount: u64,
+    pub output_amount: u64,
+    pub input_balance_before: u64,
+    pub input_balance_after: u64,
+    pub output_balance_before: u64,
+    pub output_balance_after: u64,
 }

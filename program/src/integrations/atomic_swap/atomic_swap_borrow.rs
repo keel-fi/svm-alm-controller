@@ -133,7 +133,7 @@ pub fn process_atomic_swap_borrow(
     let clock = Clock::get()?;
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
+    let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
     if reserve_a.vault.ne(ctx.vault_a.key()) || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -141,7 +141,7 @@ pub fn process_atomic_swap_borrow(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
+    let mut reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
     if reserve_b.vault.ne(ctx.vault_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
@@ -164,7 +164,7 @@ pub fn process_atomic_swap_borrow(
     )?;
 
     // Check that Integration account is valid and matches controller.
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
     if integration.status != IntegrationStatus::Active {
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
     }
@@ -206,7 +206,6 @@ pub fn process_atomic_swap_borrow(
             state.amount_borrowed = args.amount;
             state.recipient_token_a_pre = recipient_token_a_account.amount();
             state.recipient_token_b_pre = recipient_token_b_account.amount();
-            state.repay_excess_token_a = args.repay_excess_token_a;
         }
 
         // Transfer borrow amount of tokens from vault to recipient.
@@ -234,7 +233,7 @@ pub fn process_atomic_swap_borrow(
 
     // NOTE: ok to use the amount from arguments as not Token Extension
     // configuration sends more or less than the requested amount.
-    reserve_a.update_for_outflow(clock, args.amount)?;
+    reserve_a.update_for_outflow(clock, args.amount, false)?;
     reserve_a.save(ctx.reserve_a)?;
     reserve_b.save(ctx.reserve_b)?;
 

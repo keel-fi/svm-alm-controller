@@ -2,13 +2,13 @@ use super::swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET};
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    integrations::spl_token_swap::shared_sync::sync_spl_token_swap_integration,
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
-use pinocchio_token_interface::{Mint, TokenAccount};
+use pinocchio_token_interface::TokenAccount;
 
 define_account_struct! {
     pub struct SyncSplTokenSwapAccounts<'info> {
@@ -72,9 +72,6 @@ pub fn process_sync_spl_token_swap(
         outer_ctx.remaining_accounts,
     )?;
 
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
-    let lp_mint_supply = lp_mint.supply() as u128;
-
     // Load in the Pool state and verify the accounts
     //  w.r.t it's stored state
     let swap_data = inner_ctx.swap.try_borrow_data()?;
@@ -100,130 +97,35 @@ pub fn process_sync_spl_token_swap(
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
-    // Extract the values from the last update
-    let (last_balance_a, last_balance_b, last_balance_lp) = match integration.state {
-        IntegrationState::SplTokenSwap(state) => (
-            state.last_balance_a,
-            state.last_balance_b,
-            state.last_balance_lp as u128,
-        ),
-        _ => return Err(ProgramError::InvalidAccountData),
-    };
-
-    // STEP 1: Get the changes due to relative movement between token A and B
-    // LP tokens constant, relative balance of A and B changed
-    // (based on the old number of lp tokens)
-
-    let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
-    let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
-
-    let step_1_balance_a: u64;
-    let step_1_balance_b: u64;
-    if last_balance_lp > 0 {
-        step_1_balance_a =
-            (swap_token_a.amount() as u128 * last_balance_lp / lp_mint_supply) as u64;
-        step_1_balance_b =
-            (swap_token_b.amount() as u128 * last_balance_lp / lp_mint_supply) as u64;
-    } else {
-        step_1_balance_a = 0u64;
-        step_1_balance_b = 0u64;
-    }
-    // Emit the accounting events for the change in A and B's relative balances
-    if last_balance_a != step_1_balance_a {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: mint_a_key,
-                action: AccountingAction::Sync,
-                before: last_balance_a,
-                after: step_1_balance_a,
-            }),
-        )?;
-    }
-    if last_balance_b != step_1_balance_b {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: mint_b_key,
-                action: AccountingAction::Sync,
-                before: last_balance_b,
-                after: step_1_balance_b,
-            }),
-        )?;
-    }
-
-    // Load in the vault, since it could have an opening balance
-    let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
-    let new_balance_lp = lp_token_account.amount() as u128;
-
-    // STEP 2: If the number of LP tokens changed
-    // We need to account for the change in our claim
-    //  on the underlying A and B tokens as a result of this
-    //  change in LP tokens
-
-    let step_2_balance_a: u64;
-    let step_2_balance_b: u64;
-    if new_balance_lp != last_balance_lp {
-        if new_balance_lp > 0 {
-            step_2_balance_a =
-                (swap_token_a.amount() as u128 * new_balance_lp / lp_mint_supply) as u64;
-            step_2_balance_b =
-                (swap_token_b.amount() as u128 * new_balance_lp / lp_mint_supply) as u64;
-        } else {
-            step_2_balance_a = 0u64;
-            step_2_balance_b = 0u64;
-        }
-        // Emit the accounting events for the change in A and B's relative balances
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: mint_a_key,
-                action: AccountingAction::Sync,
-                before: step_1_balance_a,
-                after: step_2_balance_a,
-            }),
-        )?;
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: mint_b_key,
-                action: AccountingAction::Sync,
-                before: step_1_balance_b,
-                after: step_2_balance_b,
-            }),
-        )?;
-    } else {
-        // No change
-        step_2_balance_a = step_1_balance_a;
-        step_2_balance_b = step_1_balance_b;
-    }
+    // Calcualte the updated balances and emit accounting events.
+    let (latest_balance_a, latest_balance_b, latest_balance_lp) = sync_spl_token_swap_integration(
+        controller,
+        integration,
+        outer_ctx.controller,
+        outer_ctx.controller_authority,
+        outer_ctx.integration,
+        inner_ctx.swap_token_a,
+        inner_ctx.swap_token_b,
+        inner_ctx.lp_token_account,
+        inner_ctx.lp_mint,
+        &mint_a_key,
+        &mint_b_key,
+    )?;
 
     // Update the state
     match &mut integration.state {
         IntegrationState::SplTokenSwap(state) => {
             // Prevent spamming/ddos attacks -- since the sync ixn is permissionless
             //  calling this repeatedly could bombard the program and indevers
-            if state.last_balance_a == step_2_balance_a
-                && state.last_balance_b == step_2_balance_b
-                && state.last_balance_lp == new_balance_lp as u64
+            if state.last_balance_a == latest_balance_a
+                && state.last_balance_b == latest_balance_b
+                && state.last_balance_lp == latest_balance_lp
             {
-                return Err(ProgramError::InvalidInstructionData.into());
+                return Err(ProgramError::InvalidAccountData.into());
             }
-            state.last_balance_a = step_2_balance_a;
-            state.last_balance_b = step_2_balance_b;
-            state.last_balance_lp = new_balance_lp as u64;
+            state.last_balance_a = latest_balance_a;
+            state.last_balance_b = latest_balance_b;
+            state.last_balance_lp = latest_balance_lp;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }

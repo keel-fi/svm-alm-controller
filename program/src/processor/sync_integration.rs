@@ -38,7 +38,7 @@ pub fn process_sync_integration(
     let controller = Controller::load_and_check(ctx.controller)?;
 
     // Load in controller state
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     // Refresh the rate limits
     integration.refresh_rate_limit(clock)?;
@@ -49,7 +49,7 @@ pub fn process_sync_integration(
         IntegrationConfig::SplTokenSwap(_config) => {
             process_sync_spl_token_swap(&controller, &mut integration, &ctx)?
         }
-        // TODO: More integration types to be supported
+        // More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };
 

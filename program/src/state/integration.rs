@@ -1,9 +1,9 @@
 use super::discriminator::{AccountDiscriminators, Discriminator};
 use crate::{
-    constants::{INTEGRATION_SEED, SECONDS_PER_DAY},
+    constants::INTEGRATION_SEED,
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
     error::SvmAlmControllerErrors,
-    processor::shared::create_pda_account,
+    processor::shared::{calculate_rate_limit_increment, create_pda_account},
     state::nova_account::NovaAccount,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -12,7 +12,7 @@ use pinocchio::{
     instruction::Seed,
     msg,
     program_error::ProgramError,
-    pubkey::{find_program_address, Pubkey},
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
 use shank::ShankAccount;
@@ -44,6 +44,11 @@ pub struct Integration {
     pub rate_limit_max_outflow: u64,
     /// The current amount of tokens able to outflow (i.e. Integration "Pushes") on a rolling window basis
     pub rate_limit_outflow_amount_available: u64,
+    /// Remainder from previous refresh. This is necessary to avoid DOS
+    /// of the Reserve via the rate limit when the `rate_limit_max_outflow`
+    /// is set to a low value requiring longer time lapses before incrementing
+    /// the available outflow amount.
+    pub rate_limit_remainder: u64,
     /// Timestamp when the Integration was last updated
     pub last_refresh_timestamp: i64,
     /// The Solana slot where the Integration was last updated
@@ -52,7 +57,7 @@ pub struct Integration {
     pub config: IntegrationConfig,
     /// Integration specific state (i.e. LP balances)
     pub state: IntegrationState,
-    pub _padding: [u8; 64],
+    pub _padding: [u8; 56],
 }
 
 impl Discriminator for Integration {
@@ -63,22 +68,23 @@ impl NovaAccount for Integration {
     const LEN: usize = 4 * 32 + 1 + 5 * 8 + 225 + 49 + 64;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
-        let (pda, bump) = find_program_address(
+        try_find_program_address(
             &[
                 INTEGRATION_SEED,
                 self.controller.as_ref(),
                 self.hash.as_ref(),
             ],
             &crate::ID,
-        );
-        Ok((pda, bump))
+        )
+        .ok_or(ProgramError::InvalidSeeds)
     }
 }
 
 impl Integration {
     pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+            msg!("Controller does not match Integration controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -89,26 +95,11 @@ impl Integration {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 
         let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-        integration.check_data(controller)?;
-        integration.verify_pda(account_info)?;
-        Ok(integration)
-    }
-
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo,
-        controller: &Pubkey,
-    ) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;
@@ -143,15 +134,17 @@ impl Integration {
             rate_limit_slope,
             rate_limit_max_outflow,
             rate_limit_outflow_amount_available: rate_limit_max_outflow,
+            rate_limit_remainder: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 64],
+            _padding: [0; 56],
         };
 
         // Derive the PDA
         let (pda, bump) = integration.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Integration PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into()); // PDA was invalid
         }
 
         // Account creation PDA
@@ -166,10 +159,10 @@ impl Integration {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
 
         // Commit the account on-chain
@@ -183,6 +176,7 @@ impl Integration {
         account_info: &AccountInfo,
         status: Option<IntegrationStatus>,
         lookup_table: Option<Pubkey>,
+        description: Option<[u8; 32]>,
         rate_limit_slope: Option<u64>,
         rate_limit_max_outflow: Option<u64>,
     ) -> Result<(), ProgramError> {
@@ -198,6 +192,9 @@ impl Integration {
         }
         if let Some(rate_limit_slope) = rate_limit_slope {
             self.rate_limit_slope = rate_limit_slope;
+        }
+        if let Some(description) = description {
+            self.description = description;
         }
         if let Some(rate_limit_max_outflow) = rate_limit_max_outflow {
             let gap = self
@@ -217,22 +214,22 @@ impl Integration {
     }
 
     pub fn refresh_rate_limit(&mut self, clock: Clock) -> Result<(), ProgramError> {
-        if self.rate_limit_max_outflow == u64::MAX
-            || self.last_refresh_timestamp == clock.unix_timestamp
+        if self.rate_limit_max_outflow != u64::MAX
+            && self.last_refresh_timestamp != clock.unix_timestamp
         {
-            () // Do nothing
-        } else {
-            let increment = (self.rate_limit_slope as u128
-                * clock
-                    .unix_timestamp
-                    .checked_sub(self.last_refresh_timestamp)
-                    .unwrap() as u128
-                / SECONDS_PER_DAY as u128) as u64;
+            let (increment, remainder) = calculate_rate_limit_increment(
+                clock.unix_timestamp,
+                self.last_refresh_timestamp,
+                self.rate_limit_slope,
+                self.rate_limit_remainder,
+            );
             self.rate_limit_outflow_amount_available = self
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
+            self.rate_limit_remainder = remainder;
         }
+
         self.last_refresh_timestamp = clock.unix_timestamp;
         self.last_refresh_slot = clock.slot;
         Ok(())
