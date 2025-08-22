@@ -55,6 +55,8 @@ pub enum SvmAlmControllerErrors {
     InvalidInstructionIndex,
     // 25.
     InvalidReserve,
+    // 26.
+    DataNotChangedSinceLastSync,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {
