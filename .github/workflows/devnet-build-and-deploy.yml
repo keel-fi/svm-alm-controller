@@ -81,6 +81,8 @@ jobs:
           name: svm_alm_controller.so
       - name: Download Solana CLI
         run: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+      - name: Add Solana CLI to path
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       - name: Create temporary hot wallet keypair
         run: echo "${{ secrets.HOT_WALLET }}" > hot_wallet.json
       - name: Create program buffer keypair
