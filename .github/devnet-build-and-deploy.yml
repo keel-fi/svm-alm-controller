@@ -3,10 +3,15 @@ name: Devnet Build and Prepare Release
 # This does NOT upgrade the program, but instead stages the program
 # in buffer ready for upgrade by the ultimate upgrade authority.
 
+# on:
+#   push:
+#     tags:
+#       - 'devnet-v*'
+
 on:
   push:
-    tags:
-      - 'devnet-v*'
+    branches:
+      - ci
 
 concurrency:
   group: ${{ github.workflow }}
