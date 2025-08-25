@@ -1,0 +1,83 @@
+name: Devnet Build and Prepare Release
+# Writes the verifiable build to a newly created program buffer.
+# This does NOT upgrade the program, but instead stages the program
+# in buffer ready for upgrade by the ultimate upgrade authority.
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'devnet-v*'
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  security_audit:
+    name: security_audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install cargo-audit from crates.io
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-audit
+      - run: cargo audit --ignore RUSTSEC-2022-0093 --ignore RUSTSEC-2023-0065 --ignore RUSTSEC-2024-0344 --ignore RUSTSEC-2024-0421
+
+  verified_build:
+    name: verified_build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker pull --platform linux/amd64 solanafoundation/solana-verifiable-build:2.1.13
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install solana-verify from crates.io
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: solana-verify
+      - name: Build svm-alm-controller with verifiable build
+        run: solana-verify build --library-name svm-alm-controller --base-image solanafoundation/solana-verifiable-build:2.1.13
+      - name: Upload svm-alm-controller
+        uses: actions/upload-artifact@v4
+        with:
+          name: svm-alm-controller.so
+          path: target/deploy/svm-alm-controller.so
+
+  # release only runs on tagged commits
+  # it should wait for all the other steps to finish, to ensure releases are the highest quality
+  # after waiting, it will download the verified build and IDL from the verified_build step and release the artifacts
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - security_audit
+      - verified_build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: svm-alm-controller.so
+      - name: Download Solana CLI
+        uses: metadaoproject/setup-solana@v1.0
+      - name: Create temporary hot wallet keypair
+        run: echo "${{ secrets.HOT_WALLET }}" > hot_wallet.json
+      - name: Create program buffer keypair
+        id: create-program-buffer
+        run: |
+          solana-keygen new --no-passphrase -o buffer.json && \
+          echo "buffer-key=$(solana-keygen pubkey ./buffer.json)" >> "$GITHUB_OUTPUT"
+      - name: Write program to new buffer
+        run: solana program write-buffer ./target/deploy/svm-alm-controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url devnet --keypair ./hot_wallet.json
+      - name: release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body: |
+            Program buffer: ${{ steps.create-program-buffer.outputs.buffer-key }}
+          files: |
+            svm-alm-controller.so
