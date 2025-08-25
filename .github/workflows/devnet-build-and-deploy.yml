@@ -40,11 +40,11 @@ jobs:
           crate: solana-verify
       - name: Build svm-alm-controller with verifiable build
         run: solana-verify build --library-name svm-alm-controller --base-image solanafoundation/solana-verifiable-build:2.1.13
+        continue-on-error: true
       - name: Upload svm-alm-controller
         uses: actions/upload-artifact@v4
         # prev step successfully builds, but errors parsing output.
         # We should continue to attempt to upload the artifact.
-        if: success() || failure()
         with:
           name: svm-alm-controller.so
           path: target/deploy/svm-alm-controller.so
