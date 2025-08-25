@@ -43,17 +43,11 @@ jobs:
         # step successfully builds, but errors parsing output.
         # We should continue to attempt to upload the artifact.
         continue-on-error: true
-      - name: TEST 1
-        run: ls
-      - name: TEST 2
-        run: ls ./target
-      - name: TEST 3
-        run: ls ./target/deploy
       - name: Upload svm-alm-controller
         uses: actions/upload-artifact@v4
         with:
-          name: svm-alm-controller.so
-          path: ./target/deploy/svm-alm-controller.so
+          name: svm_alm_controller.so
+          path: ./target/deploy/svm_alm_controller.so
 
   test_build:
     name: Test verifiable build
@@ -64,8 +58,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: svm-alm-controller.so
-          path: ./target/deploy/svm-alm-controller.so
+          name: svm_alm_controller.so
+          path: ./target/deploy/svm_alm_controller.so
       - name: Test verifiable build
         run: cargo test
 
@@ -82,7 +76,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: svm-alm-controller.so
+          name: svm_alm_controller.so
       - name: Download Solana CLI
         uses: metadaoproject/setup-solana@v1.0
       - name: Create temporary hot wallet keypair
@@ -93,12 +87,12 @@ jobs:
           solana-keygen new --no-passphrase -o buffer.json && \
           echo "buffer-key=$(solana-keygen pubkey ./buffer.json)" >> "$GITHUB_OUTPUT"
       - name: Write program to new buffer
-        run: solana program write-buffer ./target/deploy/svm-alm-controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url devnet --keypair ./hot_wallet.json
-      - name: release
+        run: solana program write-buffer ./svm_alm_controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url devnet --keypair ./hot_wallet.json
+      - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           body: |
             Program buffer: ${{ steps.create-program-buffer.outputs.buffer-key }}
           files: |
-            svm-alm-controller.so
+            svm_alm_controller.so
