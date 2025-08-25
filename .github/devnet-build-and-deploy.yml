@@ -3,9 +3,6 @@ name: Devnet Build and Prepare Release
 # This does NOT upgrade the program, but instead stages the program
 # in buffer ready for upgrade by the ultimate upgrade authority.
 
-permissions:
-  contents: write
-
 on:
   push:
     tags:
