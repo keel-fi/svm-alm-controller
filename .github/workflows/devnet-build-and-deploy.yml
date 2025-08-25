@@ -29,7 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker pull --platform linux/amd64 solanafoundation/solana-verifiable-build:2.1.13
+      - name: Install solana-verify dependencies
+        run: sudo apt-get install libudev-dev
+      - name: Pull solana-verifiable-build Docker image
+        run: docker pull --platform linux/amd64 solanafoundation/solana-verifiable-build:2.1.13
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Install solana-verify from crates.io
         uses: baptiste0928/cargo-install@v3
