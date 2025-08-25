@@ -71,6 +71,7 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-latest
+    environment: devnet
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
@@ -93,7 +94,7 @@ jobs:
           solana-keygen new --no-passphrase -o buffer.json && \
           echo "buffer-key=$(solana-keygen pubkey ./buffer.json)" >> "$GITHUB_OUTPUT"
       - name: Write program to new buffer
-        run: solana program write-buffer ./svm_alm_controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url devnet --keypair ./hot_wallet.json
+        run: solana program write-buffer ./svm_alm_controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url ${{ vars.RPC_URL || 'devnet' }} --keypair ./hot_wallet.json
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
