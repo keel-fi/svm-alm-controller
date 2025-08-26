@@ -26,7 +26,6 @@ use solana_program::pubkey;
 use solana_sdk::{
     compute_budget::ComputeBudgetInstruction,
     instruction::{AccountMeta, Instruction},
-    msg,
     pubkey::Pubkey,
     signature::{Keypair, Signer},
     system_program, sysvar,
@@ -34,7 +33,6 @@ use solana_sdk::{
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
-use svm_alm_controller::state::controller;
 use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
@@ -44,7 +42,6 @@ use svm_alm_controller_client::generated::{
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
         InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PullArgs, PushArgs,
-        SplTokenExternalConfig,
     },
 };
 

@@ -14,18 +14,25 @@ use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, Rese
 #[cfg(test)]
 mod tests {
 
-    use svm_alm_controller_client::generated::types::PullArgs;
+    use solana_sdk::{program_pack::Pack, transaction::Transaction};
+    use spl_token_2022::{instruction::mint_to, state::Mint};
+    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller_client::generated::types::{IntegrationState, PullArgs};
 
     use crate::{
-        helpers::constants::NOVA_TOKEN_SWAP_PROGRAM_ID,
-        subs::{derive_controller_authority_pda, initialize_swap, pull_integration},
+        helpers::{assert::assert_custom_error, constants::NOVA_TOKEN_SWAP_PROGRAM_ID},
+        subs::{
+            create_sync_spl_token_swap_ix, derive_controller_authority_pda,
+            fetch_integration_account, fetch_spl_token_swap_account, fetch_token_account,
+            initialize_swap, pull_integration,
+        },
     };
 
     use super::*;
 
     #[tokio::test]
 
-    async fn initialize_controller_and_token_swap() -> Result<(), Box<dyn std::error::Error>> {
+    async fn spl_token_swap_push_pull_sync_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -146,6 +153,9 @@ mod tests {
             1_000_000_000, // 1k
         )?;
 
+        let mut pool_liquidity_a = 1_000_000;
+        let mut pool_liquidity_b = 1_000_000;
+
         // Initialize a token swap for the pair
         let (usds_susds_swap_pk, usds_susds_lp_mint_pk) = initialize_swap(
             &mut svm,
@@ -154,8 +164,8 @@ mod tests {
             &usds_mint,
             &susds_mint,
             &NOVA_TOKEN_SWAP_PROGRAM_ID,
-            1_000_000,
-            1_000_000,
+            pool_liquidity_a,
+            pool_liquidity_b,
         )?;
 
         // Initialize an Integration
@@ -205,14 +215,18 @@ mod tests {
         );
 
         // Push the integration -- Add Liquidity to the swap pool
+        let integration_liquidity_a = 100_000_000;
+        pool_liquidity_a += integration_liquidity_a;
+        let integration_liquidity_b = 120_000_000;
+        pool_liquidity_b += integration_liquidity_b;
         push_integration(
             &mut svm,
             &controller_pk,
             &usdc_external_integration_pk,
             &authority,
             &PushArgs::SplTokenSwap {
-                amount_a: 100_000_000,
-                amount_b: 120_000_000,
+                amount_a: integration_liquidity_a,
+                amount_b: integration_liquidity_b,
                 minimum_pool_token_amount: 0,
             },
             false,
@@ -238,19 +252,115 @@ mod tests {
         );
 
         // Pull the integration -- Withdraw liquidity from the swap pool
+        let integration_withdraw_liquidity_a = 50_000_000;
+        pool_liquidity_a -= integration_withdraw_liquidity_a;
+        let integration_withdraw_liquidity_b = 60_000_000;
+        pool_liquidity_b -= integration_withdraw_liquidity_b;
         pull_integration(
             &mut svm,
             &controller_pk,
             &usdc_external_integration_pk,
             &authority,
             &PullArgs::SplTokenSwap {
-                amount_a: 50_000_000,
-                amount_b: 60_000_000,
+                amount_a: integration_withdraw_liquidity_a,
+                amount_b: integration_withdraw_liquidity_b,
                 maximum_pool_token_amount: u64::MAX,
             },
             false,
         )?
         .unwrap();
+
+        let pool = fetch_spl_token_swap_account(&svm, &usds_susds_swap_pk)
+            .unwrap()
+            .unwrap();
+        let lp_mint_acct = svm.get_account(&usds_susds_lp_mint_pk).unwrap();
+        let lp_mint = Mint::unpack(&lp_mint_acct.data).unwrap();
+
+        let integration_before = fetch_integration_account(&svm, &usdc_external_integration_pk)
+            .unwrap()
+            .unwrap();
+        let integration_state_before = match &integration_before.state {
+            IntegrationState::SplTokenSwap(state) => state,
+            _ => panic!("Invalid integration state"),
+        };
+
+        let sync_ix = create_sync_spl_token_swap_ix(
+            &controller_pk,
+            &usdc_external_integration_pk,
+            &usds_susds_swap_pk,
+            &usds_susds_lp_mint_pk,
+            &usds_susds_lp_vault_pk,
+            &pool.token_a,
+            &pool.token_b,
+        );
+
+        // Sync TX with unchanged IntegrationState should error to
+        // prevent DOS on Integration account.
+        let txn = Transaction::new_signed_with_payer(
+            &[sync_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::DataNotChangedSinceLastSync,
+        );
+
+        // Mint USDS (aka token A to Liquidity prior to sync)
+        let pool_token_a_increase = 10_000_000;
+        pool_liquidity_a += pool_token_a_increase;
+        let mint_a_ix = mint_to(
+            &spl_token::ID,
+            &usds_mint,
+            &pool.token_a,
+            &authority.pubkey(),
+            &[&authority.pubkey()],
+            pool_token_a_increase,
+        )?;
+        let txn = Transaction::new_signed_with_payer(
+            &[mint_a_ix, sync_ix],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(txn).unwrap();
+
+        let lp_vault_account_after = fetch_token_account(&svm, &usds_susds_lp_vault_pk);
+        let pool_token_a = fetch_token_account(&svm, &pool.token_a);
+        let pool_token_b = fetch_token_account(&svm, &pool.token_b);
+
+        assert_eq!(pool_token_a.amount, pool_liquidity_a);
+        assert_eq!(pool_token_b.amount, pool_liquidity_b);
+
+        let expected_token_a_balance =
+            pool_liquidity_a * lp_vault_account_after.amount / lp_mint.supply;
+        let expected_token_b_balance =
+            pool_liquidity_b * lp_vault_account_after.amount / lp_mint.supply;
+
+        let integration_after = fetch_integration_account(&svm, &usdc_external_integration_pk)
+            .unwrap()
+            .unwrap();
+        let integration_state_after = match &integration_after.state {
+            IntegrationState::SplTokenSwap(state) => state,
+            _ => panic!("Invalid integration state"),
+        };
+
+        // Assert Integration state changes
+        assert_eq!(
+            integration_state_before.last_balance_lp, integration_state_after.last_balance_lp,
+            "LP balance should not change"
+        );
+        assert_eq!(
+            expected_token_a_balance,
+            integration_state_after.last_balance_a,
+        );
+        assert_eq!(
+            expected_token_b_balance,
+            integration_state_after.last_balance_b,
+        );
 
         Ok(())
     }

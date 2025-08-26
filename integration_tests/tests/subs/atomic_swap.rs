@@ -14,7 +14,7 @@ use svm_alm_controller_client::generated::instructions::{
 
 use crate::subs::{derive_controller_authority_pda, derive_reserve_pda};
 
-pub fn fetch_token_account(svm: &mut LiteSVM, token_account: &Pubkey) -> Account {
+pub fn fetch_token_account(svm: &LiteSVM, token_account: &Pubkey) -> Account {
     let info = svm.get_account(token_account).unwrap();
     Account::unpack(&info.data[..Account::LEN]).unwrap()
 }

@@ -2,6 +2,7 @@ use super::swap_state::{SwapV1Subset, LEN_SWAP_V1_SUBSET};
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
+    error::SvmAlmControllerErrors,
     integrations::spl_token_swap::shared_sync::sync_spl_token_swap_integration,
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration},
@@ -121,7 +122,7 @@ pub fn process_sync_spl_token_swap(
                 && state.last_balance_b == latest_balance_b
                 && state.last_balance_lp == latest_balance_lp
             {
-                return Err(ProgramError::InvalidAccountData.into());
+                return Err(SvmAlmControllerErrors::DataNotChangedSinceLastSync.into());
             }
             state.last_balance_a = latest_balance_a;
             state.last_balance_b = latest_balance_b;

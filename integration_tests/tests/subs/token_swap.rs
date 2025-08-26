@@ -1,9 +1,10 @@
 use crate::helpers::constants::NOVA_TOKEN_SWAP_FEE_OWNER;
+use crate::subs::derive_controller_authority_pda;
 use crate::subs::{
     spl_token::{initialize_ata, initialize_mint},
     transfer_tokens,
 };
-use borsh::BorshSerialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use litesvm::LiteSVM;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -13,6 +14,9 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::error::Error;
+use svm_alm_controller::state::integration;
+use svm_alm_controller_client::generated::instructions::SyncBuilder;
+use svm_alm_controller_client::generated::types::SwapV1Subset;
 
 const SWAP_LEN: usize = 414;
 
@@ -62,6 +66,27 @@ impl Initialize {
 pub fn derive_swap_authority_pda_and_bump(swap: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     let (pda, bump) = Pubkey::find_program_address(&[&swap.to_bytes()], &program_id);
     (pda, bump)
+}
+
+pub const LEN_SWAP_V1_SUBSET: usize = 7 * 32 + 1 + 1;
+
+pub fn fetch_spl_token_swap_account(
+    svm: &LiteSVM,
+    swap_pool: &Pubkey,
+) -> Result<Option<SwapV1Subset>, Box<dyn Error>> {
+    let info = svm.get_account(swap_pool);
+    match info {
+        Some(info) => {
+            if info.data.is_empty() {
+                Ok(None)
+            } else {
+                SwapV1Subset::try_from_slice(&info.data[1..LEN_SWAP_V1_SUBSET + 1])
+                    .map(Some)
+                    .map_err(Into::into)
+            }
+        }
+        None => Ok(None),
+    }
 }
 
 pub fn initialize_swap(
@@ -229,4 +254,32 @@ pub fn initialize_swap(
     // assert_eq!(mint.freeze_authority, freeze_authority.map(|fa| COption::Some(*fa)).unwrap_or(COption::None), "Incorrect freeze_authority");
 
     Ok((swap_pk, lp_mint_pk))
+}
+
+pub fn create_sync_spl_token_swap_ix(
+    controller: &Pubkey,
+    integration: &Pubkey,
+    swap_pool: &Pubkey,
+    lp_mint: &Pubkey,
+    lp_token_account: &Pubkey,
+    swap_token_account_a: &Pubkey,
+    swap_token_account_b: &Pubkey,
+) -> Instruction {
+    let controller_authority = derive_controller_authority_pda(controller);
+
+    let remaining_accounts = vec![
+        AccountMeta::new_readonly(*swap_pool, false),
+        AccountMeta::new_readonly(*lp_mint, false),
+        AccountMeta::new_readonly(*lp_token_account, false),
+        AccountMeta::new_readonly(*swap_token_account_a, false),
+        AccountMeta::new_readonly(*swap_token_account_b, false),
+    ];
+
+    SyncBuilder::new()
+        .controller(*controller)
+        .controller_authority(controller_authority)
+        .integration(*integration)
+        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
+        .add_remaining_accounts(&remaining_accounts)
+        .instruction()
 }
