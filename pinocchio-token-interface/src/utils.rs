@@ -148,7 +148,7 @@ const MULTISIG_LEN: usize = 355;
 /// extensions is exactly the size of a multisig
 const fn adjust_len_for_multisig(account_len: usize) -> usize {
     if account_len == MULTISIG_LEN {
-        account_len.saturating_add(size_of::<ExtensionType>())
+        account_len.saturating_add(core::mem::size_of::<ExtensionType>())
     } else {
         account_len
     }
