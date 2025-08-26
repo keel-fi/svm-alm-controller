@@ -88,6 +88,9 @@ jobs:
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       - name: Create temporary hot wallet keypair
         run: echo "${{ secrets.HOT_WALLET }}" > hot_wallet.json
+      - name: Attempt to airdrop Devnet Sol to hot wallet
+        run: solana airdrop 5 $(solana-keygen pubkey ./hot_wallet.json) --url devnet
+        continue-on-error: true # ignore errors
       - name: Create program buffer keypair
         id: create-program-buffer
         run: |
