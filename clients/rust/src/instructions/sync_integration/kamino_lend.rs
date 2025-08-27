@@ -16,7 +16,39 @@ use crate::{
     SVM_ALM_CONTROLLER_ID,
 };
 
-pub fn get_kamino_sync_ix(
+/// Creates a `Sync` instruction for a **Kamino Lend integration** under the
+/// SVM ALM Controller program.
+///
+/// This instruction synchronizes the controller’s accounting with Kamino and harvests rewards.
+///
+/// # Parameters
+///
+/// - `controller`: The controller account that owns the integration.
+/// - `integration`: The integration PDA for this Kamino Lend integration
+/// - `authority`: The authority allowed to perform the pull.
+/// - `kamino_config`: Configuration object describing the Kamino market, reserve, and farm accounts.
+/// - `rewards_mint`: Mint of the reward token to claim.
+/// - `global_config`: Global config account from Kamino Farms.
+/// - `rewards_ata`: Recipient ATA for harvested rewards.
+/// - `scope_prices`: Scope price oracle account used for reward harvest.
+/// - `rewards_token_program`: Token program for `rewards_mint`.
+///
+/// # Derived Accounts
+///
+/// Internally derives:
+/// - **Controller Authority PDA**.
+/// - **Vault ATA**.
+/// - **Reserve PDA**.
+/// - **Obligation Farm PDA**.
+/// - **Rewards Vault PDA**.
+/// - **Rewards Treasury Vault PDA**.
+/// - **Farms Vault Authority PDA**.
+///
+/// # Returns
+///
+/// - `Instruction`: A fully constructed Solana instruction ready to submit.
+///
+pub fn create_sync_kamino_lend_ix(
     controller: &Pubkey,
     integration: &Pubkey,
     authority: &Pubkey,

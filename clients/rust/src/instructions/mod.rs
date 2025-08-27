@@ -1,4 +1,5 @@
-pub mod initialize;
-pub mod pull;
-pub mod push;
-pub mod sync;
+pub mod initialize_integration;
+pub mod pull_integration;
+pub mod push_integration;
+pub mod sync_integration;
+ 

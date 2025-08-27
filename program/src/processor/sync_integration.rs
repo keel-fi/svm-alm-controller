@@ -42,9 +42,6 @@ pub fn process_sync_integration(
     // Refresh the rate limits
     integration.refresh_rate_limit(clock)?;
 
-    // Load in the reserve account (kamino only handles one reserve)
-    let mut reserve = Reserve::load_and_check_mut(ctx.reserve, ctx.controller.key())?;
-
     // Depending on the integration, there may be an
     //  inner (integration-specific) sync logic to call
     match integration.config {
@@ -54,6 +51,10 @@ pub fn process_sync_integration(
         IntegrationConfig::UtilizationMarket(c) => {
             match c {
                 UtilizationMarketConfig::KaminoConfig(_config) => {
+                    // Load in the reserve account (kamino only handles one reserve)
+                    let mut reserve 
+                        = Reserve::load_and_check_mut(ctx.reserve, ctx.controller.key())?;
+
                     process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?
                 }
             }

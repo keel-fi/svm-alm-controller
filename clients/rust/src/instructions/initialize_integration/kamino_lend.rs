@@ -23,7 +23,50 @@ use crate::{
     SVM_ALM_CONTROLLER_ID,
 };
 
-pub fn get_kamino_init_ix(
+/// Creates an `InitializeIntegration` instruction for a **Kamino Lend integration** under the
+/// SVM ALM Controller program.
+///
+/// This instruction sets up a new integration between the controller and the Kamino Lend protocol,
+/// registering the configuration, rate limits, and metadata. It prepares all the required PDAs and
+/// account references (obligations, reserves, farms, lookup tables, etc.) and returns both the
+/// constructed `Instruction` and the derived integration PDA.
+///
+/// # Parameters
+///
+/// - `controller`: The controller account that will own the integration.
+/// - `payer`: The account funding the initialization transaction.
+/// - `authority`: The authority allowed to manage this integration.
+/// - `description`: A string description of the integration (truncated/padded to 32 bytes).
+/// - `status`: Initial status of the integration (e.g. Active/Suspended).
+/// - `rate_limit_slope`: The rate limit slope parameter for the integration.
+/// - `rate_limit_max_outflow`: The maximum rate limit outflow for the integration.
+/// - `config`: Integration configuration. Must be of type `IntegrationConfig::UtilizationMarket::Kamino`.
+/// - `slot`: The current slot, used for deriving the lookup table PDA.
+/// - `obligation_id`: An identifier for the Kamino obligation.
+/// - `referrer`: Pubkey of a referrer (optional, has to set to KLEND_PROGRAM_ID for None)
+///
+/// # Derived Accounts
+///
+/// Internally derives:
+/// - **Integration PDA**.
+/// - **Permission PDA**.
+/// - **Controller Authority PDA**.
+/// - **User Metadata PDA**.
+/// - **User Lookup Table PDA**.
+/// - **Obligation Farm PDAs**.
+/// - **Market Authority PDA**.
+///
+/// # Returns
+///
+/// - `(Instruction, Pubkey)` tuple where:
+///   - `Instruction`: The fully built Solana instruction ready to be sent.
+///   - `Pubkey`: The integration PDA associated with this Kamino Lend integration.
+///
+/// # Panics
+///
+/// This function will panic if `config` is not of type
+/// `IntegrationConfig::UtilizationMarket::Kamino`.
+pub fn create_initialize_kamino_lend_integration_ix(
     controller: &Pubkey,
     payer: &Pubkey,
     authority: &Pubkey,
@@ -34,6 +77,7 @@ pub fn get_kamino_init_ix(
     config: &IntegrationConfig,
     slot: u64,
     obligation_id: u8,
+    referrer: &Pubkey,
 ) -> (Instruction, Pubkey) {
     let calling_permission_pda = derive_permission_pda(controller, authority);
     let controller_authority = derive_controller_authority_pda(controller);
@@ -85,7 +129,7 @@ pub fn get_kamino_init_ix(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: KAMINO_LEND_PROGRAM_ID,
+            pubkey: *referrer,
             is_signer: false,
             is_writable: false,
         },

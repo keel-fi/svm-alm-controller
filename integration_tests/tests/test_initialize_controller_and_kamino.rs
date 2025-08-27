@@ -58,7 +58,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn initialize_controller_and_kamino_integration() -> Result<(), Box<dyn std::error::Error>> {
+    async fn kamino_integration_initialize_push_pull_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
         set_kamino_accounts(&mut svm);
         let usdc_mint = USDC_TOKEN_MINT_PUBKEY;
@@ -260,7 +260,7 @@ mod tests {
             &kamino_integration_pk,
             &authority, 
             &kamino_config, 
-            900_000_000
+            10_000_000
         )?;
 
 

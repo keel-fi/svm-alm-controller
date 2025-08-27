@@ -189,11 +189,6 @@ pub fn process_initialize_kamino(
             outer_ctx.controller_authority.key(), 
             inner_ctx.market.key()
         )?;
-
-        if obligation.is_deposits_full() {
-            msg! {"obligation: invalid obligation, collateral deposit slots are full"}
-            return Err(ProgramError::InvalidAccountData)
-        }
     }
 
     // initialize obligation farm for the reserve we are targeting,

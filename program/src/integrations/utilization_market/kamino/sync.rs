@@ -15,14 +15,13 @@ use crate::{
     integrations::utilization_market::{
         config::UtilizationMarketConfig, 
         kamino::{
-            config::KaminoConfig, constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
-            cpi::{
+            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, cpi::{
                 derive_farm_vaults_authority, 
                 derive_obligation_farm_address, 
                 derive_rewards_treasury_vault, 
                 derive_rewards_vault, 
                 harvest_reward_cpi
-            }, kamino_state::{FarmState, KaminoReserve, Obligation} 
+            }, kamino_state::{FarmState, KaminoReserve}, shared_sync::sync_kamino_liquidity_value 
         }, 
         state::UtilizationMarketState,
     }, 
@@ -53,10 +52,19 @@ define_account_struct! {
 
 impl<'info> SyncKaminoAccounts<'info> {
     pub fn checked_from_accounts(
-        config: &KaminoConfig,
-        accounts_infos: &'info [AccountInfo]
+        config: &IntegrationConfig,
+        accounts_infos: &'info [AccountInfo],
+        reserve: &Reserve,
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(accounts_infos)?;
+        let config = match config {
+            IntegrationConfig::UtilizationMarket(c) => {
+                match c {
+                    UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
+                }
+            },
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
 
         if config.reserve.ne(ctx.kamino_reserve.key()) {
             msg! {"kamino_reserve: does not match config"};
@@ -110,6 +118,20 @@ impl<'info> SyncKaminoAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
+        // Check consistency between the reserve
+        if ctx.vault.key().ne(&reserve.vault) {
+            msg! {"vault: does not match config"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if !ctx.vault.is_writable() {
+            msg! {"vault: not mutable"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if config.reserve_liquidity_mint.ne(&reserve.mint) {
+            msg! {"mint: mismatch between integration configs"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+
         Ok(ctx)
     }
 }
@@ -129,34 +151,11 @@ pub fn process_sync_kamino(
     outer_ctx: &SyncIntegrationAccounts
 ) -> Result<(), ProgramError> {
     msg!("process_sync_kamino");
-
-    let config = match &integration.config {
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-            }
-        },
-        _ => return Err(ProgramError::InvalidAccountData),
-    };
-
     let inner_ctx = SyncKaminoAccounts::checked_from_accounts(
-        config, 
-        outer_ctx.remaining_accounts
+        &integration.config, 
+        outer_ctx.remaining_accounts,
+        reserve
     )?;
-
-    // Check consistency between the reserve
-    if inner_ctx.vault.key().ne(&reserve.vault) {
-        msg! {"vault: does not match config"};
-        return Err(ProgramError::InvalidAccountData);
-    }
-    if !inner_ctx.vault.is_writable() {
-        msg! {"vault: not mutable"};
-        return Err(ProgramError::InvalidAccountData);
-    }
-    if config.reserve_liquidity_mint.ne(&reserve.mint) {
-        msg! {"mint: mismatch between integration configs"};
-        return Err(ProgramError::InvalidAccountData);
-    }
 
     // Sync the reserve before main logic
     reserve.sync_balance(
@@ -166,16 +165,6 @@ pub fn process_sync_kamino(
         controller,
     )?;
     let post_sync_reserve_balance = reserve.last_balance;
-
-    // get the obligation data of this integration
-    let obligation_state = {
-        let obligation_data = inner_ctx.obligation.try_borrow_data()?;
-        Obligation::try_from(obligation_data.as_ref())?
-    };
-    obligation_state.check_from_accounts(
-        outer_ctx.controller_authority.key(), 
-        &config.market
-    )?;
 
     // get the kamino reserve data
     let kamino_reserve_state = {
@@ -229,7 +218,7 @@ pub fn process_sync_kamino(
         )?;
 
         // if there is a match between the reward_mint and the integration mint, emit event
-        if inner_ctx.rewards_mint.key().eq(&config.reserve_liquidity_mint) {
+        if inner_ctx.rewards_mint.key().eq(&reserve.mint) {
             msg!("reward mint and integration mint match, emitting accounting event");
             let post_transfer_balance = {
                 let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
@@ -251,51 +240,25 @@ pub fn process_sync_kamino(
         }
     }
 
-    // find the corresponding obligationCollateral to this market and its current deposited amount
-    let current_lp_amount = obligation_state
-        .get_obligation_collateral_for_reserve(inner_ctx.kamino_reserve.key())
-        .ok_or(ProgramError::InvalidAccountData)?
-        .deposited_amount;
-
-    // get last collateral amount saved in this integration
-    let last_deposited_liquidity_value = match integration.state {
-        IntegrationState::UtilizationMarket(s) => {
-            match s {
-                UtilizationMarketState::KaminoState(state) => {
-                    state.last_liquidity_value
-                },
-            }
-        },
-        _ => return Err(ProgramError::InvalidAccountData),
-    };
-
-    // calculate the value of the current liquidity deposited (using current collateral amount)
-    let current_liquidity_value 
-        = kamino_reserve_state.collateral_to_liquidity(current_lp_amount);
-
-    // emit event for change in liquidity value
-    if last_deposited_liquidity_value != current_liquidity_value {
-        controller.emit_event(
-            outer_ctx.controller_authority, 
-            outer_ctx.controller.key(), 
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: kamino_reserve_state.liquidity_mint,
-                action: AccountingAction::Sync,
-                before: last_deposited_liquidity_value,
-                after: current_liquidity_value
-            }),
-        )?;
-    }
+    // sync liquidity value and update state
+    let (new_liquidity_value, new_lp_amount) = sync_kamino_liquidity_value(
+        controller, 
+        integration, 
+        outer_ctx.integration.key(), 
+        outer_ctx.controller.key(), 
+        outer_ctx.controller_authority, 
+        &reserve.mint, 
+        inner_ctx.kamino_reserve, 
+        inner_ctx.obligation
+    )?;
 
     // update the state
     match &mut integration.state {
         IntegrationState::UtilizationMarket(s) => {
             match s {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.last_liquidity_value = current_liquidity_value;
-                    kamino_state.last_lp_amount = current_lp_amount;
+                    kamino_state.last_liquidity_value = new_liquidity_value;
+                    kamino_state.last_lp_amount = new_lp_amount;
                 },
             }
         },
