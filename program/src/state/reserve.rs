@@ -60,7 +60,7 @@ impl Discriminator for Reserve {
 }
 
 impl NovaAccount for Reserve {
-    const LEN: usize = 32 * 3 + 8 * 6 + 1 + 128;
+    const LEN: usize = 3 * 32 + 1 + 7 * 8 + 120;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
