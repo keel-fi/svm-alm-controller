@@ -19,15 +19,15 @@ pub enum InitializeArgs {
             feature = "serde",
             serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
         )]
-        desination_address: Pubkey,
-        desination_domain: u32,
+        destination_address: Pubkey,
+        destination_domain: u32,
     },
     LzBridge {
         #[cfg_attr(
             feature = "serde",
             serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
         )]
-        desination_address: Pubkey,
+        destination_address: Pubkey,
         destination_eid: u32,
     },
     AtomicSwap {

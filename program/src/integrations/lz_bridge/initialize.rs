@@ -63,9 +63,9 @@ pub fn process_initialize_lz_bridge(
 
     let (desination_address, destination_eid) = match outer_args.inner_args {
         InitializeArgs::LzBridge {
-            desination_address,
+            destination_address,
             destination_eid,
-        } => (desination_address, destination_eid),
+        } => (destination_address, destination_eid),
         _ => return Err(ProgramError::InvalidArgument),
     };
 

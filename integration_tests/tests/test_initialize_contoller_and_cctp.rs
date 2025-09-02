@@ -128,8 +128,8 @@ mod tests {
                 padding: [0; 92],
             }),
             &InitializeArgs::CctpBridge {
-                desination_address: destination_address,
-                desination_domain: CCTP_REMOTE_DOMAIN_ETH,
+                destination_address,
+                destination_domain: CCTP_REMOTE_DOMAIN_ETH,
             },
         )?;
 
@@ -142,7 +142,8 @@ mod tests {
             &PushArgs::CctpBridge { amount: 1_000_000 },
             false,
         )
-        .await?;
+        .await?
+        .unwrap();
 
         Ok(())
     }

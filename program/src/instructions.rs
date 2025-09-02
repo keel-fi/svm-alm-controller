@@ -276,11 +276,11 @@ pub enum InitializeArgs {
     SplTokenExternal,
     SplTokenSwap,
     CctpBridge {
-        desination_address: Pubkey,
-        desination_domain: u32,
+        destination_address: Pubkey,
+        destination_domain: u32,
     },
     LzBridge {
-        desination_address: Pubkey,
+        destination_address: Pubkey,
         destination_eid: u32,
     },
     AtomicSwap {

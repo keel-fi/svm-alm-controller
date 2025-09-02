@@ -2645,11 +2645,11 @@
             "name": "CctpBridge",
             "fields": [
               {
-                "name": "desination_address",
+                "name": "destination_address",
                 "type": "publicKey"
               },
               {
-                "name": "desination_domain",
+                "name": "destination_domain",
                 "type": "u32"
               }
             ]
@@ -2658,7 +2658,7 @@
             "name": "LzBridge",
             "fields": [
               {
-                "name": "desination_address",
+                "name": "destination_address",
                 "type": "publicKey"
               },
               {

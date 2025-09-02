@@ -167,7 +167,7 @@ mod tests {
                 padding: [0; 28],
             }),
             &InitializeArgs::LzBridge {
-                desination_address: destination_address,
+                destination_address,
                 destination_eid: LZ_DESTINATION_DOMAIN_EID,
             },
         )?;
