@@ -8,54 +8,52 @@ pub enum SvmAlmControllerErrors {
     // 1
     InvalidPda,
     // 2
-    InvalidEnum,
-    // 3
     InvalidAccountData,
-    // 4
+    // 3
     UnauthorizedAction,
-    // 5
+    // 4
     ControllerStatusDoesNotPermitAction,
-    // 6
+    // 5
     PermissionStatusDoesNotPermitAction,
-    // 7
+    // 6
     IntegrationStatusDoesNotPermitAction,
-    // 8
+    // 7
     ReserveStatusDoesNotPermitAction,
-    // 9
+    // 8
     StaleOraclePrice,
-    // 10
+    // 9
     UnsupportedOracleType,
-    // 11
+    // 10
     SwapNotStarted,
-    // 12
+    // 11
     SwapHasStarted,
-    // 13
+    // 12
     InvalidSwapState,
-    // 14
+    // 13
     InvalidInstructions,
-    // 15
+    // 14
     SlippageExceeded,
-    // 16
+    // 15
     IntegrationHasExpired,
-    // 17
+    // 16
     RateLimited,
-    // 18
+    // 17
     InvalidControllerAuthority,
-    // 19,
+    // 18
     InvalidPermission,
-    // 20,
+    // 19
     InvalidTokenMintExtension,
-    // 21.
+    // 20
     InvalidAtomicSwapConfiguration,
-    // 22.
+    // 21
     ControllerDoesNotMatchAccountData,
-    // 23.
+    // 22
     LZPushInFlight,
-    // 24.
+    // 23
     InvalidInstructionIndex,
-    // 25.
+    // 24
     InvalidReserve,
-    // 26.
+    // 25
     DataNotChangedSinceLastSync,
 }
 
