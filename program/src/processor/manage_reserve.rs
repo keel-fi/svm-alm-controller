@@ -3,7 +3,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::ManageReserveArgs,
-    state::{nova_account::NovaAccount, Controller, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};

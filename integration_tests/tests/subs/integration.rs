@@ -3,7 +3,7 @@ use crate::{
     helpers::{
         cctp::CctpDepositForBurnPdas,
         constants::{
-            DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER,
+            DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, TOKEN_SWAP_FEE_OWNER,
         },
     },
     subs::{
@@ -1209,7 +1209,7 @@ pub fn pull_integration(
                     &token_program_b,
                 );
                 let swap_fee_account = get_associated_token_address_with_program_id(
-                    &NOVA_TOKEN_SWAP_FEE_OWNER,
+                    &TOKEN_SWAP_FEE_OWNER,
                     &c.lp_mint,
                     &token_program_lp,
                 );

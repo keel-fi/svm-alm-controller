@@ -1,6 +1,6 @@
-# Nova SVM ALM Controller
+# Keel SVM ALM Controller
 
-The Nova SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Nova Star on Solana.
+The Keel SVM ALM (Asset-Liability Management) Controller is intended to facilitate the controlled management of asset and liability positions on behalf of the Keel Star on Solana.
 
 In effect, it is a program-owned address with:
 
@@ -87,8 +87,8 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 #### Key authorities:
 
 - _Sky PauseProxy_ - A PDA controlled exclusively by Sky's PauseProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Sky's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked.
-- _Nova SubProxy_ - A PDA controlled exclusively by Nova's SubProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Nova's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked. Prior to Nova's TGE, this is anticipated to be controlled by a multisig operated by Sky's Governance Operational Executors.
-- _Nova Security Council Multisig_ - A 2/n multisig, where preventative action may be required to quickly respond to an identified or probable security threat.
+- _Keel SubProxy_ - A PDA controlled exclusively by Keel's SubProxy on Ethereum (via Sky's Cross-chain Governance OApp). This is Keel's highest level of on-chain governance and requires sufficient governane vote weight behind a particular 'spell' for the action to be invoked. Prior to Keel's TGE, this is anticipated to be controlled by a multisig operated by Sky's Governance Operational Executors.
+- _Keel Security Council Multisig_ - A 2/n multisig, where preventative action may be required to quickly respond to an identified or probable security threat.
 - _Relayer(s)_ - Externally owned wallet(s), intended to operate day-to-day rebalancing operations.
 
 #### Permission Descriptions:
@@ -104,7 +104,7 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 
 #### Permission Matrix
 
-| Permission                       | Sky PauseProxy | Nova SubProxy | Nova Security Council Multisig | Relayer (Primary) | Relayer (Backup) |
+| Permission                       | Sky PauseProxy | Keel SubProxy | Keel Security Council Multisig | Relayer (Primary) | Relayer (Backup) |
 | -------------------------------- | -------------- | ------------- | ------------------------------ | ----------------- | ---------------- |
 | **can_freeze_controller**        | ✅             | ✅            | ✅                             | ❌                | ❌               |
 | **can_unfreeze_controller**      | ✅             | ❌            | ❌                             | ❌                | ❌               |

@@ -1,6 +1,6 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
     Controller,
 };
 use crate::{
@@ -59,7 +59,7 @@ impl Discriminator for Reserve {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ReserveDiscriminator as u8;
 }
 
-impl NovaAccount for Reserve {
+impl KeelAccount for Reserve {
     const LEN: usize = 3 * 32 + 1 + 7 * 8 + 120;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
@@ -90,7 +90,7 @@ impl Reserve {
         }
         // Check PDA
 
-        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let reserve: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;

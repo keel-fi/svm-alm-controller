@@ -1,6 +1,6 @@
 use crate::{
     define_account_struct,
-    state::{nova_account::NovaAccount, Controller, Reserve},
+    state::{keel_account::KeelAccount, Controller, Reserve},
 };
 use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 

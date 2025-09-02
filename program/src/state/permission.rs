@@ -1,6 +1,6 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
 };
 use crate::{
     constants::PERMISSION_SEED, enums::PermissionStatus, error::SvmAlmControllerErrors,
@@ -55,7 +55,7 @@ impl Discriminator for Permission {
     const DISCRIMINATOR: u8 = AccountDiscriminators::PermissionDiscriminator as u8;
 }
 
-impl NovaAccount for Permission {
+impl KeelAccount for Permission {
     const LEN: usize = 2 * 32 + 9 * 1 + 31;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
@@ -94,7 +94,7 @@ impl Permission {
         }
         // Check PDA
 
-        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let permission: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;

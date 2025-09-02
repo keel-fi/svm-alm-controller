@@ -2,7 +2,7 @@ use crate::{
     define_account_struct,
     enums::IntegrationConfig,
     integrations::spl_token_swap::sync::process_sync_spl_token_swap,
-    state::{nova_account::NovaAccount, Controller, Integration},
+    state::{keel_account::KeelAccount, Controller, Integration},
 };
 use pinocchio::{
     account_info::AccountInfo,

@@ -8,7 +8,7 @@ use crate::{
         spl_token_external::push::process_push_spl_token_external,
         spl_token_swap::push::process_push_spl_token_swap,
     },
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{

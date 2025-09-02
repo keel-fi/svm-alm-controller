@@ -2,7 +2,7 @@ use crate::{
     define_account_struct,
     error::SvmAlmControllerErrors,
     instructions::UpdateOracleArgs,
-    state::{nova_account::NovaAccount, Oracle},
+    state::{keel_account::KeelAccount, Oracle},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{

@@ -4,7 +4,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
     integrations::spl_token_swap::pull::process_pull_spl_token_swap,
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{

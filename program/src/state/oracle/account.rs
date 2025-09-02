@@ -1,6 +1,6 @@
 use crate::{
     constants::ORACLE_SEED, error::SvmAlmControllerErrors, processor::shared::create_pda_account,
-    state::nova_account::NovaAccount,
+    state::keel_account::KeelAccount,
 };
 
 use super::super::discriminator::{AccountDiscriminators, Discriminator};
@@ -55,7 +55,7 @@ impl Discriminator for Oracle {
     const DISCRIMINATOR: u8 = AccountDiscriminators::OracleDiscriminator as u8;
 }
 
-impl NovaAccount for Oracle {
+impl KeelAccount for Oracle {
     const LEN: usize = 253;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
@@ -100,7 +100,7 @@ impl Oracle {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        let oracle: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let oracle: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         oracle.verify_pda(account_info)?;
         Ok(oracle)

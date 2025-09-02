@@ -1,7 +1,7 @@
 use crate::{
     define_account_struct,
     error::SvmAlmControllerErrors,
-    state::{nova_account::NovaAccount, Oracle},
+    state::{keel_account::KeelAccount, Oracle},
 };
 use pinocchio::{
     account_info::AccountInfo,

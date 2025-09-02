@@ -2,10 +2,10 @@ use std::str::FromStr;
 
 use solana_sdk::{pubkey, pubkey::Pubkey};
 
-// Nova Token Swap
-pub const NOVA_TOKEN_SWAP_PROGRAM_ID: Pubkey =
+// Keel Token Swap
+pub const TOKEN_SWAP_PROGRAM_ID: Pubkey =
     pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
-pub const NOVA_TOKEN_SWAP_FEE_OWNER: Pubkey =
+pub const TOKEN_SWAP_FEE_OWNER: Pubkey =
     pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
 
 // CCTP

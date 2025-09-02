@@ -11,7 +11,7 @@ use crate::{
     define_account_struct,
     enums::IntegrationState,
     error::SvmAlmControllerErrors,
-    state::{nova_account::NovaAccount, Integration},
+    state::{keel_account::KeelAccount, Integration},
 };
 
 /// Permissionless instruction that must be called at the top

@@ -1,4 +1,4 @@
-use crate::helpers::constants::NOVA_TOKEN_SWAP_FEE_OWNER;
+use crate::helpers::constants::TOKEN_SWAP_FEE_OWNER;
 use crate::subs::derive_controller_authority_pda;
 use crate::subs::{
     spl_token::{initialize_ata, initialize_mint},
@@ -121,7 +121,7 @@ pub fn initialize_swap(
     // Create the LP ATA for the pool creator
     let creator_lp_mint_ata = initialize_ata(svm, payer, &authority.pubkey(), &lp_mint_pk)?;
 
-    let fee_lp_mint_ata = initialize_ata(svm, payer, &NOVA_TOKEN_SWAP_FEE_OWNER, &lp_mint_pk)?;
+    let fee_lp_mint_ata = initialize_ata(svm, payer, &TOKEN_SWAP_FEE_OWNER, &lp_mint_pk)?;
 
     // Create the swap vault for mint a and b
     let swap_token_a = initialize_ata(svm, payer, &swap_authority, &mint_a)?;

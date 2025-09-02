@@ -24,7 +24,7 @@ use crate::{
     },
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 
 define_account_struct! {

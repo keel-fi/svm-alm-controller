@@ -4,7 +4,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
     error::SvmAlmControllerErrors,
     processor::shared::{calculate_rate_limit_increment, create_pda_account},
-    state::nova_account::NovaAccount,
+    state::keel_account::KeelAccount,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -64,7 +64,7 @@ impl Discriminator for Integration {
     const DISCRIMINATOR: u8 = AccountDiscriminators::IntegrationDiscriminator as u8;
 }
 
-impl NovaAccount for Integration {
+impl KeelAccount for Integration {
     const LEN: usize = 4 * 32 + 1 + 6 * 8 + 225 + 49 + 56;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
@@ -99,7 +99,7 @@ impl Integration {
         }
         // Check PDA
 
-        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let integration: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;

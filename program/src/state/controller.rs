@@ -1,6 +1,6 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
 };
 use crate::{
     constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
@@ -36,7 +36,7 @@ impl Discriminator for Controller {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ControllerDiscriminator as u8;
 }
 
-impl NovaAccount for Controller {
+impl KeelAccount for Controller {
     // id + bump + status + authority + authority_bump + padding
     const LEN: usize = 2 + 1 + 1 + 32 + 1 + 128;
 
@@ -64,7 +64,7 @@ impl Controller {
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let controller: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
         Ok(controller)

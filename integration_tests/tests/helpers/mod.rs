@@ -2,7 +2,7 @@ use constants::{
     CCTP_LOCAL_TOKEN, CCTP_MESSAGE_TRANSMITTER, CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
     CCTP_REMOTE_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
     CCTP_TOKEN_MINTER, LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY,
-    LZ_USDS_PEER_CONFIG_PUBKEY, NOVA_TOKEN_SWAP_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY,
+    LZ_USDS_PEER_CONFIG_PUBKEY, TOKEN_SWAP_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY,
     USDS_TOKEN_MINT_PUBKEY,
 };
 use litesvm::LiteSVM;
@@ -37,9 +37,9 @@ pub fn lite_svm_with_programs() -> LiteSVM {
         controller_program_bytes,
     );
 
-    // Add the NOVA TOKEN SWAP program
-    let nova_token_swap_program_bytes = include_bytes!("../../fixtures/nova_token_swap.so");
-    svm.add_program(NOVA_TOKEN_SWAP_PROGRAM_ID, nova_token_swap_program_bytes);
+    // Add the TOKEN SWAP program
+    let token_swap_program_bytes = include_bytes!("../../fixtures/psm_token_swap.so");
+    svm.add_program(TOKEN_SWAP_PROGRAM_ID, token_swap_program_bytes);
 
     // Add the CCTP Programs
     let cctp_message_transmitter_program =

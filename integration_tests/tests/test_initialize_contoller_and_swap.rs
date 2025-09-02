@@ -20,7 +20,7 @@ mod tests {
     use svm_alm_controller_client::generated::types::{IntegrationState, PullArgs};
 
     use crate::{
-        helpers::{assert::assert_custom_error, constants::NOVA_TOKEN_SWAP_PROGRAM_ID},
+        helpers::{assert::assert_custom_error, constants::TOKEN_SWAP_PROGRAM_ID},
         subs::{
             create_sync_spl_token_swap_ix, derive_controller_authority_pda,
             fetch_integration_account, fetch_spl_token_swap_account, fetch_token_account,
@@ -163,7 +163,7 @@ mod tests {
             &authority,
             &usds_mint,
             &susds_mint,
-            &NOVA_TOKEN_SWAP_PROGRAM_ID,
+            &TOKEN_SWAP_PROGRAM_ID,
             pool_liquidity_a,
             pool_liquidity_b,
         )?;
@@ -185,7 +185,7 @@ mod tests {
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
             &IntegrationConfig::SplTokenSwap(SplTokenSwapConfig {
-                program: NOVA_TOKEN_SWAP_PROGRAM_ID,
+                program: TOKEN_SWAP_PROGRAM_ID,
                 swap: usds_susds_swap_pk,
                 mint_a: usds_mint,
                 mint_b: susds_mint,

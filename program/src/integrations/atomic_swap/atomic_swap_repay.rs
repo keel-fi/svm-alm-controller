@@ -14,7 +14,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     events::{SvmAlmControllerEvent, SwapEvent},
-    state::{nova_account::NovaAccount, Controller, Integration, Oracle, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
 define_account_struct! {

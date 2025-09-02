@@ -4,7 +4,7 @@ use crate::{
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeReserveArgs,
     processor::shared::validate_mint_extensions,
-    state::{nova_account::NovaAccount, Controller, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
