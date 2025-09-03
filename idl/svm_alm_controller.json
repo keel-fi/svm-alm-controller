@@ -472,11 +472,6 @@
           "name": "integration",
           "isMut": true,
           "isSigner": false
-        },
-        {
-          "name": "programId",
-          "isMut": false,
-          "isSigner": false
         }
       ],
       "args": [

@@ -14,7 +14,6 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::error::Error;
-use svm_alm_controller::state::integration;
 use svm_alm_controller_client::generated::instructions::SyncBuilder;
 use svm_alm_controller_client::generated::types::SwapV1Subset;
 
@@ -279,7 +278,6 @@ pub fn create_sync_spl_token_swap_ix(
         .controller(*controller)
         .controller_authority(controller_authority)
         .integration(*integration)
-        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(&remaining_accounts)
         .instruction()
 }

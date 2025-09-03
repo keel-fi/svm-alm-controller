@@ -18,8 +18,6 @@ define_account_struct! {
         controller: @owner(crate::ID);
         controller_authority: empty, @owner(pinocchio_system::ID);
         integration: mut, @owner(crate::ID);
-        // TODO we should remove this if ok with auditors
-        program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
 }

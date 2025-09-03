@@ -104,7 +104,6 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, writable, name = "integration")]
-    #[account(3, name = "program_id")]
     Sync(SyncIntegrationArgs),
 
     /// Push

@@ -16,8 +16,6 @@ pub struct Sync {
     pub controller_authority: solana_program::pubkey::Pubkey,
 
     pub integration: solana_program::pubkey::Pubkey,
-
-    pub program_id: solana_program::pubkey::Pubkey,
 }
 
 impl Sync {
@@ -30,7 +28,7 @@ impl Sync {
         &self,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(3 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller,
             false,
@@ -41,10 +39,6 @@ impl Sync {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.integration,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.program_id,
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
@@ -83,13 +77,11 @@ impl Default for SyncInstructionData {
 ///   0. `[]` controller
 ///   1. `[]` controller_authority
 ///   2. `[writable]` integration
-///   3. `[]` program_id
 #[derive(Clone, Debug, Default)]
 pub struct SyncBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
     controller_authority: Option<solana_program::pubkey::Pubkey>,
     integration: Option<solana_program::pubkey::Pubkey>,
-    program_id: Option<solana_program::pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -113,11 +105,6 @@ impl SyncBuilder {
     #[inline(always)]
     pub fn integration(&mut self, integration: solana_program::pubkey::Pubkey) -> &mut Self {
         self.integration = Some(integration);
-        self
-    }
-    #[inline(always)]
-    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.program_id = Some(program_id);
         self
     }
     /// Add an additional account to the instruction.
@@ -146,7 +133,6 @@ impl SyncBuilder {
                 .controller_authority
                 .expect("controller_authority is not set"),
             integration: self.integration.expect("integration is not set"),
-            program_id: self.program_id.expect("program_id is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
@@ -160,8 +146,6 @@ pub struct SyncCpiAccounts<'a, 'b> {
     pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
-
-    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 /// `sync` CPI instruction.
@@ -174,8 +158,6 @@ pub struct SyncCpi<'a, 'b> {
     pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
-
-    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 }
 
 impl<'a, 'b> SyncCpi<'a, 'b> {
@@ -188,7 +170,6 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             controller: accounts.controller,
             controller_authority: accounts.controller_authority,
             integration: accounts.integration,
-            program_id: accounts.program_id,
         }
     }
     #[inline(always)]
@@ -225,7 +206,7 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(3 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
@@ -236,10 +217,6 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.integration.key,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.program_id.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
@@ -256,12 +233,11 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(4 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
         account_infos.push(self.integration.clone());
-        account_infos.push(self.program_id.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -281,7 +257,6 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
 ///   0. `[]` controller
 ///   1. `[]` controller_authority
 ///   2. `[writable]` integration
-///   3. `[]` program_id
 #[derive(Clone, Debug)]
 pub struct SyncCpiBuilder<'a, 'b> {
     instruction: Box<SyncCpiBuilderInstruction<'a, 'b>>,
@@ -294,7 +269,6 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
             controller: None,
             controller_authority: None,
             integration: None,
-            program_id: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -321,14 +295,6 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
         integration: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.integration = Some(integration);
-        self
-    }
-    #[inline(always)]
-    pub fn program_id(
-        &mut self,
-        program_id: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.program_id = Some(program_id);
         self
     }
     /// Add an additional account to the instruction.
@@ -386,8 +352,6 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
                 .instruction
                 .integration
                 .expect("integration is not set"),
-
-            program_id: self.instruction.program_id.expect("program_id is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -402,7 +366,6 @@ struct SyncCpiBuilderInstruction<'a, 'b> {
     controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,
