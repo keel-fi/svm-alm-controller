@@ -73,7 +73,7 @@ pub fn process_pull(
     // equal rather than using an Option?
 
     // Load in the reserve account for b (if applicable)
-    let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
+    let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
         let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
         if reserve_b.status != ReserveStatus::Active {
             return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
@@ -90,7 +90,7 @@ pub fn process_pull(
                 &permission,
                 &mut integration,
                 &mut reserve_a,
-                &mut reserve_b.unwrap(),
+                reserve_b.as_mut().unwrap(),
                 &ctx,
                 &args,
             )?;

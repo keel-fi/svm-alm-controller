@@ -9,7 +9,6 @@ use crate::{
     subs::{edit_ata_amount, transfer_tokens},
 };
 use borsh::BorshDeserialize;
-use bytemuck::checked::try_from_bytes;
 use endpoint_client::types::MessagingReceipt;
 use helpers::lite_svm_with_programs;
 use solana_program::pubkey;
@@ -21,9 +20,6 @@ use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, Rese
 
 #[cfg(test)]
 mod tests {
-
-    use std::ptr::null;
-
     use litesvm::LiteSVM;
     use oft_client::{
         instructions::SendInstructionArgs,
@@ -41,9 +37,7 @@ mod tests {
         transaction::Transaction,
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-    use svm_alm_controller::{
-        enums::IntegrationState, error::SvmAlmControllerErrors, state::controller,
-    };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::generated::{
         instructions::{PushBuilder, ResetLzPushInFlightBuilder},
         types::LzBridgeConfig,
@@ -57,12 +51,10 @@ mod tests {
                 DEVNET_RPC, LZ_DESTINATION_DOMAIN_EID, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW,
                 LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY, LZ_USDS_PEER_CONFIG_PUBKEY,
             },
-            spl::setup_token_account,
             utils::get_program_return_data,
         },
         subs::{
-            derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
-            fetch_integration_account, fetch_reserve_account, ReserveKeys,
+            derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda, ReserveKeys,
         },
     };
 
