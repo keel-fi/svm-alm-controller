@@ -35,8 +35,12 @@ pub fn process_sync_integration(
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
+    if controller.authority.ne(ctx.controller_authority.key()) {
+        msg!("controller_authority: does not match authority");
+        return Err(ProgramError::InvalidAccountData);
+    }
 
-    // Load in controller state
+    // Load in integration state
     let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     // Refresh the rate limits
