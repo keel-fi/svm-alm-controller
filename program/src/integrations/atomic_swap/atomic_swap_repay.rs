@@ -48,10 +48,10 @@ pub fn process_atomic_swap_repay(
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
     let clock = Clock::get()?;
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
+    // Check that authority has permission and the permission is active
     if !permission.can_execute_swap() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }

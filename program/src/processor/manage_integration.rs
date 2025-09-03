@@ -55,10 +55,10 @@ pub fn process_manage_integration(
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
+    // Check that authority has permission and the permission is active
     if !permission.can_manage_integrations() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }

@@ -45,11 +45,11 @@ pub fn process_manage_controller(
 
     let old_state = controller.clone();
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
 
-    // Check that super authority has permission and the permission is active
+    // Check that authority has permission and the permission is active
     match args.status {
         ControllerStatus::Active => {
             if !permission.can_unfreeze_controller() {

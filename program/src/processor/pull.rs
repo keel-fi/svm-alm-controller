@@ -49,14 +49,14 @@ pub fn process_pull(
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
     if permission.status != PermissionStatus::Active {
         return Err(SvmAlmControllerErrors::PermissionStatusDoesNotPermitAction.into());
     }
 
-    // Load in the super permission account
+    // Load in the integration account
     let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
     if integration.status != IntegrationStatus::Active {
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
