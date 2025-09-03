@@ -97,7 +97,7 @@ impl Reserve {
         Ok(reserve)
     }
 
-    /// Iniitalizes the PDA account for a reserve.
+    /// Initializes the PDA account for a reserve.
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,

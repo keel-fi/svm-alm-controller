@@ -43,7 +43,8 @@ pub struct Permission {
     pub can_freeze_controller: bool,
     /// Enables the Permission's authority to unfreeze the Controller.
     pub can_unfreeze_controller: bool,
-    /// Enables the Permission's authority to update any Integration's status, LUT, and rate limit params.
+    /// Enables the Permission's authority to initialize or update a Reserve or Integration
+    /// state including statuses, LUTs, rate limit params, etc.
     pub can_manage_integrations: bool,
     /// Enables the Permission's authority to suspend any Permission, EXCEPT for
     /// a Super Permission with `can_manage_permissions` enabled.
