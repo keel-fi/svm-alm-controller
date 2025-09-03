@@ -25,7 +25,7 @@ define_account_struct! {
         // create this Integration.
         oft_store;
         peer_config;
-        lz_program;
+        oft_program;
         token_escrow;
     }
 }
@@ -39,12 +39,12 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
         // Ensure the mint has valid T22 extensions.
         validate_mint_extensions(ctx.mint)?;
 
-        if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
-            msg! {"oft_store: not owned by cctp_program"};
+        if !ctx.oft_store.is_owned_by(ctx.oft_program.key()) {
+            msg! {"oft_store: not owned by oft_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx.peer_config.is_owned_by(ctx.lz_program.key()) {
-            msg! {"peer_config: not owned by cctp_program"};
+        if !ctx.peer_config.is_owned_by(ctx.oft_program.key()) {
+            msg! {"peer_config: not owned by oft_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
 
@@ -76,6 +76,10 @@ pub fn process_initialize_lz_bridge(
         msg! {"mint: does not match oft_store state"};
         return Err(ProgramError::InvalidAccountData);
     }
+    if oft_store.token_escrow.ne(inner_ctx.token_escrow.key()) {
+        msg! {"token_escrow: does not match oft_store state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
 
     // Check the PDA of the peer_config exists for this desination_eid
     let (expected_peer_config_pda, _bump) = try_find_program_address(
@@ -84,7 +88,7 @@ pub fn process_initialize_lz_bridge(
             inner_ctx.oft_store.key().as_ref(),
             destination_eid.to_be_bytes().as_ref(),
         ],
-        inner_ctx.lz_program.key(),
+        inner_ctx.oft_program.key(),
     )
     .ok_or(ProgramError::InvalidSeeds)?;
     if inner_ctx.peer_config.key().ne(&expected_peer_config_pda) {
@@ -96,7 +100,7 @@ pub fn process_initialize_lz_bridge(
 
     // Create the Config
     let config = IntegrationConfig::LzBridge(LzBridgeConfig {
-        program: Pubkey::from(*inner_ctx.lz_program.key()),
+        program: Pubkey::from(*inner_ctx.oft_program.key()),
         mint: Pubkey::from(*inner_ctx.mint.key()),
         oft_store: Pubkey::from(*inner_ctx.oft_store.key()),
         peer_config: Pubkey::from(*inner_ctx.peer_config.key()),
