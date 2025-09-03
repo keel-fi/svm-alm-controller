@@ -34,7 +34,7 @@ pub fn process_initialize_spl_token_external(
     Mint::from_account_info(inner_ctx.mint)?;
     validate_mint_extensions(inner_ctx.mint)?;
 
-    // Invoke the CreateIdempotent ixn for the token_accout (ATA)
+    // Invoke the CreateIdempotent ixn for the token_account (ATA)
     // Will handle both the creation or the checking, if already created
     CreateIdempotent {
         funding_account: outer_ctx.payer,

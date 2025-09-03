@@ -19,7 +19,7 @@ use pinocchio_token_interface::{Mint, TokenAccount};
 define_account_struct! {
   pub struct PushSplTokenExternalAccounts<'info> {
       mint;
-      vault;
+      vault: mut;
       recipient;
       recipient_token_account: mut;
       token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -112,10 +112,6 @@ pub fn process_push_spl_token_external(
     //  SplTokenExternal integrations config
     if inner_ctx.vault.key().ne(&reserve.vault) {
         msg! {"vault: does not match config"};
-        return Err(ProgramError::InvalidAccountData);
-    }
-    if !inner_ctx.vault.is_writable() {
-        msg! {"vault: not mutable"};
         return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.mint.key().ne(&reserve.mint) {
