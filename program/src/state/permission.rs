@@ -166,6 +166,7 @@ impl Permission {
 
     pub fn update_and_save(
         &mut self,
+        account_info: &AccountInfo,
         status: Option<PermissionStatus>,
         can_manage_permissions: Option<bool>,
         can_invoke_external_transfer: Option<bool>,
@@ -203,6 +204,9 @@ impl Permission {
         if let Some(can_manage_integrations) = can_manage_integrations {
             self.can_manage_integrations = can_manage_integrations;
         }
+
+        // Commit the account on-chain
+        self.save(account_info)?;
 
         Ok(())
     }

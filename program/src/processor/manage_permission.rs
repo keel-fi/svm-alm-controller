@@ -5,7 +5,7 @@ use crate::{
     events::{PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::ManagePermissionArgs,
     processor::shared::verify_system_account,
-    state::{keel_account::KeelAccount, Controller, Permission},
+    state::{Controller, Permission},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -59,14 +59,12 @@ fn manage_permission(
         Ok((permission, None))
     } else {
         // Load the permission account
-        let mut permission = Permission::load_and_check(
-            ctx.permission,
-            ctx.controller.key(),
-            ctx.authority.key(),
-        )?;
+        let mut permission =
+            Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
         let old_state = permission.clone();
         // Update the permission account and save it
         permission.update_and_save(
+            ctx.permission,
             Some(args.status),
             Some(args.can_manage_permissions),
             Some(args.can_invoke_external_transfer),
@@ -77,8 +75,6 @@ fn manage_permission(
             Some(args.can_manage_integrations),
             Some(args.can_suspend_permissions),
         )?;
-        // Save the state to the account
-        permission.save(ctx.permission)?;
         Ok((permission, Some(old_state)))
     }
 }
@@ -109,6 +105,7 @@ fn suspend_permission(
     let old_state = permission.clone();
     // Update the permission account and save it
     permission.update_and_save(
+        ctx.permission,
         Some(args.status),
         None,
         None,
@@ -119,8 +116,6 @@ fn suspend_permission(
         None,
         None,
     )?;
-    // Save the state to the account
-    permission.save(ctx.permission)?;
     Ok((permission, Some(old_state)))
 }
 
