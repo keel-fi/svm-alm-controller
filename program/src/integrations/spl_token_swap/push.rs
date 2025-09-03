@@ -64,7 +64,7 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
         }
         if ctx.swap_program.key().ne(&config.program) {
             msg! {"swap_program: does not match config"};
-            return Err(ProgramError::InvalidAccountOwner);
+            return Err(ProgramError::InvalidAccountData);
         }
         if ctx.swap.key().ne(&config.swap) {
             msg! {"swap: does not match config"};
@@ -176,7 +176,7 @@ pub fn process_push_spl_token_swap(
     }
     if inner_ctx.vault_b.key().ne(&reserve_b.vault) {
         msg! {"vault_b: mismatch with reserve"};
-        return Err(ProgramError::InvalidAccountOwner);
+        return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.mint_a.key().ne(&reserve_a.mint) {
         msg! {"mint_a: mismatch with reserve"};
