@@ -16,7 +16,7 @@ pub fn calculate_prorated_balance(pool_amount: u64, lp_balance: u64, lp_total_su
     u64::try_from(res).expect("overflow")
 }
 
-/// Calcualtes the updated balances for the SPL Token Swap integration
+/// Calculates the updated balances for the SPL Token Swap integration
 /// and emits accounting events for the changes in balances.
 ///
 /// This is intended to be shared across the Push|Pull|Sync instructions.

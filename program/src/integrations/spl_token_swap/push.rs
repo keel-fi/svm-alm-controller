@@ -222,7 +222,7 @@ pub fn process_push_spl_token_swap(
         controller,
     )?;
 
-    // Perform Sync to calcualte the updated balances and emit pre-push accounting events.
+    // Perform Sync to calculate the updated balances and emit pre-push accounting events.
     let (latest_balance_a, latest_balance_b, latest_balance_lp) = sync_spl_token_swap_integration(
         controller,
         integration,
