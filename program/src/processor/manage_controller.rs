@@ -21,13 +21,6 @@ define_account_struct! {
     }
 }
 
-impl<'info> ManageControllerAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-        Ok(ctx)
-    }
-}
-
 pub fn process_manage_controller(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -35,7 +28,7 @@ pub fn process_manage_controller(
 ) -> ProgramResult {
     msg!("manage_controller");
 
-    let ctx = ManageControllerAccounts::checked_from_accounts(accounts)?;
+    let ctx = ManageControllerAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManageControllerArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;

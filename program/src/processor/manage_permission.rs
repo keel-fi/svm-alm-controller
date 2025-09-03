@@ -26,12 +26,6 @@ define_account_struct! {
     }
 }
 
-impl<'info> ManagePermissionAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        Self::from_accounts(accounts)
-    }
-}
-
 /// Logic for a Super Permission with `can_manage_permissions` to create/update
 /// a Permission account.
 fn manage_permission(
@@ -126,7 +120,7 @@ pub fn process_manage_permission(
 ) -> ProgramResult {
     msg!("manage_permission");
 
-    let ctx = ManagePermissionAccounts::checked_from_accounts(accounts)?;
+    let ctx = ManagePermissionAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManagePermissionArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
