@@ -96,7 +96,7 @@ pub fn process_initialize_spl_token_swap(
     validate_mint_extensions(inner_ctx.mint_a)?;
     Mint::from_account_info(inner_ctx.mint_b)?;
     validate_mint_extensions(inner_ctx.mint_b)?;
-    let lp_mint = Mint::from_account_info(inner_ctx.lp_mint)?;
+    Mint::from_account_info(inner_ctx.lp_mint)?;
     validate_mint_extensions(inner_ctx.lp_mint)?;
 
     // Load in the Pool state and verify the accounts
@@ -166,26 +166,11 @@ pub fn process_initialize_spl_token_swap(
         _padding: [0; 32],
     });
 
-    // Load in the vault, since it could have an opening balance
-    let lp_token_account = TokenAccount::from_account_info(inner_ctx.lp_token_account)?;
-    let last_balance_lp = lp_token_account.amount() as u128;
-
-    // If it has an opening balance, then calculate the proportional ownership in the swap vaults
-    let mut last_balance_a = 0u64;
-    let mut last_balance_b = 0u64;
-    if last_balance_lp > 0 {
-        let swap_token_a = TokenAccount::from_account_info(inner_ctx.swap_token_a)?;
-        let swap_token_b = TokenAccount::from_account_info(inner_ctx.swap_token_b)?;
-        let lp_mint_supply = lp_mint.supply() as u128;
-        last_balance_a = (swap_token_a.amount() as u128 * last_balance_lp / lp_mint_supply) as u64;
-        last_balance_b = (swap_token_b.amount() as u128 * last_balance_lp / lp_mint_supply) as u64;
-    }
-
     // Create the initial integration state
     let state = IntegrationState::SplTokenSwap(SplTokenSwapState {
-        last_balance_a: last_balance_a,
-        last_balance_b: last_balance_b,
-        last_balance_lp: last_balance_lp as u64,
+        last_balance_a: 0,
+        last_balance_b: 0,
+        last_balance_lp: 0,
         _padding: [0u8; 24],
     });
 
