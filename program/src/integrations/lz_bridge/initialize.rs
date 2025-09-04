@@ -16,6 +16,7 @@ use pinocchio::{
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
 };
+use pinocchio_token2022::extensions::ExtensionType;
 
 define_account_struct! {
     pub struct InitializeLzBridgeAccounts<'info> {
@@ -37,7 +38,10 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
         let ctx = Self::from_accounts(account_infos)?;
 
         // Ensure the mint has valid T22 extensions.
-        validate_mint_extensions(ctx.mint)?;
+        // Block the usage of TransferFees as it's not needed. If it's deemed
+        // valuable in the future for LZ OFT integrations, then we can refactor
+        // and hopefully the CPI limits have increased to enable direct OFT Send CPIs.
+        validate_mint_extensions(ctx.mint, &[ExtensionType::TransferFeeConfig])?;
 
         if !ctx.oft_store.is_owned_by(ctx.oft_program.key()) {
             msg! {"oft_store: not owned by oft_program"};

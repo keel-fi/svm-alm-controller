@@ -29,7 +29,7 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
         let ctx = InitializeCctpBridgeAccounts::from_accounts(account_infos)?;
 
         // Ensure the mint has valid T22 extensions.
-        validate_mint_extensions(ctx.mint)?;
+        validate_mint_extensions(ctx.mint, &[])?;
 
         if !ctx
             .local_token

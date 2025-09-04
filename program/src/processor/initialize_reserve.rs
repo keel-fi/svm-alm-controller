@@ -61,7 +61,7 @@ pub fn process_initialize_reserve(
     // Validate the mint
     // Load in the mint account, validating it in the process
     Mint::from_account_info(ctx.mint)?;
-    validate_mint_extensions(ctx.mint)?;
+    validate_mint_extensions(ctx.mint, &[])?;
 
     // Invoke the CreateIdempotent ixn for the ATA
     // Will handle both the creation or the checking, if already created

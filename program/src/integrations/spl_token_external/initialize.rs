@@ -32,7 +32,7 @@ pub fn process_initialize_spl_token_external(
 
     // Load in the mint account, validating it in the process
     Mint::from_account_info(inner_ctx.mint)?;
-    validate_mint_extensions(inner_ctx.mint)?;
+    validate_mint_extensions(inner_ctx.mint, &[])?;
 
     // Invoke the CreateIdempotent ixn for the token_account (ATA)
     // Will handle both the creation or the checking, if already created
