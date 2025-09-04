@@ -4,7 +4,6 @@ use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
 };
 use std::error::Error;
-use svm_alm_controller::state::controller;
 use svm_alm_controller_client::generated::{
     accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID,
     types::PermissionStatus,
@@ -56,7 +55,7 @@ pub fn manage_permission(
     can_reallocate: bool,
     can_freeze_controller: bool,
     can_unfreeze_controller: bool,
-    can_manage_integrations: bool,
+    can_manage_reserves_and_integrations: bool,
     can_suspend_permissions: bool,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &calling_authority.pubkey());
@@ -79,7 +78,7 @@ pub fn manage_permission(
         .can_reallocate(can_reallocate)
         .can_freeze_controller(can_freeze_controller)
         .can_unfreeze_controller(can_unfreeze_controller)
-        .can_manage_integrations(can_manage_integrations)
+        .can_manage_reserves_and_integrations(can_manage_reserves_and_integrations)
         .can_suspend_permissions(can_suspend_permissions)
         .payer(payer.pubkey())
         .controller(*controller)
@@ -168,7 +167,7 @@ pub fn manage_permission(
         "Subject permission to unfreeze does not match the expected value"
     );
     assert_eq!(
-        subject_permission_after.can_manage_integrations, can_manage_integrations,
+        subject_permission_after.can_manage_reserves_and_integrations, can_manage_reserves_and_integrations,
         "Subject permission to manage integrations does not match the expected value"
     );
 

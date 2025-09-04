@@ -1135,7 +1135,7 @@
             "type": "bool"
           },
           {
-            "name": "canManageIntegrations",
+            "name": "canManageReservesAndIntegrations",
             "type": "bool"
           },
           {
@@ -1516,7 +1516,7 @@
             "type": "bool"
           },
           {
-            "name": "canManageIntegrations",
+            "name": "canManageReservesAndIntegrations",
             "type": "bool"
           },
           {

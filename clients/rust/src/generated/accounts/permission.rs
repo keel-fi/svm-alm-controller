@@ -30,7 +30,7 @@ pub struct Permission {
     pub can_reallocate: bool,
     pub can_freeze_controller: bool,
     pub can_unfreeze_controller: bool,
-    pub can_manage_integrations: bool,
+    pub can_manage_reserves_and_integrations: bool,
     pub can_suspend_permissions: bool,
     pub padding: [u8; 31],
 }

@@ -54,7 +54,7 @@ pub fn process_initialize_reserve(
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
     // Check that authority has permission and the permission is active
-    if !permission.can_manage_integrations() {
+    if !permission.can_manage_reserves_and_integrations() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 

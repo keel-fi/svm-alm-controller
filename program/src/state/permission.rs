@@ -45,7 +45,7 @@ pub struct Permission {
     pub can_unfreeze_controller: bool,
     /// Enables the Permission's authority to initialize or update a Reserve or Integration
     /// state including statuses, LUTs, rate limit params, etc.
-    pub can_manage_integrations: bool,
+    pub can_manage_reserves_and_integrations: bool,
     /// Enables the Permission's authority to suspend any Permission, EXCEPT for
     /// a Super Permission with `can_manage_permissions` enabled.
     pub can_suspend_permissions: bool,
@@ -114,7 +114,7 @@ impl Permission {
         can_reallocate: bool,
         can_freeze_controller: bool,
         can_unfreeze_controller: bool,
-        can_manage_integrations: bool,
+        can_manage_reserves_and_integrations: bool,
         can_suspend_permissions: bool,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the controller
@@ -128,7 +128,7 @@ impl Permission {
             can_reallocate,
             can_freeze_controller,
             can_unfreeze_controller,
-            can_manage_integrations,
+            can_manage_reserves_and_integrations,
             can_suspend_permissions,
             _padding: [0; 31],
         };
@@ -174,7 +174,7 @@ impl Permission {
         can_reallocate: Option<bool>,
         can_freeze_controller: Option<bool>,
         can_unfreeze_controller: Option<bool>,
-        can_manage_integrations: Option<bool>,
+        can_manage_reserves_and_integrations: Option<bool>,
         can_suspend_permissions: Option<bool>,
     ) -> Result<(), ProgramError> {
         if let Some(status) = status {
@@ -201,8 +201,8 @@ impl Permission {
         if let Some(can_unfreeze_controller) = can_unfreeze_controller {
             self.can_unfreeze_controller = can_unfreeze_controller;
         }
-        if let Some(can_manage_integrations) = can_manage_integrations {
-            self.can_manage_integrations = can_manage_integrations;
+        if let Some(can_manage_reserves_and_integrations) = can_manage_reserves_and_integrations {
+            self.can_manage_reserves_and_integrations = can_manage_reserves_and_integrations;
         }
 
         // Commit the account on-chain
@@ -227,8 +227,8 @@ impl Permission {
         self.status == PermissionStatus::Active && self.can_suspend_permissions
     }
 
-    pub fn can_manage_integrations(&self) -> bool {
-        self.status == PermissionStatus::Active && self.can_manage_integrations
+    pub fn can_manage_reserves_and_integrations(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_manage_reserves_and_integrations
     }
 
     pub fn can_execute_swap(&self) -> bool {

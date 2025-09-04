@@ -107,7 +107,7 @@ mod tests {
             true, // can_reallocate,
             true, // can_freeze,
             true, // can_unfreeze,
-            true, // can_manage_integrations
+            true, // can_manage_reserves_and_integrations
             true, // can_suspend_permissions
         )?;
 

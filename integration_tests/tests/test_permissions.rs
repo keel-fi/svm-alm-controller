@@ -52,7 +52,7 @@ mod tests {
             true, // can_reallocate,
             true, // can_freeze,
             true, // can_unfreeze,
-            true, // can_manage_integrations
+            true, // can_manage_reserves_and_integrations
             true, // can_suspend_permissions
         )?;
 
@@ -87,7 +87,7 @@ mod tests {
             false, // can_reallocate,
             false, // can_freeze,
             false, // can_unfreeze,
-            false, // can_manage_integrations
+            false, // can_manage_reserves_and_integrations
             true,  // can_suspend_permissions
         )?;
         // Create Permission w/o manage to be suspended
@@ -104,7 +104,7 @@ mod tests {
             false, // can_reallocate,
             false, // can_freeze,
             false, // can_unfreeze,
-            false, // can_manage_integrations
+            false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
         )?;
         // Invoke
@@ -121,7 +121,7 @@ mod tests {
             false, // can_reallocate,
             false, // can_freeze,
             false, // can_unfreeze,
-            false, // can_manage_integrations
+            false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
         )?;
         let suspended_permission_pda =

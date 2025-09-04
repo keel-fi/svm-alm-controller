@@ -127,7 +127,7 @@ pub fn initialize_contoller(
         "Permission to invoke external transfer is not set to false"
     );
     assert_eq!(
-        permission.can_manage_integrations, false,
+        permission.can_manage_reserves_and_integrations, false,
         "Permission to manage integrations is not set to false"
     );
     assert_eq!(

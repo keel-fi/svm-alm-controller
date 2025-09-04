@@ -47,7 +47,7 @@ fn manage_permission(
             args.can_reallocate,
             args.can_freeze_controller,
             args.can_unfreeze_controller,
-            args.can_manage_integrations,
+            args.can_manage_reserves_and_integrations,
             args.can_suspend_permissions,
         )?;
         Ok((permission, None))
@@ -66,7 +66,7 @@ fn manage_permission(
             Some(args.can_reallocate),
             Some(args.can_freeze_controller),
             Some(args.can_unfreeze_controller),
-            Some(args.can_manage_integrations),
+            Some(args.can_manage_reserves_and_integrations),
             Some(args.can_suspend_permissions),
         )?;
         Ok((permission, Some(old_state)))

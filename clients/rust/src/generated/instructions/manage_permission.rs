@@ -122,7 +122,7 @@ pub struct ManagePermissionInstructionArgs {
     pub can_reallocate: bool,
     pub can_freeze_controller: bool,
     pub can_unfreeze_controller: bool,
-    pub can_manage_integrations: bool,
+    pub can_manage_reserves_and_integrations: bool,
     pub can_suspend_permissions: bool,
 }
 
@@ -157,7 +157,7 @@ pub struct ManagePermissionBuilder {
     can_reallocate: Option<bool>,
     can_freeze_controller: Option<bool>,
     can_unfreeze_controller: Option<bool>,
-    can_manage_integrations: Option<bool>,
+    can_manage_reserves_and_integrations: Option<bool>,
     can_suspend_permissions: Option<bool>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -260,8 +260,11 @@ impl ManagePermissionBuilder {
         self
     }
     #[inline(always)]
-    pub fn can_manage_integrations(&mut self, can_manage_integrations: bool) -> &mut Self {
-        self.can_manage_integrations = Some(can_manage_integrations);
+    pub fn can_manage_reserves_and_integrations(
+        &mut self,
+        can_manage_reserves_and_integrations: bool,
+    ) -> &mut Self {
+        self.can_manage_reserves_and_integrations = Some(can_manage_reserves_and_integrations);
         self
     }
     #[inline(always)]
@@ -330,10 +333,10 @@ impl ManagePermissionBuilder {
                 .can_unfreeze_controller
                 .clone()
                 .expect("can_unfreeze_controller is not set"),
-            can_manage_integrations: self
-                .can_manage_integrations
+            can_manage_reserves_and_integrations: self
+                .can_manage_reserves_and_integrations
                 .clone()
-                .expect("can_manage_integrations is not set"),
+                .expect("can_manage_reserves_and_integrations is not set"),
             can_suspend_permissions: self
                 .can_suspend_permissions
                 .clone()
@@ -559,7 +562,7 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
             can_reallocate: None,
             can_freeze_controller: None,
             can_unfreeze_controller: None,
-            can_manage_integrations: None,
+            can_manage_reserves_and_integrations: None,
             can_suspend_permissions: None,
             __remaining_accounts: Vec::new(),
         });
@@ -673,8 +676,12 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn can_manage_integrations(&mut self, can_manage_integrations: bool) -> &mut Self {
-        self.instruction.can_manage_integrations = Some(can_manage_integrations);
+    pub fn can_manage_reserves_and_integrations(
+        &mut self,
+        can_manage_reserves_and_integrations: bool,
+    ) -> &mut Self {
+        self.instruction.can_manage_reserves_and_integrations =
+            Some(can_manage_reserves_and_integrations);
         self
     }
     #[inline(always)]
@@ -755,11 +762,11 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
                 .can_unfreeze_controller
                 .clone()
                 .expect("can_unfreeze_controller is not set"),
-            can_manage_integrations: self
+            can_manage_reserves_and_integrations: self
                 .instruction
-                .can_manage_integrations
+                .can_manage_reserves_and_integrations
                 .clone()
-                .expect("can_manage_integrations is not set"),
+                .expect("can_manage_reserves_and_integrations is not set"),
             can_suspend_permissions: self
                 .instruction
                 .can_suspend_permissions
@@ -826,7 +833,7 @@ struct ManagePermissionCpiBuilderInstruction<'a, 'b> {
     can_reallocate: Option<bool>,
     can_freeze_controller: Option<bool>,
     can_unfreeze_controller: Option<bool>,
-    can_manage_integrations: Option<bool>,
+    can_manage_reserves_and_integrations: Option<bool>,
     can_suspend_permissions: Option<bool>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
