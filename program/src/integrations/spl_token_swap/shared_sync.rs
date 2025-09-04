@@ -1,3 +1,5 @@
+use core::ops::Div;
+
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 use pinocchio_token_interface::{Mint, TokenAccount};
 
@@ -9,10 +11,13 @@ use crate::{
 
 /// Calculates the prorated balance of a pool based on the LP token balance
 pub fn calculate_prorated_balance(pool_amount: u64, lp_balance: u64, lp_total_supply: u64) -> u64 {
+    if lp_total_supply == 0 {
+        return 0;
+    }
     let res = u128::from(pool_amount)
         .checked_mul(lp_balance as u128)
         .expect("overflow")
-        .saturating_div(lp_total_supply as u128);
+        .div(lp_total_supply as u128);
     u64::try_from(res).expect("overflow")
 }
 
