@@ -7,7 +7,7 @@ use crate::{
     integrations::lz_bridge::{
         config::LzBridgeConfig,
         cpi::OftSendParams,
-        reset_lz_push_in_flight::{RESET_LZ_PUSH_INTEGRATIC_INDEX, RESET_LZ_PUSH_IN_FLIGHT_DISC},
+        reset_lz_push_in_flight::{RESET_LZ_PUSH_INTEGRATION_INDEX, RESET_LZ_PUSH_IN_FLIGHT_DISC},
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -58,9 +58,9 @@ impl<'info> PushLzBridgeAccounts<'info> {
     }
 }
 
-/// Checks that LZ OFT send ix is the last instruction in the same transaction.
+/// Checks that LZ OFT send ix is the second to last instruction in the same transaction.
 /// Transaction should include the LZ Push IX, OFT Send IX and the Reset IX.
-/// [push, ..., oft send, reset]
+/// [..., push, oft send, reset]
 pub fn verify_send_ix_in_tx(
     authority: &Pubkey,
     accounts: &PushLzBridgeAccounts,
@@ -75,12 +75,20 @@ pub fn verify_send_ix_in_tx(
     }
     let ix_len = u16::from_le_bytes([sysvar_data[0], sysvar_data[1]]);
 
+    // Validate there are enough IXs within the TX
+    if ix_len < 3 {
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
     let instructions = Instructions::try_from(accounts.sysvar_instruction)?;
 
-    // Check that current ix is before the last ix.
+    // Check that LZ Push ix is third from last. This enforces the
+    // [LZ Push, OFT Send, Reset] are in adjacent and at the end of
+    // the transaction.
     let curr_ix = instructions.load_current_index();
-    if curr_ix >= ix_len - 1 {
-        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    if curr_ix != ix_len - 3 {
+        msg!("LZ Push instruction invalid index");
+        return Err(SvmAlmControllerErrors::InvalidInstructionIndex.into());
     }
 
     // Load last instruction in transaction and check that its the reset instruction.
@@ -98,7 +106,7 @@ pub fn verify_send_ix_in_tx(
     // Validate that the Reset instruction has the same integration as the
     // LZ Push instruction.
     let reset_integration = reset_ix
-        .get_account_meta_at(RESET_LZ_PUSH_INTEGRATIC_INDEX)?
+        .get_account_meta_at(RESET_LZ_PUSH_INTEGRATION_INDEX)?
         .key;
     if reset_integration.ne(integration_pubkey) {
         msg!("ResetLzPushInFlight invalid integration account");

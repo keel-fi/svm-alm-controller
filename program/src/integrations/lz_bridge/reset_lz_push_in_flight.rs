@@ -30,7 +30,7 @@ define_account_struct! {
 /// Discriminator for ResetLzPushInFlight
 pub const RESET_LZ_PUSH_IN_FLIGHT_DISC: u8 = 17;
 /// Index of the Integration account in the `ResetLzPushInFlight` instruction.
-pub const RESET_LZ_PUSH_INTEGRATIC_INDEX: usize = 1;
+pub const RESET_LZ_PUSH_INTEGRATION_INDEX: usize = 1;
 
 /// Checks that ResetLzPushInFlight instruction is last in the Transaction
 /// and has not been called via CPI.

@@ -333,7 +333,7 @@ mod tests {
     async fn lz_push_with_oft_send_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
-        let (controller_pk, lz_usds_eth_bridge_integration_pk, authority, reserve_keys) =
+        let (controller_pk, lz_usds_eth_bridge_integration_pk, authority, _reserve_keys) =
             setup_env(&mut svm)?;
 
         // Push the integration -- i.e. bridge using LZ OFT
@@ -351,7 +351,7 @@ mod tests {
         // Check that OFT return data exists and amount matches.
         let return_data =
             get_program_return_data(result.clone().unwrap().logs, &LZ_USDS_OFT_PROGRAM_ID).unwrap();
-        let (messaging_receipt, oft_receipt) =
+        let (_messaging_receipt, oft_receipt) =
             <(MessagingReceipt, oft_client::types::OFTReceipt)>::try_from_slice(&return_data)
                 .map_err(|err| format!("Failed to parse result: {}", err))
                 .unwrap();
@@ -374,7 +374,7 @@ mod tests {
         );
         let amount = 2000;
 
-        let main_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
+        let lz_push_ix = create_lz_push_ix(&controller, &integration, &authority)?;
         let send_ixn = create_oft_send_ix(
             &mut svm,
             &controller,
@@ -385,21 +385,39 @@ mod tests {
             true,
         )
         .await?;
+        let reset_ix = ResetLzPushInFlightBuilder::new()
+            .controller(controller)
+            .integration(integration)
+            .instruction();
         let cu_limit_ixn: Instruction = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
 
-        // Expect failure without send_ixn.
+        // Expect failure with not enough IXs
         let txn = Transaction::new_signed_with_payer(
-            &[main_ixn.clone()],
+            &[lz_push_ix.clone()],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnauthorizedAction);
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidInstructions);
 
-        // Expect failure without send_ixn as last.
+        // Expect failure without send_ixn.
         let txn = Transaction::new_signed_with_payer(
-            &[main_ixn.clone(), send_ixn, cu_limit_ixn.clone()],
+            &[cu_limit_ixn.clone(), lz_push_ix.clone(), reset_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+        assert_custom_error(
+            &tx_result,
+            1,
+            SvmAlmControllerErrors::InvalidInstructionIndex,
+        );
+
+        // Expect failure without reset_ixn as last.
+        let txn = Transaction::new_signed_with_payer(
+            &[lz_push_ix.clone(), send_ixn, cu_limit_ixn.clone()],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
@@ -408,11 +426,6 @@ mod tests {
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when token_escrow doesn't match.
-        let random_ata = get_associated_token_address_with_program_id(
-            &authority.pubkey(),
-            &USDS_TOKEN_MINT_PUBKEY,
-            &pinocchio_token::ID.into(),
-        );
         let send_ixn = create_oft_send_ix(
             &mut svm,
             &controller,
@@ -424,7 +437,7 @@ mod tests {
         )
         .await?;
         let txn = Transaction::new_signed_with_payer(
-            &[main_ixn.clone(), send_ixn],
+            &[lz_push_ix.clone(), send_ixn, reset_ix.clone()],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
@@ -444,7 +457,7 @@ mod tests {
         )
         .await?;
         let txn = Transaction::new_signed_with_payer(
-            &[main_ixn.clone(), send_ixn],
+            &[lz_push_ix.clone(), send_ixn, reset_ix.clone()],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
@@ -491,7 +504,11 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::LZPushInFlight);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidInstructionIndex,
+        );
         Ok(())
     }
 }
