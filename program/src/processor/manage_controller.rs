@@ -36,6 +36,11 @@ pub fn process_manage_controller(
     // Load in controller state
     let mut controller = Controller::load_and_check(ctx.controller)?;
 
+    // Error when Controller is frozen and updated status is not Active
+    if controller.is_frozen() && args.status != ControllerStatus::Active {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
+
     let old_state = controller.clone();
 
     // Load in the permission account
@@ -49,7 +54,7 @@ pub fn process_manage_controller(
                 return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
             }
         }
-        ControllerStatus::Suspended => {
+        ControllerStatus::PushPullFrozen | ControllerStatus::Frozen => {
             if !permission.can_freeze_controller() {
                 return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
             }

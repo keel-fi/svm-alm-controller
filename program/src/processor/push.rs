@@ -50,7 +50,7 @@ pub fn process_push(
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
-    if controller.status != ControllerStatus::Active {
+    if !controller.is_active() {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
 

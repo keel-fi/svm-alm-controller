@@ -45,6 +45,11 @@ pub fn process_initialize_reserve(
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
 
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
+
     // Validate the controller authority
     if controller.authority.ne(ctx.controller_authority.key()) {
         return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());

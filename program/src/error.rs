@@ -55,6 +55,8 @@ pub enum SvmAlmControllerErrors {
     InvalidReserve,
     // 25
     DataNotChangedSinceLastSync,
+    // 26
+    ControllerFrozen,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

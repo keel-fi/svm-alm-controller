@@ -65,6 +65,11 @@ pub fn process_initialize_integration(
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller)?;
+    
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
 
     // Load in the permission account
     let permission =

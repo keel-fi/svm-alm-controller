@@ -148,8 +148,15 @@ impl Controller {
         Ok(())
     }
 
+    /// All Controller operations normal.
     pub fn is_active(&self) -> bool {
         self.status == ControllerStatus::Active
+    }
+
+    /// All Controller activity should be halted.
+    /// Only valid operation is to unfreeze the Controller.
+    pub fn is_frozen(&self) -> bool {
+        self.status == ControllerStatus::Frozen
     }
 
     pub fn emit_event(
