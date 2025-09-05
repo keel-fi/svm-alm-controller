@@ -41,4 +41,4 @@ pub const LZ_EXECUTOR_PROGRAM_ID: Pubkey = pubkey!("6doghB248px58JSSwG4qejQ46kFM
 pub const LZ_R1_PROGRAM_ID: Pubkey = pubkey!("8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP");
 pub const LZ_R2_PROGRAM_ID: Pubkey = pubkey!("HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW");
 
-pub const DEVNET_RPC: &str = "https://api.devnet.solana.com";
+pub const DEVNET_RPC: &str = "https://nova-devnet-6827.devnet.rpcpool.com/f14be6f8-f430-4979-bb90-208677d5770f";

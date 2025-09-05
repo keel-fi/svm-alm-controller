@@ -17,7 +17,8 @@ pub enum PushArgs {
     SplTokenSwap {
         amount_a: u64,
         amount_b: u64,
-        minimum_pool_token_amount: u64,
+        minimum_pool_token_amount_a: u64,
+        minimum_pool_token_amount_b: u64,
     },
     CctpBridge {
         amount: u64,

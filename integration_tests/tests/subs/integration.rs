@@ -998,12 +998,13 @@ pub async fn push_integration(
             );
         }
         IntegrationConfig::SplTokenSwap(ref c) => {
-            let (amount_a, amount_b, _minimum_pool_token_amount) = match push_args {
+            let (amount_a, amount_b) = match push_args {
                 PushArgs::SplTokenSwap {
                     amount_a,
                     amount_b,
-                    minimum_pool_token_amount,
-                } => (*amount_a, *amount_b, *minimum_pool_token_amount),
+                    minimum_pool_token_amount_a,
+                    minimum_pool_token_amount_b,
+                } => (*amount_a, *amount_b,),
                 _ => panic!("Invalid push args"),
             };
             let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
@@ -1353,12 +1354,13 @@ pub fn pull_integration(
     // Checks afterwards
     match &integration_account.config {
         IntegrationConfig::SplTokenSwap(ref c) => {
-            let (amount_a, amount_b, _maximum_pool_token_amount) = match pull_args {
+            let (amount_a, amount_b) = match pull_args {
                 PullArgs::SplTokenSwap {
                     amount_a,
                     amount_b,
-                    maximum_pool_token_amount,
-                } => (*amount_a, *amount_b, *maximum_pool_token_amount),
+                    maximum_pool_token_amount_a,
+                    maximum_pool_token_amount_b,
+                } => (*amount_a, *amount_b),
                 _ => panic!("Invalid pull args"),
             };
             let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);

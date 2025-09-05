@@ -24,7 +24,7 @@ mod tests {
     #[test_case(spl_token_2022::ID, None ; "Token2022")]
     #[test_case(spl_token_2022::ID, Some(100) ; "Token2022 TransferFee 100 bps")]
 
-    async fn initialize_controller_and_token_external_success(
+    async fn transfer_token_external_success(
         token_program: Pubkey,
         token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {

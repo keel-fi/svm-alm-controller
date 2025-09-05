@@ -204,7 +204,8 @@ mod tests {
             &PushArgs::SplTokenSwap {
                 amount_a: 100_000_000,
                 amount_b: 120_000_000,
-                minimum_pool_token_amount: u64::MAX,
+                minimum_pool_token_amount_a: u64::MAX,
+                minimum_pool_token_amount_b: u64::MAX,
             },
             true,
         )
@@ -227,7 +228,8 @@ mod tests {
             &PushArgs::SplTokenSwap {
                 amount_a: integration_liquidity_a,
                 amount_b: integration_liquidity_b,
-                minimum_pool_token_amount: 0,
+                minimum_pool_token_amount_a: 0,
+                minimum_pool_token_amount_b: 0,
             },
             false,
         )
@@ -242,7 +244,8 @@ mod tests {
             &PullArgs::SplTokenSwap {
                 amount_a: 50_000_000,
                 amount_b: 60_000_000,
-                maximum_pool_token_amount: 0,
+                maximum_pool_token_amount_a: 0,
+                maximum_pool_token_amount_b: 0,
             },
             true,
         )?;
@@ -264,7 +267,8 @@ mod tests {
             &PullArgs::SplTokenSwap {
                 amount_a: integration_withdraw_liquidity_a,
                 amount_b: integration_withdraw_liquidity_b,
-                maximum_pool_token_amount: u64::MAX,
+                maximum_pool_token_amount_a: u64::MAX,
+                maximum_pool_token_amount_b: u64::MAX,
             },
             false,
         )?
