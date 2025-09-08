@@ -197,7 +197,11 @@ impl Reserve {
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
-            self.rate_limit_remainder = remainder;
+            if self.rate_limit_outflow_amount_available == self.rate_limit_max_outflow {
+                self.rate_limit_remainder = 0;
+            } else {
+                self.rate_limit_remainder = remainder;
+            }
         }
 
         self.last_refresh_timestamp = clock.unix_timestamp;
