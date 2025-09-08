@@ -314,7 +314,8 @@ impl Reserve {
                     mint: self.mint,
                     action: AccountingAction::Sync,
                     before: previous_balance,
-                    after: self.last_balance, // (new balance after the update)
+                    // `last_balance` has been updated for inflow/outflow
+                    after: self.last_balance,
                 }),
             )?;
         }

@@ -14,10 +14,14 @@ use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, Rese
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{program_pack::Pack, transaction::Transaction};
+    use borsh::BorshDeserialize;
+    use litesvm::LiteSVM;
+    use solana_sdk::{program_pack::Pack, pubkey::Pubkey, transaction::Transaction};
     use spl_token_2022::{instruction::mint_to, state::Mint};
     use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::generated::types::{IntegrationState, PullArgs};
+    use svm_alm_controller_client::generated::types::{
+        AccountingAction, AccountingEvent, IntegrationState, PullArgs, SvmAlmControllerEvent,
+    };
 
     use crate::{
         helpers::{assert::assert_custom_error, constants::TOKEN_SWAP_PROGRAM_ID},
@@ -30,9 +34,23 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
+    struct TestContext {
+        pub svm: LiteSVM,
+        pub authority: Keypair,
+        pub usds_mint: Pubkey,
+        pub susds_mint: Pubkey,
+        pub controller_pk: Pubkey,
+        pub usds_reserve_pk: Pubkey,
+        pub susds_reserve_pk: Pubkey,
+        pub usds_susds_swap_pk: Pubkey,
+        pub usds_susds_lp_mint_pk: Pubkey,
+        pub usds_susds_lp_vault_pk: Pubkey,
+        pub usdc_external_integration_pk: Pubkey,
+        pub pool_liquidity_a: u64,
+        pub pool_liquidity_b: u64,
+    }
 
-    async fn spl_token_swap_push_pull_sync_success() -> Result<(), Box<dyn std::error::Error>> {
+    fn setup() -> Result<TestContext, Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -92,7 +110,7 @@ mod tests {
         )?;
 
         // Initialize a reserve for the USDS token
-        let _usds_reserve_pk = initialize_reserve(
+        let usds_reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
             &usds_mint, // mint
@@ -103,9 +121,10 @@ mod tests {
             1_000_000_000_000, // rate_limit_max_outflow
             &spl_token::ID,
         )?;
+        let usds_reserve_pk = usds_reserve_keys.pubkey;
 
         // Initialize a reserve for the sUSDS token
-        let _susds_reserve_pk = initialize_reserve(
+        let susds_reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
             &susds_mint, // mint
@@ -116,6 +135,7 @@ mod tests {
             1_000_000_000_000, // rate_limit_max_outflow
             &spl_token::ID,
         )?;
+        let susds_reserve_pk = susds_reserve_keys.pubkey;
 
         // Mint a supply of both tokens to the authority -- needed to init the swap
         mint_tokens(
@@ -196,7 +216,43 @@ mod tests {
             &InitializeArgs::SplTokenSwap,
         )?;
 
-        let tx_res = push_integration(
+        Ok(TestContext {
+            svm,
+            authority,
+            usds_mint,
+            susds_mint,
+            controller_pk,
+            usds_reserve_pk,
+            susds_reserve_pk,
+            usds_susds_swap_pk,
+            usds_susds_lp_mint_pk,
+            usds_susds_lp_vault_pk,
+            usdc_external_integration_pk,
+            pool_liquidity_a,
+            pool_liquidity_b,
+        })
+    }
+
+    #[tokio::test]
+
+    async fn spl_token_swap_push_pull_sync_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            authority,
+            usds_mint,
+            susds_mint,
+            controller_pk,
+            usds_reserve_pk,
+            susds_reserve_pk,
+            usds_susds_swap_pk,
+            usds_susds_lp_mint_pk,
+            usds_susds_lp_vault_pk,
+            usdc_external_integration_pk,
+            mut pool_liquidity_a,
+            mut pool_liquidity_b,
+        } = setup().unwrap();
+
+        let (tx_res, _) = push_integration(
             &mut svm,
             &controller_pk,
             &usdc_external_integration_pk,
@@ -220,7 +276,7 @@ mod tests {
         pool_liquidity_a += integration_liquidity_a;
         let integration_liquidity_b = 120_000_000;
         pool_liquidity_b += integration_liquidity_b;
-        push_integration(
+        let (tx_result, account_keys) = push_integration(
             &mut svm,
             &controller_pk,
             &usdc_external_integration_pk,
@@ -233,8 +289,31 @@ mod tests {
             },
             false,
         )
-        .await?
-        .unwrap();
+        .await?;
+        let tx_meta = tx_result.unwrap();
+
+        // Validate that the Sync AccountingEvents were fired during push
+        let expected_usds_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            // TODO this may need to change away from Reserve's Pubkey
+            integration: usds_reserve_pk,
+            mint: usds_mint,
+            action: AccountingAction::Sync,
+            before: 0,
+            after: 1_000_000_000,
+        });
+        let expected_susds_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            // TODO this may need to change away from Reserve's Pubkey
+            integration: susds_reserve_pk,
+            mint: susds_mint,
+            action: AccountingAction::Sync,
+            before: 0,
+            after: 1_000_000_000,
+        });
+
+        assert_contains_controller_cpi_event!(tx_meta, account_keys, expected_usds_event);
+        assert_contains_controller_cpi_event!(tx_meta, account_keys, expected_susds_event);
 
         let tx_res = pull_integration(
             &mut svm,

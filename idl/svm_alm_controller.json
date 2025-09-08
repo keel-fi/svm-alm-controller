@@ -2349,10 +2349,13 @@
         "kind": "enum",
         "variants": [
           {
-            "name": "Suspended"
+            "name": "Frozen"
           },
           {
             "name": "Active"
+          },
+          {
+            "name": "PushPullFrozen"
           }
         ]
       }

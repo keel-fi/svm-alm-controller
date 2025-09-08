@@ -134,7 +134,7 @@ mod tests {
         )?;
 
         // Push the integration -- i.e. bridge using CCTP
-        push_integration(
+        let (tx_res, _) = push_integration(
             &mut svm,
             &controller_pk,
             &cctp_usdc_eth_bridge_integration_pk,
@@ -142,8 +142,9 @@ mod tests {
             &PushArgs::CctpBridge { amount: 1_000_000 },
             false,
         )
-        .await?
-        .unwrap();
+        .await?;
+
+        tx_res.unwrap();
 
         Ok(())
     }

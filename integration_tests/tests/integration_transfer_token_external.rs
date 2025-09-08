@@ -173,7 +173,7 @@ mod tests {
         )?;
 
         // Push the integration
-        push_integration(
+        let (tx_result, _) = push_integration(
             &mut svm,
             &controller_pk,
             &external_integration_pk,
@@ -182,6 +182,7 @@ mod tests {
             false,
         )
         .await?;
+        tx_result.unwrap();
 
         Ok(())
     }

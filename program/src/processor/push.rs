@@ -1,6 +1,6 @@
 use crate::{
     define_account_struct,
-    enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
+    enums::{IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
     integrations::{

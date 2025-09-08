@@ -145,7 +145,7 @@ mod tests {
             &controller_pk,
             &authority, // payer
             &authority, // calling authority
-            ControllerStatus::Suspended,
+            ControllerStatus::Frozen,
         )?;
 
         // Test 2: Authority can unfreeze the controller
@@ -163,7 +163,7 @@ mod tests {
             &controller_pk,
             &freezer, // payer
             &freezer, // calling authority
-            ControllerStatus::Suspended,
+            ControllerStatus::Frozen,
         )?;
 
         // Test 4: Freezer cannot unfreeze the controller (should fail)
@@ -185,7 +185,7 @@ mod tests {
             &controller_pk,
             &unfreezer, // payer
             &unfreezer, // calling authority
-            ControllerStatus::Suspended,
+            ControllerStatus::Frozen,
         );
         assert!(
             unfreezer_freeze_result.is_err(),
@@ -207,7 +207,7 @@ mod tests {
             &controller_pk,
             &regular_user, // payer
             &regular_user, // calling authority
-            ControllerStatus::Suspended,
+            ControllerStatus::Frozen,
         );
         assert!(
             regular_user_freeze_result.is_err(),

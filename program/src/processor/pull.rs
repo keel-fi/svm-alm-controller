@@ -1,6 +1,6 @@
 use crate::{
     define_account_struct,
-    enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
+    enums::{IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
     integrations::spl_token_swap::pull::process_pull_spl_token_swap,
@@ -69,7 +69,7 @@ pub fn process_pull(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    // TODO [CLEANUP] Shouldn't this just return error if the reserves are 
+    // TODO [CLEANUP] Shouldn't this just return error if the reserves are
     // equal rather than using an Option?
 
     // Load in the reserve account for b (if applicable)

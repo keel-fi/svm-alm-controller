@@ -432,7 +432,7 @@ pub async fn push_integration(
     // flag will skip all assertions and simply return
     // the tx_result.
     skip_assertions: bool,
-) -> Result<TransactionResult, Box<dyn Error>> {
+) -> Result<(TransactionResult, Vec<Pubkey>), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 
@@ -935,17 +935,19 @@ pub async fn push_integration(
     if !post_ixns.is_empty() {
         ixns.append(&mut post_ixns);
     }
+
     let txn = Transaction::new_signed_with_payer(
         &ixns.to_vec(),
         Some(&authority.pubkey()),
         &signers,
         svm.latest_blockhash(),
     );
+    let tx_keys = txn.message.account_keys.clone();
 
     let tx_result = svm.send_transaction(txn);
 
     if skip_assertions {
-        return Ok(tx_result);
+        return Ok((tx_result, tx_keys));
     }
 
     if tx_result.is_err() {
@@ -1004,7 +1006,7 @@ pub async fn push_integration(
                     amount_b,
                     minimum_pool_token_amount_a,
                     minimum_pool_token_amount_b,
-                } => (*amount_a, *amount_b,),
+                } => (*amount_a, *amount_b),
                 _ => panic!("Invalid push args"),
             };
             let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
@@ -1128,7 +1130,7 @@ pub async fn push_integration(
         _ => panic!("Not configured"),
     };
 
-    Ok(tx_result)
+    Ok((tx_result, tx_keys))
 }
 
 pub fn pull_integration(

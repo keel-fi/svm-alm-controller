@@ -241,8 +241,7 @@ pub fn initialize_swap(
         assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
 
-    let swap_acc = svm.get_account(&swap_pk);
-    println!("{:#?}", swap_acc.unwrap());
+    let _swap_acc = svm.get_account(&swap_pk);
 
     // let mint_acc = svm.get_account(&mint_kp.pubkey());
     // let mint_data = mint_acc.unwrap().data;

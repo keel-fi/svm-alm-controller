@@ -213,7 +213,7 @@ pub fn process_push_spl_token_swap(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // // Perform a SYNC on Reserve A
+    // Perform a SYNC on Reserve A
     reserve_a.sync_balance(
         inner_ctx.vault_a,
         outer_ctx.controller_authority,

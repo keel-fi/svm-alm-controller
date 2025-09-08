@@ -338,7 +338,7 @@ mod tests {
 
         // Push the integration -- i.e. bridge using LZ OFT
         let amount = 2000;
-        let result = push_integration(
+        let (result, _) = push_integration(
             &mut svm,
             &controller_pk,
             &lz_usds_eth_bridge_integration_pk,
