@@ -57,6 +57,8 @@ pub enum SvmAlmControllerErrors {
     DataNotChangedSinceLastSync,
     // 26
     ControllerFrozen,
+    // 27
+    InvalidIntegrationArgs,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

@@ -167,7 +167,7 @@ pub enum SvmAlmControllerInstruction {
     AtomicSwapBorrow(AtomicSwapBorrowArgs),
 
     /// Atomic swap repay
-    #[account(0, signer, writable, name = "payer")]
+    #[account(0, signer, name = "payer")]
     #[account(1, name = "controller")]
     #[account(2, name = "controller_authority")]
     #[account(3, signer, name = "authority")]

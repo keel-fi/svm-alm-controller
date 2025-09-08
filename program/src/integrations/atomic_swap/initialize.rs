@@ -51,7 +51,7 @@ pub fn process_initialize_atomic_swap(
 
     let clock = Clock::get()?;
     if max_staleness >= clock.slot || expiry_timestamp <= clock.unix_timestamp {
-        return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
+        return Err(ProgramError::InvalidArgument);
     }
 
     let input_mint = Mint::from_account_info(inner_ctx.input_mint)?;
