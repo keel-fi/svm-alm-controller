@@ -32,7 +32,6 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
         return Err(ProgramError::InvalidAccountData);
     }
     let feed_account = ctx.price_feed.try_borrow_data()?;
-    let clock = Clock::get()?;
 
     match feed.oracle_type {
         0 => {
@@ -44,11 +43,6 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
                 .map_err(|_| ProgramError::InvalidAccountData)?;
             let price = data_source.result.value;
             let update_slot = data_source.result.slot;
-
-            if update_slot < clock.slot - data_source.max_staleness as u64 {
-                log!("update slot {} < current slot {}", update_slot, clock.slot);
-                return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
-            }
 
             oracle.value = price;
             oracle.last_update_slot = update_slot;

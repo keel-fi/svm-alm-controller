@@ -139,7 +139,7 @@ pub fn process_push_cctp_bridge(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
+    // Load in the CCTP RemoteTokenMessenger account
     let remote_token_messenger = RemoteTokenMessenger::deserialize(
         &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?,
     )
@@ -151,7 +151,7 @@ pub fn process_push_cctp_bridge(
 
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve.vault) {
-        msg! {"mint: mismatch with reserve"};
+        msg! {"vault: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.mint.key().ne(&reserve.mint) {

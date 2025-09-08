@@ -75,7 +75,7 @@ pub fn process_initialize_cctp_bridge(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
+    // Load in the CCTP RemoteTokenMessenger account
     let remote_token_messenger = RemoteTokenMessenger::deserialize(
         &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?,
     )
