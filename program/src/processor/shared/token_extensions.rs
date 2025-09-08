@@ -59,6 +59,11 @@ pub fn validate_mint_extensions(
                 return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
             }
 
+            if !VALID_MINT_EXTENSIONS.contains(&extension) {
+                msg!("Mint has an invalid extension");
+                return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
+            }
+
             if extension == ExtensionType::Pausable {
                 // Pausable is allowed, but we need to check that the mint is not paused
                 let pausable_config = PausableConfig::from_account_info_unchecked(mint_acct)?;
@@ -73,9 +78,6 @@ pub fn validate_mint_extensions(
                     msg!("Mint has invalid TransferHook program ID");
                     return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
                 }
-            } else if !VALID_MINT_EXTENSIONS.contains(&extension) {
-                msg!("Mint has an invalid extension");
-                return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
             }
         }
     }
