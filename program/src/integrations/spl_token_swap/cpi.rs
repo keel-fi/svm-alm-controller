@@ -18,7 +18,7 @@ impl DepositSingleTokenTypeExactAmountInArgs {
     pub const LEN: usize = 17;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
-        let mut serialized = Vec::with_capacity(1 + Self::LEN);
+        let mut serialized = Vec::with_capacity(Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized)
             .map_err(|_| ProgramError::InvalidInstructionData)?;
@@ -37,7 +37,7 @@ impl WithdrawSingleTokenTypeExactAmountOutArgs {
     pub const LEN: usize = 17;
 
     pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
-        let mut serialized = Vec::with_capacity(1 + Self::LEN);
+        let mut serialized = Vec::with_capacity(Self::LEN);
         serialized.push(Self::DISCRIMINATOR);
         BorshSerialize::serialize(self, &mut serialized)
             .map_err(|_| ProgramError::InvalidInstructionData)?;
