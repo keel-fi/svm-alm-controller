@@ -8,10 +8,8 @@ use pinocchio::{
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
-    sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_log::log;
 use switchboard_on_demand::{Discriminator, PullFeedAccountData};
 
 define_account_struct! {
