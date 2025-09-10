@@ -55,10 +55,6 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
             IntegrationConfig::SplTokenSwap(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
-        if !ctx.swap.is_owned_by(ctx.swap_program.key()) {
-            msg! {"pool: not owned by swap_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
         if !ctx.swap.is_owned_by(&config.program) {
             msg! {"swap: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -211,6 +207,13 @@ pub fn process_pull_spl_token_swap(
     }
     if swap_state.token_b.ne(inner_ctx.swap_token_b.key()) {
         msg! {"swap_token_b: does not match swap state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if swap_state
+        .pool_fee_account
+        .ne(inner_ctx.swap_fee_account.key())
+    {
+        msg! {"swap_fee_account: does not match swap state"};
         return Err(ProgramError::InvalidAccountData);
     }
 

@@ -21,7 +21,7 @@ use pinocchio::{
     sysvars::{rent::Rent, Sysvar},
 };
 use pinocchio_token2022::instructions::InitializeAccount3;
-use pinocchio_token_interface::{get_account_data_size, Mint, TokenAccount};
+use pinocchio_token_interface::{get_account_data_size, Mint};
 
 define_account_struct! {
     pub struct InitializeSplTokenSwapAccounts<'info> {
