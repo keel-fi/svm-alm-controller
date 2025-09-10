@@ -153,7 +153,7 @@ mod tests {
                 mint: USDS_TOKEN_MINT_PUBKEY,
                 destination_address: destination_address,
                 destination_eid: LZ_DESTINATION_DOMAIN_EID,
-                token_escrow: LZ_USDS_ESCROW,
+                oft_token_escrow: LZ_USDS_ESCROW,
                 oft_store: LZ_USDS_OFT_STORE_PUBKEY,
                 peer_config: LZ_USDS_PEER_CONFIG_PUBKEY,
                 padding: [0; 28],

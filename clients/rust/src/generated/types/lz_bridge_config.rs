@@ -36,7 +36,7 @@ pub struct LzBridgeConfig {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub token_escrow: Pubkey,
+    pub oft_token_escrow: Pubkey,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")

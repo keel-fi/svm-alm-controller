@@ -13,8 +13,8 @@ pub struct LzBridgeConfig {
     pub oft_store: Pubkey,
     /// Peer (aka other network) OFT configuration
     pub peer_config: Pubkey,
-    /// Escrow account of the OFT where tokens are sent prior to the OFT Send
-    pub token_escrow: Pubkey,
+    /// Escrow account of the OFT
+    pub oft_token_escrow: Pubkey,
     /// Destination to receive the tokens
     pub destination_address: Pubkey,
     /// ID of the destination chain

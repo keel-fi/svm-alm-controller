@@ -127,7 +127,7 @@ pub fn verify_send_ix_in_tx(
     let peer_config = oft_send_ix.get_account_meta_at(1)?.key;
     let oft_store = oft_send_ix.get_account_meta_at(2)?.key;
     let token_source = oft_send_ix.get_account_meta_at(3)?.key;
-    let token_escrow = oft_send_ix.get_account_meta_at(4)?.key;
+    let oft_token_escrow = oft_send_ix.get_account_meta_at(4)?.key;
     let token_mint = oft_send_ix.get_account_meta_at(5)?.key;
     let token_program = oft_send_ix.get_account_meta_at(6)?.key;
 
@@ -136,7 +136,7 @@ pub fn verify_send_ix_in_tx(
         || peer_config.ne(&config.peer_config)
         || oft_store.ne(&config.oft_store)
         || token_source.ne(accounts.authority_token_account.key())
-        || token_escrow.ne(&config.token_escrow)
+        || oft_token_escrow.ne(&config.oft_token_escrow)
         || token_mint.ne(accounts.mint.key())
         || token_program.ne(accounts.token_program.key())
     {

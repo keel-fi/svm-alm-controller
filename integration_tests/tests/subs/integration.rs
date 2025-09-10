@@ -262,7 +262,7 @@ pub fn initialize_integration(
                 is_writable: false,
             },
             AccountMeta {
-                pubkey: c.token_escrow,
+                pubkey: c.oft_token_escrow,
                 is_signer: false,
                 is_writable: false,
             },
@@ -1004,8 +1004,8 @@ pub async fn push_integration(
                 PushArgs::SplTokenSwap {
                     amount_a,
                     amount_b,
-                    minimum_pool_token_amount_a,
-                    minimum_pool_token_amount_b,
+                    minimum_pool_token_amount_a: _,
+                    minimum_pool_token_amount_b: _,
                 } => (*amount_a, *amount_b),
                 _ => panic!("Invalid push args"),
             };

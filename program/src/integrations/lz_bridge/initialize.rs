@@ -108,7 +108,7 @@ pub fn process_initialize_lz_bridge(
         mint: Pubkey::from(*inner_ctx.mint.key()),
         oft_store: Pubkey::from(*inner_ctx.oft_store.key()),
         peer_config: Pubkey::from(*inner_ctx.peer_config.key()),
-        token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
+        oft_token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
         destination_address: Pubkey::from(desination_address),
         destination_eid,
         _padding: [0u8; 28],
