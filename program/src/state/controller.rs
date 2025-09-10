@@ -59,7 +59,12 @@ impl Controller {
         .ok_or(ProgramError::InvalidSeeds)
     }
 
-    pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
+    /// Deserializes the Controller
+    /// validates PDA and controller_authority
+    pub fn load_and_check(
+        account_info: &AccountInfo,
+        controller_authority: &Pubkey,
+    ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
@@ -67,6 +72,13 @@ impl Controller {
         let controller: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
+
+        // Validate the controller_authority matches
+        if controller.authority.ne(controller_authority) {
+            msg!("controller_authority: does not match authority");
+            return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());
+        }
+
         Ok(controller)
     }
 

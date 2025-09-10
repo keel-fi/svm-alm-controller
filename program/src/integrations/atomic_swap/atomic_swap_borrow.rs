@@ -117,7 +117,7 @@ pub fn process_atomic_swap_borrow(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
     if controller.status != ControllerStatus::Active {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }

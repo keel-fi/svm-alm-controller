@@ -49,7 +49,7 @@ pub fn process_push(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
     if !controller.is_active() {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }

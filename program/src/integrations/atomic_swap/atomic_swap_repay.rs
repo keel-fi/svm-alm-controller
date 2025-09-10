@@ -57,7 +57,7 @@ pub fn process_atomic_swap_repay(
     }
 
     // Load Controller for event emission.
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;

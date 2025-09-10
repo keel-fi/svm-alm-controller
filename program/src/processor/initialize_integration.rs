@@ -64,8 +64,8 @@ pub fn process_initialize_integration(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
-    
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+
     // Error when Controller is frozen
     if controller.is_frozen() {
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());

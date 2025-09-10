@@ -1,5 +1,9 @@
 use crate::{
-    define_account_struct, enums::IntegrationConfig, error::SvmAlmControllerErrors, integrations::spl_token_swap::sync::process_sync_spl_token_swap, state::{keel_account::KeelAccount, Controller, Integration}
+    define_account_struct,
+    enums::IntegrationConfig,
+    error::SvmAlmControllerErrors,
+    integrations::spl_token_swap::sync::process_sync_spl_token_swap,
+    state::{keel_account::KeelAccount, Controller, Integration},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -31,14 +35,10 @@ pub fn process_sync_integration(
     let ctx = SyncIntegrationAccounts::from_accounts(accounts)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
     // Error when Controller is frozen
     if controller.is_frozen() {
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());
-    }
-    if controller.authority.ne(ctx.controller_authority.key()) {
-        msg!("controller_authority: does not match authority");
-        return Err(ProgramError::InvalidAccountData);
     }
 
     // Load in integration state
