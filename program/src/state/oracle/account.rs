@@ -78,14 +78,11 @@ impl Oracle {
 
                 let feed_account = price_feed.try_borrow_data()?;
                 if !feed_account.starts_with(&PullFeedAccountData::discriminator()) {
+                    msg!("Invalid PullFeedAccount discriminator");
                     return Err(ProgramError::InvalidAccountData);
                 };
 
                 // Deserialize account to check it's correct
-                if &feed_account[..8] != PullFeedAccountData::DISCRIMINATOR {
-                    msg!("Invalid PullFeedAccount discriminator");
-                    return Err(ProgramError::InvalidAccountData);
-                }
                 let _feed: &PullFeedAccountData = bytemuck::try_from_bytes(&feed_account[8..])
                     .map_err(|_| ProgramError::InvalidAccountData)?;
 
