@@ -9,24 +9,25 @@ use litesvm::LiteSVM;
 pub mod assert;
 pub mod cctp;
 pub mod constants;
-pub mod logs_parser;
 pub mod macros;
 pub mod raydium;
 pub mod spl;
 pub mod utils;
 use base64;
-pub use logs_parser::print_inner_instructions;
 pub use macros::*;
 use serde_json::Value;
 use solana_sdk::account::Account;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
+use solana_sdk::signer::Signer;
+use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionStatus};
 use std::env;
 use std::{fs, str::FromStr};
 
 use crate::helpers::constants::{
     LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302,
-    LZ_USDS_ESCROW,
 };
+use crate::subs::{airdrop_lamports, initialize_contoller, manage_permission};
 
 /// Get LiteSvm with myproject loaded.
 pub fn lite_svm_with_programs() -> LiteSVM {
@@ -108,6 +109,56 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
 
     svm
+}
+
+#[allow(dead_code)]
+pub struct TestContext {
+    pub svm: LiteSVM,
+    pub super_authority: Keypair,
+    pub controller_pk: Pubkey,
+}
+
+#[allow(dead_code)]
+pub fn setup_test_controller() -> Result<TestContext, Box<dyn std::error::Error>> {
+    let mut svm = lite_svm_with_programs();
+
+    let super_authority = Keypair::new();
+
+    // Airdrop to payer
+    airdrop_lamports(&mut svm, &super_authority.pubkey(), 1_000_000_000)?;
+
+    let (controller_pk, _) = initialize_contoller(
+        &mut svm,
+        &super_authority,
+        &super_authority,
+        ControllerStatus::Active,
+        321u16, // Id
+    )?;
+
+    // Update the authority to have all permissions
+    let _ = manage_permission(
+        &mut svm,
+        &controller_pk,
+        &super_authority,          // payer
+        &super_authority,          // calling authority
+        &super_authority.pubkey(), // subject authority
+        PermissionStatus::Active,
+        true, // can_execute_swap,
+        true, // can_manage_permissions,
+        true, // can_invoke_external_transfer,
+        true, // can_reallocate,
+        true, // can_freeze,
+        true, // can_unfreeze,
+        true, // can_manage_reserves_and_integrations
+        true, // can_suspend_permissions
+        true, // can_liquidate
+    )?;
+
+    Ok(TestContext {
+        svm,
+        super_authority,
+        controller_pk,
+    })
 }
 
 fn get_account_data_from_json(path: &str) -> Account {
