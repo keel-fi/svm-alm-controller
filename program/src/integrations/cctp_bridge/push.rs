@@ -113,8 +113,8 @@ pub fn process_push_cctp_bridge(
     }
 
     // Check permission
-    if !permission.can_invoke_external_transfer() {
-        msg! {"permission: can_invoke_external_transfer required"};
+    if !permission.can_reallocate() && !permission.can_liquidate() {
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 

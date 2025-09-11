@@ -1143,11 +1143,15 @@
             "type": "bool"
           },
           {
+            "name": "canLiquidate",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                31
+                30
               ]
             }
           }
@@ -1521,6 +1525,10 @@
           },
           {
             "name": "canSuspendPermissions",
+            "type": "bool"
+          },
+          {
+            "name": "canLiquidate",
             "type": "bool"
           }
         ]

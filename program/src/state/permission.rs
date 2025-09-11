@@ -49,7 +49,10 @@ pub struct Permission {
     /// Enables the Permission's authority to suspend any Permission, EXCEPT for
     /// a Super Permission with `can_manage_permissions` enabled.
     pub can_suspend_permissions: bool,
-    pub _padding: [u8; 31],
+    /// Enables the Permission's authority to "Pull" funds from external Integrations
+    /// and Push funds back to Ethereum Mainnet.
+    pub can_liquidate: bool,
+    pub _padding: [u8; 30],
 }
 
 impl Discriminator for Permission {
@@ -57,7 +60,7 @@ impl Discriminator for Permission {
 }
 
 impl KeelAccount for Permission {
-    const LEN: usize = 2 * 32 + 9 * 1 + 31;
+    const LEN: usize = 2 * 32 + 10 * 1 + 30;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -116,6 +119,7 @@ impl Permission {
         can_unfreeze_controller: bool,
         can_manage_reserves_and_integrations: bool,
         can_suspend_permissions: bool,
+        can_liquidate: bool,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the controller
         let permission = Permission {
@@ -130,7 +134,8 @@ impl Permission {
             can_unfreeze_controller,
             can_manage_reserves_and_integrations,
             can_suspend_permissions,
-            _padding: [0; 31],
+            can_liquidate,
+            _padding: [0; 30],
         };
 
         // Derive the PDA
@@ -176,6 +181,7 @@ impl Permission {
         can_unfreeze_controller: Option<bool>,
         can_manage_reserves_and_integrations: Option<bool>,
         can_suspend_permissions: Option<bool>,
+        can_liquidate: Option<bool>,
     ) -> Result<(), ProgramError> {
         if let Some(status) = status {
             self.status = status;
@@ -203,6 +209,9 @@ impl Permission {
         }
         if let Some(can_manage_reserves_and_integrations) = can_manage_reserves_and_integrations {
             self.can_manage_reserves_and_integrations = can_manage_reserves_and_integrations;
+        }
+        if let Some(can_liquidate) = can_liquidate {
+            self.can_liquidate = can_liquidate;
         }
 
         // Commit the account on-chain
@@ -241,5 +250,9 @@ impl Permission {
 
     pub fn can_invoke_external_transfer(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_invoke_external_transfer
+    }
+
+    pub fn can_liquidate(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_liquidate
     }
 }

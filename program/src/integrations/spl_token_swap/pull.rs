@@ -162,8 +162,8 @@ pub fn process_pull_spl_token_swap(
     }
 
     // Check permission
-    if !permission.can_reallocate() {
-        msg! {"permission: can_reallocate required"};
+    if !permission.can_reallocate() && !permission.can_liquidate() {
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 

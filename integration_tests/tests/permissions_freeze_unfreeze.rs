@@ -83,6 +83,7 @@ mod tests {
             true, // can_unfreeze,
             true, // can_manage_reserves_and_integrations
             true, // can_suspend_permissions
+            true, // can_liquidate
         )?;
 
         // Create a permission for freezer (can only freeze)
@@ -101,6 +102,7 @@ mod tests {
             false, // can_unfreeze,
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
+            false, // can_liquidate
         )?;
 
         // Create a permission for unfreezer (can only unfreeze)
@@ -119,6 +121,7 @@ mod tests {
             true,  // can_unfreeze,
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
+            false, // can_liquidate
         )?;
 
         // Create a permission for regular user (no freeze/unfreeze permissions)
@@ -137,6 +140,7 @@ mod tests {
             false, // can_unfreeze,
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
+            false, // can_liquidate
         )?;
 
         // Test 1: Authority can freeze the controller

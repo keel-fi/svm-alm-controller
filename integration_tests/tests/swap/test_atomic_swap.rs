@@ -134,6 +134,7 @@ mod tests {
             false, // can_unfreeze,
             true,  // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
+            false, // can_liquidate
         )?;
 
         // Setup relayer with funded token accounts.

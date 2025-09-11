@@ -124,6 +124,7 @@ pub struct ManagePermissionInstructionArgs {
     pub can_unfreeze_controller: bool,
     pub can_manage_reserves_and_integrations: bool,
     pub can_suspend_permissions: bool,
+    pub can_liquidate: bool,
 }
 
 /// Instruction builder for `ManagePermission`.
@@ -159,6 +160,7 @@ pub struct ManagePermissionBuilder {
     can_unfreeze_controller: Option<bool>,
     can_manage_reserves_and_integrations: Option<bool>,
     can_suspend_permissions: Option<bool>,
+    can_liquidate: Option<bool>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -272,6 +274,11 @@ impl ManagePermissionBuilder {
         self.can_suspend_permissions = Some(can_suspend_permissions);
         self
     }
+    #[inline(always)]
+    pub fn can_liquidate(&mut self, can_liquidate: bool) -> &mut Self {
+        self.can_liquidate = Some(can_liquidate);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -341,6 +348,10 @@ impl ManagePermissionBuilder {
                 .can_suspend_permissions
                 .clone()
                 .expect("can_suspend_permissions is not set"),
+            can_liquidate: self
+                .can_liquidate
+                .clone()
+                .expect("can_liquidate is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -564,6 +575,7 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
             can_unfreeze_controller: None,
             can_manage_reserves_and_integrations: None,
             can_suspend_permissions: None,
+            can_liquidate: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -689,6 +701,11 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
         self.instruction.can_suspend_permissions = Some(can_suspend_permissions);
         self
     }
+    #[inline(always)]
+    pub fn can_liquidate(&mut self, can_liquidate: bool) -> &mut Self {
+        self.instruction.can_liquidate = Some(can_liquidate);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -772,6 +789,11 @@ impl<'a, 'b> ManagePermissionCpiBuilder<'a, 'b> {
                 .can_suspend_permissions
                 .clone()
                 .expect("can_suspend_permissions is not set"),
+            can_liquidate: self
+                .instruction
+                .can_liquidate
+                .clone()
+                .expect("can_liquidate is not set"),
         };
         let instruction = ManagePermissionCpi {
             __program: self.instruction.__program,
@@ -835,6 +857,7 @@ struct ManagePermissionCpiBuilderInstruction<'a, 'b> {
     can_unfreeze_controller: Option<bool>,
     can_manage_reserves_and_integrations: Option<bool>,
     can_suspend_permissions: Option<bool>,
+    can_liquidate: Option<bool>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

@@ -107,6 +107,7 @@ mod tests {
             true, // can_unfreeze,
             true, // can_manage_reserves_and_integrations
             true, // can_suspend_permissions
+            true, // can_liquidate
         )?;
 
         // Initialize a reserve for the USDS token

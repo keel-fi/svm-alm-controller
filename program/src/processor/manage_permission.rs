@@ -49,6 +49,7 @@ fn manage_permission(
             args.can_unfreeze_controller,
             args.can_manage_reserves_and_integrations,
             args.can_suspend_permissions,
+            args.can_liquidate,
         )?;
         Ok((permission, None))
     } else {
@@ -68,6 +69,7 @@ fn manage_permission(
             Some(args.can_unfreeze_controller),
             Some(args.can_manage_reserves_and_integrations),
             Some(args.can_suspend_permissions),
+            Some(args.can_liquidate),
         )?;
         Ok((permission, Some(old_state)))
     }
@@ -101,6 +103,7 @@ fn suspend_permission(
     permission.update_and_save(
         ctx.permission,
         Some(args.status),
+        None,
         None,
         None,
         None,

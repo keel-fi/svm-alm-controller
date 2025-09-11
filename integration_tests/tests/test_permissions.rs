@@ -54,6 +54,7 @@ mod tests {
             true, // can_unfreeze,
             true, // can_manage_reserves_and_integrations
             true, // can_suspend_permissions
+            true, // can_liquidate
         )?;
 
         Ok(TestContext {
@@ -89,6 +90,7 @@ mod tests {
             false, // can_unfreeze,
             false, // can_manage_reserves_and_integrations
             true,  // can_suspend_permissions
+            false, // can_liquidate
         )?;
         // Create Permission w/o manage to be suspended
         let _ = manage_permission(
@@ -106,6 +108,7 @@ mod tests {
             false, // can_unfreeze,
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
+            false, // can_liquidate
         )?;
         // Invoke
         manage_permission(
@@ -123,6 +126,7 @@ mod tests {
             false, // can_unfreeze,
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
+            false, // can_liquidate
         )?;
         let suspended_permission_pda =
             derive_permission_pda(&controller_pk, &suspended_authority.pubkey());

@@ -57,6 +57,7 @@ pub fn process_initialize_controller(
         false,
         false,
         false,
+        false, // can_liquidate
     )?;
 
     // Emit the event

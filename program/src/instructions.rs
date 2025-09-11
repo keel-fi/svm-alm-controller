@@ -215,6 +215,7 @@ pub struct ManagePermissionArgs {
     pub can_unfreeze_controller: bool,
     pub can_manage_reserves_and_integrations: bool,
     pub can_suspend_permissions: bool,
+    pub can_liquidate: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
