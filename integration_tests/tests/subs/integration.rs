@@ -436,6 +436,9 @@ pub async fn push_integration(
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 
+    svm.get_account(&calling_permission_pda)
+        .expect("permission exists");
+
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
         .unwrap();

@@ -131,25 +131,6 @@ mod tests {
             1_000_000,
         )?;
 
-        // Update the authority to have all permissions
-        let _ = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,          // payer
-            &super_authority,          // calling authority
-            &super_authority.pubkey(), // subject authority
-            PermissionStatus::Active,
-            true, // can_execute_swap,
-            true, // can_manage_permissions,
-            true, // can_invoke_external_transfer,
-            true, // can_reallocate,
-            true, // can_freeze,
-            true, // can_unfreeze,
-            true, // can_manage_reserves_and_integrations
-            true, // can_suspend_permissions
-            true, // can_liquidate
-        )?;
-
         // Create a permission for freezer (can only freeze)
         let _freezer_permission_pk = manage_permission(
             &mut svm,

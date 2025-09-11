@@ -29,6 +29,8 @@ pub struct Feed {
     pub reserved: [u8; 63],
 }
 
+
+// TODO add controller, mint, quote_mint
 #[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Oracle {
