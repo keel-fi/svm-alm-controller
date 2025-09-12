@@ -1,5 +1,4 @@
 use crate::{
-    constants::ADDRESS_LOOKUP_TABLE_PROGRAM_ID,
     define_account_struct,
     enums::IntegrationType,
     error::SvmAlmControllerErrors,
@@ -27,27 +26,9 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, empty, @owner(pinocchio_system::ID);
-        lookup_table;
         program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);
         @remaining_accounts as remaining_accounts;
-    }
-}
-
-impl<'info> InitializeIntegrationAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-
-        // The Lookuptable must be either a value ALUT or the system_program (i.e. no LUT provided)
-        if ctx.lookup_table.key().ne(&pinocchio_system::id())
-            && !ctx
-                .lookup_table
-                .is_owned_by(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID)
-        {
-            msg! {"Lookup Table: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        Ok(ctx)
     }
 }
 
@@ -58,7 +39,7 @@ pub fn process_initialize_integration(
 ) -> ProgramResult {
     msg!("initialize_integration");
 
-    let ctx = InitializeIntegrationAccounts::checked_from_accounts(accounts)?;
+    let ctx = InitializeIntegrationAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = InitializeIntegrationArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
@@ -98,7 +79,6 @@ pub fn process_initialize_integration(
         config,
         state,
         args.description,
-        *ctx.lookup_table.key(),
         args.rate_limit_slope,
         args.rate_limit_max_outflow,
     )?;

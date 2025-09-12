@@ -34,8 +34,6 @@ pub struct Integration {
     pub description: [u8; 32],
     /// Hash of the Integration's IntegrationConfig to be used as a PDA seed
     pub hash: [u8; 32],
-    /// Address Lookup Table associated with this Integration (set to Pubkey::default() when not needed)
-    pub lookup_table: Pubkey,
     /// Status of the Integration (i.e. active or suspended)
     pub status: IntegrationStatus,
     /// The number of units (i.e. TokenAccount amount) is replenished to the available amount per 24 hours
@@ -57,7 +55,7 @@ pub struct Integration {
     pub config: IntegrationConfig,
     /// Integration specific state (i.e. LP balances)
     pub state: IntegrationState,
-    pub _padding: [u8; 56],
+    pub _padding: [u8; 88],
 }
 
 impl Discriminator for Integration {
@@ -65,7 +63,7 @@ impl Discriminator for Integration {
 }
 
 impl KeelAccount for Integration {
-    const LEN: usize = 4 * 32 + 1 + 6 * 8 + 225 + 49 + 56;
+    const LEN: usize = 3 * 32 + 1 + 6 * 8 + 225 + 49 + 88;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -114,7 +112,6 @@ impl Integration {
         config: IntegrationConfig,
         state: IntegrationState,
         description: [u8; 32],
-        lookup_table: Pubkey,
         rate_limit_slope: u64,
         rate_limit_max_outflow: u64,
     ) -> Result<Self, ProgramError> {
@@ -127,7 +124,6 @@ impl Integration {
             controller,
             hash,
             status,
-            lookup_table,
             description,
             config,
             state,
@@ -137,7 +133,7 @@ impl Integration {
             rate_limit_remainder: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 56],
+            _padding: [0; 88],
         };
 
         // Derive the PDA
@@ -175,7 +171,6 @@ impl Integration {
         &mut self,
         account_info: &AccountInfo,
         status: Option<IntegrationStatus>,
-        lookup_table: Option<Pubkey>,
         description: Option<[u8; 32]>,
         rate_limit_slope: Option<u64>,
         rate_limit_max_outflow: Option<u64>,
@@ -186,9 +181,6 @@ impl Integration {
 
         if let Some(status) = status {
             self.status = status;
-        }
-        if let Some(lookup_table) = lookup_table {
-            self.lookup_table = lookup_table;
         }
         if let Some(rate_limit_slope) = rate_limit_slope {
             self.rate_limit_slope = rate_limit_slope;

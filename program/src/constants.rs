@@ -10,9 +10,6 @@ pub const SPL_TOKEN_SWAP_LP_SEED: &[u8] = b"spl-swap-lp";
 pub const SPL_TOKEN_VAULT_SEED: &[u8] = b"vault";
 pub const ORACLE_SEED: &[u8] = b"oracle";
 
-pub const ADDRESS_LOOKUP_TABLE_PROGRAM_ID: Pubkey =
-    pubkey!("AddressLookupTab1e1111111111111111111111111");
-
 pub const SECONDS_PER_DAY: u64 = 86_400;
 pub const BPS_DENOMINATOR: u16 = 10_000;
 

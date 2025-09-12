@@ -1,5 +1,4 @@
 use crate::{
-    constants::ADDRESS_LOOKUP_TABLE_PROGRAM_ID,
     define_account_struct,
     error::SvmAlmControllerErrors,
     events::{IntegrationUpdateEvent, SvmAlmControllerEvent},
@@ -18,25 +17,7 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
-        lookup_table;
         program_id: @pubkey(crate::ID);
-    }
-}
-
-impl<'info> ManageIntegrationAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-        // The Lookuptable must be either a value ALUT or the system_program (i.e. no LUT provided)
-        if ctx.lookup_table.key().ne(&pinocchio_system::id())
-            && !ctx
-                .lookup_table
-                .is_owned_by(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID)
-        {
-            msg! {"lookup_table: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-
-        Ok(ctx)
     }
 }
 
@@ -47,7 +28,7 @@ pub fn process_manage_integration(
 ) -> ProgramResult {
     msg!("manage_integration");
 
-    let ctx = ManageIntegrationAccounts::checked_from_accounts(accounts)?;
+    let ctx = ManageIntegrationAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManageIntegrationArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
@@ -76,11 +57,6 @@ pub fn process_manage_integration(
     integration.update_and_save(
         ctx.integration,
         args.status,
-        if ctx.lookup_table.key().ne(&pinocchio_system::ID) {
-            Some(*ctx.lookup_table.key())
-        } else {
-            None
-        },
         args.description,
         args.rate_limit_slope,
         args.rate_limit_max_outflow,

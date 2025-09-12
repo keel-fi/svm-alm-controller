@@ -302,7 +302,6 @@ pub fn initialize_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(integration_pda)
-        .lookup_table(system_program::ID)
         .add_remaining_accounts(remaining_accounts)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
@@ -375,7 +374,6 @@ pub fn manage_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
-        .lookup_table(system_program::ID)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .instruction();
 

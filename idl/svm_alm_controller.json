@@ -338,11 +338,6 @@
           "isSigner": false
         },
         {
-          "name": "lookupTable",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "programId",
           "isMut": false,
           "isSigner": false
@@ -392,11 +387,6 @@
         {
           "name": "integration",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lookupTable",
-          "isMut": false,
           "isSigner": false
         },
         {
@@ -982,10 +972,6 @@
             }
           },
           {
-            "name": "lookupTable",
-            "type": "publicKey"
-          },
-          {
             "name": "status",
             "type": {
               "defined": "IntegrationStatus"
@@ -1032,7 +1018,7 @@
             "type": {
               "array": [
                 "u8",
-                56
+                88
               ]
             }
           }

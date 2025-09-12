@@ -22,11 +22,6 @@ pub struct Integration {
     pub controller: Pubkey,
     pub description: [u8; 32],
     pub hash: [u8; 32],
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub lookup_table: Pubkey,
     pub status: IntegrationStatus,
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
@@ -37,7 +32,7 @@ pub struct Integration {
     pub config: IntegrationConfig,
     pub state: IntegrationState,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 56],
+    pub padding: [u8; 88],
 }
 
 impl Integration {

@@ -26,8 +26,6 @@ pub struct InitializeIntegration {
 
     pub integration: solana_program::pubkey::Pubkey,
 
-    pub lookup_table: solana_program::pubkey::Pubkey,
-
     pub program_id: solana_program::pubkey::Pubkey,
 
     pub system_program: solana_program::pubkey::Pubkey,
@@ -47,7 +45,7 @@ impl InitializeIntegration {
         args: InitializeIntegrationInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(9 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.payer, true,
         ));
@@ -69,10 +67,6 @@ impl InitializeIntegration {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             self.integration,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.lookup_table,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -135,9 +129,8 @@ pub struct InitializeIntegrationInstructionArgs {
 ///   3. `[signer]` authority
 ///   4. `[]` permission
 ///   5. `[writable]` integration
-///   6. `[]` lookup_table
-///   7. `[]` program_id
-///   8. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   6. `[]` program_id
+///   7. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeIntegrationBuilder {
     payer: Option<solana_program::pubkey::Pubkey>,
@@ -146,7 +139,6 @@ pub struct InitializeIntegrationBuilder {
     authority: Option<solana_program::pubkey::Pubkey>,
     permission: Option<solana_program::pubkey::Pubkey>,
     integration: Option<solana_program::pubkey::Pubkey>,
-    lookup_table: Option<solana_program::pubkey::Pubkey>,
     program_id: Option<solana_program::pubkey::Pubkey>,
     system_program: Option<solana_program::pubkey::Pubkey>,
     integration_type: Option<IntegrationType>,
@@ -193,11 +185,6 @@ impl InitializeIntegrationBuilder {
     #[inline(always)]
     pub fn integration(&mut self, integration: solana_program::pubkey::Pubkey) -> &mut Self {
         self.integration = Some(integration);
-        self
-    }
-    #[inline(always)]
-    pub fn lookup_table(&mut self, lookup_table: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.lookup_table = Some(lookup_table);
         self
     }
     #[inline(always)]
@@ -270,7 +257,6 @@ impl InitializeIntegrationBuilder {
             authority: self.authority.expect("authority is not set"),
             permission: self.permission.expect("permission is not set"),
             integration: self.integration.expect("integration is not set"),
-            lookup_table: self.lookup_table.expect("lookup_table is not set"),
             program_id: self.program_id.expect("program_id is not set"),
             system_program: self
                 .system_program
@@ -312,8 +298,6 @@ pub struct InitializeIntegrationCpiAccounts<'a, 'b> {
 
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
-
     pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
@@ -336,8 +320,6 @@ pub struct InitializeIntegrationCpi<'a, 'b> {
 
     pub integration: &'b solana_program::account_info::AccountInfo<'a>,
 
-    pub lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
-
     pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
@@ -359,7 +341,6 @@ impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
             authority: accounts.authority,
             permission: accounts.permission,
             integration: accounts.integration,
-            lookup_table: accounts.lookup_table,
             program_id: accounts.program_id,
             system_program: accounts.system_program,
             __args: args,
@@ -399,7 +380,7 @@ impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(9 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.payer.key,
             true,
@@ -422,10 +403,6 @@ impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
         ));
         accounts.push(solana_program::instruction::AccountMeta::new(
             *self.integration.key,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.lookup_table.key,
             false,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -452,7 +429,7 @@ impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(10 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
@@ -460,7 +437,6 @@ impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
         account_infos.push(self.authority.clone());
         account_infos.push(self.permission.clone());
         account_infos.push(self.integration.clone());
-        account_infos.push(self.lookup_table.clone());
         account_infos.push(self.program_id.clone());
         account_infos.push(self.system_program.clone());
         remaining_accounts
@@ -485,9 +461,8 @@ impl<'a, 'b> InitializeIntegrationCpi<'a, 'b> {
 ///   3. `[signer]` authority
 ///   4. `[]` permission
 ///   5. `[writable]` integration
-///   6. `[]` lookup_table
-///   7. `[]` program_id
-///   8. `[]` system_program
+///   6. `[]` program_id
+///   7. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct InitializeIntegrationCpiBuilder<'a, 'b> {
     instruction: Box<InitializeIntegrationCpiBuilderInstruction<'a, 'b>>,
@@ -503,7 +478,6 @@ impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
             authority: None,
             permission: None,
             integration: None,
-            lookup_table: None,
             program_id: None,
             system_program: None,
             integration_type: None,
@@ -559,14 +533,6 @@ impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
         integration: &'b solana_program::account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.integration = Some(integration);
-        self
-    }
-    #[inline(always)]
-    pub fn lookup_table(
-        &mut self,
-        lookup_table: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.lookup_table = Some(lookup_table);
         self
     }
     #[inline(always)]
@@ -705,11 +671,6 @@ impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
                 .integration
                 .expect("integration is not set"),
 
-            lookup_table: self
-                .instruction
-                .lookup_table
-                .expect("lookup_table is not set"),
-
             program_id: self.instruction.program_id.expect("program_id is not set"),
 
             system_program: self
@@ -734,7 +695,6 @@ struct InitializeIntegrationCpiBuilderInstruction<'a, 'b> {
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    lookup_table: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     integration_type: Option<IntegrationType>,

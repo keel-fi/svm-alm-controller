@@ -76,9 +76,8 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, signer, name = "authority")]
     #[account(4, name = "permission")]
     #[account(5, writable, name = "integration")]
-    #[account(6, name = "lookup_table")]
-    #[account(7, name = "program_id")]
-    #[account(8, name = "system_program")]
+    #[account(6, name = "program_id")]
+    #[account(7, name = "system_program")]
     InitializeIntegration(InitializeIntegrationArgs),
 
     /// Manage an integration account
@@ -87,9 +86,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
-    // NOTE: if there is no LUT, then the system_program ID should be used.
-    #[account(5, name = "lookup_table")]
-    #[account(6, name = "program_id")]
+    #[account(5, name = "program_id")]
     ManageIntegration(ManageIntegrationArgs),
 
     /// SyncReserve
