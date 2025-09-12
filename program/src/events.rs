@@ -13,7 +13,6 @@ pub enum SvmAlmControllerEvent {
     ReserveUpdate(ReserveUpdateEvent),
     IntegrationUpdate(IntegrationUpdateEvent),
     AccountingEvent(AccountingEvent),
-    SwapEvent(SwapEvent),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
@@ -54,25 +53,12 @@ pub struct IntegrationUpdateEvent {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct AccountingEvent {
     pub controller: Pubkey,
-    pub integration: Pubkey,
+    pub integration: Option<Pubkey>,
+    pub reserve: Option<Pubkey>,
     pub mint: Pubkey,
     pub action: AccountingAction,
     pub before: u64,
     pub after: u64,
-}
-
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
-pub struct SwapEvent {
-    pub controller: Pubkey,
-    pub integration: Pubkey,
-    pub input_mint: Pubkey,
-    pub output_mint: Pubkey,
-    pub input_amount: u64,
-    pub output_amount: u64,
-    pub input_balance_before: u64,
-    pub input_balance_after: u64,
-    pub output_balance_before: u64,
-    pub output_balance_after: u64,
 }
 
 #[repr(u8)]
@@ -83,4 +69,5 @@ pub enum AccountingAction {
     Deposit,
     Withdrawal,
     BridgeSend,
+    Swap,
 }

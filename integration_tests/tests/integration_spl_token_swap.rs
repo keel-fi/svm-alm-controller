@@ -174,8 +174,8 @@ mod tests {
             1_000_000_000, // 1k
         )?;
 
-        let mut pool_liquidity_a = 1_000_000;
-        let mut pool_liquidity_b = 1_000_000;
+        let pool_liquidity_a = 1_000_000;
+        let pool_liquidity_b = 1_000_000;
 
         // Initialize a token swap for the pair
         let (usds_susds_swap_pk, usds_susds_lp_mint_pk) = initialize_swap(
@@ -296,8 +296,8 @@ mod tests {
         // Validate that the Sync AccountingEvents were fired during push
         let expected_usds_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: controller_pk,
-            // TODO this may need to change away from Reserve's Pubkey
-            integration: usds_reserve_pk,
+            integration: None,
+            reserve: Some(usds_reserve_pk),
             mint: usds_mint,
             action: AccountingAction::Sync,
             before: 0,
@@ -305,8 +305,8 @@ mod tests {
         });
         let expected_susds_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: controller_pk,
-            // TODO this may need to change away from Reserve's Pubkey
-            integration: susds_reserve_pk,
+            integration: None,
+            reserve: Some(susds_reserve_pk),
             mint: susds_mint,
             action: AccountingAction::Sync,
             before: 0,

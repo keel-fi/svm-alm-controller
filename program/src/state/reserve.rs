@@ -313,8 +313,8 @@ impl Reserve {
                 controller_key,
                 SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                     controller: self.controller,
-                    // REVIEW: Should this be an Integration's pubkey?
-                    integration: self.derive_pda().unwrap().0,
+                    integration: None,
+                    reserve: Some(self.derive_pda()?.0),
                     mint: self.mint,
                     action: AccountingAction::Sync,
                     before: previous_balance,

@@ -215,13 +215,14 @@ pub fn process_push_cctp_bridge(
     // Update the reserve for the outflow
     reserve.update_for_outflow(clock, amount, false)?;
 
-    // Emit the accounting event
+    // Emit the accounting event for debit Reserve
     controller.emit_event(
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
-            integration: *outer_ctx.integration.key(),
+            integration: None,
+            reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
             before: post_sync_balance,

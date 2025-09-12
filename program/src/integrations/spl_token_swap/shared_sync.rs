@@ -78,7 +78,8 @@ pub fn sync_spl_token_swap_integration(
             controller_acct.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *controller_acct.key(),
-                integration: *integration_acct.key(),
+                integration: Some(*integration_acct.key()),
+                reserve: None,
                 mint: *mint_a_pubkey,
                 action: AccountingAction::Sync,
                 before: last_balance_a,
@@ -92,7 +93,8 @@ pub fn sync_spl_token_swap_integration(
             controller_acct.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *controller_acct.key(),
-                integration: *integration_acct.key(),
+                integration: Some(*integration_acct.key()),
+                reserve: None,
                 mint: *mint_b_pubkey,
                 action: AccountingAction::Sync,
                 before: last_balance_b,
@@ -128,7 +130,8 @@ pub fn sync_spl_token_swap_integration(
             controller_acct.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *controller_acct.key(),
-                integration: *integration_acct.key(),
+                integration: Some(*integration_acct.key()),
+                reserve: None,
                 mint: *mint_a_pubkey,
                 action: AccountingAction::Sync,
                 before: step_1_balance_a,
@@ -140,7 +143,8 @@ pub fn sync_spl_token_swap_integration(
             controller_acct.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *controller_acct.key(),
-                integration: *integration_acct.key(),
+                integration: Some(*integration_acct.key()),
+                reserve: None,
                 mint: *mint_b_pubkey,
                 action: AccountingAction::Sync,
                 before: step_1_balance_b,

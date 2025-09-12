@@ -379,7 +379,8 @@ pub fn process_push_spl_token_swap(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Deposit,
                 before: latest_balance_a,
@@ -394,7 +395,8 @@ pub fn process_push_spl_token_swap(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Deposit,
                 before: latest_balance_b,

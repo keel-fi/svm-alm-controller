@@ -181,7 +181,8 @@ pub fn process_push_spl_token_external(
         outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
-            integration: *outer_ctx.integration.key(),
+            integration: None,
+            reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::ExternalTransfer,
             before: post_sync_balance,

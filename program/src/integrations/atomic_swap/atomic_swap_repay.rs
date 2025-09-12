@@ -13,7 +13,7 @@ use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    events::{SvmAlmControllerEvent, SwapEvent},
+    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
     state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
@@ -212,21 +212,33 @@ pub fn process_atomic_swap_repay(
     integration.update_rate_limit_for_inflow(clock, balance_a_delta)?;
     integration.save(ctx.integration)?;
 
-    // Emit the swap event
+    // Emit debit event for token a Reserve
     controller.emit_event(
         ctx.controller_authority,
         ctx.controller.key(),
-        SvmAlmControllerEvent::SwapEvent(SwapEvent {
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *ctx.controller.key(),
-            integration: *ctx.integration.key(),
-            input_mint: reserve_a.mint,
-            output_mint: reserve_b.mint,
-            input_amount: final_input_amount,
-            output_amount: balance_b_delta,
-            input_balance_before: vault_a_swap_starting_balance,
-            input_balance_after: final_vault_balance_a,
-            output_balance_before: vault_b_swap_starting_balance,
-            output_balance_after: final_vault_balance_b,
+            integration: None,
+            reserve: Some(*ctx.reserve_a.key()),
+            mint: *ctx.mint_a.key(),
+            action: AccountingAction::Swap,
+            before: vault_a_swap_starting_balance,
+            after: final_vault_balance_a,
+        }),
+    )?;
+
+    // Emit credit event for token b Reserve
+    controller.emit_event(
+        ctx.controller_authority,
+        ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *ctx.controller.key(),
+            integration: None,
+            reserve: Some(*ctx.reserve_b.key()),
+            mint: *ctx.mint_b.key(),
+            action: AccountingAction::Swap,
+            before: vault_b_swap_starting_balance,
+            after: final_vault_balance_b,
         }),
     )?;
 

@@ -1374,7 +1374,15 @@
           },
           {
             "name": "integration",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "reserve",
+            "type": {
+              "option": "publicKey"
+            }
           },
           {
             "name": "mint",
@@ -1392,54 +1400,6 @@
           },
           {
             "name": "after",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "controller",
-            "type": "publicKey"
-          },
-          {
-            "name": "integration",
-            "type": "publicKey"
-          },
-          {
-            "name": "inputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "outputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "inputAmount",
-            "type": "u64"
-          },
-          {
-            "name": "outputAmount",
-            "type": "u64"
-          },
-          {
-            "name": "inputBalanceBefore",
-            "type": "u64"
-          },
-          {
-            "name": "inputBalanceAfter",
-            "type": "u64"
-          },
-          {
-            "name": "outputBalanceBefore",
-            "type": "u64"
-          },
-          {
-            "name": "outputBalanceAfter",
             "type": "u64"
           }
         ]
@@ -2601,14 +2561,6 @@
                 "defined": "AccountingEvent"
               }
             ]
-          },
-          {
-            "name": "SwapEvent",
-            "fields": [
-              {
-                "defined": "SwapEvent"
-              }
-            ]
           }
         ]
       }
@@ -2632,6 +2584,9 @@
           },
           {
             "name": "BridgeSend"
+          },
+          {
+            "name": "Swap"
           }
         ]
       }
