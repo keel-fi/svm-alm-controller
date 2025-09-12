@@ -181,7 +181,7 @@ pub fn process_atomic_swap_repay(
         .checked_sub(vault_b_balance_before)
         .expect("overflow");
 
-    let oracle = Oracle::load_and_check(ctx.oracle)?;
+    let oracle = Oracle::load_and_check(ctx.oracle, Some(ctx.controller.key()), None)?;
 
     // Check that oracle was last refreshed within acceptable staleness.
     if oracle.last_update_slot < clock.slot - config.max_staleness {

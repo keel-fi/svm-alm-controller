@@ -87,7 +87,6 @@ mod tests {
         let update_slot = 1000_000;
         svm.warp_to_slot(update_slot);
         set_price_feed(svm, &price_feed, 1_000_000_000_000)?; // $1
-        initialize_oracle(svm, &relayer_authority_kp, &nonce, &price_feed, 0)?;
 
         initialize_mint(
             svm,
@@ -117,6 +116,17 @@ mod tests {
             &relayer_authority_kp,
             ControllerStatus::Active,
             321u16, // Id
+        )?;
+        // NOTE: the non-inverted swaps trade from the PC Coin to the Coin,
+        // which means they are using a USD/SOL oracle. So we use the pc_token (price_coin)
+        // as the mint and coin_token as the quote_mint.
+        initialize_oracle(
+            svm,
+            &controller_pk,
+            &relayer_authority_kp,
+            &nonce,
+            &price_feed,
+            0,
         )?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(

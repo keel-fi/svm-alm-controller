@@ -36,7 +36,7 @@ pub fn process_initialize_atomic_swap(
     }
 
     // Check that Oracle is a valid account.
-    let _oracle: Oracle = Oracle::load_and_check(&inner_ctx.oracle)?;
+    let oracle = Oracle::load_and_check(&inner_ctx.oracle, Some(outer_ctx.controller.key()), None)?;
 
     let InitializeArgs::AtomicSwap {
         max_slippage_bps,

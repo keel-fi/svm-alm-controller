@@ -21,6 +21,8 @@ use switchboard_on_demand::{
     Discriminator, OracleSubmission, PullFeedAccountData, ON_DEMAND_MAINNET_PID,
 };
 
+use crate::subs::derive_controller_authority_pda;
+
 pub fn derive_oracle_pda(nonce: &Pubkey) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
         &[b"oracle", &nonce.to_bytes()],
@@ -92,13 +94,17 @@ pub fn set_price_feed(
 
 pub fn initialize_oracle(
     svm: &mut LiteSVM,
+    controller: &Pubkey,
     authority: &Keypair,
     nonce: &Pubkey,
     price_feed: &Pubkey,
     oracle_type: u8,
 ) -> Result<(), Box<dyn Error>> {
+    let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
     let ixn = InitializeOracleBuilder::new()
+        .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .oracle(oracle_pda)
         .price_feed(*price_feed)
@@ -115,6 +121,7 @@ pub fn initialize_oracle(
         svm.latest_blockhash(),
     );
     let tx_result = svm.send_transaction(txn);
+    tx_result.unwrap();
     Ok(())
 }
 
@@ -143,15 +150,19 @@ pub fn refresh_oracle(
 
 pub fn update_oracle(
     svm: &mut LiteSVM,
+    controller: &Pubkey,
     authority: &Keypair,
     oracle_pda: &Pubkey,
     price_feed: &Pubkey,
     feed_args: Option<FeedArgs>,
     new_authority: Option<&Keypair>,
 ) -> Result<(), Box<dyn Error>> {
+    let controller_authority = derive_controller_authority_pda(controller);
     let new_authority_pubkey = new_authority.map(|k| k.pubkey());
     let ixn = if let Some(feed_args) = feed_args {
         UpdateOracleBuilder::new()
+            .controller(*controller)
+            .controller_authority(controller_authority)
             .authority(authority.pubkey())
             .oracle(*oracle_pda)
             .price_feed(*price_feed)
@@ -160,6 +171,8 @@ pub fn update_oracle(
             .instruction()
     } else {
         UpdateOracleBuilder::new()
+            .controller(*controller)
+            .controller_authority(controller_authority)
             .authority(authority.pubkey())
             .oracle(*oracle_pda)
             .price_feed(*price_feed)
