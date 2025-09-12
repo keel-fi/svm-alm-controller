@@ -47,6 +47,10 @@ pub struct Oracle {
     pub last_update_slot: u64,
     /// Controller the Oracle belongs to.
     pub controller: Pubkey,
+    /// Mint that the oracle quotes price for. This is mainly used
+    /// to avoid possible footguns when initializing integrations
+    /// that utilize the given Oracle.
+    pub mint: Pubkey,
     /// Extra space reserved before feeds array.
     pub reserved: [u8; 64],
     /// Price feeds.
@@ -58,7 +62,7 @@ impl Discriminator for Oracle {
 }
 
 impl KeelAccount for Oracle {
-    const LEN: usize = 285;
+    const LEN: usize = 317;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID)
@@ -139,6 +143,7 @@ impl Oracle {
         authority_info: &AccountInfo,
         payer_info: &AccountInfo,
         controller: &Pubkey,
+        mint: &Pubkey,
         nonce: &Pubkey,
         oracle_type: u8,
         price_feed: &AccountInfo,
@@ -157,6 +162,7 @@ impl Oracle {
             precision,
             last_update_slot: 0,
             controller: *controller,
+            mint: *mint,
             reserved: [0; 64],
             feeds: [Feed {
                 oracle_type,

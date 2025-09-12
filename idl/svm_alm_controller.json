@@ -1093,6 +1093,10 @@
             "type": "publicKey"
           },
           {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
@@ -1751,6 +1755,10 @@
           },
           {
             "name": "nonce",
+            "type": "publicKey"
+          },
+          {
+            "name": "mint",
             "type": "publicKey"
           }
         ]

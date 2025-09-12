@@ -32,13 +32,18 @@ pub struct Oracle {
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
     pub controller: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub mint: Pubkey,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
     pub reserved: [u8; 64],
     pub feeds: [Feed; 1],
 }
 
 impl Oracle {
-    pub const LEN: usize = 285;
+    pub const LEN: usize = 317;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

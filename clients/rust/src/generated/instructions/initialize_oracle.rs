@@ -105,6 +105,7 @@ impl Default for InitializeOracleInstructionData {
 pub struct InitializeOracleInstructionArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
+    pub mint: Pubkey,
 }
 
 /// Instruction builder for `InitializeOracle`.
@@ -129,6 +130,7 @@ pub struct InitializeOracleBuilder {
     system_program: Option<solana_program::pubkey::Pubkey>,
     oracle_type: Option<u8>,
     nonce: Option<Pubkey>,
+    mint: Option<Pubkey>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
 
@@ -185,6 +187,11 @@ impl InitializeOracleBuilder {
         self.nonce = Some(nonce);
         self
     }
+    #[inline(always)]
+    pub fn mint(&mut self, mint: Pubkey) -> &mut Self {
+        self.mint = Some(mint);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -221,6 +228,7 @@ impl InitializeOracleBuilder {
         let args = InitializeOracleInstructionArgs {
             oracle_type: self.oracle_type.clone().expect("oracle_type is not set"),
             nonce: self.nonce.clone().expect("nonce is not set"),
+            mint: self.mint.clone().expect("mint is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -413,6 +421,7 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
             system_program: None,
             oracle_type: None,
             nonce: None,
+            mint: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -480,6 +489,11 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
         self.instruction.nonce = Some(nonce);
         self
     }
+    #[inline(always)]
+    pub fn mint(&mut self, mint: Pubkey) -> &mut Self {
+        self.instruction.mint = Some(mint);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -528,6 +542,7 @@ impl<'a, 'b> InitializeOracleCpiBuilder<'a, 'b> {
                 .clone()
                 .expect("oracle_type is not set"),
             nonce: self.instruction.nonce.clone().expect("nonce is not set"),
+            mint: self.instruction.mint.clone().expect("mint is not set"),
         };
         let instruction = InitializeOracleCpi {
             __program: self.instruction.__program,
@@ -572,6 +587,7 @@ struct InitializeOracleCpiBuilderInstruction<'a, 'b> {
     system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     oracle_type: Option<u8>,
     nonce: Option<Pubkey>,
+    mint: Option<Pubkey>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(
         &'b solana_program::account_info::AccountInfo<'a>,

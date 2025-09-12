@@ -151,7 +151,8 @@ mod tests {
                 padding: [0; 96],
             }),
             &InitializeArgs::SplTokenExternal,
-        )?;
+            false,
+        ).map_err(|e| e.err.to_string())?;
 
         // Manage the integration
         manage_integration(

@@ -59,6 +59,8 @@ pub enum SvmAlmControllerErrors {
     ControllerFrozen,
     // 27
     InvalidIntegrationArgs,
+    // 28
+    InvalidOracleForMints,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

@@ -43,7 +43,6 @@ pub fn process_initialize_atomic_swap(
         max_staleness,
         expiry_timestamp,
         oracle_price_inverted,
-        ..
     } = outer_args.inner_args
     else {
         return Err(ProgramError::InvalidArgument);
@@ -58,6 +57,13 @@ pub fn process_initialize_atomic_swap(
     validate_mint_extensions(inner_ctx.input_mint, &[])?;
     let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
     validate_mint_extensions(inner_ctx.output_mint, &[])?;
+
+    // Validate at least one mint matches the mint of the oracle.
+    // This is helpful to avoid potential footguns when configuring
+    // AtomicSwaps with Oracles.
+    if inner_ctx.input_mint.key().ne(&oracle.mint) && inner_ctx.output_mint.key().ne(&oracle.mint) {
+        return Err(SvmAlmControllerErrors::InvalidOracleForMints.into());
+    }
 
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {

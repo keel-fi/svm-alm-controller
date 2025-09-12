@@ -262,6 +262,7 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
+    pub mint: Pubkey,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

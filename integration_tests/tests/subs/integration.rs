@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use borsh::BorshDeserialize;
-use litesvm::{types::TransactionResult, LiteSVM};
+use litesvm::{types::{FailedTransactionMetadata, TransactionResult}, LiteSVM};
 use oft_client::{
     instructions::SendInstructionArgs,
     oft302::{
@@ -81,7 +81,8 @@ pub fn initialize_integration(
     rate_limit_max_outflow: u64,
     config: &IntegrationConfig,
     inner_args: &InitializeArgs,
-) -> Result<Pubkey, Box<dyn Error>> {
+    skip_assertions: bool,
+) -> Result<Pubkey, FailedTransactionMetadata> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 
@@ -91,11 +92,11 @@ pub fn initialize_integration(
 
     let hash = hash(borsh::to_vec(config).unwrap().as_ref()).to_bytes();
     let integration_type = match config {
-        IntegrationConfig::SplTokenExternal(c) => IntegrationType::SplTokenExternal,
-        IntegrationConfig::SplTokenSwap(c) => IntegrationType::SplTokenSwap,
-        IntegrationConfig::CctpBridge(c) => IntegrationType::CctpBridge,
-        IntegrationConfig::LzBridge(c) => IntegrationType::LzBridge,
-        IntegrationConfig::AtomicSwap(c) => IntegrationType::AtomicSwap,
+        IntegrationConfig::SplTokenExternal(_) => IntegrationType::SplTokenExternal,
+        IntegrationConfig::SplTokenSwap(_) => IntegrationType::SplTokenSwap,
+        IntegrationConfig::CctpBridge(_) => IntegrationType::CctpBridge,
+        IntegrationConfig::LzBridge(_) => IntegrationType::LzBridge,
+        IntegrationConfig::AtomicSwap(_) => IntegrationType::AtomicSwap,
         _ => panic!("Not specified"),
     };
 
@@ -316,6 +317,11 @@ pub fn initialize_integration(
     );
 
     let tx_result = svm.send_transaction(txn);
+
+    if skip_assertions {
+        return tx_result.map(|_| integration_pda);
+    }
+
     if tx_result.is_err() {
         println!("{:#?}", tx_result.unwrap().logs);
     } else {

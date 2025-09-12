@@ -1,6 +1,8 @@
+#![allow(dead_code)]
+
 use std::error::Error;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshDeserialize;
 use bytemuck::Zeroable;
 use litesvm::LiteSVM;
 use solana_sdk::{
@@ -8,7 +10,6 @@ use solana_sdk::{
     system_program, transaction::Transaction,
 };
 
-use svm_alm_controller::state::{AccountDiscriminators, Feed};
 use svm_alm_controller_client::{
     generated::{
         accounts::Oracle,
@@ -99,6 +100,7 @@ pub fn initialize_oracle(
     nonce: &Pubkey,
     price_feed: &Pubkey,
     oracle_type: u8,
+    mint: &Pubkey,
 ) -> Result<(), Box<dyn Error>> {
     let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
@@ -112,6 +114,7 @@ pub fn initialize_oracle(
         .payer(authority.pubkey())
         .oracle_type(oracle_type)
         .nonce(*nonce)
+        .mint(*mint)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(

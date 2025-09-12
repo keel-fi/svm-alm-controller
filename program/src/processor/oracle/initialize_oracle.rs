@@ -48,6 +48,7 @@ pub fn process_initialize_oracle(
         ctx.authority,
         ctx.payer,
         ctx.controller.key(),
+        &args.mint,
         &args.nonce,
         args.oracle_type,
         ctx.price_feed,
