@@ -116,6 +116,7 @@ pub struct InitializeIntegrationInstructionArgs {
     pub description: [u8; 32],
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
+    pub permit_liquidation: bool,
     pub inner_args: InitializeArgs,
 }
 
@@ -146,6 +147,7 @@ pub struct InitializeIntegrationBuilder {
     description: Option<[u8; 32]>,
     rate_limit_slope: Option<u64>,
     rate_limit_max_outflow: Option<u64>,
+    permit_liquidation: Option<bool>,
     inner_args: Option<InitializeArgs>,
     __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
 }
@@ -224,6 +226,11 @@ impl InitializeIntegrationBuilder {
         self
     }
     #[inline(always)]
+    pub fn permit_liquidation(&mut self, permit_liquidation: bool) -> &mut Self {
+        self.permit_liquidation = Some(permit_liquidation);
+        self
+    }
+    #[inline(always)]
     pub fn inner_args(&mut self, inner_args: InitializeArgs) -> &mut Self {
         self.inner_args = Some(inner_args);
         self
@@ -277,6 +284,10 @@ impl InitializeIntegrationBuilder {
                 .rate_limit_max_outflow
                 .clone()
                 .expect("rate_limit_max_outflow is not set"),
+            permit_liquidation: self
+                .permit_liquidation
+                .clone()
+                .expect("permit_liquidation is not set"),
             inner_args: self.inner_args.clone().expect("inner_args is not set"),
         };
 
@@ -485,6 +496,7 @@ impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
             description: None,
             rate_limit_slope: None,
             rate_limit_max_outflow: None,
+            permit_liquidation: None,
             inner_args: None,
             __remaining_accounts: Vec::new(),
         });
@@ -577,6 +589,11 @@ impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
+    pub fn permit_liquidation(&mut self, permit_liquidation: bool) -> &mut Self {
+        self.instruction.permit_liquidation = Some(permit_liquidation);
+        self
+    }
+    #[inline(always)]
     pub fn inner_args(&mut self, inner_args: InitializeArgs) -> &mut Self {
         self.instruction.inner_args = Some(inner_args);
         self
@@ -644,6 +661,11 @@ impl<'a, 'b> InitializeIntegrationCpiBuilder<'a, 'b> {
                 .rate_limit_max_outflow
                 .clone()
                 .expect("rate_limit_max_outflow is not set"),
+            permit_liquidation: self
+                .instruction
+                .permit_liquidation
+                .clone()
+                .expect("permit_liquidation is not set"),
             inner_args: self
                 .instruction
                 .inner_args
@@ -702,6 +724,7 @@ struct InitializeIntegrationCpiBuilderInstruction<'a, 'b> {
     description: Option<[u8; 32]>,
     rate_limit_slope: Option<u64>,
     rate_limit_max_outflow: Option<u64>,
+    permit_liquidation: Option<bool>,
     inner_args: Option<InitializeArgs>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(

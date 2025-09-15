@@ -79,6 +79,7 @@ pub fn initialize_integration(
     status: IntegrationStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
+    permit_liquidation: bool,
     config: &IntegrationConfig,
     inner_args: &InitializeArgs,
 ) -> Result<Pubkey, Box<dyn Error>> {
@@ -295,6 +296,7 @@ pub fn initialize_integration(
         .description(description_encoding)
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
+        .permit_liquidation(permit_liquidation)
         .inner_args(inner_args.clone())
         .payer(payer.pubkey())
         .controller(*controller)
@@ -840,6 +842,7 @@ pub async fn push_integration(
                 .send(send_accs, send_params, send_programs, vec![])
                 .await?;
 
+            // TODO can we import these accounts to fixtures?
             // Load required Layer Zero accounts from devnet into litesvm environment.
             let rpc = RpcClient::new(DEVNET_RPC);
             for acc in send_ix.accounts.clone() {

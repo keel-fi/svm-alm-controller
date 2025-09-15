@@ -149,6 +149,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            false, // permit_liquidation
             &IntegrationConfig::LzBridge(LzBridgeConfig {
                 program: LZ_USDS_OFT_PROGRAM_ID,
                 mint: USDS_TOKEN_MINT_PUBKEY,

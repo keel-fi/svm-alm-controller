@@ -81,6 +81,7 @@ pub fn process_initialize_integration(
         args.description,
         args.rate_limit_slope,
         args.rate_limit_max_outflow,
+        args.permit_liquidation,
     )?;
 
     // Emit the event

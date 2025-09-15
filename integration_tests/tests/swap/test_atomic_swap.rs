@@ -243,6 +243,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000, // rate_limit_slope
             1_000_000, // rate_limit_max_outflow
+            false, // permit_liquidation
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: pc_token_mint,
                 output_token: coin_token_mint,
@@ -1251,6 +1252,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000_000, // rate_limit_slope
             1_000_000_000, // rate_limit_max_outflow
+            false, // permit_liquidation
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: swap_env.coin_token_mint,
                 output_token: swap_env.pc_token_mint,
@@ -1387,6 +1389,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000_000,                             // rate_limit_slope
             reserve_pc_pre.rate_limit_max_outflow * 2, // rate_limit_max_outflow
+            false, // permit_liquidation
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: swap_env.pc_token_mint,
                 output_token: swap_env.coin_token_mint,

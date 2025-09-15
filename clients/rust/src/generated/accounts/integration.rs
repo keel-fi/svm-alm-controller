@@ -31,8 +31,9 @@ pub struct Integration {
     pub last_refresh_slot: u64,
     pub config: IntegrationConfig,
     pub state: IntegrationState,
+    pub permit_liquidation: bool,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 88],
+    pub padding: [u8; 87],
 }
 
 impl Integration {

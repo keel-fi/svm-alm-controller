@@ -55,7 +55,11 @@ pub struct Integration {
     pub config: IntegrationConfig,
     /// Integration specific state (i.e. LP balances)
     pub state: IntegrationState,
-    pub _padding: [u8; 88],
+    /// Enables the `can_liquidate` privilege of a Permission to perform "Pull" actions
+    /// from external protocol integrations and "Push" actions that move funds back to
+    /// the Ethereum Mainnet.
+    pub permit_liquidation: bool,
+    pub _padding: [u8; 87],
 }
 
 impl Discriminator for Integration {
@@ -63,7 +67,7 @@ impl Discriminator for Integration {
 }
 
 impl KeelAccount for Integration {
-    const LEN: usize = 3 * 32 + 1 + 6 * 8 + 225 + 49 + 88;
+    const LEN: usize = 3 * 32 + 1 + 6 * 8 + 225 + 49 + 1 + 87;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -114,6 +118,7 @@ impl Integration {
         description: [u8; 32],
         rate_limit_slope: u64,
         rate_limit_max_outflow: u64,
+        permit_liquidation: bool,
     ) -> Result<Self, ProgramError> {
         let clock = Clock::get()?;
         // Derive the hash for this config
@@ -133,7 +138,8 @@ impl Integration {
             rate_limit_remainder: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 88],
+            permit_liquidation,
+            _padding: [0; 87],
         };
 
         // Derive the PDA

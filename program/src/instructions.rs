@@ -235,6 +235,7 @@ pub struct InitializeIntegrationArgs {
     pub description: [u8; 32],
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
+    pub permit_liquidation: bool,
     pub inner_args: InitializeArgs,
 }
 

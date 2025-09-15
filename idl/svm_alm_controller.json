@@ -1014,11 +1014,15 @@
             }
           },
           {
+            "name": "permitLiquidation",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                88
+                87
               ]
             }
           }
@@ -1603,6 +1607,10 @@
           {
             "name": "rateLimitMaxOutflow",
             "type": "u64"
+          },
+          {
+            "name": "permitLiquidation",
+            "type": "bool"
           },
           {
             "name": "innerArgs",

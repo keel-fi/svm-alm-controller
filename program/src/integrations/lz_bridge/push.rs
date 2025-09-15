@@ -179,7 +179,7 @@ pub fn process_push_lz_bridge(
     }
 
     // Check permission
-    if !permission.can_reallocate() && !permission.can_liquidate() {
+    if !permission.can_reallocate() && !permission.can_liquidate(&integration) {
         msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
