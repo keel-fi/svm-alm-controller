@@ -18,7 +18,6 @@ use oft_client::{
         Oft302SendPrograms,
     },
 };
-use solana_client::rpc_client::RpcClient;
 use solana_keccak_hasher::hash;
 use solana_program::pubkey;
 use solana_sdk::{
@@ -842,21 +841,6 @@ pub async fn push_integration(
                 .send(send_accs, send_params, send_programs, vec![])
                 .await?;
 
-            // TODO can we import these accounts to fixtures?
-            // Load required Layer Zero accounts from devnet into litesvm environment.
-            let rpc = RpcClient::new(DEVNET_RPC);
-            for acc in send_ix.accounts.clone() {
-                match rpc.get_account(&acc.pubkey) {
-                    Ok(account) => {
-                        if !account.executable {
-                            svm.set_account(acc.pubkey, account)?
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to fetch account {}: {:?}", acc.pubkey, e);
-                    }
-                }
-            }
             post_ixns.push(send_ix.clone());
 
             // Clean up instruction

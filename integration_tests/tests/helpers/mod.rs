@@ -9,24 +9,21 @@ use litesvm::LiteSVM;
 pub mod assert;
 pub mod cctp;
 pub mod constants;
+pub mod lite_svm;
 pub mod macros;
 pub mod raydium;
 pub mod spl;
 pub mod utils;
-use base64;
 pub use macros::*;
-use serde_json::Value;
-use solana_sdk::account::Account;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionStatus};
-use std::env;
-use std::{fs, str::FromStr};
 
 use crate::helpers::constants::{
     LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302,
 };
+use crate::helpers::lite_svm::get_account_data_from_json;
 use crate::subs::{airdrop_lamports, initialize_contoller, manage_permission};
 
 /// Get LiteSvm with myproject loaded.
@@ -159,34 +156,4 @@ pub fn setup_test_controller() -> Result<TestContext, Box<dyn std::error::Error>
         super_authority,
         controller_pk,
     })
-}
-
-fn get_account_data_from_json(path: &str) -> Account {
-    let current_dir = env::current_dir().expect("Unable to get current directory");
-    let json_data = fs::read_to_string(path).expect("Unable to read JSON file");
-    let v: Value = serde_json::from_str(&json_data).expect("Unable to parse JSON");
-
-    let lamports = v["account"]["lamports"]
-        .as_u64()
-        .expect("Expected lamports as u64");
-    let base64_data = v["account"]["data"][0].as_str().expect("Expected a string");
-    let data = base64::decode(base64_data).expect("Failed to decode base64");
-    let owner_str = v["account"]["owner"]
-        .as_str()
-        .expect("Expected owner as string");
-    let owner = Pubkey::from_str(owner_str).expect("Invalid owner pubkey");
-    let executable = v["account"]["executable"]
-        .as_bool()
-        .expect("Expected executable as bool");
-    let rent_epoch = v["account"]["rentEpoch"]
-        .as_u64()
-        .expect("Expected rentEpoch as u64");
-
-    Account {
-        lamports,
-        data,
-        owner,
-        executable,
-        rent_epoch,
-    }
 }
