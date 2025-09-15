@@ -190,5 +190,27 @@ pub fn process_push_spl_token_external(
         }),
     )?;
 
+    // Emit the accounting event for credit Integration
+    // Note: this is to ensure there is double accounting
+    // such that for each debit, there is a corresponding credit
+    // to track flow of funds.
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            reserve: None,
+            mint: *inner_ctx.mint.key(),
+            action: AccountingAction::ExternalTransfer,
+            // TODO There is no way to know the before balance of the
+            // Integration (unless we change state). Therefore, we only
+            // know the delta amount. We indicate a postive change (credit)
+            // with before as 0 and after as the delta.
+            before: 0,
+            after: check_delta,
+        }),
+    )?;
+
     Ok(())
 }

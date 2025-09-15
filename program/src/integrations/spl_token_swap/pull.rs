@@ -374,9 +374,43 @@ pub fn process_pull_spl_token_swap(
     // Update the reserves for the flows
     if vault_balance_a_delta > 0 {
         reserve_a.update_for_inflow(clock, vault_balance_a_delta)?;
+        // Emit accounting event for credit of Token A Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each debit, there is a corresponding
+        // credit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_a.key()),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Withdrawal,
+                before: vault_balance_a_before,
+                after: vault_balance_a_after,
+            }),
+        )?;
     }
     if vault_balance_b_delta > 0 {
         reserve_b.update_for_inflow(clock, vault_balance_b_delta)?;
+        // Emit accounting event for credit of Token B Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each debit, there is a corresponding
+        // credit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_b.key()),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Withdrawal,
+                before: vault_balance_b_before,
+                after: vault_balance_b_after,
+            }),
+        )?;
     }
 
     // Emit the accounting event
