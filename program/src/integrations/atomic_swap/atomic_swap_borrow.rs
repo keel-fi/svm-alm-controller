@@ -188,6 +188,11 @@ pub fn process_atomic_swap_borrow(
         {
             let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
             let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
+            // Explicitly validate vault and reserve match
+            if vault_a.mint().ne(&reserve_a.mint) || vault_b.mint().ne(&reserve_b.mint) {
+                return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+            }
+
             let recipient_token_a_account =
                 TokenAccount::from_account_info(ctx.recipient_token_account_a)?;
             let recipient_token_b_account =
