@@ -14,7 +14,7 @@ define_account_struct! {
     pub struct UpdateOracle<'info> {
         authority: signer;
         price_feed;
-        oracle: mut;
+        oracle: mut, @owner(crate::ID);
         new_authority: opt_signer;
     }
 }

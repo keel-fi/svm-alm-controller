@@ -14,15 +14,15 @@ use crate::{
     state::{keel_account::KeelAccount, Integration},
 };
 
-/// Permissionless instruction that must be called at the top
-/// level of the Transaction (i.e. cannot be CPI'd) and
-/// the last Instruction in the Transaction. This will reset
-/// the in-flight flag allowing for another LZ Push instruction
-/// to be sent.
+// Permissionless instruction that must be called at the top
+// level of the Transaction (i.e. cannot be CPI'd) and
+// the last Instruction in the Transaction. This will reset
+// the in-flight flag allowing for another LZ Push instruction
+// to be sent.
 define_account_struct! {
   pub struct ResetLzPushInFlight<'info> {
-    controller;
-    integration: mut;
+    controller: @owner(crate::ID);
+    integration: mut, @owner(crate::ID);
     sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
   }
 }
