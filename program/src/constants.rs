@@ -13,6 +13,7 @@ pub const ORACLE_SEED: &[u8] = b"oracle";
 pub const SECONDS_PER_DAY: u64 = 86_400;
 pub const BPS_DENOMINATOR: u16 = 10_000;
 
+pub const ATOMIC_SWAP_BORROW_IX_DISC: u8 = 15;
 pub const ATOMIC_SWAP_REPAY_IX_DISC: u8 = 16;
 pub const ATOMIC_SWAP_REPAY_INTEGRATION_IDX: u8 = 5;
 pub const ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX: u8 = 13;

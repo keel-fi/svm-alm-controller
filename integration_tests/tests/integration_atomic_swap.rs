@@ -1,7 +1,13 @@
+mod helpers;
+mod subs;
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        helpers::assert::{assert_custom_error, assert_program_error},
+        helpers::{
+            assert::{assert_custom_error, assert_program_error},
+            lite_svm_with_programs,
+        },
         subs::{
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
             derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
@@ -27,20 +33,6 @@ mod tests {
         initialize_contoller, initialize_integration, manage_permission,
         oracle::{derive_oracle_pda, initialize_oracle, set_price_feed},
     };
-
-    fn lite_svm_with_programs() -> LiteSVM {
-        let mut svm = LiteSVM::new();
-
-        // Add the CONTROLLER program
-        let controller_program_bytes =
-            include_bytes!("../../../target/deploy/svm_alm_controller.so");
-        svm.add_program(
-            svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
-            controller_program_bytes,
-        );
-
-        svm
-    }
 
     struct SwapEnv {
         pub relayer_authority_kp: Keypair,
@@ -243,7 +235,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000, // rate_limit_slope
             1_000_000, // rate_limit_max_outflow
-            false, // permit_liquidation
+            false,     // permit_liquidation
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: pc_token_mint,
                 output_token: coin_token_mint,
@@ -505,7 +497,7 @@ mod tests {
         let relayer_a_before = fetch_token_account(&mut svm, &swap_env.relayer_pc);
         let relayer_b_before = fetch_token_account(&mut svm, &swap_env.relayer_coin);
 
-        let [borrow_ix, refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [refresh_ix, borrow_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -539,7 +531,7 @@ mod tests {
         )?;
 
         let txn = Transaction::new_signed_with_payer(
-            &[borrow_ix, refresh_ix, mint_ix, transfer_ix, repay_ix],
+            &[refresh_ix, borrow_ix, mint_ix, transfer_ix, repay_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
             &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
@@ -754,7 +746,7 @@ mod tests {
             borrow_amount,
         );
 
-        assert_custom_error(&res, 0, SvmAlmControllerErrors::IntegrationHasExpired);
+        assert_custom_error(&res, 1, SvmAlmControllerErrors::IntegrationHasExpired);
         Ok(())
     }
 
@@ -826,7 +818,7 @@ mod tests {
             borrow_amount,
         );
 
-        assert_program_error(&res, 0, InstructionError::InsufficientFunds);
+        assert_program_error(&res, 1, InstructionError::InsufficientFunds);
 
         Ok(())
     }
@@ -858,7 +850,7 @@ mod tests {
         let repay_amount = 300;
         let mid_tx_transfer_amount = 222;
 
-        let [borrow_ix, refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [refresh_ix, borrow_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -890,8 +882,8 @@ mod tests {
         // Expect failure when vault balances are modified btw borrow and repay.
         let txn = Transaction::new_signed_with_payer(
             &[
-                borrow_ix.clone(),
                 refresh_ix.clone(),
+                borrow_ix.clone(),
                 mint_ix.clone(),
                 transfer_ix,
                 repay_ix.clone(),
@@ -916,8 +908,8 @@ mod tests {
         // Expect failure when vault balances are modified btw borrow and repay.
         let txn = Transaction::new_signed_with_payer(
             &[
-                borrow_ix.clone(),
                 refresh_ix.clone(),
+                borrow_ix.clone(),
                 mint_ix.clone(),
                 transfer_ix,
                 repay_ix.clone(),
@@ -958,7 +950,7 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [borrow_ix, refresh_ix, _mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [refresh_ix, borrow_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1020,7 +1012,22 @@ mod tests {
             svm.latest_blockhash(),
         );
         let res = svm.send_transaction(txn);
-        assert_custom_error(&res, 1, SvmAlmControllerErrors::SwapHasStarted);
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
+
+         // Expect failure when repaying multiple times
+        let txn = Transaction::new_signed_with_payer(
+            &[
+                borrow_ix.clone(),
+                mint_ix.clone(),
+                repay_ix.clone(),
+                repay_ix.clone(),
+            ],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
+            svm.latest_blockhash(),
+        );
+        let res = svm.send_transaction(txn);
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         Ok(())
     }
@@ -1051,7 +1058,7 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [borrow_ix, _refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [_refresh_ix, borrow_ix,  mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1177,7 +1184,7 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [borrow_ix, refresh_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [refresh_ix, borrow_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1208,7 +1215,7 @@ mod tests {
         )?;
 
         let txn = Transaction::new_signed_with_payer(
-            &[borrow_ix, refresh_ix, mint_ix, transfer_ix, repay_ix],
+            &[refresh_ix, borrow_ix, mint_ix, transfer_ix, repay_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
             &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
@@ -1252,7 +1259,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000_000, // rate_limit_slope
             1_000_000_000, // rate_limit_max_outflow
-            false, // permit_liquidation
+            false,         // permit_liquidation
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: swap_env.coin_token_mint,
                 output_token: swap_env.pc_token_mint,
@@ -1377,7 +1384,7 @@ mod tests {
             &swap_env.mint_authority,
             0,
         );
-        assert_custom_error(&res, 0, SvmAlmControllerErrors::RateLimited);
+        assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
 
         // Initialize a different AtomicSwap integration with higher rate limit than reserve.
         let integration_pk2 = initialize_integration(
@@ -1389,7 +1396,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000_000,                             // rate_limit_slope
             reserve_pc_pre.rate_limit_max_outflow * 2, // rate_limit_max_outflow
-            false, // permit_liquidation
+            false,                                     // permit_liquidation
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: swap_env.pc_token_mint,
                 output_token: swap_env.coin_token_mint,
@@ -1439,7 +1446,7 @@ mod tests {
             &swap_env.mint_authority,
             0,
         );
-        assert_custom_error(&res, 0, SvmAlmControllerErrors::RateLimited);
+        assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
 
         Ok(())
     }

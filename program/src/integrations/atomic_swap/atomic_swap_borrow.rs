@@ -15,7 +15,7 @@ use pinocchio_token_interface::{Mint, TokenAccount};
 
 use crate::{
     constants::{
-        ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC,
+        ATOMIC_SWAP_BORROW_IX_DISC, ATOMIC_SWAP_REPAY_INTEGRATION_IDX, ATOMIC_SWAP_REPAY_IX_DISC,
         ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX, ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX,
     },
     define_account_struct,
@@ -48,6 +48,9 @@ define_account_struct! {
 }
 
 /// Checks that repay ix for the same atomic swap is the last instruction in the same transaction.
+/// CPIs to AtomicSwapBorrow are prohibitted to prevent unexpected behavior.
+/// It is enforced that there may only be 1 AtomicSwapBorrow IX within a given Transaction
+/// to prevent unexpected behavior.
 pub fn verify_repay_ix_in_tx(
     sysvar_instruction: &AccountInfo,
     integration: &Pubkey,
@@ -64,9 +67,33 @@ pub fn verify_repay_ix_in_tx(
     let instructions = Instructions::try_from(sysvar_instruction)?;
 
     // Check that current ix is before the last ix.
-    let curr_ix = instructions.load_current_index();
-    if curr_ix >= ix_len - 1 {
+    let curr_index = instructions.load_current_index();
+    if curr_index >= ix_len - 1 {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+    // Enforce AtomicSwapBorrow is not called via CPI
+    let curr_ix = instructions.load_instruction_at(curr_index.into())?;
+    if curr_ix.get_program_id().ne(&crate::ID) {
+        msg!("AtomicSwap via CPI not permitted");
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+    let (curr_ix_discriminator, _) = curr_ix
+        .get_instruction_data()
+        .split_first()
+        .ok_or(ProgramError::InvalidInstructionData)?;
+    if curr_ix_discriminator != &ATOMIC_SWAP_BORROW_IX_DISC {
+        msg!("AtomicSwap via CPI not permitted");
+        return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+    }
+
+    // Iterate over instructions from Borrow IX to last IX (repay)
+    // to ensure no other calls to the Controller program are made.
+    for i in curr_index + 1..ix_len - 1 {
+        let inner_ix = instructions.load_instruction_at(i.into())?;
+        if inner_ix.get_program_id().eq(&crate::ID) {
+            msg!("AtomicSwap Controller inner IX not permitted");
+            return Err(SvmAlmControllerErrors::InvalidInstructions.into());
+        }
     }
 
     // Load last instruction in transaction.
@@ -80,7 +107,7 @@ pub fn verify_repay_ix_in_tx(
         .get_instruction_data()
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
-    if *discriminator != ATOMIC_SWAP_REPAY_IX_DISC {
+    if discriminator != &ATOMIC_SWAP_REPAY_IX_DISC {
         return Err(SvmAlmControllerErrors::InvalidInstructions.into());
     }
 

@@ -115,7 +115,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         .token_program_a(token_program_a)
         .token_program_b(token_program_b)
         .instruction();
-    [borrow_ix, refresh_ix, mint_ix, burn_ix, repay_ix]
+    [refresh_ix, borrow_ix, mint_ix, burn_ix, repay_ix]
 }
 
 pub fn atomic_swap_borrow_repay(
