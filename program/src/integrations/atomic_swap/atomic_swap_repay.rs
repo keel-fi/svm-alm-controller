@@ -13,7 +13,7 @@ use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
@@ -173,7 +173,6 @@ pub fn process_atomic_swap_repay(
         token_program: ctx.token_program_b.key(),
     }
     .invoke()?;
-    let final_vault_balance_a = TokenAccount::from_account_info(ctx.vault_a)?.amount();
     let final_vault_balance_b = TokenAccount::from_account_info(ctx.vault_b)?.amount();
     // Calculate the amount that was received by the Reserve. This accounts for
     // a Transfer that has TransferFees enabled.
@@ -222,8 +221,8 @@ pub fn process_atomic_swap_repay(
             reserve: Some(*ctx.reserve_a.key()),
             mint: *ctx.mint_a.key(),
             action: AccountingAction::Swap,
-            before: vault_a_swap_starting_balance,
-            after: final_vault_balance_a,
+            delta: final_input_amount,
+            direction: AccountingDirection::Debit,
         }),
     )?;
 
@@ -237,8 +236,8 @@ pub fn process_atomic_swap_repay(
             reserve: Some(*ctx.reserve_b.key()),
             mint: *ctx.mint_b.key(),
             action: AccountingAction::Swap,
-            before: vault_b_swap_starting_balance,
-            after: final_vault_balance_b,
+            delta: balance_b_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

@@ -1,7 +1,7 @@
 use crate::{
     define_account_struct,
     enums::IntegrationConfig,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -185,8 +185,8 @@ pub fn process_push_spl_token_external(
             reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::ExternalTransfer,
-            before: post_sync_balance,
-            after: post_transfer_balance,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
         }),
     )?;
 
@@ -203,12 +203,8 @@ pub fn process_push_spl_token_external(
             reserve: None,
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::ExternalTransfer,
-            // TODO There is no way to know the before balance of the
-            // Integration (unless we change state). Therefore, we only
-            // know the delta amount. We indicate a postive change (credit)
-            // with before as 0 and after as the delta.
-            before: 0,
-            after: check_delta,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

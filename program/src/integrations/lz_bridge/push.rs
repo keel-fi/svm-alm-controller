@@ -2,7 +2,7 @@ use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::lz_bridge::{
         config::LzBridgeConfig,
@@ -291,8 +291,8 @@ pub fn process_push_lz_bridge(
             reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
-            before: post_sync_balance,
-            after: post_transfer_balance,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
         }),
     )?;
 
@@ -309,12 +309,8 @@ pub fn process_push_lz_bridge(
             reserve: None,
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
-            // TODO There is no way to know the before balance of the
-            // Integration (unless we change state). Therefore, we only
-            // know the delta amount. We indicate a postive change (credit)
-            // with before as 0 and after as the delta.
-            before: 0,
-            after: check_delta,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

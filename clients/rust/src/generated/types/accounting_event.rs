@@ -6,6 +6,7 @@
 //!
 
 use crate::generated::types::AccountingAction;
+use crate::generated::types::AccountingDirection;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
@@ -26,6 +27,6 @@ pub struct AccountingEvent {
     )]
     pub mint: Pubkey,
     pub action: AccountingAction,
-    pub before: u64,
-    pub after: u64,
+    pub delta: u64,
+    pub direction: AccountingDirection,
 }

@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::spl_token_swap::{
         cpi::withdraw_single_token_type_exact_amount_out_cpi,
@@ -387,8 +387,8 @@ pub fn process_pull_spl_token_swap(
                 reserve: Some(*outer_ctx.reserve_a.key()),
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
-                before: vault_balance_a_before,
-                after: vault_balance_a_after,
+                delta: vault_balance_a_delta,
+                direction: AccountingDirection::Credit,
             }),
         )?;
     }
@@ -407,8 +407,8 @@ pub fn process_pull_spl_token_swap(
                 reserve: Some(*outer_ctx.reserve_b.key()),
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
-                before: vault_balance_b_before,
-                after: vault_balance_b_after,
+                delta: vault_balance_b_delta,
+                direction: AccountingDirection::Credit,
             }),
         )?;
     }
@@ -424,8 +424,10 @@ pub fn process_pull_spl_token_swap(
                 reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
-                before: latest_balance_a,
-                after: post_withdraw_balance_a,
+                delta: latest_balance_a
+                    .checked_sub(post_withdraw_balance_a)
+                    .expect("underflow"),
+                direction: AccountingDirection::Debit,
             }),
         )?;
     }
@@ -440,8 +442,10 @@ pub fn process_pull_spl_token_swap(
                 reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Withdrawal,
-                before: latest_balance_b,
-                after: post_withdraw_balance_b,
+                delta: latest_balance_b
+                    .checked_sub(post_withdraw_balance_b)
+                    .expect("overflow"),
+                direction: AccountingDirection::Debit,
             }),
         )?;
     }

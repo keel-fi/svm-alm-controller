@@ -57,8 +57,8 @@ pub struct AccountingEvent {
     pub reserve: Option<Pubkey>,
     pub mint: Pubkey,
     pub action: AccountingAction,
-    pub before: u64,
-    pub after: u64,
+    pub delta: u64,
+    pub direction: AccountingDirection,
 }
 
 #[repr(u8)]
@@ -70,4 +70,13 @@ pub enum AccountingAction {
     Withdrawal,
     BridgeSend,
     Swap,
+}
+
+#[repr(u8)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
+pub enum AccountingDirection {
+    /// Indicates a net outflow of assets
+    Debit,
+    /// Indicates a net inflow of assets
+    Credit,
 }

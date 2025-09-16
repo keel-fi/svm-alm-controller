@@ -20,7 +20,8 @@ mod tests {
     use spl_token_2022::{instruction::mint_to, state::Mint};
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::generated::types::{
-        AccountingAction, AccountingEvent, IntegrationState, PullArgs, SvmAlmControllerEvent,
+        AccountingAction, AccountingDirection, AccountingEvent, IntegrationState, PullArgs,
+        SvmAlmControllerEvent,
     };
 
     use crate::{
@@ -300,8 +301,8 @@ mod tests {
             reserve: Some(usds_reserve_pk),
             mint: usds_mint,
             action: AccountingAction::Sync,
-            before: 0,
-            after: 1_000_000_000,
+            delta: 1_000_000_000,
+            direction: AccountingDirection::Credit,
         });
         let expected_susds_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: controller_pk,
@@ -309,8 +310,8 @@ mod tests {
             reserve: Some(susds_reserve_pk),
             mint: susds_mint,
             action: AccountingAction::Sync,
-            before: 0,
-            after: 1_000_000_000,
+            delta: 1_000_000_000,
+            direction: AccountingDirection::Credit,
         });
 
         assert_contains_controller_cpi_event!(tx_meta, account_keys, expected_usds_event);
