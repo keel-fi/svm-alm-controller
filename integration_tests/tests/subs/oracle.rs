@@ -101,6 +101,7 @@ pub fn initialize_oracle(
     price_feed: &Pubkey,
     oracle_type: u8,
     mint: &Pubkey,
+    quote_mint: &Pubkey,
 ) -> Result<(), Box<dyn Error>> {
     let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
@@ -114,7 +115,8 @@ pub fn initialize_oracle(
         .payer(authority.pubkey())
         .oracle_type(oracle_type)
         .nonce(*nonce)
-        .mint(*mint)
+        .base_mint(*mint)
+        .quote_mint(*quote_mint)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(

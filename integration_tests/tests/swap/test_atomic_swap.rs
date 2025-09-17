@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::i64;
+
     use crate::{
         helpers::assert::{assert_custom_error, assert_program_error},
         subs::{
@@ -128,6 +130,7 @@ mod tests {
             &nonce,
             &price_feed,
             0,
+            &pc_token_mint,
             &coin_token_mint,
         )?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
@@ -256,8 +259,17 @@ mod tests {
             1_000_000, // rate_limit_slope
             1_000_000, // rate_limit_max_outflow
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
-                input_token: pc_token_mint,
-                output_token: coin_token_mint,
+                // Oracle is static, so we must change which is input vs output token
+                input_token: if invert_price_feed {
+                    coin_token_mint
+                } else {
+                    pc_token_mint
+                },
+                output_token: if invert_price_feed {
+                    pc_token_mint
+                } else {
+                    coin_token_mint
+                },
                 oracle,
                 max_slippage_bps: 123,
                 max_staleness: 100,
@@ -630,6 +642,22 @@ mod tests {
             set_price_feed(&mut svm, &swap_env.price_feed, 3_300_000_000_000_000_000)?;
         }
 
+        let (mint_a, mint_b, recipient_a, recipient_b) = if invert_price_feed {
+            (
+                swap_env.coin_token_mint,
+                swap_env.pc_token_mint,
+                swap_env.relayer_coin,
+                swap_env.relayer_pc,
+            )
+        } else {
+            (
+                swap_env.pc_token_mint,
+                swap_env.coin_token_mint,
+                swap_env.relayer_pc,
+                swap_env.relayer_coin,
+            )
+        };
+
         // Should fail when slippage is exceeded (since min price of 3.3*(1-0.0123) < 3.0)
         let res = atomic_swap_borrow_repay(
             &mut svm,
@@ -637,12 +665,12 @@ mod tests {
             swap_env.controller_pk,
             swap_env.permission_pda,
             swap_env.atomic_swap_integration_pk,
-            swap_env.pc_token_mint,
-            swap_env.coin_token_mint,
+            mint_a,
+            mint_b,
             swap_env.oracle,
             swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
+            recipient_a, // payer_account_a
+            recipient_b, // payer_account_b
             borrow_amount,
             repay_amount,
             &swap_env.mint_authority,
@@ -671,12 +699,12 @@ mod tests {
             swap_env.controller_pk,
             swap_env.permission_pda,
             swap_env.atomic_swap_integration_pk,
-            swap_env.pc_token_mint,
-            swap_env.coin_token_mint,
+            mint_a,
+            mint_b,
             swap_env.oracle,
             swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
+            recipient_a, // payer_account_a
+            recipient_b, // payer_account_b
             borrow_amount,
             repay_amount,
             &swap_env.mint_authority,
@@ -1302,6 +1330,20 @@ mod tests {
         );
 
         // Initialize a different AtomicSwap integration with coin_token_mint as input.
+        let oracle_2_nonce = Pubkey::new_unique();
+        let oracle_2 = derive_oracle_pda(&oracle_2_nonce);
+        let price_feed_2 = Pubkey::new_unique();
+        set_price_feed(&mut svm, &price_feed_2, 1_000_000_000_000)?; // $1
+        initialize_oracle(
+            &mut svm,
+            &swap_env.controller_pk,
+            &swap_env.relayer_authority_kp,
+            &oracle_2_nonce,
+            &price_feed_2,
+            0,
+            &swap_env.coin_token_mint,
+            &swap_env.pc_token_mint,
+        )?;
         let integration_pk2 = initialize_integration(
             &mut svm,
             &swap_env.controller_pk,
@@ -1314,7 +1356,7 @@ mod tests {
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: swap_env.coin_token_mint,
                 output_token: swap_env.pc_token_mint,
-                oracle: swap_env.oracle,
+                oracle: oracle_2,
                 max_slippage_bps: 123,
                 max_staleness: 100,
                 input_mint_decimals: 6,
@@ -1346,8 +1388,8 @@ mod tests {
             integration_pk2,
             swap_env.coin_token_mint,
             swap_env.pc_token_mint,
-            swap_env.oracle,
-            swap_env.price_feed,
+            oracle_2,
+            price_feed_2,
             swap_env.relayer_coin, // payer_account_a
             swap_env.relayer_pc,   // payer_account_b
             borrow_amount,

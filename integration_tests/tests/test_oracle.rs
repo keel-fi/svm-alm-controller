@@ -41,6 +41,7 @@ mod tests {
         let oracle_pda = derive_oracle_pda(&nonce);
         let oracle_type = 0;
         let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
 
         // Stub price feed data
         let update_slot = 1000_000;
@@ -57,6 +58,7 @@ mod tests {
             &new_feed,
             0,
             &mint,
+            &quote_mint,
         )?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
@@ -67,7 +69,8 @@ mod tests {
         assert_eq!(oracle.precision, PRECISION);
         assert_eq!(oracle.last_update_slot, 0);
         assert_eq!(oracle.controller, controller_pk);
-        assert_eq!(oracle.mint, mint);
+        assert_eq!(oracle.base_mint, mint);
+        assert_eq!(oracle.quote_mint, quote_mint);
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed);

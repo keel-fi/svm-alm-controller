@@ -58,10 +58,19 @@ pub fn process_initialize_atomic_swap(
     let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
     validate_mint_extensions(inner_ctx.output_mint, &[])?;
 
-    // Validate at least one mint matches the mint of the oracle.
+    // Validate the oracle mint/quote matches the AtomicSwap input/output
+    // with the supplied inversion parameter.
     // This is helpful to avoid potential footguns when configuring
     // AtomicSwaps with Oracles.
-    if inner_ctx.input_mint.key().ne(&oracle.mint) && inner_ctx.output_mint.key().ne(&oracle.mint) {
+    if oracle_price_inverted
+        && (inner_ctx.output_mint.key().ne(&oracle.base_mint)
+            || inner_ctx.input_mint.key().ne(&oracle.quote_mint))
+    {
+        return Err(SvmAlmControllerErrors::InvalidOracleForMints.into());
+    } else if !oracle_price_inverted
+        && (inner_ctx.output_mint.key().ne(&oracle.quote_mint)
+            || inner_ctx.input_mint.key().ne(&oracle.base_mint))
+    {
         return Err(SvmAlmControllerErrors::InvalidOracleForMints.into());
     }
 

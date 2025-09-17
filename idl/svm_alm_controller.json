@@ -1093,7 +1093,11 @@
             "type": "publicKey"
           },
           {
-            "name": "mint",
+            "name": "baseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "quoteMint",
             "type": "publicKey"
           },
           {
@@ -1758,7 +1762,11 @@
             "type": "publicKey"
           },
           {
-            "name": "mint",
+            "name": "baseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "quoteMint",
             "type": "publicKey"
           }
         ]
