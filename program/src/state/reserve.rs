@@ -7,7 +7,7 @@ use crate::{
     constants::RESERVE_SEED,
     enums::ReserveStatus,
     error::SvmAlmControllerErrors,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     processor::shared::{calculate_rate_limit_increment, create_pda_account},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -294,32 +294,33 @@ impl Reserve {
 
         if self.last_balance != new_balance {
             let previous_balance = self.last_balance;
+            let abs_delta = new_balance.abs_diff(previous_balance);
 
             // Update the rate limits and balance for the change
-            if new_balance > self.last_balance {
+            let direction = if new_balance > self.last_balance {
                 // => inflow
-                self.update_for_inflow(clock, new_balance.checked_sub(self.last_balance).unwrap())?;
+                self.update_for_inflow(clock, abs_delta)?;
+                AccountingDirection::Credit
             } else {
                 // new_balance < previous_balance => outflow (possible with Token2022 and PermanentDelegate extension)
                 self.update_for_outflow(
-                    clock,
-                    self.last_balance.checked_sub(new_balance).unwrap(),
+                    clock, abs_delta,
                     true, // Allow underflow since this can happen with Token2022 and PermanentDelegate
                 )?;
-            }
+                AccountingDirection::Debit
+            };
 
             controller.emit_event(
                 controller_authority_info,
                 controller_key,
                 SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                     controller: self.controller,
-                    // REVIEW: Should this be an Integration's pubkey?
-                    integration: self.derive_pda().unwrap().0,
+                    integration: None,
+                    reserve: Some(self.derive_pda()?.0),
                     mint: self.mint,
                     action: AccountingAction::Sync,
-                    before: previous_balance,
-                    // `last_balance` has been updated for inflow/outflow
-                    after: self.last_balance,
+                    delta: abs_delta,
+                    direction,
                 }),
             )?;
         }
