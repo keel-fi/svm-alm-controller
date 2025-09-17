@@ -398,7 +398,7 @@ pub fn process_push_spl_token_swap(
                 controller: *outer_ctx.controller.key(),
                 integration: None,
                 reserve: Some(*outer_ctx.reserve_b.key()),
-                mint: *inner_ctx.mint_a.key(),
+                mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Deposit,
                 delta: vault_balance_b_delta,
                 direction: AccountingDirection::Debit,

@@ -405,7 +405,7 @@ pub fn process_pull_spl_token_swap(
                 controller: *outer_ctx.controller.key(),
                 integration: None,
                 reserve: Some(*outer_ctx.reserve_b.key()),
-                mint: *inner_ctx.mint_a.key(),
+                mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Withdrawal,
                 delta: vault_balance_b_delta,
                 direction: AccountingDirection::Credit,
