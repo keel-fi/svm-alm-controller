@@ -108,7 +108,7 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 | -------------------------------- | -------------- | ------------- | ------------------------------ | ----------------- | ---------------- |
 | **can_freeze_controller**        | ✅             | ✅            | ✅                             | ❌                | ❌               |
 | **can_unfreeze_controller**      | ✅             | ❌            | ❌                             | ❌                | ❌               |
-| **can_manage_permissions**       | ✅             | ✅            | ❌                             | ❌                | ❌               |
+| **can_manage_permissions**       | ✅             | ❌            | ❌                             | ❌                | ❌               |
 | **can_suspend_permissions**      | ✅             | ✅            | ✅                             | ❌                | ❌               |
 | **can_manage_reserves_and_integrations**      | ✅             | ✅            | ✅                             | ❌                | ❌               |
 | **can_invoke_external_transfer** | ✅             | ✅            | ❌                             | ❌                | ❌               |
