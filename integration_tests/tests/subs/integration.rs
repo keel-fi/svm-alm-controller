@@ -18,7 +18,6 @@ use oft_client::{
         Oft302SendPrograms,
     },
 };
-use solana_client::rpc_client::RpcClient;
 use solana_keccak_hasher::hash;
 use solana_program::pubkey;
 use solana_sdk::{
@@ -79,6 +78,7 @@ pub fn initialize_integration(
     status: IntegrationStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
+    permit_liquidation: bool,
     config: &IntegrationConfig,
     inner_args: &InitializeArgs,
     skip_assertions: bool,
@@ -296,6 +296,7 @@ pub fn initialize_integration(
         .description(description_encoding)
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
+        .permit_liquidation(permit_liquidation)
         .inner_args(inner_args.clone())
         .payer(payer.pubkey())
         .controller(*controller)
@@ -303,7 +304,6 @@ pub fn initialize_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(integration_pda)
-        .lookup_table(system_program::ID)
         .add_remaining_accounts(remaining_accounts)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
@@ -381,7 +381,6 @@ pub fn manage_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
-        .lookup_table(system_program::ID)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .instruction();
 
@@ -848,20 +847,6 @@ pub async fn push_integration(
                 .send(send_accs, send_params, send_programs, vec![])
                 .await?;
 
-            // Load required Layer Zero accounts from devnet into litesvm environment.
-            let rpc = RpcClient::new(DEVNET_RPC);
-            for acc in send_ix.accounts.clone() {
-                match rpc.get_account(&acc.pubkey) {
-                    Ok(account) => {
-                        if !account.executable {
-                            svm.set_account(acc.pubkey, account)?
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to fetch account {}: {:?}", acc.pubkey, e);
-                    }
-                }
-            }
             post_ixns.push(send_ix.clone());
 
             // Clean up instruction

@@ -23,8 +23,8 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
-        reserve_a: mut;
-        reserve_b: mut;
+        reserve_a: mut, @owner(crate::ID);
+        reserve_b: mut, @owner(crate::ID);
         program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }

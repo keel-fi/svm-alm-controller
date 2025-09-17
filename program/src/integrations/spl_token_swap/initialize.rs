@@ -125,6 +125,21 @@ pub fn process_initialize_spl_token_swap(
         msg! {"swap_token_b: does not match swap state"};
         return Err(ProgramError::InvalidAccountData);
     }
+    if swap_state
+        .token_program_id
+        .ne(inner_ctx.mint_a_token_program.key())
+    {
+        msg! {"mint_a_token_program: does not match swap state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if swap_state
+        .token_program_id
+        .ne(inner_ctx.mint_b_token_program.key())
+    {
+        msg! {"mint_b_token_program: does not match swap state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
+
     // Create PDA TokenAccount for LP Mint.
     // Must get the Account len dynamically in the case the mint has
     // Token Extensions that are required on the TokenAccount.

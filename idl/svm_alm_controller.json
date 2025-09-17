@@ -338,11 +338,6 @@
           "isSigner": false
         },
         {
-          "name": "lookupTable",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "programId",
           "isMut": false,
           "isSigner": false
@@ -392,11 +387,6 @@
         {
           "name": "integration",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lookupTable",
-          "isMut": false,
           "isSigner": false
         },
         {
@@ -1002,10 +992,6 @@
             }
           },
           {
-            "name": "lookupTable",
-            "type": "publicKey"
-          },
-          {
             "name": "status",
             "type": {
               "defined": "IntegrationStatus"
@@ -1048,11 +1034,15 @@
             }
           },
           {
+            "name": "permitLiquidation",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                56
+                87
               ]
             }
           }
@@ -1685,6 +1675,10 @@
           {
             "name": "rateLimitMaxOutflow",
             "type": "u64"
+          },
+          {
+            "name": "permitLiquidation",
+            "type": "bool"
           },
           {
             "name": "innerArgs",

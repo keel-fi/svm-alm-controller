@@ -20,20 +20,20 @@ use crate::{
 define_account_struct! {
     pub struct AtomicSwapRepay<'info> {
         payer: signer;
-        controller;
-        controller_authority;
+        controller: @owner(crate::ID);
+        controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
-        permission;
-        integration: mut;
-        reserve_a: mut;
-        vault_a: mut;
-        mint_a;
-        reserve_b: mut;
-        vault_b: mut;
-        mint_b;
-        oracle;
-        payer_account_a: mut;
-        payer_account_b: mut;
+        permission: @owner(crate::ID);
+        integration: mut, @owner(crate::ID);
+        reserve_a: mut, @owner(crate::ID);
+        vault_a: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_a: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_b: mut, @owner(crate::ID);
+        vault_b: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_b:@owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        oracle: @owner(crate::ID);
+        payer_account_a: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        payer_account_b: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program_a: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program_b: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }

@@ -16,7 +16,12 @@ mod tests {
 
     use borsh::BorshDeserialize;
     use litesvm::LiteSVM;
-    use solana_sdk::{program_pack::Pack, pubkey::Pubkey, transaction::Transaction};
+    use solana_sdk::{
+        instruction::InstructionError,
+        program_pack::Pack,
+        pubkey::Pubkey,
+        transaction::{Transaction, TransactionError},
+    };
     use spl_token_2022::{instruction::mint_to, state::Mint};
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::generated::types::{
@@ -31,6 +36,7 @@ mod tests {
             initialize_swap, pull_integration,
         },
     };
+    use test_case::test_case;
 
     use super::*;
 
@@ -50,7 +56,7 @@ mod tests {
         pub pool_liquidity_b: u64,
     }
 
-    fn setup() -> Result<TestContext, Box<dyn std::error::Error>> {
+    fn setup(permit_liquidation: bool) -> Result<TestContext, Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -174,8 +180,8 @@ mod tests {
             1_000_000_000, // 1k
         )?;
 
-        let mut pool_liquidity_a = 1_000_000;
-        let mut pool_liquidity_b = 1_000_000;
+        let pool_liquidity_a = 1_000_000;
+        let pool_liquidity_b = 1_000_000;
 
         // Initialize a token swap for the pair
         let (usds_susds_swap_pk, usds_susds_lp_mint_pk) = initialize_swap(
@@ -203,8 +209,9 @@ mod tests {
             &authority, // authority
             "USDS/sUSDS Token Swap",
             IntegrationStatus::Active,
-            1_000_000_000_000, // rate_limit_slope
-            1_000_000_000_000, // rate_limit_max_outflow
+            1_000_000_000_000,  // rate_limit_slope
+            1_000_000_000_000,  // rate_limit_max_outflow
+            permit_liquidation, // permit_liquidation
             &IntegrationConfig::SplTokenSwap(SplTokenSwapConfig {
                 program: TOKEN_SWAP_PROGRAM_ID,
                 swap: usds_susds_swap_pk,
@@ -252,7 +259,7 @@ mod tests {
             usdc_external_integration_pk,
             mut pool_liquidity_a,
             mut pool_liquidity_b,
-        } = setup().unwrap();
+        } = setup(false).unwrap();
 
         let (tx_res, _) = push_integration(
             &mut svm,
@@ -446,6 +453,199 @@ mod tests {
             expected_token_b_balance,
             integration_state_after.last_balance_b,
         );
+
+        Ok(())
+    }
+
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, false; "can_liquidate w/ permit_liquidation fails")]
+    #[tokio::test]
+    async fn spl_token_swap_push_permissions(
+        can_manage_permissions: bool,
+        can_invoke_external_transfer: bool,
+        can_execute_swap: bool,
+        can_reallocate: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
+        can_manage_reserves_and_integrations: bool,
+        can_suspend_permissions: bool,
+        can_liquidate: bool,
+        permit_liquidation: bool,
+        result_ok: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            authority: super_authority,
+            usds_mint: _,
+            susds_mint: _,
+            controller_pk,
+            usds_reserve_pk: _,
+            susds_reserve_pk: _,
+            usds_susds_swap_pk: _,
+            usds_susds_lp_mint_pk: _,
+            usds_susds_lp_vault_pk: _,
+            usdc_external_integration_pk,
+            pool_liquidity_a: _,
+            pool_liquidity_b: _,
+        } = setup(permit_liquidation).unwrap();
+
+        let push_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;
+        // Update the authority to have permissions
+        let _ = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &push_authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            can_execute_swap,                     // can_execute_swap,
+            can_manage_permissions,               // can_manage_permissions,
+            can_invoke_external_transfer,         // can_invoke_external_transfer,
+            can_reallocate,                       // can_reallocate,
+            can_freeze_controller,                // can_freeze,
+            can_unfreeze_controller,              // can_unfreeze,
+            can_manage_reserves_and_integrations, // can_manage_reserves_and_integrations
+            can_suspend_permissions,              // can_suspend_permissions
+            can_liquidate,                        // can_liquidate
+        )?;
+
+        let (tx_res, _) = push_integration(
+            &mut svm,
+            &controller_pk,
+            &usdc_external_integration_pk,
+            &push_authority,
+            &PushArgs::SplTokenSwap {
+                amount_a: 100_000_000,
+                amount_b: 120_000_000,
+                minimum_pool_token_amount_a: 0,
+                minimum_pool_token_amount_b: 0,
+            },
+            true,
+        )
+        .await?;
+
+        // Assert the expected result given the enabled privilege
+        match result_ok {
+            true => assert!(tx_res.is_ok()),
+            false => assert_eq!(
+                tx_res.err().unwrap().err,
+                TransactionError::InstructionError(2, InstructionError::IncorrectAuthority)
+            ),
+        }
+
+        Ok(())
+    }
+
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, true; "can_liquidate w/ permit_liquidation passes")]
+    #[tokio::test]
+    async fn spl_token_swap_pull_permissions(
+        can_manage_permissions: bool,
+        can_invoke_external_transfer: bool,
+        can_execute_swap: bool,
+        can_reallocate: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
+        can_manage_reserves_and_integrations: bool,
+        can_suspend_permissions: bool,
+        can_liquidate: bool,
+        permit_liquidation: bool,
+        result_ok: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            authority: super_authority,
+            usds_mint: _,
+            susds_mint: _,
+            controller_pk,
+            usds_reserve_pk: _,
+            susds_reserve_pk: _,
+            usds_susds_swap_pk: _,
+            usds_susds_lp_mint_pk: _,
+            usds_susds_lp_vault_pk: _,
+            usdc_external_integration_pk,
+            pool_liquidity_a: _,
+            pool_liquidity_b: _,
+        } = setup(permit_liquidation).unwrap();
+
+        // Send some tokens into the integration prior to the pull
+        push_integration(
+            &mut svm,
+            &controller_pk,
+            &usdc_external_integration_pk,
+            &super_authority,
+            &PushArgs::SplTokenSwap {
+                amount_a: 100_000_000,
+                amount_b: 120_000_000,
+                minimum_pool_token_amount_a: 0,
+                minimum_pool_token_amount_b: 0,
+            },
+            false,
+        )
+        .await?
+        .0
+        .unwrap();
+
+        let pull_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &pull_authority.pubkey(), 1_000_000_000)?;
+        // Update the authority to have permissions
+        let _ = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &pull_authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            can_execute_swap,                     // can_execute_swap,
+            can_manage_permissions,               // can_manage_permissions,
+            can_invoke_external_transfer,         // can_invoke_external_transfer,
+            can_reallocate,                       // can_reallocate,
+            can_freeze_controller,                // can_freeze,
+            can_unfreeze_controller,              // can_unfreeze,
+            can_manage_reserves_and_integrations, // can_manage_reserves_and_integrations
+            can_suspend_permissions,              // can_suspend_permissions
+            can_liquidate,                        // can_liquidate
+        )?;
+
+        let tx_res = pull_integration(
+            &mut svm,
+            &controller_pk,
+            &usdc_external_integration_pk,
+            &pull_authority,
+            &PullArgs::SplTokenSwap {
+                amount_a: 50_000_000,
+                amount_b: 50_000_000,
+                maximum_pool_token_amount_a: u64::MAX,
+                maximum_pool_token_amount_b: u64::MAX,
+            },
+            true,
+        )?;
+
+        // Assert the expected result given the enabled privilege
+        match result_ok {
+            true => assert!(tx_res.is_ok()),
+            false => assert_eq!(
+                tx_res.err().unwrap().err,
+                TransactionError::InstructionError(2, InstructionError::IncorrectAuthority)
+            ),
+        }
 
         Ok(())
     }

@@ -17,7 +17,7 @@ define_account_struct! {
         controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
         price_feed;
-        oracle: mut;
+        oracle: mut, @owner(crate::ID);
         new_authority: opt_signer;
     }
 }

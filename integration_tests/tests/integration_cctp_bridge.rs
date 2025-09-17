@@ -95,6 +95,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000_000_000, // rate_limit_slope
             1_000_000_000_000, // rate_limit_max_outflow
+            false,             // permit_liquidation
             &IntegrationConfig::CctpBridge(CctpBridgeConfig {
                 cctp_token_messenger_minter: CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
                 cctp_message_transmitter: CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
@@ -126,15 +127,16 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(true, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
-    #[test_case(false, true, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
-    #[test_case(false, false, true, false, false, false, false, false, false, false; "can_execute_swap fails")]
-    #[test_case(false, false, false, true, false, false, false, false, false, true; "can_reallocate passes")]
-    #[test_case(false, false, false, false, true, false, false, false, false, false; "can_freeze_controller fails")]
-    #[test_case(false, false, false, false, false, true, false, false, false, false; "can_unfreeze_controller fails")]
-    #[test_case(false, false, false, false, false, false, true, false, false, false; "can_manage_reserves_and_integrations fails")]
-    #[test_case(false, false, false, false, false, false, false, true, false, false; "can_suspend_permissions fails")]
-    #[test_case(false, false, false, false, false, false, false, false, true, true; "can_liquidate passes")]
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, true; "can_liquidate w/ permit_liquidation passes")]
     #[tokio::test]
     async fn cctp_permissions(
         can_manage_permissions: bool,
@@ -146,6 +148,7 @@ mod tests {
         can_manage_reserves_and_integrations: bool,
         can_suspend_permissions: bool,
         can_liquidate: bool,
+        permit_liquidation: bool,
         result_ok: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
@@ -207,8 +210,9 @@ mod tests {
             &super_authority, // authority
             "ETH USDC CCTP Bridge",
             IntegrationStatus::Active,
-            1_000_000_000_000, // rate_limit_slope
-            1_000_000_000_000, // rate_limit_max_outflow
+            1_000_000_000_000,  // rate_limit_slope
+            1_000_000_000_000,  // rate_limit_max_outflow
+            permit_liquidation, // permit_liquidation
             &IntegrationConfig::CctpBridge(CctpBridgeConfig {
                 cctp_token_messenger_minter: CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
                 cctp_message_transmitter: CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,

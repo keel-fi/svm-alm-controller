@@ -11,7 +11,7 @@ use switchboard_on_demand::{Discriminator, PullFeedAccountData};
 define_account_struct! {
     pub struct RefreshOracle<'info> {
         price_feed;
-        oracle: mut;
+        oracle: mut, @owner(crate::ID);
     }
 }
 

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     constants::PERMISSION_SEED, enums::PermissionStatus, error::SvmAlmControllerErrors,
-    processor::shared::create_pda_account,
+    processor::shared::create_pda_account, state::Integration,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -252,7 +252,11 @@ impl Permission {
         self.status == PermissionStatus::Active && self.can_invoke_external_transfer
     }
 
-    pub fn can_liquidate(&self) -> bool {
-        self.status == PermissionStatus::Active && self.can_liquidate
+    /// Whether or not the Permission may liquidate, "Push" or "Pull", depending on
+    /// the Integration's config.
+    pub fn can_liquidate(&self, integration: &Integration) -> bool {
+        self.status == PermissionStatus::Active
+            && self.can_liquidate
+            && integration.permit_liquidation
     }
 }
