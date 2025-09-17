@@ -10,7 +10,6 @@ use crate::generated::types::ControllerUpdateEvent;
 use crate::generated::types::IntegrationUpdateEvent;
 use crate::generated::types::PermissionUpdateEvent;
 use crate::generated::types::ReserveUpdateEvent;
-use crate::generated::types::SwapEvent;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
@@ -22,5 +21,4 @@ pub enum SvmAlmControllerEvent {
     ReserveUpdate(ReserveUpdateEvent),
     IntegrationUpdate(IntegrationUpdateEvent),
     AccountingEvent(AccountingEvent),
-    SwapEvent(SwapEvent),
 }

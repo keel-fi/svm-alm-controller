@@ -22,11 +22,7 @@ use num_derive::FromPrimitive;
     FromPrimitive,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum AccountingAction {
-    Sync,
-    ExternalTransfer,
-    Deposit,
-    Withdrawal,
-    BridgeSend,
-    Swap,
+pub enum AccountingDirection {
+    Debit,
+    Credit,
 }

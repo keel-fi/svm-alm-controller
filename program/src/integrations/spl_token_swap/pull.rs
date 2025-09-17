@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::spl_token_swap::{
         cpi::withdraw_single_token_type_exact_amount_out_cpi,
@@ -374,9 +374,43 @@ pub fn process_pull_spl_token_swap(
     // Update the reserves for the flows
     if vault_balance_a_delta > 0 {
         reserve_a.update_for_inflow(clock, vault_balance_a_delta)?;
+        // Emit accounting event for credit of Token A Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each debit, there is a corresponding
+        // credit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_a.key()),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Withdrawal,
+                delta: vault_balance_a_delta,
+                direction: AccountingDirection::Credit,
+            }),
+        )?;
     }
     if vault_balance_b_delta > 0 {
         reserve_b.update_for_inflow(clock, vault_balance_b_delta)?;
+        // Emit accounting event for credit of Token B Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each debit, there is a corresponding
+        // credit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_b.key()),
+                mint: *inner_ctx.mint_b.key(),
+                action: AccountingAction::Withdrawal,
+                delta: vault_balance_b_delta,
+                direction: AccountingDirection::Credit,
+            }),
+        )?;
     }
 
     // Emit the accounting event
@@ -386,11 +420,14 @@ pub fn process_pull_spl_token_swap(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
-                before: latest_balance_a,
-                after: post_withdraw_balance_a,
+                delta: latest_balance_a
+                    .checked_sub(post_withdraw_balance_a)
+                    .expect("underflow"),
+                direction: AccountingDirection::Debit,
             }),
         )?;
     }
@@ -401,11 +438,14 @@ pub fn process_pull_spl_token_swap(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Withdrawal,
-                before: latest_balance_b,
-                after: post_withdraw_balance_b,
+                delta: latest_balance_b
+                    .checked_sub(post_withdraw_balance_b)
+                    .expect("overflow"),
+                direction: AccountingDirection::Debit,
             }),
         )?;
     }

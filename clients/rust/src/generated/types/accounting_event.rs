@@ -6,6 +6,7 @@
 //!
 
 use crate::generated::types::AccountingAction;
+use crate::generated::types::AccountingDirection;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
@@ -18,17 +19,14 @@ pub struct AccountingEvent {
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
     pub controller: Pubkey,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub integration: Pubkey,
+    pub integration: Option<Pubkey>,
+    pub reserve: Option<Pubkey>,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
     pub mint: Pubkey,
     pub action: AccountingAction,
-    pub before: u64,
-    pub after: u64,
+    pub delta: u64,
+    pub direction: AccountingDirection,
 }

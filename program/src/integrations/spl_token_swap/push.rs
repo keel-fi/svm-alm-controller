@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::spl_token_swap::{
         cpi::deposit_single_token_type_exact_amount_in_cpi,
@@ -367,38 +367,80 @@ pub fn process_push_spl_token_swap(
     // Update the reserves for the flows
     if vault_balance_a_delta > 0 {
         reserve_a.update_for_outflow(clock, vault_balance_a_delta, false)?;
+        // Emit accounting event for debit of Token A Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each credit, there is a corresponding
+        // debit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_a.key()),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Deposit,
+                delta: vault_balance_a_delta,
+                direction: AccountingDirection::Debit,
+            }),
+        )?;
     }
     if vault_balance_b_delta > 0 {
         reserve_b.update_for_outflow(clock, vault_balance_b_delta, false)?;
+        // Emit accounting event for debit of Token B Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each credit, there is a corresponding
+        // debit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_b.key()),
+                mint: *inner_ctx.mint_b.key(),
+                action: AccountingAction::Deposit,
+                delta: vault_balance_b_delta,
+                direction: AccountingDirection::Debit,
+            }),
+        )?;
     }
 
-    // Emit the accounting event
+    // Emit the accounting event for credit of claim on Token A
+    // in the SplTokenSwap.
     if latest_balance_a != post_deposit_balance_a {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Deposit,
-                before: latest_balance_a,
-                after: post_deposit_balance_a,
+                delta: post_deposit_balance_a
+                    .checked_sub(latest_balance_a)
+                    .expect("overflow"),
+                direction: AccountingDirection::Credit,
             }),
         )?;
     }
-    // Emit the accounting event
+    // Emit the accounting event for credit of claim on Token B
+    // in the SplTokenSwap.
     if latest_balance_b != post_deposit_balance_b {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Deposit,
-                before: latest_balance_b,
-                after: post_deposit_balance_b,
+                delta: post_deposit_balance_b
+                    .checked_sub(latest_balance_b)
+                    .expect("overflow"),
+                direction: AccountingDirection::Credit,
             }),
         )?;
     }

@@ -1364,7 +1364,15 @@
           },
           {
             "name": "integration",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "reserve",
+            "type": {
+              "option": "publicKey"
+            }
           },
           {
             "name": "mint",
@@ -1377,60 +1385,14 @@
             }
           },
           {
-            "name": "before",
+            "name": "delta",
             "type": "u64"
           },
           {
-            "name": "after",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "controller",
-            "type": "publicKey"
-          },
-          {
-            "name": "integration",
-            "type": "publicKey"
-          },
-          {
-            "name": "inputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "outputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "inputAmount",
-            "type": "u64"
-          },
-          {
-            "name": "outputAmount",
-            "type": "u64"
-          },
-          {
-            "name": "inputBalanceBefore",
-            "type": "u64"
-          },
-          {
-            "name": "inputBalanceAfter",
-            "type": "u64"
-          },
-          {
-            "name": "outputBalanceBefore",
-            "type": "u64"
-          },
-          {
-            "name": "outputBalanceAfter",
-            "type": "u64"
+            "name": "direction",
+            "type": {
+              "defined": "AccountingDirection"
+            }
           }
         ]
       }
@@ -2595,14 +2557,6 @@
                 "defined": "AccountingEvent"
               }
             ]
-          },
-          {
-            "name": "SwapEvent",
-            "fields": [
-              {
-                "defined": "SwapEvent"
-              }
-            ]
           }
         ]
       }
@@ -2626,6 +2580,23 @@
           },
           {
             "name": "BridgeSend"
+          },
+          {
+            "name": "Swap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AccountingDirection",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Debit"
+          },
+          {
+            "name": "Credit"
           }
         ]
       }
