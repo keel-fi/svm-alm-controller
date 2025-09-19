@@ -114,6 +114,7 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 | **can_invoke_external_transfer** | ✅             | ✅            | ❌                             | ❌                | ❌               |
 | **can_execute_swap**             | ✅             | ✅            | ✅                             | ✅                | ✅               |
 | **can_reallocate**               | ✅             | ✅            | ✅                             | ✅                | ✅               |
+| **can_liquidate**                | ✅             | ❌            | ❌                             | ❌                | ❌               |
 
 ## Build
 
