@@ -101,20 +101,22 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 - **can_invoke_external_transfer**: Execute SplTokenExternal transfers (for example to fund DAO operations)
 - **can_execute_swap**: Execute AtomicSwap operations (operational)
 - **can_reallocate**: Execute SplTokenSwap LP operations (operational)
+- **can_liquidate**: Can take actions explicitly permitted on the 'liquidation path' (i.e. reducing exposures and paying down borrows)
 
 #### Permission Matrix
 
-| Permission                       | Sky PauseProxy | Keel SubProxy | Keel Security Council Multisig | Relayer (Primary) | Relayer (Backup) |
-| -------------------------------- | -------------- | ------------- | ------------------------------ | ----------------- | ---------------- |
-| **can_freeze_controller**        | ✅             | ✅            | ✅                             | ❌                | ❌               |
-| **can_unfreeze_controller**      | ✅             | ❌            | ❌                             | ❌                | ❌               |
-| **can_manage_permissions**       | ✅             | ❌            | ❌                             | ❌                | ❌               |
-| **can_suspend_permissions**      | ✅             | ✅            | ✅                             | ❌                | ❌               |
-| **can_manage_reserves_and_integrations**      | ✅             | ✅            | ✅                             | ❌                | ❌               |
-| **can_invoke_external_transfer** | ✅             | ✅            | ❌                             | ❌                | ❌               |
-| **can_execute_swap**             | ✅             | ✅            | ✅                             | ✅                | ✅               |
-| **can_reallocate**               | ✅             | ✅            | ✅                             | ✅                | ✅               |
-| **can_liquidate**                | ✅             | ❌            | ❌                             | ❌                | ❌               |
+| Permission                                | Keel PauseProxy | Freezer Multisig  | Relayer (Primary) | Relayer (Backup) |
+| ----------------------------------------- | --------------- | ----------------- | ----------------- | ---------------- |
+| **can_freeze_controller**                 | ✅              | ✅                 | ❌                | ❌               |
+| **can_unfreeze_controller**               | ✅              | ❌                 | ❌                | ❌               |
+| **can_manage_permissions**                | ✅              | ❌                 | ❌                | ❌               |
+| **can_suspend_permissions**               | ✅              | ✅                 | ❌                | ❌               |
+| **can_manage_reserves_and_integrations**  | ✅              | ❌                 | ❌                | ❌               |
+| **can_invoke_external_transfer**          | ✅              | ❌                 | ❌                | ❌               |
+| **can_execute_swap**                      | ❌              | ❌                 | ✅                | ✅               |
+| **can_reallocate**                        | ❌              | ❌                 | ✅                | ✅               |
+| **can_liquidate**                         | ❌              | ✅                 | ❌                | ❌               |
+
 
 ## Build
 
