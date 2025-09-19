@@ -87,7 +87,9 @@ pub fn verify_repay_ix_in_tx(
     }
 
     // Iterate over instructions from Borrow IX to last IX (repay)
-    // to ensure no other calls to the Controller program are made.
+    // to ensure no other top level calls to the Controller program are made.
+    // This prevents the Borrow from being called multiple times as it cannot
+    // be called via CPI.
     for i in curr_index + 1..ix_len - 1 {
         let inner_ix = instructions.load_instruction_at(i.into())?;
         if inner_ix.get_program_id().eq(&crate::ID) {
