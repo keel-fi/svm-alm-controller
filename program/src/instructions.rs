@@ -19,7 +19,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, writable, signer, name = "payer")]
     #[account(1, signer, name = "authority")]
     #[account(2, writable, name = "controller")]
-    #[account(3, writable, name = "controller_authority")]
+    #[account(3, name = "controller_authority")]
     #[account(4, writable, name = "permission")]
     #[account(5, name = "program_id")]
     #[account(6, name = "system_program")]
@@ -184,7 +184,7 @@ pub enum SvmAlmControllerInstruction {
 
     #[account(0, name = "controller")]
     #[account(1, writable, name = "integration")]
-    #[account(2, writable, name = "sysvar_instruction")]
+    #[account(2, name = "sysvar_instruction")]
     ResetLzPushInFlight,
 }
 

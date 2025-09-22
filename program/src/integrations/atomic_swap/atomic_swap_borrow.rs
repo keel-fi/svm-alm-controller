@@ -20,7 +20,7 @@ use crate::{
     },
     define_account_struct,
     enums::{
-        ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
+        IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
     },
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
