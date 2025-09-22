@@ -157,8 +157,6 @@ pub fn process_push_spl_token_external(
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let post_transfer_balance = vault.amount();
-    log!("post_sync_balance: {}", post_sync_balance);
-    log!("post_transfer_balance: {}", post_transfer_balance);
     let check_delta = post_sync_balance
         .checked_sub(post_transfer_balance)
         .unwrap();
@@ -168,12 +166,12 @@ pub fn process_push_spl_token_external(
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
 
     // No state transitions for SplTokenExternal
 
     // Update reserve balance and rate limits for the outflow
-    reserve.update_for_outflow(clock, amount, false)?;
+    reserve.update_for_outflow(clock, check_delta, false)?;
 
     // Emit the accounting event
     controller.emit_event(

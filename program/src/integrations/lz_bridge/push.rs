@@ -274,12 +274,12 @@ pub fn process_push_lz_bridge(
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
 
     // No state transitions for LzBridge
 
     // Update the reserve for the outflow
-    reserve_a.update_for_outflow(clock, amount, false)?;
+    reserve_a.update_for_outflow(clock, check_delta, false)?;
 
     // Emit the accounting event
     controller.emit_event(

@@ -81,7 +81,7 @@ pub fn process_initialize_cctp_bridge(
     )
     .map_err(|e| e)?;
     if remote_token_messenger.domain.ne(&destination_domain) {
-        msg! {"desination_domain: does not match remote_token_messenger state"};
+        msg! {"destination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
 

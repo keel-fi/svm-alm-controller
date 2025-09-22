@@ -48,7 +48,7 @@ define_account_struct! {
 }
 
 /// Checks that repay ix for the same atomic swap is the last instruction in the same transaction.
-/// CPIs to AtomicSwapBorrow are prohibitted to prevent unexpected behavior.
+/// CPIs to AtomicSwapBorrow are prohibited to prevent unexpected behavior.
 /// It is enforced that there may only be 1 AtomicSwapBorrow IX within a given Transaction
 /// to prevent unexpected behavior.
 pub fn verify_repay_ix_in_tx(
@@ -147,7 +147,7 @@ pub fn process_atomic_swap_borrow(
 
     // Load in controller state
     let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
-    if controller.status != ControllerStatus::Active {
+    if !controller.is_active() {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
 

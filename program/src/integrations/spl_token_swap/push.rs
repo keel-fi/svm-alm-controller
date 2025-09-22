@@ -418,9 +418,7 @@ pub fn process_push_spl_token_swap(
                 reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Deposit,
-                delta: post_deposit_balance_a
-                    .checked_sub(latest_balance_a)
-                    .expect("overflow"),
+                delta: post_deposit_balance_a.saturating_sub(latest_balance_a),
                 direction: AccountingDirection::Credit,
             }),
         )?;
@@ -437,9 +435,7 @@ pub fn process_push_spl_token_swap(
                 reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Deposit,
-                delta: post_deposit_balance_b
-                    .checked_sub(latest_balance_b)
-                    .expect("overflow"),
+                delta: post_deposit_balance_b.saturating_sub(latest_balance_b),
                 direction: AccountingDirection::Credit,
             }),
         )?;

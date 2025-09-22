@@ -424,9 +424,7 @@ pub fn process_pull_spl_token_swap(
                 reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
-                delta: latest_balance_a
-                    .checked_sub(post_withdraw_balance_a)
-                    .expect("underflow"),
+                delta: latest_balance_a.saturating_sub(post_withdraw_balance_a),
                 direction: AccountingDirection::Debit,
             }),
         )?;
@@ -442,9 +440,7 @@ pub fn process_pull_spl_token_swap(
                 reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Withdrawal,
-                delta: latest_balance_b
-                    .checked_sub(post_withdraw_balance_b)
-                    .expect("overflow"),
+                delta: latest_balance_b.saturating_sub(post_withdraw_balance_b),
                 direction: AccountingDirection::Debit,
             }),
         )?;

@@ -145,7 +145,7 @@ pub fn process_push_cctp_bridge(
     )
     .map_err(|_| ProgramError::InvalidAccountData)?;
     if remote_token_messenger.domain.ne(&destination_domain) {
-        msg! {"desination_domain: does not match remote_token_messenger state"};
+        msg! {"destination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -208,12 +208,12 @@ pub fn process_push_cctp_bridge(
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
 
     // No state transitions for CctpBridge
 
     // Update the reserve for the outflow
-    reserve.update_for_outflow(clock, amount, false)?;
+    reserve.update_for_outflow(clock, check_delta, false)?;
 
     // Emit the accounting event for debit Reserve
     controller.emit_event(

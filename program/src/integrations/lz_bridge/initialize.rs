@@ -65,7 +65,7 @@ pub fn process_initialize_lz_bridge(
     let inner_ctx =
         InitializeLzBridgeAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
-    let (desination_address, destination_eid) = match outer_args.inner_args {
+    let (destination_address, destination_eid) = match outer_args.inner_args {
         InitializeArgs::LzBridge {
             destination_address,
             destination_eid,
@@ -85,7 +85,7 @@ pub fn process_initialize_lz_bridge(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Check the PDA of the peer_config exists for this desination_eid
+    // Check the PDA of the peer_config exists for this destination_eid
     let (expected_peer_config_pda, _bump) = try_find_program_address(
         &[
             OFT_PEER_CONFIG_SEED,
@@ -109,7 +109,7 @@ pub fn process_initialize_lz_bridge(
         oft_store: Pubkey::from(*inner_ctx.oft_store.key()),
         peer_config: Pubkey::from(*inner_ctx.peer_config.key()),
         oft_token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
-        destination_address: Pubkey::from(desination_address),
+        destination_address: Pubkey::from(destination_address),
         destination_eid,
         _padding: [0u8; 28],
     });
