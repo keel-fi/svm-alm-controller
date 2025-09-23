@@ -1,7 +1,7 @@
 pub mod controller;
 pub mod discriminator;
 pub mod integration;
-pub mod nova_account;
+pub mod keel_account;
 pub mod oracle;
 pub mod permission;
 pub mod reserve;

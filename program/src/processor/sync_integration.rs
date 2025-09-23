@@ -1,8 +1,9 @@
 use crate::{
     define_account_struct,
     enums::IntegrationConfig,
+    error::SvmAlmControllerErrors,
     integrations::spl_token_swap::sync::process_sync_spl_token_swap,
-    state::{nova_account::NovaAccount, Controller, Integration},
+    state::{keel_account::KeelAccount, Controller, Integration},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -18,8 +19,6 @@ define_account_struct! {
         controller: @owner(crate::ID);
         controller_authority: empty, @owner(pinocchio_system::ID);
         integration: mut, @owner(crate::ID);
-        // TODO we should remove this if ok with auditors
-        program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
 }
@@ -36,9 +35,13 @@ pub fn process_sync_integration(
     let ctx = SyncIntegrationAccounts::from_accounts(accounts)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
 
-    // Load in controller state
+    // Load in integration state
     let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     // Refresh the rate limits

@@ -28,4 +28,5 @@ pub enum AccountingAction {
     Deposit,
     Withdrawal,
     BridgeSend,
+    Swap,
 }

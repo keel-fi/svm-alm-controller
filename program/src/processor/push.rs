@@ -1,6 +1,6 @@
 use crate::{
     define_account_struct,
-    enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
+    enums::{IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
     integrations::{
@@ -8,7 +8,7 @@ use crate::{
         spl_token_external::push::process_push_spl_token_external,
         spl_token_swap::push::process_push_spl_token_swap,
     },
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -49,12 +49,12 @@ pub fn process_push(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
-    if controller.status != ControllerStatus::Active {
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    if !controller.is_active() {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
     if permission.status != PermissionStatus::Active {
@@ -75,7 +75,7 @@ pub fn process_push(
     }
 
     // Load in the reserve account for b (if applicable)
-    let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
+    let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
         let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
         if reserve_b.status != ReserveStatus::Active {
             return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
@@ -106,8 +106,7 @@ pub fn process_push(
                 &permission,
                 &mut integration,
                 &mut reserve_a,
-                // Ok with check above
-                &mut reserve_b.unwrap(),
+                reserve_b.as_mut().unwrap(),
                 &ctx,
                 &args,
             )?;

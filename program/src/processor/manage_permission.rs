@@ -5,7 +5,7 @@ use crate::{
     events::{PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::ManagePermissionArgs,
     processor::shared::verify_system_account,
-    state::{nova_account::NovaAccount, Controller, Permission},
+    state::{Controller, Permission},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -20,15 +20,9 @@ define_account_struct! {
         super_authority: signer;
         super_permission: @owner(crate::ID);
         authority;
-        permission: mut;
+        permission: mut, @owner(crate::ID, pinocchio_system::ID);
         program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);
-    }
-}
-
-impl<'info> ManagePermissionAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        Self::from_accounts(accounts)
     }
 }
 
@@ -53,20 +47,19 @@ fn manage_permission(
             args.can_reallocate,
             args.can_freeze_controller,
             args.can_unfreeze_controller,
-            args.can_manage_integrations,
+            args.can_manage_reserves_and_integrations,
             args.can_suspend_permissions,
+            args.can_liquidate,
         )?;
         Ok((permission, None))
     } else {
         // Load the permission account
-        let mut permission = Permission::load_and_check(
-            ctx.permission,
-            ctx.controller.key(),
-            ctx.authority.key(),
-        )?;
+        let mut permission =
+            Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
         let old_state = permission.clone();
         // Update the permission account and save it
         permission.update_and_save(
+            ctx.permission,
             Some(args.status),
             Some(args.can_manage_permissions),
             Some(args.can_invoke_external_transfer),
@@ -74,11 +67,10 @@ fn manage_permission(
             Some(args.can_reallocate),
             Some(args.can_freeze_controller),
             Some(args.can_unfreeze_controller),
-            Some(args.can_manage_integrations),
+            Some(args.can_manage_reserves_and_integrations),
             Some(args.can_suspend_permissions),
+            Some(args.can_liquidate),
         )?;
-        // Save the state to the account
-        permission.save(ctx.permission)?;
         Ok((permission, Some(old_state)))
     }
 }
@@ -109,6 +101,7 @@ fn suspend_permission(
     let old_state = permission.clone();
     // Update the permission account and save it
     permission.update_and_save(
+        ctx.permission,
         Some(args.status),
         None,
         None,
@@ -118,9 +111,8 @@ fn suspend_permission(
         None,
         None,
         None,
+        None,
     )?;
-    // Save the state to the account
-    permission.save(ctx.permission)?;
     Ok((permission, Some(old_state)))
 }
 
@@ -131,7 +123,7 @@ pub fn process_manage_permission(
 ) -> ProgramResult {
     msg!("manage_permission");
 
-    let ctx = ManagePermissionAccounts::checked_from_accounts(accounts)?;
+    let ctx = ManagePermissionAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManagePermissionArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
@@ -147,9 +139,14 @@ pub fn process_manage_permission(
     }
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
-    // Load in the super permission account
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
+
+    // Load in the permission account
     let super_permission = Permission::load_and_check(
         ctx.super_permission,
         ctx.controller.key(),

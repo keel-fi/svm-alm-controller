@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::spl_token_swap::{
         cpi::deposit_single_token_type_exact_amount_in_cpi,
@@ -64,7 +64,7 @@ impl<'info> PushSplTokenSwapAccounts<'info> {
         }
         if ctx.swap_program.key().ne(&config.program) {
             msg! {"swap_program: does not match config"};
-            return Err(ProgramError::InvalidAccountOwner);
+            return Err(ProgramError::InvalidAccountData);
         }
         if ctx.swap.key().ne(&config.swap) {
             msg! {"swap: does not match config"};
@@ -144,14 +144,21 @@ pub fn process_push_spl_token_swap(
     // Get the current slot and time
     let clock = Clock::get()?;
 
-    let (amount_a, amount_b, minimum_pool_token_amount) = match outer_args {
-        PushArgs::SplTokenSwap {
-            amount_a,
-            amount_b,
-            minimum_pool_token_amount,
-        } => (*amount_a, *amount_b, *minimum_pool_token_amount),
-        _ => return Err(ProgramError::InvalidAccountData),
-    };
+    let (amount_a, amount_b, minimum_pool_token_amount_a, minimum_pool_token_amount_b) =
+        match outer_args {
+            PushArgs::SplTokenSwap {
+                amount_a,
+                amount_b,
+                minimum_pool_token_amount_a,
+                minimum_pool_token_amount_b,
+            } => (
+                *amount_a,
+                *amount_b,
+                *minimum_pool_token_amount_a,
+                *minimum_pool_token_amount_b,
+            ),
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
     if amount_a == 0 && amount_b == 0 {
         msg! {"amount_a or amount_b must be > 0"};
         return Err(ProgramError::InvalidArgument);
@@ -176,7 +183,7 @@ pub fn process_push_spl_token_swap(
     }
     if inner_ctx.vault_b.key().ne(&reserve_b.vault) {
         msg! {"vault_b: mismatch with reserve"};
-        return Err(ProgramError::InvalidAccountOwner);
+        return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.mint_a.key().ne(&reserve_a.mint) {
         msg! {"mint_a: mismatch with reserve"};
@@ -206,7 +213,7 @@ pub fn process_push_spl_token_swap(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // // Perform a SYNC on Reserve A
+    // Perform a SYNC on Reserve A
     reserve_a.sync_balance(
         inner_ctx.vault_a,
         outer_ctx.controller_authority,
@@ -222,7 +229,7 @@ pub fn process_push_spl_token_swap(
         controller,
     )?;
 
-    // Perform Sync to calcualte the updated balances and emit pre-push accounting events.
+    // Perform Sync to calculate the updated balances and emit pre-push accounting events.
     let (latest_balance_a, latest_balance_b, latest_balance_lp) = sync_spl_token_swap_integration(
         controller,
         integration,
@@ -267,7 +274,7 @@ pub fn process_push_spl_token_swap(
             inner_ctx.mint_a,
             inner_ctx.mint_a_token_program,
             inner_ctx.lp_mint_token_program,
-            minimum_pool_token_amount,
+            minimum_pool_token_amount_a,
         )?;
     }
     if amount_b > 0 {
@@ -290,7 +297,7 @@ pub fn process_push_spl_token_swap(
             inner_ctx.mint_b,
             inner_ctx.mint_b_token_program,
             inner_ctx.lp_mint_token_program,
-            minimum_pool_token_amount,
+            minimum_pool_token_amount_b,
         )?;
     }
 
@@ -360,38 +367,76 @@ pub fn process_push_spl_token_swap(
     // Update the reserves for the flows
     if vault_balance_a_delta > 0 {
         reserve_a.update_for_outflow(clock, vault_balance_a_delta, false)?;
+        // Emit accounting event for debit of Token A Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each credit, there is a corresponding
+        // debit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_a.key()),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Deposit,
+                delta: vault_balance_a_delta,
+                direction: AccountingDirection::Debit,
+            }),
+        )?;
     }
     if vault_balance_b_delta > 0 {
         reserve_b.update_for_outflow(clock, vault_balance_b_delta, false)?;
+        // Emit accounting event for debit of Token B Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each credit, there is a corresponding
+        // debit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_b.key()),
+                mint: *inner_ctx.mint_b.key(),
+                action: AccountingAction::Deposit,
+                delta: vault_balance_b_delta,
+                direction: AccountingDirection::Debit,
+            }),
+        )?;
     }
 
-    // Emit the accounting event
+    // Emit the accounting event for credit of claim on Token A
+    // in the SplTokenSwap.
     if latest_balance_a != post_deposit_balance_a {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Deposit,
-                before: latest_balance_a,
-                after: post_deposit_balance_a,
+                delta: post_deposit_balance_a.saturating_sub(latest_balance_a),
+                direction: AccountingDirection::Credit,
             }),
         )?;
     }
-    // Emit the accounting event
+    // Emit the accounting event for credit of claim on Token B
+    // in the SplTokenSwap.
     if latest_balance_b != post_deposit_balance_b {
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Deposit,
-                before: latest_balance_b,
-                after: post_deposit_balance_b,
+                delta: post_deposit_balance_b.saturating_sub(latest_balance_b),
+                direction: AccountingDirection::Credit,
             }),
         )?;
     }

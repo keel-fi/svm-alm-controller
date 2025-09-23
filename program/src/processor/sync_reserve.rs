@@ -1,6 +1,7 @@
 use crate::{
     define_account_struct,
-    state::{nova_account::NovaAccount, Controller, Reserve},
+    error::SvmAlmControllerErrors,
+    state::{keel_account::KeelAccount, Controller, Reserve},
 };
 use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
 
@@ -23,9 +24,13 @@ pub fn process_sync_reserve(
     let ctx = SyncReserveAccounts::from_accounts(accounts)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
 
-    // Load in the super permission account
+    // Load in the permission account
     let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
     // Call the method to synchronize the reserve's state

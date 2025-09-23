@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::spl_token_swap::{
         cpi::withdraw_single_token_type_exact_amount_out_cpi,
@@ -55,10 +55,6 @@ impl<'info> PullSplTokenSwapAccounts<'info> {
             IntegrationConfig::SplTokenSwap(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
-        if !ctx.swap.is_owned_by(ctx.swap_program.key()) {
-            msg! {"pool: not owned by swap_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
         if !ctx.swap.is_owned_by(&config.program) {
             msg! {"swap: not owned by swap_program"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -145,22 +141,29 @@ pub fn process_pull_spl_token_swap(
     // Get the current slot and time
     let clock = Clock::get()?;
 
-    let (amount_a, amount_b, maximum_pool_token_amount) = match outer_args {
-        PullArgs::SplTokenSwap {
-            amount_a,
-            amount_b,
-            maximum_pool_token_amount,
-        } => (*amount_a, *amount_b, *maximum_pool_token_amount),
-        _ => return Err(ProgramError::InvalidAccountData),
-    };
+    let (amount_a, amount_b, maximum_pool_token_amount_a, maximum_pool_token_amount_b) =
+        match outer_args {
+            PullArgs::SplTokenSwap {
+                amount_a,
+                amount_b,
+                maximum_pool_token_amount_a,
+                maximum_pool_token_amount_b,
+            } => (
+                *amount_a,
+                *amount_b,
+                *maximum_pool_token_amount_a,
+                *maximum_pool_token_amount_b,
+            ),
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
     if amount_a == 0 && amount_b == 0 {
         msg! {"amount_a or amount_b must be > 0"};
         return Err(ProgramError::InvalidArgument);
     }
 
     // Check permission
-    if !permission.can_reallocate() {
-        msg! {"permission: can_reallocate required"};
+    if !permission.can_reallocate() && !permission.can_liquidate(&integration) {
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 
@@ -172,7 +175,7 @@ pub fn process_pull_spl_token_swap(
 
     // Check against reserve data
     if inner_ctx.vault_a.key().ne(&reserve_a.vault) {
-        msg! {"mint_a: mismatch with reserve"};
+        msg! {"vault_a: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.vault_b.key().ne(&reserve_b.vault) {
@@ -206,6 +209,13 @@ pub fn process_pull_spl_token_swap(
         msg! {"swap_token_b: does not match swap state"};
         return Err(ProgramError::InvalidAccountData);
     }
+    if swap_state
+        .pool_fee_account
+        .ne(inner_ctx.swap_fee_account.key())
+    {
+        msg! {"swap_fee_account: does not match swap state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
 
     // Perform a SYNC on Reserve A
     reserve_a.sync_balance(
@@ -223,7 +233,7 @@ pub fn process_pull_spl_token_swap(
         controller,
     )?;
 
-    // Perform Sync to calcualte the updated balances and emit pre-pull accounting events.
+    // Perform Sync to calculate the updated balances and emit pre-pull accounting events.
     let (latest_balance_a, latest_balance_b, latest_balance_lp) = sync_spl_token_swap_integration(
         controller,
         integration,
@@ -269,7 +279,7 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.mint_a_token_program,
             inner_ctx.lp_mint_token_program,
             inner_ctx.swap_fee_account,
-            maximum_pool_token_amount,
+            maximum_pool_token_amount_a,
         )?;
     }
     if amount_b > 0 {
@@ -293,7 +303,7 @@ pub fn process_pull_spl_token_swap(
             inner_ctx.mint_b_token_program,
             inner_ctx.lp_mint_token_program,
             inner_ctx.swap_fee_account,
-            maximum_pool_token_amount,
+            maximum_pool_token_amount_b,
         )?;
     }
 
@@ -364,9 +374,43 @@ pub fn process_pull_spl_token_swap(
     // Update the reserves for the flows
     if vault_balance_a_delta > 0 {
         reserve_a.update_for_inflow(clock, vault_balance_a_delta)?;
+        // Emit accounting event for credit of Token A Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each debit, there is a corresponding
+        // credit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_a.key()),
+                mint: *inner_ctx.mint_a.key(),
+                action: AccountingAction::Withdrawal,
+                delta: vault_balance_a_delta,
+                direction: AccountingDirection::Credit,
+            }),
+        )?;
     }
     if vault_balance_b_delta > 0 {
         reserve_b.update_for_inflow(clock, vault_balance_b_delta)?;
+        // Emit accounting event for credit of Token B Reserve
+        // Note: this is to ensure there is double accounting
+        // such that for each debit, there is a corresponding
+        // credit to track flow of funds.
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                reserve: Some(*outer_ctx.reserve_b.key()),
+                mint: *inner_ctx.mint_b.key(),
+                action: AccountingAction::Withdrawal,
+                delta: vault_balance_b_delta,
+                direction: AccountingDirection::Credit,
+            }),
+        )?;
     }
 
     // Emit the accounting event
@@ -376,11 +420,12 @@ pub fn process_pull_spl_token_swap(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_a.key(),
                 action: AccountingAction::Withdrawal,
-                before: latest_balance_a,
-                after: post_withdraw_balance_a,
+                delta: latest_balance_a.saturating_sub(post_withdraw_balance_a),
+                direction: AccountingDirection::Debit,
             }),
         )?;
     }
@@ -391,11 +436,12 @@ pub fn process_pull_spl_token_swap(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                reserve: None,
                 mint: *inner_ctx.mint_b.key(),
                 action: AccountingAction::Withdrawal,
-                before: latest_balance_b,
-                after: post_withdraw_balance_b,
+                delta: latest_balance_b.saturating_sub(post_withdraw_balance_b),
+                direction: AccountingDirection::Debit,
             }),
         )?;
     }

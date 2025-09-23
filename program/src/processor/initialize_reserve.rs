@@ -4,7 +4,7 @@ use crate::{
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeReserveArgs,
     processor::shared::validate_mint_extensions,
-    state::{nova_account::NovaAccount, Controller, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -43,25 +43,25 @@ pub fn process_initialize_reserve(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
-    // Validate the controller authority
-    if controller.authority.ne(ctx.controller_authority.key()) {
-        return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
-    if !permission.can_manage_integrations() {
+    // Check that authority has permission and the permission is active
+    if !permission.can_manage_reserves_and_integrations() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
     // Validate the mint
     // Load in the mint account, validating it in the process
     Mint::from_account_info(ctx.mint)?;
-    validate_mint_extensions(ctx.mint)?;
+    validate_mint_extensions(ctx.mint, &[])?;
 
     // Invoke the CreateIdempotent ixn for the ATA
     // Will handle both the creation or the checking, if already created

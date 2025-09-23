@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::IntegrationConfig,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger},
@@ -113,8 +113,8 @@ pub fn process_push_cctp_bridge(
     }
 
     // Check permission
-    if !permission.can_invoke_external_transfer() {
-        msg! {"permission: can_invoke_external_transfer required"};
+    if !permission.can_reallocate() && !permission.can_liquidate(&integration) {
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 
@@ -139,19 +139,19 @@ pub fn process_push_cctp_bridge(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
+    // Load in the CCTP RemoteTokenMessenger account
     let remote_token_messenger = RemoteTokenMessenger::deserialize(
         &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?,
     )
     .map_err(|_| ProgramError::InvalidAccountData)?;
     if remote_token_messenger.domain.ne(&destination_domain) {
-        msg! {"desination_domain: does not match remote_token_messenger state"};
+        msg! {"destination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve.vault) {
-        msg! {"mint: mismatch with reserve"};
+        msg! {"vault: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.mint.key().ne(&reserve.mint) {
@@ -208,24 +208,43 @@ pub fn process_push_cctp_bridge(
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
 
     // No state transitions for CctpBridge
 
     // Update the reserve for the outflow
-    reserve.update_for_outflow(clock, amount, false)?;
+    reserve.update_for_outflow(clock, check_delta, false)?;
 
-    // Emit the accounting event
+    // Emit the accounting event for debit Reserve
     controller.emit_event(
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
-            integration: *outer_ctx.integration.key(),
+            integration: None,
+            reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
-            before: post_sync_balance,
-            after: post_transfer_balance,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
+        }),
+    )?;
+
+    // Emit the accounting event for credit Integration
+    // Note: this is to ensure there is double accounting
+    // such that for each debit, there is a corresponding credit
+    // to track flow of funds.
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            reserve: None,
+            mint: *inner_ctx.mint.key(),
+            action: AccountingAction::BridgeSend,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

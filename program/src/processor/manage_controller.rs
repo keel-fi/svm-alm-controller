@@ -21,13 +21,6 @@ define_account_struct! {
     }
 }
 
-impl<'info> ManageControllerAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-        Ok(ctx)
-    }
-}
-
 pub fn process_manage_controller(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -35,28 +28,33 @@ pub fn process_manage_controller(
 ) -> ProgramResult {
     msg!("manage_controller");
 
-    let ctx = ManageControllerAccounts::checked_from_accounts(accounts)?;
+    let ctx = ManageControllerAccounts::from_accounts(accounts)?;
     // // Deserialize the args
     let args = ManageControllerArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let mut controller = Controller::load_and_check(ctx.controller)?;
+    let mut controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+
+    // Error when Controller is frozen and updated status is not Active
+    if controller.is_frozen() && args.status != ControllerStatus::Active {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
 
     let old_state = controller.clone();
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
 
-    // Check that super authority has permission and the permission is active
+    // Check that authority has permission and the permission is active
     match args.status {
         ControllerStatus::Active => {
             if !permission.can_unfreeze_controller() {
                 return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
             }
         }
-        ControllerStatus::Suspended => {
+        ControllerStatus::PushPullFrozen | ControllerStatus::Frozen => {
             if !permission.can_freeze_controller() {
                 return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
             }

@@ -338,11 +338,6 @@
           "isSigner": false
         },
         {
-          "name": "lookupTable",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "programId",
           "isMut": false,
           "isSigner": false
@@ -392,11 +387,6 @@
         {
           "name": "integration",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lookupTable",
-          "isMut": false,
           "isSigner": false
         },
         {
@@ -471,11 +461,6 @@
         {
           "name": "integration",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "programId",
-          "isMut": false,
           "isSigner": false
         }
       ],
@@ -615,6 +600,16 @@
           "isSigner": true
         },
         {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -651,6 +646,16 @@
     {
       "name": "UpdateOracle",
       "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
         {
           "name": "authority",
           "isMut": false,
@@ -803,7 +808,7 @@
       "accounts": [
         {
           "name": "payer",
-          "isMut": true,
+          "isMut": false,
           "isSigner": true
         },
         {
@@ -987,10 +992,6 @@
             }
           },
           {
-            "name": "lookupTable",
-            "type": "publicKey"
-          },
-          {
             "name": "status",
             "type": {
               "defined": "IntegrationStatus"
@@ -1033,11 +1034,15 @@
             }
           },
           {
+            "name": "permitLiquidation",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                56
+                87
               ]
             }
           }
@@ -1072,6 +1077,18 @@
           {
             "name": "lastUpdateSlot",
             "type": "u64"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "baseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "quoteMint",
+            "type": "publicKey"
           },
           {
             "name": "reserved",
@@ -1140,7 +1157,7 @@
             "type": "bool"
           },
           {
-            "name": "canManageIntegrations",
+            "name": "canManageReservesAndIntegrations",
             "type": "bool"
           },
           {
@@ -1148,11 +1165,15 @@
             "type": "bool"
           },
           {
+            "name": "canLiquidate",
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                31
+                30
               ]
             }
           }
@@ -1365,6 +1386,42 @@
       }
     },
     {
+      "name": "OracleUpdateEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracle",
+            "type": "publicKey"
+          },
+          {
+            "name": "oldState",
+            "type": {
+              "option": {
+                "defined": "Oracle"
+              }
+            }
+          },
+          {
+            "name": "newState",
+            "type": {
+              "option": {
+                "defined": "Oracle"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "AccountingEvent",
       "type": {
         "kind": "struct",
@@ -1375,7 +1432,15 @@
           },
           {
             "name": "integration",
-            "type": "publicKey"
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "reserve",
+            "type": {
+              "option": "publicKey"
+            }
           },
           {
             "name": "mint",
@@ -1388,60 +1453,14 @@
             }
           },
           {
-            "name": "before",
+            "name": "delta",
             "type": "u64"
           },
           {
-            "name": "after",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "controller",
-            "type": "publicKey"
-          },
-          {
-            "name": "integration",
-            "type": "publicKey"
-          },
-          {
-            "name": "inputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "outputMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "inputAmount",
-            "type": "u64"
-          },
-          {
-            "name": "outputAmount",
-            "type": "u64"
-          },
-          {
-            "name": "inputBalanceBefore",
-            "type": "u64"
-          },
-          {
-            "name": "inputBalanceAfter",
-            "type": "u64"
-          },
-          {
-            "name": "outputBalanceBefore",
-            "type": "u64"
-          },
-          {
-            "name": "outputBalanceAfter",
-            "type": "u64"
+            "name": "direction",
+            "type": {
+              "defined": "AccountingDirection"
+            }
           }
         ]
       }
@@ -1521,11 +1540,15 @@
             "type": "bool"
           },
           {
-            "name": "canManageIntegrations",
+            "name": "canManageReservesAndIntegrations",
             "type": "bool"
           },
           {
             "name": "canSuspendPermissions",
+            "type": "bool"
+          },
+          {
+            "name": "canLiquidate",
             "type": "bool"
           }
         ]
@@ -1616,6 +1639,10 @@
             "type": "u64"
           },
           {
+            "name": "permitLiquidation",
+            "type": "bool"
+          },
+          {
             "name": "innerArgs",
             "type": {
               "defined": "InitializeArgs"
@@ -1688,6 +1715,14 @@
           },
           {
             "name": "nonce",
+            "type": "publicKey"
+          },
+          {
+            "name": "baseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "quoteMint",
             "type": "publicKey"
           }
         ]
@@ -1993,7 +2028,7 @@
             "type": "publicKey"
           },
           {
-            "name": "tokenEscrow",
+            "name": "oftTokenEscrow",
             "type": "publicKey"
           },
           {
@@ -2354,10 +2389,13 @@
         "kind": "enum",
         "variants": [
           {
-            "name": "Suspended"
+            "name": "Frozen"
           },
           {
             "name": "Active"
+          },
+          {
+            "name": "PushPullFrozen"
           }
         ]
       }
@@ -2515,9 +2553,6 @@
             "name": "CctpBridge"
           },
           {
-            "name": "SwapIntent"
-          },
-          {
             "name": "LzBridge"
           },
           {
@@ -2600,10 +2635,10 @@
             ]
           },
           {
-            "name": "SwapEvent",
+            "name": "OracleUpdate",
             "fields": [
               {
-                "defined": "SwapEvent"
+                "defined": "OracleUpdateEvent"
               }
             ]
           }
@@ -2629,6 +2664,23 @@
           },
           {
             "name": "BridgeSend"
+          },
+          {
+            "name": "Swap"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AccountingDirection",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Debit"
+          },
+          {
+            "name": "Credit"
           }
         ]
       }
@@ -2648,11 +2700,11 @@
             "name": "CctpBridge",
             "fields": [
               {
-                "name": "desination_address",
+                "name": "destination_address",
                 "type": "publicKey"
               },
               {
-                "name": "desination_domain",
+                "name": "destination_domain",
                 "type": "u32"
               }
             ]
@@ -2661,7 +2713,7 @@
             "name": "LzBridge",
             "fields": [
               {
-                "name": "desination_address",
+                "name": "destination_address",
                 "type": "publicKey"
               },
               {
@@ -2720,7 +2772,11 @@
                 "type": "u64"
               },
               {
-                "name": "minimum_pool_token_amount",
+                "name": "minimum_pool_token_amount_a",
+                "type": "u64"
+              },
+              {
+                "name": "minimum_pool_token_amount_b",
                 "type": "u64"
               }
             ]
@@ -2766,7 +2822,11 @@
                 "type": "u64"
               },
               {
-                "name": "maximum_pool_token_amount",
+                "name": "maximum_pool_token_amount_a",
+                "type": "u64"
+              },
+              {
+                "name": "maximum_pool_token_amount_b",
                 "type": "u64"
               }
             ]

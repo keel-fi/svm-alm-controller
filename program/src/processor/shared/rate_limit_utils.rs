@@ -1,6 +1,6 @@
 use crate::constants::SECONDS_PER_DAY;
 
-/// Calcualte the increment and remainder for the rate limit based on the slope and the time since the last refresh.
+/// Calculate the increment and remainder for the rate limit based on the slope and the time since the last refresh.
 pub fn calculate_rate_limit_increment(
     unix_timestamp: i64,
     last_refresh_timestamp: i64,

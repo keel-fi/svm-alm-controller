@@ -98,7 +98,7 @@ pub fn process_sync_spl_token_swap(
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
-    // Calcualte the updated balances and emit accounting events.
+    // Calculate the updated balances and emit accounting events.
     let (latest_balance_a, latest_balance_b, latest_balance_lp) = sync_spl_token_swap_integration(
         controller,
         integration,

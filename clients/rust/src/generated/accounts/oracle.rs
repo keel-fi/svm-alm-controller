@@ -27,13 +27,28 @@ pub struct Oracle {
     pub value: i128,
     pub precision: u32,
     pub last_update_slot: u64,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub controller: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub base_mint: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub quote_mint: Pubkey,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
     pub reserved: [u8; 64],
     pub feeds: [Feed; 1],
 }
 
 impl Oracle {
-    pub const LEN: usize = 253;
+    pub const LEN: usize = 349;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {

@@ -8,7 +8,7 @@ use pinocchio_log::log;
 
 use super::Discriminator;
 
-pub trait NovaAccount: Discriminator + BorshDeserialize + BorshSerialize {
+pub trait KeelAccount: Discriminator + BorshDeserialize + BorshSerialize {
     /// The size in bytes for the discriminator
     const DISCRIMINATOR_SIZE: usize = 1;
     /// The size in bytes for the account data (sans discriminator)

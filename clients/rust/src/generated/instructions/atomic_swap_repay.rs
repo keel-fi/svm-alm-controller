@@ -57,7 +57,7 @@ impl AtomicSwapRepay {
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
         let mut accounts = Vec::with_capacity(17 + remaining_accounts.len());
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.payer, true,
         ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
@@ -157,7 +157,7 @@ impl Default for AtomicSwapRepayInstructionData {
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` payer
+///   0. `[signer]` payer
 ///   1. `[]` controller
 ///   2. `[]` controller_authority
 ///   3. `[signer]` authority
@@ -484,7 +484,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
         )],
     ) -> solana_program::entrypoint::ProgramResult {
         let mut accounts = Vec::with_capacity(17 + remaining_accounts.len());
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.payer.key,
             true,
         ));
@@ -601,7 +601,7 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` payer
+///   0. `[signer]` payer
 ///   1. `[]` controller
 ///   2. `[]` controller_authority
 ///   3. `[signer]` authority

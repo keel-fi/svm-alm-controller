@@ -11,18 +11,18 @@ use crate::{
     define_account_struct,
     enums::IntegrationState,
     error::SvmAlmControllerErrors,
-    state::{nova_account::NovaAccount, Integration},
+    state::{keel_account::KeelAccount, Integration},
 };
 
-/// Permissionless instruction that must be called at the top
-/// level of the Transaction (i.e. cannot be CPI'd) and
-/// the last Instruction in the Transaction. This will reset
-/// the in-flight flag allowing for another LZ Push instruction
-/// to be sent.
+// Permissionless instruction that must be called at the top
+// level of the Transaction (i.e. cannot be CPI'd) and
+// the last Instruction in the Transaction. This will reset
+// the in-flight flag allowing for another LZ Push instruction
+// to be sent.
 define_account_struct! {
   pub struct ResetLzPushInFlight<'info> {
-    controller;
-    integration: mut;
+    controller: @owner(crate::ID);
+    integration: mut, @owner(crate::ID);
     sysvar_instruction: @pubkey(INSTRUCTIONS_ID);
   }
 }
@@ -30,7 +30,7 @@ define_account_struct! {
 /// Discriminator for ResetLzPushInFlight
 pub const RESET_LZ_PUSH_IN_FLIGHT_DISC: u8 = 17;
 /// Index of the Integration account in the `ResetLzPushInFlight` instruction.
-pub const RESET_LZ_PUSH_INTEGRATIC_INDEX: usize = 1;
+pub const RESET_LZ_PUSH_INTEGRATION_INDEX: usize = 1;
 
 /// Checks that ResetLzPushInFlight instruction is last in the Transaction
 /// and has not been called via CPI.

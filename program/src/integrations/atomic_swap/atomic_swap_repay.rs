@@ -13,27 +13,27 @@ use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    events::{SvmAlmControllerEvent, SwapEvent},
-    state::{nova_account::NovaAccount, Controller, Integration, Oracle, Permission, Reserve},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
+    state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
 define_account_struct! {
     pub struct AtomicSwapRepay<'info> {
         payer: signer;
-        controller;
-        controller_authority;
+        controller: @owner(crate::ID);
+        controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
-        permission;
-        integration: mut;
-        reserve_a: mut;
-        vault_a: mut;
-        mint_a;
-        reserve_b: mut;
-        vault_b: mut;
-        mint_b;
-        oracle;
-        payer_account_a: mut;
-        payer_account_b: mut;
+        permission: @owner(crate::ID);
+        integration: mut, @owner(crate::ID);
+        reserve_a: mut, @owner(crate::ID);
+        vault_a: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_a: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_b: mut, @owner(crate::ID);
+        vault_b: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_b:@owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        oracle: @owner(crate::ID);
+        payer_account_a: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        payer_account_b: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program_a: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program_b: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }
@@ -48,16 +48,16 @@ pub fn process_atomic_swap_repay(
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
     let clock = Clock::get()?;
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
+    // Check that authority has permission and the permission is active
     if !permission.can_execute_swap() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
     // Load Controller for event emission.
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
@@ -173,7 +173,6 @@ pub fn process_atomic_swap_repay(
         token_program: ctx.token_program_b.key(),
     }
     .invoke()?;
-    let final_vault_balance_a = TokenAccount::from_account_info(ctx.vault_a)?.amount();
     let final_vault_balance_b = TokenAccount::from_account_info(ctx.vault_b)?.amount();
     // Calculate the amount that was received by the Reserve. This accounts for
     // a Transfer that has TransferFees enabled.
@@ -181,7 +180,7 @@ pub fn process_atomic_swap_repay(
         .checked_sub(vault_b_balance_before)
         .expect("overflow");
 
-    let oracle = Oracle::load_and_check(ctx.oracle)?;
+    let oracle = Oracle::load_and_check(ctx.oracle, Some(ctx.controller.key()), None)?;
 
     // Check that oracle was last refreshed within acceptable staleness.
     if oracle.last_update_slot < clock.slot - config.max_staleness {
@@ -212,21 +211,33 @@ pub fn process_atomic_swap_repay(
     integration.update_rate_limit_for_inflow(clock, balance_a_delta)?;
     integration.save(ctx.integration)?;
 
-    // Emit the swap event
+    // Emit debit event for token a Reserve
     controller.emit_event(
         ctx.controller_authority,
         ctx.controller.key(),
-        SvmAlmControllerEvent::SwapEvent(SwapEvent {
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *ctx.controller.key(),
-            integration: *ctx.integration.key(),
-            input_mint: reserve_a.mint,
-            output_mint: reserve_b.mint,
-            input_amount: final_input_amount,
-            output_amount: balance_b_delta,
-            input_balance_before: vault_a_swap_starting_balance,
-            input_balance_after: final_vault_balance_a,
-            output_balance_before: vault_b_swap_starting_balance,
-            output_balance_after: final_vault_balance_b,
+            integration: None,
+            reserve: Some(*ctx.reserve_a.key()),
+            mint: *ctx.mint_a.key(),
+            action: AccountingAction::Swap,
+            delta: final_input_amount,
+            direction: AccountingDirection::Debit,
+        }),
+    )?;
+
+    // Emit credit event for token b Reserve
+    controller.emit_event(
+        ctx.controller_authority,
+        ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *ctx.controller.key(),
+            integration: None,
+            reserve: Some(*ctx.reserve_b.key()),
+            mint: *ctx.mint_b.key(),
+            action: AccountingAction::Swap,
+            delta: balance_b_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

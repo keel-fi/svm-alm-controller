@@ -8,7 +8,7 @@ use pinocchio::{
 #[cfg(feature = "verbose")]
 use crate::dev_panic_handler;
 use crate::{
-    constants::ATOMIC_SWAP_REPAY_IX_DISC,
+    constants::{ATOMIC_SWAP_BORROW_IX_DISC, ATOMIC_SWAP_REPAY_IX_DISC},
     integrations::{
         atomic_swap::{process_atomic_swap_borrow, process_atomic_swap_repay},
         lz_bridge::reset_lz_push_in_flight::{
@@ -56,10 +56,15 @@ pub fn process_instruction(
         12 => process_initialize_oracle(program_id, accounts, instruction_data),
         13 => process_update_oracle(program_id, accounts, instruction_data),
         14 => process_refresh_oracle(program_id, accounts),
-        15 => process_atomic_swap_borrow(program_id, accounts, instruction_data),
+        // 15
+        &ATOMIC_SWAP_BORROW_IX_DISC => {
+            process_atomic_swap_borrow(program_id, accounts, instruction_data)
+        }
+        // 16
         &ATOMIC_SWAP_REPAY_IX_DISC => {
             process_atomic_swap_repay(program_id, accounts, instruction_data)
-        } // 16
+        }
+        // 17
         &RESET_LZ_PUSH_IN_FLIGHT_DISC => {
             process_reset_lz_push_in_flight(program_id, accounts, instruction_data)
         }

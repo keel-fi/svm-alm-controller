@@ -1,10 +1,10 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
 };
 use crate::{
     constants::PERMISSION_SEED, enums::PermissionStatus, error::SvmAlmControllerErrors,
-    processor::shared::create_pda_account,
+    processor::shared::create_pda_account, state::Integration,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -43,20 +43,24 @@ pub struct Permission {
     pub can_freeze_controller: bool,
     /// Enables the Permission's authority to unfreeze the Controller.
     pub can_unfreeze_controller: bool,
-    /// Enables the Permission's authority to update any Integration's status, LUT, and rate limit params.
-    pub can_manage_integrations: bool,
+    /// Enables the Permission's authority to initialize or update a Reserve or Integration
+    /// state including statuses, rate limit params, etc.
+    pub can_manage_reserves_and_integrations: bool,
     /// Enables the Permission's authority to suspend any Permission, EXCEPT for
     /// a Super Permission with `can_manage_permissions` enabled.
     pub can_suspend_permissions: bool,
-    pub _padding: [u8; 31],
+    /// Enables the Permission's authority to "Pull" funds from external Integrations
+    /// and Push funds back to Ethereum Mainnet.
+    pub can_liquidate: bool,
+    pub _padding: [u8; 30],
 }
 
 impl Discriminator for Permission {
     const DISCRIMINATOR: u8 = AccountDiscriminators::PermissionDiscriminator as u8;
 }
 
-impl NovaAccount for Permission {
-    const LEN: usize = 65 + 7 + 32;
+impl KeelAccount for Permission {
+    const LEN: usize = 2 * 32 + 10 * 1 + 30;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -94,7 +98,7 @@ impl Permission {
         }
         // Check PDA
 
-        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let permission: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
@@ -113,8 +117,9 @@ impl Permission {
         can_reallocate: bool,
         can_freeze_controller: bool,
         can_unfreeze_controller: bool,
-        can_manage_integrations: bool,
+        can_manage_reserves_and_integrations: bool,
         can_suspend_permissions: bool,
+        can_liquidate: bool,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the controller
         let permission = Permission {
@@ -127,9 +132,10 @@ impl Permission {
             can_reallocate,
             can_freeze_controller,
             can_unfreeze_controller,
-            can_manage_integrations,
+            can_manage_reserves_and_integrations,
             can_suspend_permissions,
-            _padding: [0; 31],
+            can_liquidate,
+            _padding: [0; 30],
         };
 
         // Derive the PDA
@@ -165,6 +171,7 @@ impl Permission {
 
     pub fn update_and_save(
         &mut self,
+        account_info: &AccountInfo,
         status: Option<PermissionStatus>,
         can_manage_permissions: Option<bool>,
         can_invoke_external_transfer: Option<bool>,
@@ -172,8 +179,9 @@ impl Permission {
         can_reallocate: Option<bool>,
         can_freeze_controller: Option<bool>,
         can_unfreeze_controller: Option<bool>,
-        can_manage_integrations: Option<bool>,
+        can_manage_reserves_and_integrations: Option<bool>,
         can_suspend_permissions: Option<bool>,
+        can_liquidate: Option<bool>,
     ) -> Result<(), ProgramError> {
         if let Some(status) = status {
             self.status = status;
@@ -199,9 +207,15 @@ impl Permission {
         if let Some(can_unfreeze_controller) = can_unfreeze_controller {
             self.can_unfreeze_controller = can_unfreeze_controller;
         }
-        if let Some(can_manage_integrations) = can_manage_integrations {
-            self.can_manage_integrations = can_manage_integrations;
+        if let Some(can_manage_reserves_and_integrations) = can_manage_reserves_and_integrations {
+            self.can_manage_reserves_and_integrations = can_manage_reserves_and_integrations;
         }
+        if let Some(can_liquidate) = can_liquidate {
+            self.can_liquidate = can_liquidate;
+        }
+
+        // Commit the account on-chain
+        self.save(account_info)?;
 
         Ok(())
     }
@@ -222,8 +236,8 @@ impl Permission {
         self.status == PermissionStatus::Active && self.can_suspend_permissions
     }
 
-    pub fn can_manage_integrations(&self) -> bool {
-        self.status == PermissionStatus::Active && self.can_manage_integrations
+    pub fn can_manage_reserves_and_integrations(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_manage_reserves_and_integrations
     }
 
     pub fn can_execute_swap(&self) -> bool {
@@ -236,5 +250,13 @@ impl Permission {
 
     pub fn can_invoke_external_transfer(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_invoke_external_transfer
+    }
+
+    /// Whether or not the Permission may liquidate, "Push" or "Pull", depending on
+    /// the Integration's config.
+    pub fn can_liquidate(&self, integration: &Integration) -> bool {
+        self.status == PermissionStatus::Active
+            && self.can_liquidate
+            && integration.permit_liquidation
     }
 }

@@ -4,7 +4,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState, IntegrationStatus},
     error::SvmAlmControllerErrors,
     processor::shared::{calculate_rate_limit_increment, create_pda_account},
-    state::nova_account::NovaAccount,
+    state::keel_account::KeelAccount,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -34,8 +34,6 @@ pub struct Integration {
     pub description: [u8; 32],
     /// Hash of the Integration's IntegrationConfig to be used as a PDA seed
     pub hash: [u8; 32],
-    /// Address Lookup Table associated with this Integration (set to Pubkey::default() when not needed)
-    pub lookup_table: Pubkey,
     /// Status of the Integration (i.e. active or suspended)
     pub status: IntegrationStatus,
     /// The number of units (i.e. TokenAccount amount) is replenished to the available amount per 24 hours
@@ -57,15 +55,19 @@ pub struct Integration {
     pub config: IntegrationConfig,
     /// Integration specific state (i.e. LP balances)
     pub state: IntegrationState,
-    pub _padding: [u8; 56],
+    /// Enables the `can_liquidate` privilege of a Permission to perform "Pull" actions
+    /// from external protocol integrations and "Push" actions that move funds back to
+    /// the Ethereum Mainnet.
+    pub permit_liquidation: bool,
+    pub _padding: [u8; 87],
 }
 
 impl Discriminator for Integration {
     const DISCRIMINATOR: u8 = AccountDiscriminators::IntegrationDiscriminator as u8;
 }
 
-impl NovaAccount for Integration {
-    const LEN: usize = 4 * 32 + 1 + 5 * 8 + 225 + 49 + 64;
+impl KeelAccount for Integration {
+    const LEN: usize = 3 * 32 + 1 + 6 * 8 + 225 + 49 + 1 + 87;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -99,7 +101,7 @@ impl Integration {
         }
         // Check PDA
 
-        let integration: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let integration: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         integration.check_data(controller)?;
         integration.verify_pda(account_info)?;
@@ -114,9 +116,9 @@ impl Integration {
         config: IntegrationConfig,
         state: IntegrationState,
         description: [u8; 32],
-        lookup_table: Pubkey,
         rate_limit_slope: u64,
         rate_limit_max_outflow: u64,
+        permit_liquidation: bool,
     ) -> Result<Self, ProgramError> {
         let clock = Clock::get()?;
         // Derive the hash for this config
@@ -127,7 +129,6 @@ impl Integration {
             controller,
             hash,
             status,
-            lookup_table,
             description,
             config,
             state,
@@ -137,7 +138,8 @@ impl Integration {
             rate_limit_remainder: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 56],
+            permit_liquidation,
+            _padding: [0; 87],
         };
 
         // Derive the PDA
@@ -175,7 +177,6 @@ impl Integration {
         &mut self,
         account_info: &AccountInfo,
         status: Option<IntegrationStatus>,
-        lookup_table: Option<Pubkey>,
         description: Option<[u8; 32]>,
         rate_limit_slope: Option<u64>,
         rate_limit_max_outflow: Option<u64>,
@@ -186,9 +187,6 @@ impl Integration {
 
         if let Some(status) = status {
             self.status = status;
-        }
-        if let Some(lookup_table) = lookup_table {
-            self.lookup_table = lookup_table;
         }
         if let Some(rate_limit_slope) = rate_limit_slope {
             self.rate_limit_slope = rate_limit_slope;
@@ -227,7 +225,11 @@ impl Integration {
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
-            self.rate_limit_remainder = remainder;
+            if self.rate_limit_outflow_amount_available == self.rate_limit_max_outflow {
+                self.rate_limit_remainder = 0;
+            } else {
+                self.rate_limit_remainder = remainder;
+            }
         }
 
         self.last_refresh_timestamp = clock.unix_timestamp;

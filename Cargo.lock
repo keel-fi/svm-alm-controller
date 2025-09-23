@@ -1159,7 +1159,7 @@ dependencies = [
 [[package]]
 name = "dvn-client"
 version = "0.1.0"
-source = "git+https://github.com/nova-dot-gg/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
+source = "git+https://github.com/keel-fi/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
 dependencies = [
  "borsh 1.5.5",
  "num-derive",
@@ -1235,7 +1235,7 @@ dependencies = [
 [[package]]
 name = "endpoint-client"
 version = "0.1.0"
-source = "git+https://github.com/nova-dot-gg/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
+source = "git+https://github.com/keel-fi/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
 dependencies = [
  "borsh 1.5.5",
  "num-derive",
@@ -1337,7 +1337,7 @@ dependencies = [
 [[package]]
 name = "executor-client"
 version = "0.1.0"
-source = "git+https://github.com/nova-dot-gg/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
+source = "git+https://github.com/keel-fi/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
 dependencies = [
  "borsh 1.5.5",
  "num-derive",
@@ -2609,7 +2609,7 @@ dependencies = [
 [[package]]
 name = "oft-client"
 version = "0.1.0"
-source = "git+https://github.com/nova-dot-gg/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
+source = "git+https://github.com/keel-fi/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
 dependencies = [
  "ahash 0.8.12",
  "base64 0.22.1",
@@ -7264,7 +7264,7 @@ checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 [[package]]
 name = "uln-client"
 version = "0.1.0"
-source = "git+https://github.com/nova-dot-gg/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
+source = "git+https://github.com/keel-fi/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
 dependencies = [
  "borsh 1.5.5",
  "dvn-client",

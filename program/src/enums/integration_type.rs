@@ -8,7 +8,6 @@ pub enum IntegrationType {
     SplTokenExternal,
     SplTokenSwap,
     CctpBridge,
-    SwapIntent,
     LzBridge,
     AtomicSwap,
 }

@@ -12,6 +12,10 @@ use borsh::BorshSerialize;
 /// Accounts.
 #[derive(Debug)]
 pub struct UpdateOracle {
+    pub controller: solana_program::pubkey::Pubkey,
+
+    pub controller_authority: solana_program::pubkey::Pubkey,
+
     pub authority: solana_program::pubkey::Pubkey,
 
     pub price_feed: solana_program::pubkey::Pubkey,
@@ -35,7 +39,15 @@ impl UpdateOracle {
         args: UpdateOracleInstructionArgs,
         remaining_accounts: &[solana_program::instruction::AccountMeta],
     ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.controller,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            self.controller_authority,
+            false,
+        ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.authority,
             true,
@@ -100,12 +112,16 @@ pub struct UpdateOracleInstructionArgs {
 ///
 /// ### Accounts:
 ///
-///   0. `[signer]` authority
-///   1. `[]` price_feed
-///   2. `[writable]` oracle
-///   3. `[signer, optional]` new_authority
+///   0. `[]` controller
+///   1. `[]` controller_authority
+///   2. `[signer]` authority
+///   3. `[]` price_feed
+///   4. `[writable]` oracle
+///   5. `[signer, optional]` new_authority
 #[derive(Clone, Debug, Default)]
 pub struct UpdateOracleBuilder {
+    controller: Option<solana_program::pubkey::Pubkey>,
+    controller_authority: Option<solana_program::pubkey::Pubkey>,
     authority: Option<solana_program::pubkey::Pubkey>,
     price_feed: Option<solana_program::pubkey::Pubkey>,
     oracle: Option<solana_program::pubkey::Pubkey>,
@@ -117,6 +133,19 @@ pub struct UpdateOracleBuilder {
 impl UpdateOracleBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+    #[inline(always)]
+    pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
+        self.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: solana_program::pubkey::Pubkey,
+    ) -> &mut Self {
+        self.controller_authority = Some(controller_authority);
+        self
     }
     #[inline(always)]
     pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
@@ -169,6 +198,10 @@ impl UpdateOracleBuilder {
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_program::instruction::Instruction {
         let accounts = UpdateOracle {
+            controller: self.controller.expect("controller is not set"),
+            controller_authority: self
+                .controller_authority
+                .expect("controller_authority is not set"),
             authority: self.authority.expect("authority is not set"),
             price_feed: self.price_feed.expect("price_feed is not set"),
             oracle: self.oracle.expect("oracle is not set"),
@@ -184,6 +217,10 @@ impl UpdateOracleBuilder {
 
 /// `update_oracle` CPI accounts.
 pub struct UpdateOracleCpiAccounts<'a, 'b> {
+    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+
     pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub price_feed: &'b solana_program::account_info::AccountInfo<'a>,
@@ -197,6 +234,10 @@ pub struct UpdateOracleCpiAccounts<'a, 'b> {
 pub struct UpdateOracleCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+
+    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
 
     pub authority: &'b solana_program::account_info::AccountInfo<'a>,
 
@@ -217,6 +258,8 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
     ) -> Self {
         Self {
             __program: program,
+            controller: accounts.controller,
+            controller_authority: accounts.controller_authority,
             authority: accounts.authority,
             price_feed: accounts.price_feed,
             oracle: accounts.oracle,
@@ -258,7 +301,15 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
             bool,
         )],
     ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(6 + remaining_accounts.len());
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.controller.key,
+            false,
+        ));
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+            *self.controller_authority.key,
+            false,
+        ));
         accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.authority.key,
             true,
@@ -298,8 +349,10 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
+        account_infos.push(self.controller.clone());
+        account_infos.push(self.controller_authority.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.price_feed.clone());
         account_infos.push(self.oracle.clone());
@@ -322,10 +375,12 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[signer]` authority
-///   1. `[]` price_feed
-///   2. `[writable]` oracle
-///   3. `[signer, optional]` new_authority
+///   0. `[]` controller
+///   1. `[]` controller_authority
+///   2. `[signer]` authority
+///   3. `[]` price_feed
+///   4. `[writable]` oracle
+///   5. `[signer, optional]` new_authority
 #[derive(Clone, Debug)]
 pub struct UpdateOracleCpiBuilder<'a, 'b> {
     instruction: Box<UpdateOracleCpiBuilderInstruction<'a, 'b>>,
@@ -335,6 +390,8 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(UpdateOracleCpiBuilderInstruction {
             __program: program,
+            controller: None,
+            controller_authority: None,
             authority: None,
             price_feed: None,
             oracle: None,
@@ -343,6 +400,22 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
+    }
+    #[inline(always)]
+    pub fn controller(
+        &mut self,
+        controller: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.controller = Some(controller);
+        self
+    }
+    #[inline(always)]
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.controller_authority = Some(controller_authority);
+        self
     }
     #[inline(always)]
     pub fn authority(
@@ -430,6 +503,13 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
         let instruction = UpdateOracleCpi {
             __program: self.instruction.__program,
 
+            controller: self.instruction.controller.expect("controller is not set"),
+
+            controller_authority: self
+                .instruction
+                .controller_authority
+                .expect("controller_authority is not set"),
+
             authority: self.instruction.authority.expect("authority is not set"),
 
             price_feed: self.instruction.price_feed.expect("price_feed is not set"),
@@ -449,6 +529,8 @@ impl<'a, 'b> UpdateOracleCpiBuilder<'a, 'b> {
 #[derive(Clone, Debug)]
 struct UpdateOracleCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_program::account_info::AccountInfo<'a>,
+    controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     price_feed: Option<&'b solana_program::account_info::AccountInfo<'a>>,
     oracle: Option<&'b solana_program::account_info::AccountInfo<'a>>,

@@ -5,13 +5,19 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use crate::generated::accounts::Oracle;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SwapEvent {
+pub struct OracleUpdateEvent {
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub authority: Pubkey,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
@@ -21,21 +27,7 @@ pub struct SwapEvent {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub integration: Pubkey,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub input_mint: Pubkey,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub output_mint: Pubkey,
-    pub input_amount: u64,
-    pub output_amount: u64,
-    pub input_balance_before: u64,
-    pub input_balance_after: u64,
-    pub output_balance_before: u64,
-    pub output_balance_after: u64,
+    pub oracle: Pubkey,
+    pub old_state: Option<Oracle>,
+    pub new_state: Option<Oracle>,
 }

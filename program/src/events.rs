@@ -3,7 +3,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::pubkey::Pubkey;
 use shank::ShankType;
 
-use crate::state::{Controller, Integration, Permission, Reserve};
+use crate::state::{Controller, Integration, Oracle, Permission, Reserve};
 
 #[repr(u8)]
 #[derive(Clone, Debug, PartialEq, ShankType, BorshSerialize, BorshDeserialize)]
@@ -13,7 +13,7 @@ pub enum SvmAlmControllerEvent {
     ReserveUpdate(ReserveUpdateEvent),
     IntegrationUpdate(IntegrationUpdateEvent),
     AccountingEvent(AccountingEvent),
-    SwapEvent(SwapEvent),
+    OracleUpdate(OracleUpdateEvent),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
@@ -52,27 +52,23 @@ pub struct IntegrationUpdateEvent {
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
-pub struct AccountingEvent {
+pub struct OracleUpdateEvent {
+    pub authority: Pubkey,
     pub controller: Pubkey,
-    pub integration: Pubkey,
-    pub mint: Pubkey,
-    pub action: AccountingAction,
-    pub before: u64,
-    pub after: u64,
+    pub oracle: Pubkey,
+    pub old_state: Option<Oracle>,
+    pub new_state: Option<Oracle>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
-pub struct SwapEvent {
+pub struct AccountingEvent {
     pub controller: Pubkey,
-    pub integration: Pubkey,
-    pub input_mint: Pubkey,
-    pub output_mint: Pubkey,
-    pub input_amount: u64,
-    pub output_amount: u64,
-    pub input_balance_before: u64,
-    pub input_balance_after: u64,
-    pub output_balance_before: u64,
-    pub output_balance_after: u64,
+    pub integration: Option<Pubkey>,
+    pub reserve: Option<Pubkey>,
+    pub mint: Pubkey,
+    pub action: AccountingAction,
+    pub delta: u64,
+    pub direction: AccountingDirection,
 }
 
 #[repr(u8)]
@@ -83,4 +79,14 @@ pub enum AccountingAction {
     Deposit,
     Withdrawal,
     BridgeSend,
+    Swap,
+}
+
+#[repr(u8)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
+pub enum AccountingDirection {
+    /// Indicates a net outflow of assets
+    Debit,
+    /// Indicates a net inflow of assets
+    Credit,
 }

@@ -1,10 +1,10 @@
 use crate::{
     define_account_struct,
-    enums::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
+    enums::{IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
     integrations::spl_token_swap::pull::process_pull_spl_token_swap,
-    state::{nova_account::NovaAccount, Controller, Integration, Permission, Reserve},
+    state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -23,8 +23,8 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
-        reserve_a: mut;
-        reserve_b: mut;
+        reserve_a: mut, @owner(crate::ID);
+        reserve_b: mut, @owner(crate::ID);
         program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
@@ -44,19 +44,19 @@ pub fn process_pull(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
-    if controller.status != ControllerStatus::Active {
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    if !controller.is_active() {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
     if permission.status != PermissionStatus::Active {
         return Err(SvmAlmControllerErrors::PermissionStatusDoesNotPermitAction.into());
     }
 
-    // Load in the super permission account
+    // Load in the integration account
     let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
     if integration.status != IntegrationStatus::Active {
         return Err(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction.into());
@@ -69,11 +69,11 @@ pub fn process_pull(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    // TODO [CLEANUP] Shouldn't this just return error if the reserves are 
+    // TODO [CLEANUP] Shouldn't this just return error if the reserves are
     // equal rather than using an Option?
 
     // Load in the reserve account for b (if applicable)
-    let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
+    let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
         let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
         if reserve_b.status != ReserveStatus::Active {
             return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
@@ -90,7 +90,7 @@ pub fn process_pull(
                 &permission,
                 &mut integration,
                 &mut reserve_a,
-                &mut reserve_b.unwrap(),
+                reserve_b.as_mut().unwrap(),
                 &ctx,
                 &args,
             )?;

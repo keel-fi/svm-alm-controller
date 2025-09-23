@@ -2,17 +2,15 @@ use super::{fetch_reserve_account, get_token_balance_or_zero};
 use crate::{
     helpers::{
         cctp::CctpDepositForBurnPdas,
-        constants::{
-            DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, NOVA_TOKEN_SWAP_FEE_OWNER,
-        },
+        constants::{DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, TOKEN_SWAP_FEE_OWNER},
     },
     subs::{
         derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
         derive_swap_authority_pda_and_bump, get_mint_supply_or_zero,
     },
 };
-use borsh::{BorshDeserialize, BorshSerialize};
-use litesvm::{types::TransactionResult, LiteSVM};
+use borsh::BorshDeserialize;
+use litesvm::{types::{FailedTransactionMetadata, TransactionResult}, LiteSVM};
 use oft_client::{
     instructions::SendInstructionArgs,
     oft302::{
@@ -20,7 +18,6 @@ use oft_client::{
         Oft302SendPrograms,
     },
 };
-use solana_client::rpc_client::RpcClient;
 use solana_keccak_hasher::hash;
 use solana_program::pubkey;
 use solana_sdk::{
@@ -81,9 +78,11 @@ pub fn initialize_integration(
     status: IntegrationStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
+    permit_liquidation: bool,
     config: &IntegrationConfig,
     inner_args: &InitializeArgs,
-) -> Result<Pubkey, Box<dyn Error>> {
+    skip_assertions: bool,
+) -> Result<Pubkey, FailedTransactionMetadata> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 
@@ -93,11 +92,11 @@ pub fn initialize_integration(
 
     let hash = hash(borsh::to_vec(config).unwrap().as_ref()).to_bytes();
     let integration_type = match config {
-        IntegrationConfig::SplTokenExternal(c) => IntegrationType::SplTokenExternal,
-        IntegrationConfig::SplTokenSwap(c) => IntegrationType::SplTokenSwap,
-        IntegrationConfig::CctpBridge(c) => IntegrationType::CctpBridge,
-        IntegrationConfig::LzBridge(c) => IntegrationType::LzBridge,
-        IntegrationConfig::AtomicSwap(c) => IntegrationType::AtomicSwap,
+        IntegrationConfig::SplTokenExternal(_) => IntegrationType::SplTokenExternal,
+        IntegrationConfig::SplTokenSwap(_) => IntegrationType::SplTokenSwap,
+        IntegrationConfig::CctpBridge(_) => IntegrationType::CctpBridge,
+        IntegrationConfig::LzBridge(_) => IntegrationType::LzBridge,
+        IntegrationConfig::AtomicSwap(_) => IntegrationType::AtomicSwap,
         _ => panic!("Not specified"),
     };
 
@@ -264,24 +263,7 @@ pub fn initialize_integration(
                 is_writable: false,
             },
             AccountMeta {
-                pubkey: c.token_escrow,
-                is_signer: false,
-                is_writable: false,
-            },
-        ],
-        IntegrationConfig::AtomicSwap(c) => &[
-            AccountMeta {
-                pubkey: c.input_token,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: c.output_token,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: c.oracle,
+                pubkey: c.oft_token_escrow,
                 is_signer: false,
                 is_writable: false,
             },
@@ -306,8 +288,6 @@ pub fn initialize_integration(
         _ => panic!("Not specified"),
     };
 
-    print!("hash: {:?}", hash);
-
     let integration_pda = derive_integration_pda(controller, &hash);
 
     let ixn = InitializeIntegrationBuilder::new()
@@ -316,6 +296,7 @@ pub fn initialize_integration(
         .description(description_encoding)
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
+        .permit_liquidation(permit_liquidation)
         .inner_args(inner_args.clone())
         .payer(payer.pubkey())
         .controller(*controller)
@@ -323,7 +304,6 @@ pub fn initialize_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(integration_pda)
-        .lookup_table(system_program::ID)
         .add_remaining_accounts(remaining_accounts)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
@@ -337,6 +317,11 @@ pub fn initialize_integration(
     );
 
     let tx_result = svm.send_transaction(txn);
+
+    if skip_assertions {
+        return tx_result.map(|_| integration_pda);
+    }
+
     if tx_result.is_err() {
         println!("{:#?}", tx_result.unwrap().logs);
     } else {
@@ -396,7 +381,6 @@ pub fn manage_integration(
         .authority(authority.pubkey())
         .permission(calling_permission_pda)
         .integration(*integration)
-        .lookup_table(system_program::ID)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
         .instruction();
 
@@ -453,9 +437,12 @@ pub async fn push_integration(
     // flag will skip all assertions and simply return
     // the tx_result.
     skip_assertions: bool,
-) -> Result<TransactionResult, Box<dyn Error>> {
+) -> Result<(TransactionResult, Vec<Pubkey>), Box<dyn Error>> {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
+
+    svm.get_account(&calling_permission_pda)
+        .expect("permission exists");
 
     let integration_account = fetch_integration_account(svm, integration)
         .expect("Failed to fetch integration account")
@@ -464,14 +451,11 @@ pub async fn push_integration(
     // Ixns to postpend to transaction.
     let mut post_ixns: Vec<Instruction> = vec![];
 
-    // To support checks after
-    let integration_before = fetch_integration_account(svm, &integration)
-        .expect("Failed to fetch reserve account")
-        .unwrap();
     let mut reserve_a_before: Option<Reserve> = None;
     let mut reserve_b_before: Option<Reserve> = None;
     let mut vault_a_balance_before = 0u64;
     let mut vault_b_balance_before = 0u64;
+    // Value used for integration specific needs (i.e. LP TokenAccount balance)
     let mut other_value_before = 0u64;
     match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
@@ -485,8 +469,6 @@ pub async fn push_integration(
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
             other_value_before = get_token_balance_or_zero(svm, &c.token_account);
-            println!("{:?}", reserve_a_before);
-            println!("{:?}", integration_before);
         }
         IntegrationConfig::SplTokenSwap(ref c) => {
             let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
@@ -510,10 +492,6 @@ pub async fn push_integration(
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault_a);
             vault_b_balance_before = get_token_balance_or_zero(svm, &vault_b);
             other_value_before = get_token_balance_or_zero(svm, &c.lp_token_account);
-            println!("{:?}", reserve_a_before);
-            println!("{:?}", reserve_b_before);
-            println!("{:?}", other_value_before);
-            println!("{:?}", integration_before);
         }
         IntegrationConfig::CctpBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
@@ -526,9 +504,6 @@ pub async fn push_integration(
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
             other_value_before = get_mint_supply_or_zero(svm, &c.mint);
-            println!("{:?}", reserve_a_before);
-            println!("{:?}", integration_before);
-            println!("{:?}", other_value_before);
         }
         IntegrationConfig::LzBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
@@ -541,10 +516,10 @@ pub async fn push_integration(
                 fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
             other_value_before = get_mint_supply_or_zero(svm, &c.mint);
-            println!("{:?}", reserve_a_before);
-            println!("{:?}", integration_before);
-            println!("{:?}", other_value_before);
         }
+        // NOTE: Do not add more integrations here! Please add the IX creation
+        // to the Rust SDK and write the TX processing and assertions directly
+        // in the tests.
         _ => panic!("Not configured"),
     };
 
@@ -872,20 +847,6 @@ pub async fn push_integration(
                 .send(send_accs, send_params, send_programs, vec![])
                 .await?;
 
-            // Load required Layer Zero accounts from devnet into litesvm environment.
-            let rpc = RpcClient::new(DEVNET_RPC);
-            for acc in send_ix.accounts.clone() {
-                match rpc.get_account(&acc.pubkey) {
-                    Ok(account) => {
-                        if !account.executable {
-                            svm.set_account(acc.pubkey, account)?
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to fetch account {}: {:?}", acc.pubkey, e);
-                    }
-                }
-            }
             post_ixns.push(send_ix.clone());
 
             // Clean up instruction
@@ -938,6 +899,9 @@ pub async fn push_integration(
                 &[],
             )
         }
+        // NOTE: Do not add more integrations here! Please add the IX creation
+        // to the Rust SDK and write the TX processing and assertions directly
+        // in the tests.
         _ => panic!("Invalid config for this type of PushArgs"),
     };
 
@@ -965,17 +929,19 @@ pub async fn push_integration(
     if !post_ixns.is_empty() {
         ixns.append(&mut post_ixns);
     }
+
     let txn = Transaction::new_signed_with_payer(
         &ixns.to_vec(),
         Some(&authority.pubkey()),
         &signers,
         svm.latest_blockhash(),
     );
+    let tx_keys = txn.message.account_keys.clone();
 
     let tx_result = svm.send_transaction(txn);
 
     if skip_assertions {
-        return Ok(tx_result);
+        return Ok((tx_result, tx_keys));
     }
 
     if tx_result.is_err() {
@@ -993,31 +959,50 @@ pub async fn push_integration(
     // Checks afterwards
     match &integration_account.config {
         IntegrationConfig::SplTokenExternal(ref c) => {
+            let expected_amount = match push_args {
+                PushArgs::SplTokenExternal { amount } => *amount,
+                _ => panic!("Invalid push args"),
+            };
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
                 &controller_authority,
                 &c.mint,
                 &c.program,
             );
-            let reserve_a_after =
-                fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
+            let reserve_a_after = fetch_reserve_account(svm, &reserve_pda)
+                .expect("Failed to fetch reserve account")
+                .unwrap();
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault);
             let other_value_after = get_token_balance_or_zero(svm, &c.token_account);
             let vault_a_delta = vault_a_balance_before
                 .checked_sub(vault_a_balance_after)
                 .unwrap();
-            println!("{:?}", reserve_a_after);
-            println!("{:?}", integration_after);
-            assert_ne!(
-                vault_a_balance_before, vault_a_balance_after,
+            let reserve_a_rate_limit_diff = reserve_a_before
+                .unwrap()
+                .rate_limit_outflow_amount_available
+                - reserve_a_after.rate_limit_outflow_amount_available;
+            assert_eq!(reserve_a_rate_limit_diff, expected_amount);
+            assert_eq!(integration_rate_limit_diff, expected_amount);
+            assert_eq!(
+                vault_a_delta, expected_amount,
                 "Vault A balance should have changed"
             );
-            assert_ne!(
-                other_value_before, other_value_after,
-                "Other vault balance should have changed"
+            // Note: skipping exact amount check due to TransferFees
+            assert!(
+                other_value_after > other_value_before,
+                "Other vault balance should have increased"
             );
         }
         IntegrationConfig::SplTokenSwap(ref c) => {
+            let (amount_a, amount_b) = match push_args {
+                PushArgs::SplTokenSwap {
+                    amount_a,
+                    amount_b,
+                    minimum_pool_token_amount_a: _,
+                    minimum_pool_token_amount_b: _,
+                } => (*amount_a, *amount_b),
+                _ => panic!("Invalid push args"),
+            };
             let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
             let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
             let token_program_a = Pubkey::from(pinocchio_token::ID);
@@ -1038,11 +1023,26 @@ pub async fn push_integration(
                 .expect("Failed to fetch reserve account");
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault_a);
             let vault_b_balance_after = get_token_balance_or_zero(svm, &vault_b);
-            let other_value_after = get_token_balance_or_zero(svm, &c.lp_token_account);
-            println!("{:?}", reserve_a_after);
-            println!("{:?}", reserve_b_after);
-            println!("{:?}", other_value_after);
-            println!("{:?}", integration_after);
+            let lp_vault_balance_after = get_token_balance_or_zero(svm, &c.lp_token_account);
+            let vault_a_balance_diff = vault_a_balance_before - vault_a_balance_after;
+            let vault_b_balance_diff = vault_b_balance_before - vault_b_balance_after;
+            let reserve_a_rate_limit_diff = reserve_a_before
+                .unwrap()
+                .rate_limit_outflow_amount_available
+                - reserve_a_after.unwrap().rate_limit_outflow_amount_available;
+            let reserve_b_rate_limit_diff = reserve_b_before
+                .unwrap()
+                .rate_limit_outflow_amount_available
+                - reserve_b_after.unwrap().rate_limit_outflow_amount_available;
+            // A/B tokens spent
+            assert_eq!(vault_a_balance_diff, amount_a);
+            assert_eq!(vault_b_balance_diff, amount_b);
+            assert!(integration_rate_limit_diff != 0);
+            // Rate limits decreased
+            assert_eq!(reserve_a_rate_limit_diff, amount_a);
+            assert_eq!(reserve_b_rate_limit_diff, amount_b);
+            // LP tokens were received
+            assert!(lp_vault_balance_after > other_value_before);
         }
         IntegrationConfig::CctpBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
@@ -1064,8 +1064,12 @@ pub async fn push_integration(
                 PushArgs::CctpBridge { amount } => *amount,
                 _ => panic!("Invalid type"),
             };
-            println!("{:?}", integration_after);
-            println!("{:?}", other_vault_delta);
+            let reserve_a_rate_limit_diff = reserve_a_before
+                .unwrap()
+                .rate_limit_outflow_amount_available
+                - reserve_a_after.rate_limit_outflow_amount_available;
+            assert_eq!(reserve_a_rate_limit_diff, expected_amount);
+            assert_eq!(integration_rate_limit_diff, expected_amount);
             assert_eq!(
                 vault_a_delta, expected_amount,
                 "Vault balance should have reduced by the amount"
@@ -1078,7 +1082,7 @@ pub async fn push_integration(
         IntegrationConfig::LzBridge(ref c) => {
             let amount = match push_args {
                 PushArgs::LzBridge { amount } => *amount,
-                _ => panic!("No push args"),
+                _ => panic!("Invalid push args"),
             };
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
@@ -1114,10 +1118,13 @@ pub async fn push_integration(
                 "Mint supply should have reduced by the amount"
             );
         }
+        // NOTE: Do not add more integrations here! Please add the IX creation
+        // to the Rust SDK and write the TX processing and assertions directly
+        // in the tests.
         _ => panic!("Not configured"),
     };
 
-    Ok(tx_result)
+    Ok((tx_result, tx_keys))
 }
 
 pub fn pull_integration(
@@ -1139,10 +1146,6 @@ pub fn pull_integration(
         .expect("Failed to fetch integration account")
         .unwrap();
 
-    // To support checks after
-    let integration_before = fetch_integration_account(svm, &integration)
-        .expect("Failed to fetch reserve account")
-        .unwrap();
     let mut reserve_a_before: Option<Reserve> = None;
     let mut reserve_b_before: Option<Reserve> = None;
     let mut vault_a_balance_before = 0u64;
@@ -1171,11 +1174,10 @@ pub fn pull_integration(
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault_a);
             vault_b_balance_before = get_token_balance_or_zero(svm, &vault_b);
             other_value_before = get_token_balance_or_zero(svm, &c.lp_token_account);
-            println!("{:?}", reserve_a_before);
-            println!("{:?}", reserve_b_before);
-            println!("{:?}", other_value_before);
-            println!("{:?}", integration_before);
         }
+        // NOTE: Do not add more integrations here! Please add the IX creation
+        // to the Rust SDK and write the TX processing and assertions directly
+        // in the tests.
         _ => panic!("Not configured"),
     };
 
@@ -1209,7 +1211,7 @@ pub fn pull_integration(
                     &token_program_b,
                 );
                 let swap_fee_account = get_associated_token_address_with_program_id(
-                    &NOVA_TOKEN_SWAP_FEE_OWNER,
+                    &TOKEN_SWAP_FEE_OWNER,
                     &c.lp_mint,
                     &token_program_lp,
                 );
@@ -1300,6 +1302,9 @@ pub fn pull_integration(
                     ],
                 )
             }
+            // NOTE: Do not add more integrations here! Please add the IX creation
+            // to the Rust SDK and write the TX processing and assertions directly
+            // in the tests.
             _ => panic!("Invalid config for this type of PushArgs"),
         };
 
@@ -1339,10 +1344,21 @@ pub fn pull_integration(
     let integration_after = fetch_integration_account(svm, &integration)
         .expect("Failed to fetch reserve account")
         .unwrap();
+    let integration_rate_limit_diff = integration_after.rate_limit_outflow_amount_available
+        - integration_account.rate_limit_outflow_amount_available;
 
     // Checks afterwards
     match &integration_account.config {
         IntegrationConfig::SplTokenSwap(ref c) => {
+            let (amount_a, amount_b) = match pull_args {
+                PullArgs::SplTokenSwap {
+                    amount_a,
+                    amount_b,
+                    maximum_pool_token_amount_a,
+                    maximum_pool_token_amount_b,
+                } => (*amount_a, *amount_b),
+                _ => panic!("Invalid pull args"),
+            };
             let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
             let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
             let token_program_a = Pubkey::from(pinocchio_token::ID);
@@ -1364,11 +1380,32 @@ pub fn pull_integration(
             let vault_a_balance_after = get_token_balance_or_zero(svm, &vault_a);
             let vault_b_balance_after = get_token_balance_or_zero(svm, &vault_b);
             let other_value_after = get_token_balance_or_zero(svm, &c.lp_token_account);
-            println!("{:?}", reserve_a_after);
-            println!("{:?}", reserve_b_after);
-            println!("{:?}", other_value_after);
-            println!("{:?}", integration_after);
+
+            let vault_a_balance_diff = vault_a_balance_after - vault_a_balance_before;
+            let vault_b_balance_diff = vault_b_balance_after - vault_b_balance_before;
+            let reserve_a_rate_limit_diff =
+                reserve_a_after.unwrap().rate_limit_outflow_amount_available
+                    - reserve_a_before
+                        .unwrap()
+                        .rate_limit_outflow_amount_available;
+            let reserve_b_rate_limit_diff =
+                reserve_b_after.unwrap().rate_limit_outflow_amount_available
+                    - reserve_b_before
+                        .unwrap()
+                        .rate_limit_outflow_amount_available;
+            // A/B tokens received
+            assert_eq!(vault_a_balance_diff, amount_a);
+            assert_eq!(vault_b_balance_diff, amount_b);
+            // Rate limits increased
+            assert_eq!(reserve_a_rate_limit_diff, amount_a);
+            assert_eq!(reserve_b_rate_limit_diff, amount_b);
+            assert!(integration_rate_limit_diff != 0);
+            // LP tokens were spent
+            assert!(other_value_after < other_value_before);
         }
+        // NOTE: Do not add more integrations here! Please add the IX creation
+        // to the Rust SDK and write the TX processing and assertions directly
+        // in the tests.
         _ => panic!("Not configured"),
     };
 

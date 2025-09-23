@@ -9,8 +9,10 @@ use svm_alm_controller_client::generated::accounts::Oracle;
 
 #[cfg(test)]
 mod tests {
-    use svm_alm_controller_client::generated::types::FeedArgs;
+    use svm_alm_controller_client::generated::types::{ControllerStatus, FeedArgs};
     use switchboard_on_demand::PRECISION;
+
+    use crate::subs::initialize_contoller;
 
     use super::*;
 
@@ -25,10 +27,21 @@ mod tests {
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
         airdrop_lamports(&mut svm, &authority2.pubkey(), 1_000_000_000)?;
 
+        // Set up a controller and relayer with swap capabilities.
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            321u16, // Id
+        )?;
+
         let nonce = Pubkey::new_unique();
         let new_feed = Pubkey::new_unique();
         let oracle_pda = derive_oracle_pda(&nonce);
         let oracle_type = 0;
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
 
         // Stub price feed data
         let update_slot = 1000_000;
@@ -37,7 +50,16 @@ mod tests {
         set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        initialize_oracle(&mut svm, &authority, &nonce, &new_feed, 0)?;
+        initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        )?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
@@ -46,6 +68,9 @@ mod tests {
         assert_eq!(oracle.value, 0);
         assert_eq!(oracle.precision, PRECISION);
         assert_eq!(oracle.last_update_slot, 0);
+        assert_eq!(oracle.controller, controller_pk);
+        assert_eq!(oracle.base_mint, mint);
+        assert_eq!(oracle.quote_mint, quote_mint);
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed);
@@ -69,6 +94,7 @@ mod tests {
         // Update Oracle account with new authority.
         update_oracle(
             &mut svm,
+            &controller_pk,
             &authority,
             &oracle_pda,
             &new_feed,
@@ -96,6 +122,7 @@ mod tests {
         set_price_feed(&mut svm, &new_feed2, update_price)?;
         update_oracle(
             &mut svm,
+            &controller_pk,
             &authority2,
             &oracle_pda,
             &new_feed2,

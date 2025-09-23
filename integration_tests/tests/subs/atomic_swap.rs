@@ -115,7 +115,7 @@ pub fn atomic_swap_borrow_repay_ixs(
         .token_program_a(token_program_a)
         .token_program_b(token_program_b)
         .instruction();
-    [borrow_ix, refresh_ix, mint_ix, burn_ix, repay_ix]
+    [refresh_ix, borrow_ix, mint_ix, burn_ix, repay_ix]
 }
 
 pub fn atomic_swap_borrow_repay(
@@ -130,13 +130,13 @@ pub fn atomic_swap_borrow_repay(
     price_feed: Pubkey,
     payer_account_a: Pubkey,
     payer_account_b: Pubkey,
-    token_program_a: Pubkey,
-    token_program_b: Pubkey,
     borrow_amount: u64,
     repay_amount: u64,
     mint_authority: &Keypair,
     spend_amount: u64,
 ) -> TransactionResult {
+    let mint_a_token_program = svm.get_account(&mint_a).unwrap().owner;
+    let mint_b_token_program = svm.get_account(&mint_b).unwrap().owner;
     let instructions = atomic_swap_borrow_repay_ixs(
         authority,
         controller,
@@ -148,8 +148,8 @@ pub fn atomic_swap_borrow_repay(
         price_feed,
         payer_account_a,
         payer_account_b,
-        token_program_a,
-        token_program_b,
+        mint_a_token_program,
+        mint_b_token_program,
         borrow_amount,
         repay_amount,
         mint_authority,

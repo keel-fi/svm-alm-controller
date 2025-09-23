@@ -45,12 +45,25 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
 /// Validate the token extensions used by Token2022 token. If the mint
 /// account data is larger than the base mint length, it means that there
 /// are extensions present.
-pub fn validate_mint_extensions(mint_acct: &AccountInfo) -> ProgramResult {
+pub fn validate_mint_extensions(
+    mint_acct: &AccountInfo,
+    blocked_extensions_override: &[ExtensionType],
+) -> ProgramResult {
     if mint_acct.is_owned_by(&pinocchio_token2022::ID)
         && mint_acct.data_len() > pinocchio_token2022::state::Mint::BASE_LEN
     {
         let extension_types = get_all_extensions_for_mint(&mint_acct.try_borrow_data()?)?;
         for extension in extension_types {
+            if blocked_extensions_override.contains(&extension) {
+                // Throw error when Extension is in the blocked list override.
+                return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
+            }
+
+            if !VALID_MINT_EXTENSIONS.contains(&extension) {
+                msg!("Mint has an invalid extension");
+                return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
+            }
+
             if extension == ExtensionType::Pausable {
                 // Pausable is allowed, but we need to check that the mint is not paused
                 let pausable_config = PausableConfig::from_account_info_unchecked(mint_acct)?;
@@ -65,9 +78,6 @@ pub fn validate_mint_extensions(mint_acct: &AccountInfo) -> ProgramResult {
                     msg!("Mint has invalid TransferHook program ID");
                     return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
                 }
-            } else if !VALID_MINT_EXTENSIONS.contains(&extension) {
-                msg!("Mint has an invalid extension");
-                return Err(SvmAlmControllerErrors::InvalidTokenMintExtension.into());
             }
         }
     }

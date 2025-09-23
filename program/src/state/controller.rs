@@ -1,6 +1,6 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
 };
 use crate::{
     constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
@@ -36,7 +36,7 @@ impl Discriminator for Controller {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ControllerDiscriminator as u8;
 }
 
-impl NovaAccount for Controller {
+impl KeelAccount for Controller {
     // id + bump + status + authority + authority_bump + padding
     const LEN: usize = 2 + 1 + 1 + 32 + 1 + 128;
 
@@ -59,14 +59,26 @@ impl Controller {
         .ok_or(ProgramError::InvalidSeeds)
     }
 
-    pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
+    /// Deserializes the Controller
+    /// validates PDA and controller_authority
+    pub fn load_and_check(
+        account_info: &AccountInfo,
+        controller_authority: &Pubkey,
+    ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
-        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let controller: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
+
+        // Validate the controller_authority matches
+        if controller.authority.ne(controller_authority) {
+            msg!("controller_authority: does not match authority");
+            return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());
+        }
+
         Ok(controller)
     }
 
@@ -148,8 +160,15 @@ impl Controller {
         Ok(())
     }
 
+    /// All Controller operations normal.
     pub fn is_active(&self) -> bool {
         self.status == ControllerStatus::Active
+    }
+
+    /// All Controller activity should be halted.
+    /// Only valid operation is to unfreeze the Controller.
+    pub fn is_frozen(&self) -> bool {
+        self.status == ControllerStatus::Frozen
     }
 
     pub fn emit_event(

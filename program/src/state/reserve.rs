@@ -1,13 +1,13 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
     Controller,
 };
 use crate::{
     constants::RESERVE_SEED,
     enums::ReserveStatus,
     error::SvmAlmControllerErrors,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     processor::shared::{calculate_rate_limit_increment, create_pda_account},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -59,8 +59,8 @@ impl Discriminator for Reserve {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ReserveDiscriminator as u8;
 }
 
-impl NovaAccount for Reserve {
-    const LEN: usize = 32 * 3 + 8 * 6 + 1 + 128;
+impl KeelAccount for Reserve {
+    const LEN: usize = 3 * 32 + 1 + 7 * 8 + 120;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -90,14 +90,14 @@ impl Reserve {
         }
         // Check PDA
 
-        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?)
+        let reserve: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;
         Ok(reserve)
     }
 
-    /// Iniitalizes the PDA account for a reserve.
+    /// Initializes the PDA account for a reserve.
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,
@@ -197,7 +197,11 @@ impl Reserve {
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
-            self.rate_limit_remainder = remainder;
+            if self.rate_limit_outflow_amount_available == self.rate_limit_max_outflow {
+                self.rate_limit_remainder = 0;
+            } else {
+                self.rate_limit_remainder = remainder;
+            }
         }
 
         self.last_refresh_timestamp = clock.unix_timestamp;
@@ -290,31 +294,33 @@ impl Reserve {
 
         if self.last_balance != new_balance {
             let previous_balance = self.last_balance;
+            let abs_delta = new_balance.abs_diff(previous_balance);
 
             // Update the rate limits and balance for the change
-            if new_balance > self.last_balance {
+            let direction = if new_balance > self.last_balance {
                 // => inflow
-                self.update_for_inflow(clock, new_balance.checked_sub(self.last_balance).unwrap())?;
+                self.update_for_inflow(clock, abs_delta)?;
+                AccountingDirection::Credit
             } else {
                 // new_balance < previous_balance => outflow (possible with Token2022 and PermanentDelegate extension)
                 self.update_for_outflow(
-                    clock,
-                    self.last_balance.checked_sub(new_balance).unwrap(),
+                    clock, abs_delta,
                     true, // Allow underflow since this can happen with Token2022 and PermanentDelegate
                 )?;
-            }
+                AccountingDirection::Debit
+            };
 
             controller.emit_event(
                 controller_authority_info,
                 controller_key,
                 SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                     controller: self.controller,
-                    // REVIEW: Should this be an Integration's pubkey?
-                    integration: self.derive_pda().unwrap().0,
+                    integration: None,
+                    reserve: Some(self.derive_pda()?.0),
                     mint: self.mint,
                     action: AccountingAction::Sync,
-                    before: previous_balance,
-                    after: self.last_balance, // (new balance after the update)
+                    delta: abs_delta,
+                    direction,
                 }),
             )?;
         }

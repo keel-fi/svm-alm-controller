@@ -16,6 +16,7 @@ use pinocchio::{
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
 };
+use pinocchio_token2022::extensions::ExtensionType;
 
 define_account_struct! {
     pub struct InitializeLzBridgeAccounts<'info> {
@@ -25,7 +26,7 @@ define_account_struct! {
         // create this Integration.
         oft_store;
         peer_config;
-        lz_program;
+        oft_program;
         token_escrow;
     }
 }
@@ -37,14 +38,17 @@ impl<'info> InitializeLzBridgeAccounts<'info> {
         let ctx = Self::from_accounts(account_infos)?;
 
         // Ensure the mint has valid T22 extensions.
-        validate_mint_extensions(ctx.mint)?;
+        // Block the usage of TransferFees as it's not needed. If it's deemed
+        // valuable in the future for LZ OFT integrations, then we can refactor
+        // and hopefully the CPI limits have increased to enable direct OFT Send CPIs.
+        validate_mint_extensions(ctx.mint, &[ExtensionType::TransferFeeConfig])?;
 
-        if !ctx.oft_store.is_owned_by(ctx.lz_program.key()) {
-            msg! {"oft_store: not owned by cctp_program"};
+        if !ctx.oft_store.is_owned_by(ctx.oft_program.key()) {
+            msg! {"oft_store: not owned by oft_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
-        if !ctx.peer_config.is_owned_by(ctx.lz_program.key()) {
-            msg! {"peer_config: not owned by cctp_program"};
+        if !ctx.peer_config.is_owned_by(ctx.oft_program.key()) {
+            msg! {"peer_config: not owned by oft_program"};
             return Err(ProgramError::InvalidAccountOwner);
         }
 
@@ -61,11 +65,11 @@ pub fn process_initialize_lz_bridge(
     let inner_ctx =
         InitializeLzBridgeAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
-    let (desination_address, destination_eid) = match outer_args.inner_args {
+    let (destination_address, destination_eid) = match outer_args.inner_args {
         InitializeArgs::LzBridge {
-            desination_address,
+            destination_address,
             destination_eid,
-        } => (desination_address, destination_eid),
+        } => (destination_address, destination_eid),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -76,15 +80,19 @@ pub fn process_initialize_lz_bridge(
         msg! {"mint: does not match oft_store state"};
         return Err(ProgramError::InvalidAccountData);
     }
+    if oft_store.token_escrow.ne(inner_ctx.token_escrow.key()) {
+        msg! {"token_escrow: does not match oft_store state"};
+        return Err(ProgramError::InvalidAccountData);
+    }
 
-    // Check the PDA of the peer_config exists for this desination_eid
+    // Check the PDA of the peer_config exists for this destination_eid
     let (expected_peer_config_pda, _bump) = try_find_program_address(
         &[
             OFT_PEER_CONFIG_SEED,
             inner_ctx.oft_store.key().as_ref(),
             destination_eid.to_be_bytes().as_ref(),
         ],
-        inner_ctx.lz_program.key(),
+        inner_ctx.oft_program.key(),
     )
     .ok_or(ProgramError::InvalidSeeds)?;
     if inner_ctx.peer_config.key().ne(&expected_peer_config_pda) {
@@ -96,12 +104,12 @@ pub fn process_initialize_lz_bridge(
 
     // Create the Config
     let config = IntegrationConfig::LzBridge(LzBridgeConfig {
-        program: Pubkey::from(*inner_ctx.lz_program.key()),
+        program: Pubkey::from(*inner_ctx.oft_program.key()),
         mint: Pubkey::from(*inner_ctx.mint.key()),
         oft_store: Pubkey::from(*inner_ctx.oft_store.key()),
         peer_config: Pubkey::from(*inner_ctx.peer_config.key()),
-        token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
-        destination_address: Pubkey::from(desination_address),
+        oft_token_escrow: Pubkey::from(*inner_ctx.token_escrow.key()),
+        destination_address: Pubkey::from(destination_address),
         destination_eid,
         _padding: [0u8; 28],
     });

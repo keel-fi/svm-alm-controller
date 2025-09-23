@@ -1,11 +1,11 @@
-use std::str::FromStr;
+#![allow(dead_code)]
 
 use solana_sdk::{pubkey, pubkey::Pubkey};
 
-// Nova Token Swap
-pub const NOVA_TOKEN_SWAP_PROGRAM_ID: Pubkey =
+// Keel Token Swap
+pub const TOKEN_SWAP_PROGRAM_ID: Pubkey =
     pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
-pub const NOVA_TOKEN_SWAP_FEE_OWNER: Pubkey =
+pub const TOKEN_SWAP_FEE_OWNER: Pubkey =
     pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
 
 // CCTP
@@ -41,4 +41,5 @@ pub const LZ_EXECUTOR_PROGRAM_ID: Pubkey = pubkey!("6doghB248px58JSSwG4qejQ46kFM
 pub const LZ_R1_PROGRAM_ID: Pubkey = pubkey!("8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP");
 pub const LZ_R2_PROGRAM_ID: Pubkey = pubkey!("HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW");
 
-pub const DEVNET_RPC: &str = "https://api.devnet.solana.com";
+// TODO fix
+pub const DEVNET_RPC: &str = "https://nova-devnet-6827.devnet.rpcpool.com/f14be6f8-f430-4979-bb90-208677d5770f";
