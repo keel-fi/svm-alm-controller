@@ -1,8 +1,9 @@
 use crate::{
     define_account_struct,
     error::SvmAlmControllerErrors,
+    events::{OracleUpdateEvent, SvmAlmControllerEvent},
     instructions::UpdateOracleArgs,
-    state::{keel_account::KeelAccount, Oracle},
+    state::{keel_account::KeelAccount, Controller, Oracle},
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -12,6 +13,8 @@ use switchboard_on_demand::PRECISION;
 
 define_account_struct! {
     pub struct UpdateOracle<'info> {
+        controller: @owner(crate::ID);
+        controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
         price_feed;
         oracle: mut, @owner(crate::ID);
@@ -29,11 +32,22 @@ pub fn process_update_oracle(
     let args = UpdateOracleArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    let oracle = &mut Oracle::load_and_check(ctx.oracle)?;
-    if oracle.authority.ne(ctx.authority.key()) {
-        msg!("Oracle authority mismatch");
-        return Err(ProgramError::IncorrectAuthority);
+    // Load and check controller state
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
+
+    let mut oracle = Oracle::load_and_check(
+        ctx.oracle,
+        Some(ctx.controller.key()),
+        Some(ctx.authority.key()),
+    )?;
+
+    // Clone the old state for emitting event
+    let old_state = oracle.clone();
 
     // Update oracle_type and price_feed, if present.
     if let Some(feed_args) = args.feed_args {
@@ -58,6 +72,20 @@ pub fn process_update_oracle(
     if has_new_authority {
         oracle.authority = *ctx.new_authority.key();
     }
+
+    // Emit the Event to record the update
+    controller.emit_event(
+        ctx.controller_authority,
+        ctx.controller.key(),
+        SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
+            controller: *ctx.controller.key(),
+            oracle: *ctx.oracle.key(),
+            authority: *ctx.authority.key(),
+            old_state: Some(old_state),
+            new_state: Some(oracle),
+        }),
+    )?;
+
     oracle.save(ctx.oracle)?;
 
     Ok(())

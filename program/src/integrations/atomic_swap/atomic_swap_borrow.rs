@@ -203,6 +203,7 @@ pub fn process_atomic_swap_borrow(
         (&integration.config, &mut integration.state)
     {
         if cfg.input_token != reserve_a.mint || cfg.output_token != reserve_b.mint {
+            msg!("input/output does not match reserve");
             return Err(SvmAlmControllerErrors::InvalidAccountData.into());
         }
 

@@ -108,7 +108,8 @@ mod tests {
                 destination_address,
                 destination_domain: CCTP_REMOTE_DOMAIN_ETH,
             },
-        )?;
+            false,
+        ).map_err(|e| e.err.to_string())?;
 
         // Push the integration -- i.e. bridge using CCTP
         let (tx_res, _) = push_integration(
@@ -224,7 +225,8 @@ mod tests {
                 destination_address,
                 destination_domain: CCTP_REMOTE_DOMAIN_ETH,
             },
-        )?;
+            false,
+        ).map_err(|e| e.err.to_string())?;
 
         let push_authority = Keypair::new();
         airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;

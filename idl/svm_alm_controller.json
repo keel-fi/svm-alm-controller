@@ -600,6 +600,16 @@
           "isSigner": true
         },
         {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -636,6 +646,16 @@
     {
       "name": "UpdateOracle",
       "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
         {
           "name": "authority",
           "isMut": false,
@@ -1059,6 +1079,18 @@
             "type": "u64"
           },
           {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "baseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "quoteMint",
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
@@ -1347,6 +1379,42 @@
             "type": {
               "option": {
                 "defined": "Integration"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleUpdateEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "controller",
+            "type": "publicKey"
+          },
+          {
+            "name": "oracle",
+            "type": "publicKey"
+          },
+          {
+            "name": "oldState",
+            "type": {
+              "option": {
+                "defined": "Oracle"
+              }
+            }
+          },
+          {
+            "name": "newState",
+            "type": {
+              "option": {
+                "defined": "Oracle"
               }
             }
           }
@@ -1647,6 +1715,14 @@
           },
           {
             "name": "nonce",
+            "type": "publicKey"
+          },
+          {
+            "name": "baseMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "quoteMint",
             "type": "publicKey"
           }
         ]
@@ -2555,6 +2631,14 @@
             "fields": [
               {
                 "defined": "AccountingEvent"
+              }
+            ]
+          },
+          {
+            "name": "OracleUpdate",
+            "fields": [
+              {
+                "defined": "OracleUpdateEvent"
               }
             ]
           }

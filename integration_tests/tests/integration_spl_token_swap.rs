@@ -223,7 +223,8 @@ mod tests {
                 padding: [0; 32],
             }),
             &InitializeArgs::SplTokenSwap,
-        )?;
+            false,
+        ).map_err(|e| e.err.to_string())?;
 
         Ok(TestContext {
             svm,

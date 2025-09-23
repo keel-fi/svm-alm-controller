@@ -3,7 +3,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::pubkey::Pubkey;
 use shank::ShankType;
 
-use crate::state::{Controller, Integration, Permission, Reserve};
+use crate::state::{Controller, Integration, Oracle, Permission, Reserve};
 
 #[repr(u8)]
 #[derive(Clone, Debug, PartialEq, ShankType, BorshSerialize, BorshDeserialize)]
@@ -13,6 +13,7 @@ pub enum SvmAlmControllerEvent {
     ReserveUpdate(ReserveUpdateEvent),
     IntegrationUpdate(IntegrationUpdateEvent),
     AccountingEvent(AccountingEvent),
+    OracleUpdate(OracleUpdateEvent),
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
@@ -48,6 +49,15 @@ pub struct IntegrationUpdateEvent {
     pub integration: Pubkey,
     pub old_state: Option<Integration>,
     pub new_state: Option<Integration>,
+}
+
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]
+pub struct OracleUpdateEvent {
+    pub authority: Pubkey,
+    pub controller: Pubkey,
+    pub oracle: Pubkey,
+    pub old_state: Option<Oracle>,
+    pub new_state: Option<Oracle>,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, ShankType)]

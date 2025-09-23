@@ -126,17 +126,21 @@ pub enum SvmAlmControllerInstruction {
 
     /// InitializeOracle
     #[account(0, signer, writable, name = "payer")]
-    #[account(1, signer, name = "authority")]
-    #[account(2, name = "price_feed")]
-    #[account(3, writable, name = "oracle")]
-    #[account(4, name = "system_program")]
+    #[account(1, name = "controller")]
+    #[account(2, name = "controller_authority")]
+    #[account(3, signer, name = "authority")]
+    #[account(4, name = "price_feed")]
+    #[account(5, writable, name = "oracle")]
+    #[account(6, name = "system_program")]
     InitializeOracle(InitializeOracleArgs),
 
     /// UpdateOracle
-    #[account(0, signer, name = "authority")]
-    #[account(1, name = "price_feed")]
-    #[account(2, writable, name = "oracle")]
-    #[account(3, optional, signer, name = "new_authority")]
+    #[account(0, name = "controller")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "price_feed")]
+    #[account(4, writable, name = "oracle")]
+    #[account(5, optional, signer, name = "new_authority")]
     UpdateOracle(UpdateOracleArgs),
 
     /// RefreshOracle
@@ -256,6 +260,8 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
+    pub base_mint: Pubkey,
+    pub quote_mint: Pubkey,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

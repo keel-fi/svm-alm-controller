@@ -36,14 +36,13 @@ pub fn process_initialize_atomic_swap(
     }
 
     // Check that Oracle is a valid account.
-    let _oracle: Oracle = Oracle::load_and_check(&inner_ctx.oracle)?;
+    let oracle = Oracle::load_and_check(&inner_ctx.oracle, Some(outer_ctx.controller.key()), None)?;
 
     let InitializeArgs::AtomicSwap {
         max_slippage_bps,
         max_staleness,
         expiry_timestamp,
         oracle_price_inverted,
-        ..
     } = outer_args.inner_args
     else {
         return Err(ProgramError::InvalidArgument);
@@ -58,6 +57,22 @@ pub fn process_initialize_atomic_swap(
     validate_mint_extensions(inner_ctx.input_mint, &[])?;
     let output_mint = Mint::from_account_info(inner_ctx.output_mint)?;
     validate_mint_extensions(inner_ctx.output_mint, &[])?;
+
+    // Validate the oracle mint/quote matches the AtomicSwap input/output
+    // with the supplied inversion parameter.
+    // This is helpful to avoid potential footguns when configuring
+    // AtomicSwaps with Oracles.
+    if oracle_price_inverted
+        && (inner_ctx.output_mint.key().ne(&oracle.base_mint)
+            || inner_ctx.input_mint.key().ne(&oracle.quote_mint))
+    {
+        return Err(SvmAlmControllerErrors::InvalidOracleForMints.into());
+    } else if !oracle_price_inverted
+        && (inner_ctx.output_mint.key().ne(&oracle.quote_mint)
+            || inner_ctx.input_mint.key().ne(&oracle.base_mint))
+    {
+        return Err(SvmAlmControllerErrors::InvalidOracleForMints.into());
+    }
 
     // Create the Config
     let config = IntegrationConfig::AtomicSwap(AtomicSwapConfig {

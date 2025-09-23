@@ -19,7 +19,7 @@ use switchboard_on_demand::{
     SWITCHBOARD_ON_DEMAND_PROGRAM_ID,
 };
 
-#[derive(Clone, Debug, PartialEq, ShankType, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, ShankType, Copy, BorshSerialize, BorshDeserialize)]
 pub struct Feed {
     /// Address of price feed.
     pub price_feed: Pubkey,
@@ -29,9 +29,7 @@ pub struct Feed {
     pub reserved: [u8; 63],
 }
 
-
-// TODO add controller, mint, quote_mint
-#[derive(Clone, Debug, PartialEq, ShankAccount, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
 #[repr(C)]
 pub struct Oracle {
     /// Version of account layout (defaults to 1)
@@ -47,6 +45,14 @@ pub struct Oracle {
     /// Slot in which value was last updated in the oracle feed.
     /// Note that this is not the slot in which prices were last refreshed.
     pub last_update_slot: u64,
+    /// Controller the Oracle belongs to.
+    pub controller: Pubkey,
+    /// Mint that the oracle quotes price for. This is mainly used
+    /// to avoid possible footguns when initializing integrations
+    /// that utilize the given Oracle.
+    pub base_mint: Pubkey,
+    /// Mint that the Oracle is being quoted in (i.e. USD in SOL/USD).
+    pub quote_mint: Pubkey,
     /// Extra space reserved before feeds array.
     pub reserved: [u8; 64],
     /// Price feeds.
@@ -58,7 +64,7 @@ impl Discriminator for Oracle {
 }
 
 impl KeelAccount for Oracle {
-    const LEN: usize = 253;
+    const LEN: usize = 349;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(&[ORACLE_SEED, self.nonce.as_ref()], &crate::ID)
@@ -94,13 +100,42 @@ impl Oracle {
         }
     }
 
-    pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
+    pub fn check_data(
+        &self,
+        controller: Option<&Pubkey>,
+        authority: Option<&Pubkey>,
+    ) -> Result<(), ProgramError> {
+        // Controller validation is not always required. Specifically, the
+        // RefreshOracle instruction does not require Controller checks.
+        if let Some(controller) = controller {
+            if self.controller.ne(controller) {
+                msg!("Controller does not match Oracle controller");
+                return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
+            }
+        }
+        // Authority validation is not needed for every instruction the
+        // Oracle is loaded, so we only validate when passed as arg.
+        if let Some(authority) = authority {
+            if self.authority.ne(authority) {
+                msg!("Oracle authority mismatch");
+                return Err(ProgramError::IncorrectAuthority);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn load_and_check(
+        account_info: &AccountInfo,
+        controller: Option<&Pubkey>,
+        authority: Option<&Pubkey>,
+    ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
             return Err(ProgramError::InvalidAccountOwner);
         }
         let oracle: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
             .map_err(|_| ProgramError::InvalidAccountData)?;
+        oracle.check_data(controller, authority)?;
         oracle.verify_pda(account_info)?;
         Ok(oracle)
     }
@@ -109,6 +144,9 @@ impl Oracle {
         account_info: &AccountInfo,
         authority_info: &AccountInfo,
         payer_info: &AccountInfo,
+        controller: &Pubkey,
+        base_mint: &Pubkey,
+        quote_mint: &Pubkey,
         nonce: &Pubkey,
         oracle_type: u8,
         price_feed: &AccountInfo,
@@ -126,6 +164,9 @@ impl Oracle {
             value: 0,
             precision,
             last_update_slot: 0,
+            controller: *controller,
+            base_mint: *base_mint,
+            quote_mint: *quote_mint,
             reserved: [0; 64],
             feeds: [Feed {
                 oracle_type,

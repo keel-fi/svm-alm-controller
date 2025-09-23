@@ -243,7 +243,8 @@ mod tests {
                 destination_address,
                 destination_eid: LZ_DESTINATION_DOMAIN_EID,
             },
-        )?;
+            false,
+        ).map_err(|e| e.err.to_string())?;
         Ok((
             controller_pk,
             lz_usds_eth_bridge_integration_pk,

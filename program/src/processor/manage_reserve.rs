@@ -50,7 +50,7 @@ pub fn process_manage_reserve(
     // Load in the Reserve
     let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
-    // Clone the old state for emitting
+    // Clone the old state for emitting event
     let old_state = reserve.clone();
 
     // Update the reserve configuration
