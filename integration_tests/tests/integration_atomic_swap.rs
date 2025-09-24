@@ -1151,6 +1151,7 @@ mod tests {
             IntegrationStatus::Active,
             1_000_000, // rate_limit_slope
             1_000_000, // rate_limit_max_outflow
+            false,
             &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
                 input_token: mint_1_pubkey,
                 output_token: mint_2_pubkey,

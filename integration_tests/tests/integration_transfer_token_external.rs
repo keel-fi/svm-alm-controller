@@ -113,7 +113,8 @@ mod tests {
             }),
             &InitializeArgs::SplTokenExternal,
             false,
-        ).map_err(|e| e.err.to_string())?;
+        )
+        .map_err(|e| e.err.to_string())?;
 
         // Manage the integration
         manage_integration(
@@ -233,7 +234,9 @@ mod tests {
                 padding: [0; 96],
             }),
             &InitializeArgs::SplTokenExternal,
-        )?;
+            false,
+        )
+        .map_err(|e| e.err.to_string())?;
 
         // Transfer funds directly to the controller's vault
         mint_tokens(
