@@ -37,7 +37,7 @@ impl ResetLzPushInFlight {
             self.integration,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.sysvar_instruction,
             false,
         ));
@@ -76,7 +76,7 @@ impl Default for ResetLzPushInFlightInstructionData {
 ///
 ///   0. `[]` controller
 ///   1. `[writable]` integration
-///   2. `[writable, optional]` sysvar_instruction (default to `Sysvar1nstructions1111111111111111111111111`)
+///   2. `[optional]` sysvar_instruction (default to `Sysvar1nstructions1111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ResetLzPushInFlightBuilder {
     controller: Option<solana_program::pubkey::Pubkey>,
@@ -216,7 +216,7 @@ impl<'a, 'b> ResetLzPushInFlightCpi<'a, 'b> {
             *self.integration.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.sysvar_instruction.key,
             false,
         ));
@@ -257,7 +257,7 @@ impl<'a, 'b> ResetLzPushInFlightCpi<'a, 'b> {
 ///
 ///   0. `[]` controller
 ///   1. `[writable]` integration
-///   2. `[writable]` sysvar_instruction
+///   2. `[]` sysvar_instruction
 #[derive(Clone, Debug)]
 pub struct ResetLzPushInFlightCpiBuilder<'a, 'b> {
     instruction: Box<ResetLzPushInFlightCpiBuilderInstruction<'a, 'b>>,

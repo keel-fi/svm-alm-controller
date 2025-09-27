@@ -44,7 +44,7 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -913,7 +913,7 @@
         },
         {
           "name": "sysvarInstruction",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         }
       ],

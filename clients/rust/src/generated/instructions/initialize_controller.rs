@@ -53,7 +53,7 @@ impl InitializeController {
             self.controller,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             self.controller_authority,
             false,
         ));
@@ -114,7 +114,7 @@ pub struct InitializeControllerInstructionArgs {
 ///   0. `[writable, signer]` payer
 ///   1. `[signer]` authority
 ///   2. `[writable]` controller
-///   3. `[writable]` controller_authority
+///   3. `[]` controller_authority
 ///   4. `[writable]` permission
 ///   5. `[]` program_id
 ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
@@ -331,7 +331,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             *self.controller.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
             *self.controller_authority.key,
             false,
         ));
@@ -391,7 +391,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
 ///   0. `[writable, signer]` payer
 ///   1. `[signer]` authority
 ///   2. `[writable]` controller
-///   3. `[writable]` controller_authority
+///   3. `[]` controller_authority
 ///   4. `[writable]` permission
 ///   5. `[]` program_id
 ///   6. `[]` system_program
