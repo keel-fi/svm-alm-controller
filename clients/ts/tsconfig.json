@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2015"],
+    "lib": ["esnext", "DOM"],
+    "types": ["node"],
     "module": "commonjs",
+    "moduleResolution": "node",
     "target": "ESNext",
     "skipLibCheck": true,
     "esModuleInterop": true,
