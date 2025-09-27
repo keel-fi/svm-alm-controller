@@ -6755,7 +6755,12 @@ dependencies = [
  "borsh 1.5.5",
  "num-derive",
  "num-traits",
+ "solana-account-info",
+ "solana-cpi",
+ "solana-instruction",
  "solana-program",
+ "solana-program-error",
+ "solana-pubkey",
 ]
 
 [[package]]

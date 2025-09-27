@@ -1,0 +1,14 @@
+{
+  "name": "@keel-fi/svm-alm-controller",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "type-check": "tsc --noemit"
+  },
+  "dependencies": {
+    "@solana/kit": "^3.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
