@@ -31,23 +31,20 @@ export const deriveControllerPda = async (id: number) => {
   return controllerPda;
 };
 
-export const deriveControllerAuthorityPda = async (controllerPda: Address) => {
+export const deriveControllerAuthorityPda = async (controller: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [controllerAuthorityPda] = await getProgramDerivedAddress({
     programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
-    seeds: [
-      "controller_authority",
-      addressEncoder.encode(address(controllerPda)),
-    ],
+    seeds: ["controller_authority", addressEncoder.encode(address(controller))],
   });
 
   return controllerAuthorityPda;
 };
 
 export const derivePermissionPda = async (
-  authority: Address,
-  controller: Address
+  controller: Address,
+  authority: Address
 ) => {
   const addressEncoder = getAddressEncoder();
 
