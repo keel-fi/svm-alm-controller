@@ -47,7 +47,6 @@ import {
   getFeedDecoder,
   getFeedEncoder,
   type Feed,
-  type FeedArgs,
 } from '../types';
 
 export type Oracle = {
@@ -75,7 +74,7 @@ export type OracleArgs = {
   baseMint: Address;
   quoteMint: Address;
   reserved: ReadonlyUint8Array;
-  feeds: Array<FeedArgs>;
+  feeds: Array<Feed>;
 };
 
 export function getOracleEncoder(): FixedSizeEncoder<OracleArgs> {
