@@ -195,7 +195,7 @@ pub fn mint_tokens(
     Ok(())
 }
 
-pub fn get_token_balance_or_zero(svm: &mut LiteSVM, token_account: &Pubkey) -> u64 {
+pub fn get_token_balance_or_zero(svm: &LiteSVM, token_account: &Pubkey) -> u64 {
     svm.get_account(token_account).map_or(0, |account| {
         let token_account = unpack_token_account(&account);
 
@@ -211,7 +211,7 @@ pub fn get_mint(svm: &LiteSVM, mint: &Pubkey) -> Mint {
         .base
 }
 
-pub fn get_mint_supply_or_zero(svm: &mut LiteSVM, mint: &Pubkey) -> u64 {
+pub fn get_mint_supply_or_zero(svm: &LiteSVM, mint: &Pubkey) -> u64 {
     svm.get_account(mint).map_or(0, |account| {
         let mint = Mint::unpack(&account.data)
             .map_err(|e| format!("Failed to unpack token mint: {:?}", e));

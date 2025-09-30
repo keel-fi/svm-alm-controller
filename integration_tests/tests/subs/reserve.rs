@@ -1,4 +1,4 @@
-use borsh::{de, BorshDeserialize};
+use borsh::BorshDeserialize;
 use litesvm::LiteSVM;
 use solana_sdk::{
     pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
@@ -23,7 +23,7 @@ pub fn derive_reserve_pda(controller_pda: &Pubkey, mint: &Pubkey) -> Pubkey {
 }
 
 pub fn fetch_reserve_account(
-    svm: &mut LiteSVM,
+    svm: &LiteSVM,
     reserve_pda: &Pubkey,
 ) -> Result<Option<Reserve>, Box<dyn Error>> {
     let info = svm.get_account(reserve_pda);
@@ -62,11 +62,8 @@ pub fn initialize_reserve(
 
     let controller_authority = derive_controller_authority_pda(controller);
 
-    let vault = get_associated_token_address_with_program_id(
-        &controller_authority,
-        mint,
-        token_program,
-    );
+    let vault =
+        get_associated_token_address_with_program_id(&controller_authority, mint, token_program);
 
     let ixn = InitializeReserveBuilder::new()
         .status(status)
@@ -95,7 +92,7 @@ pub fn initialize_reserve(
 
     let tx_result = svm.send_transaction(txn);
     match tx_result {
-        Ok(_res) => {},
+        Ok(_res) => {}
         Err(e) => {
             panic!("Transaction errored\n{:?}", e.meta.logs);
         }
@@ -215,7 +212,6 @@ pub fn sync_reserve(
         .vault(reserve.vault)
         .instruction();
 
-
     let txn = Transaction::new_signed_with_payer(
         &[ixn],
         Some(&payer.pubkey()),
@@ -225,7 +221,7 @@ pub fn sync_reserve(
 
     let tx_result = svm.send_transaction(txn);
     match tx_result {
-        Ok(_res) => {},
+        Ok(_res) => {}
         Err(e) => {
             panic!("Transaction errored\n{:?}", e.meta.logs);
         }

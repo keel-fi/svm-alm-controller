@@ -1,9 +1,6 @@
-use solana_program::{
-    instruction::{AccountMeta, Instruction},
-    keccak::hash,
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_instruction::{AccountMeta, Instruction};
+use solana_program::{keccak::hash, system_program};
+use solana_pubkey::Pubkey;
 
 use crate::{
     derive_controller_authority_pda, derive_integration_pda, derive_permission_pda,

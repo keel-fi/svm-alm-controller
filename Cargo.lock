@@ -6761,6 +6761,8 @@ dependencies = [
  "solana-program",
  "solana-program-error",
  "solana-pubkey",
+ "spl-associated-token-account-client",
+ "spl-token-2022 7.0.0",
 ]
 
 [[package]]

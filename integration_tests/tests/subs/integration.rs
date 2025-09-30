@@ -94,7 +94,7 @@ pub fn initialize_integration(
     let integration_type = match config {
         IntegrationConfig::SplTokenExternal(_) => IntegrationType::SplTokenExternal,
         IntegrationConfig::SplTokenSwap(_) => IntegrationType::SplTokenSwap,
-        IntegrationConfig::CctpBridge(_) => IntegrationType::CctpBridge,
+        IntegrationConfig::CctpBridge(_) => panic!("Use Rust SDK instead"),
         IntegrationConfig::LzBridge(_) => IntegrationType::LzBridge,
         IntegrationConfig::AtomicSwap(_) => IntegrationType::AtomicSwap,
         _ => panic!("Not specified"),

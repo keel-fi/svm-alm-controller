@@ -3,15 +3,16 @@ mod subs;
 use crate::helpers::constants::USDC_TOKEN_MINT_PUBKEY;
 use crate::subs::{
     derive_controller_authority_pda, edit_ata_amount, initialize_ata, initialize_reserve,
-    manage_permission, push_integration, transfer_tokens,
+    manage_permission, transfer_tokens,
 };
 use helpers::{
     cctp::evm_address_to_solana_pubkey, constants::CCTP_REMOTE_DOMAIN_ETH, setup_test_controller,
     TestContext,
 };
 use solana_sdk::signer::Signer;
-use svm_alm_controller_client::generated::types::{IntegrationStatus, PermissionStatus};
-use svm_alm_controller_client::generated::types::{PushArgs, ReserveStatus};
+use svm_alm_controller_client::generated::types::{
+    IntegrationStatus, PermissionStatus, ReserveStatus,
+};
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +23,8 @@ mod tests {
         transaction::{Transaction, TransactionError},
     };
     use svm_alm_controller_client::{
-        create_cctp_bridge_initialize_integration_instruction, generated::types::IntegrationConfig,
+        create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
+        generated::types::IntegrationConfig,
     };
     use test_case::test_case;
 
@@ -30,7 +32,10 @@ mod tests {
         helpers::constants::{
             CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
         },
-        subs::{airdrop_lamports, fetch_integration_account},
+        subs::{
+            airdrop_lamports, fetch_integration_account, fetch_reserve_account,
+            get_mint_supply_or_zero, get_token_balance_or_zero,
+        },
     };
 
     use super::*;
@@ -143,8 +148,8 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn cctp_success() -> Result<(), Box<dyn std::error::Error>> {
+    #[test]
+    fn cctp_push_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -170,32 +175,35 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Initialize a reserve for the token
-        let _usdc_reserve_pk = initialize_reserve(
+        let reserve_rate_limit_max_outflow = 1_000_000_000_000;
+        let usdc_reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
             &USDC_TOKEN_MINT_PUBKEY, // mint
             &super_authority,        // payer
             &super_authority,        // authority
             ReserveStatus::Active,
-            1_000_000_000_000, // rate_limit_slope
-            1_000_000_000_000, // rate_limit_max_outflow
+            1_000_000_000_000,              // rate_limit_slope
+            reserve_rate_limit_max_outflow, // rate_limit_max_outflow
             &spl_token::ID,
         )?;
 
         // Transfer funds into the reserve
+        let usdc_vault_start_amount = 500_000_000;
         transfer_tokens(
             &mut svm,
             &super_authority,
             &super_authority,
             &USDC_TOKEN_MINT_PUBKEY,
             &controller_authority,
-            500_000_000,
+            usdc_vault_start_amount,
         )?;
 
         // Serialize the destination address appropriately
         let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
+        let integration_rate_mint_max_outflow = 1_000_000_000_000;
         let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
             &super_authority.pubkey(),
             &controller_pk,
@@ -203,7 +211,7 @@ mod tests {
             "ETH USDC CCTP Bridge",
             IntegrationStatus::Active,
             1_000_000_000_000,
-            1_000_000_000_000,
+            integration_rate_mint_max_outflow,
             false,
             &USDC_TOKEN_MINT_PUBKEY,
             &destination_address,
@@ -219,18 +227,56 @@ mod tests {
         ))
         .map_err(|e| e.err.to_string())?;
 
-        // Push the integration -- i.e. bridge using CCTP
-        let (tx_res, _) = push_integration(
-            &mut svm,
-            &controller_pk,
-            &cctp_usdc_eth_bridge_integration_pk,
-            &super_authority,
-            &PushArgs::CctpBridge { amount: 1_000_000 },
-            false,
-        )
-        .await?;
+        let usdc_mint_supply_before = get_mint_supply_or_zero(&svm, &USDC_TOKEN_MINT_PUBKEY);
 
-        tx_res.unwrap();
+        let amount = 1_000_000;
+        let message_sent_event_data_kp = Keypair::new();
+        let push_ix = create_cctp_bridge_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &cctp_usdc_eth_bridge_integration_pk,
+            &usdc_reserve_keys.pubkey,
+            &usdc_reserve_keys.pubkey,
+            &message_sent_event_data_kp.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            CCTP_REMOTE_DOMAIN_ETH,
+            amount,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &message_sent_event_data_kp],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx).unwrap();
+
+        let integration_after =
+            fetch_integration_account(&svm, &cctp_usdc_eth_bridge_integration_pk)
+                .unwrap()
+                .unwrap();
+        let usdc_reserve_after = fetch_reserve_account(&svm, &usdc_reserve_keys.pubkey)
+            .unwrap()
+            .unwrap();
+        let usdc_balance_after = get_token_balance_or_zero(&svm, &usdc_reserve_keys.vault);
+        let usdc_mint_supply_after = get_mint_supply_or_zero(&svm, &USDC_TOKEN_MINT_PUBKEY);
+
+        // Assert Integration rate limits adjusted
+        assert_eq!(
+            integration_after.rate_limit_outflow_amount_available,
+            integration_rate_mint_max_outflow - amount
+        );
+        // Assert Reserve rate limits adjusted
+        assert_eq!(
+            usdc_reserve_after.rate_limit_outflow_amount_available,
+            reserve_rate_limit_max_outflow - amount
+        );
+        // Assert Reserve vault was debited exact amount
+        assert_eq!(usdc_balance_after, usdc_vault_start_amount - amount);
+
+        // Assert USDC was burned (i.e. supply decreased)
+        let usdc_supply_delta = usdc_mint_supply_before - usdc_mint_supply_after;
+        assert_eq!(usdc_supply_delta, amount);
 
         Ok(())
     }
@@ -245,8 +291,7 @@ mod tests {
     #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
     #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
     #[test_case(false, false, false, false, false, false, false, false, true, true, true; "can_liquidate w/ permit_liquidation passes")]
-    #[tokio::test]
-    async fn cctp_permissions(
+    fn cctp_permissions(
         can_manage_permissions: bool,
         can_invoke_external_transfer: bool,
         can_execute_swap: bool,
@@ -284,7 +329,7 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Initialize a reserve for the token
-        let _usdc_reserve_pk = initialize_reserve(
+        let usdc_reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
             &USDC_TOKEN_MINT_PUBKEY, // mint
@@ -336,7 +381,7 @@ mod tests {
         let push_authority = Keypair::new();
         airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;
         // Update the authority to have permissions
-        let _ = manage_permission(
+        manage_permission(
             &mut svm,
             &controller_pk,
             &super_authority,         // payer
@@ -355,22 +400,34 @@ mod tests {
         )?;
 
         // Push the integration -- i.e. bridge using CCTP
-        let (tx_res, _) = push_integration(
-            &mut svm,
+        let amount = 1_000_000;
+        let message_sent_event_data_kp = Keypair::new();
+        let push_ix = create_cctp_bridge_push_instruction(
             &controller_pk,
+            &push_authority.pubkey(),
             &cctp_usdc_eth_bridge_integration_pk,
-            &push_authority,
-            &PushArgs::CctpBridge { amount: 1_000_000 },
-            true,
-        )
-        .await?;
+            &usdc_reserve_keys.pubkey,
+            &usdc_reserve_keys.pubkey,
+            &message_sent_event_data_kp.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            CCTP_REMOTE_DOMAIN_ETH,
+            amount,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&push_authority.pubkey()),
+            &[&push_authority, &message_sent_event_data_kp],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
 
         // Assert the expected result given the enabled privilege
         match result_ok {
             true => assert!(tx_res.is_ok()),
             false => assert_eq!(
                 tx_res.err().unwrap().err,
-                TransactionError::InstructionError(2, InstructionError::IncorrectAuthority)
+                TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
             ),
         }
 
