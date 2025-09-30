@@ -1,7 +1,8 @@
 {
   "name": "@keel-fi/svm-alm-controller",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
   "files": [
     "dist"
   ],

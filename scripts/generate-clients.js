@@ -12,13 +12,13 @@ const tsClient = path.join(__dirname, "..", "clients", "ts");
 
 const Codama = codama.createFromRoot(anchorIdl.rootNodeFromAnchor(idl));
 // Rust Client
-// Codama.accept(
-//   rustRenderers.renderVisitor(path.join(rustClientsDir, "src", "generated"), {
-//     formatCode: true,
-//     crateFolder: rustClientsDir,
-//     deleteFolderBeforeRendering: true,
-//   })
-// );
+Codama.accept(
+  rustRenderers.renderVisitor(path.join(rustClientsDir, "src", "generated"), {
+    formatCode: true,
+    crateFolder: rustClientsDir,
+    deleteFolderBeforeRendering: true,
+  })
+);
 // TS Client
 Codama.accept(
   jsRenderers.renderVisitor(path.join(tsClient, "src", "generated"), {
