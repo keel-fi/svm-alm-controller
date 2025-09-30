@@ -31,8 +31,6 @@ export type Feed = {
   reserved: ReadonlyUint8Array;
 };
 
-export type FeedArgs = Feed;
-
 export function getFeedEncoder(): FixedSizeEncoder<Feed> {
   return getStructEncoder([
     ['priceFeed', getAddressEncoder()],
