@@ -21,12 +21,127 @@ mod tests {
         signature::Keypair,
         transaction::{Transaction, TransactionError},
     };
-    use svm_alm_controller_client::create_cctp_bridge_initialize_integration_instruction;
+    use svm_alm_controller_client::{
+        create_cctp_bridge_initialize_integration_instruction, generated::types::IntegrationConfig,
+    };
     use test_case::test_case;
 
-    use crate::subs::airdrop_lamports;
+    use crate::{
+        helpers::constants::{
+            CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+        },
+        subs::{airdrop_lamports, fetch_integration_account},
+    };
 
     use super::*;
+
+    #[test]
+    fn cctp_init_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        // Create an ATA for the USDC account
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+        )?;
+
+        // Cheat to give the authority some USDC
+        edit_ata_amount(
+            &mut svm,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            1_000_000_000,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let _usdc_reserve_pk = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY, // mint
+            &super_authority,        // payer
+            &super_authority,        // authority
+            ReserveStatus::Active,
+            1_000_000_000_000, // rate_limit_slope
+            1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        // Transfer funds into the reserve
+        transfer_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &controller_authority,
+            500_000_000,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+
+        let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "ETH USDC CCTP Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+        // Integration is at index 5 in the IX
+        let cctp_usdc_eth_bridge_integration_pk = init_integration_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
+        let integration = fetch_integration_account(&svm, &cctp_usdc_eth_bridge_integration_pk)
+            .expect("integration should exist")
+            .unwrap();
+
+        assert_eq!(integration.status, IntegrationStatus::Active);
+        assert_eq!(integration.rate_limit_slope, rate_limit_slope);
+        assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow);
+        assert_eq!(integration.controller, controller_pk);
+
+        match integration.config {
+            IntegrationConfig::CctpBridge(c) => {
+                assert_eq!(
+                    c.cctp_message_transmitter,
+                    CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID
+                );
+                assert_eq!(
+                    c.cctp_token_messenger_minter,
+                    CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID
+                );
+                assert_eq!(c.destination_address, destination_address);
+                assert_eq!(c.destination_domain, CCTP_REMOTE_DOMAIN_ETH);
+                assert_eq!(c.mint, USDC_TOKEN_MINT_PUBKEY);
+            }
+            _ => panic!("invalid config"),
+        };
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn cctp_success() -> Result<(), Box<dyn std::error::Error>> {
