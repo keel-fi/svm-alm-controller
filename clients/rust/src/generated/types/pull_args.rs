@@ -7,17 +7,23 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use num_derive::FromPrimitive;
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
+#[derive(
+    BorshSerialize,
+    BorshDeserialize,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Copy,
+    PartialOrd,
+    Hash,
+    FromPrimitive,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PullArgs {
     SplTokenExternal,
-    SplTokenSwap {
-        amount_a: u64,
-        amount_b: u64,
-        maximum_pool_token_amount_a: u64,
-        maximum_pool_token_amount_b: u64,
-    },
     CctpBridge,
     LzBridge,
 }

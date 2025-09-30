@@ -8,113 +8,29 @@
 
 import {
   combineCodec,
-  getDiscriminatedUnionDecoder,
-  getDiscriminatedUnionEncoder,
-  getStructDecoder,
-  getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
-  getUnitDecoder,
-  getUnitEncoder,
-  type Codec,
-  type Decoder,
-  type Encoder,
-  type GetDiscriminatedUnionVariant,
-  type GetDiscriminatedUnionVariantContent,
+  getEnumDecoder,
+  getEnumEncoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
 } from '@solana/kit';
 
-export type PullArgs =
-  | { __kind: 'SplTokenExternal' }
-  | {
-      __kind: 'SplTokenSwap';
-      amountA: bigint;
-      amountB: bigint;
-      maximumPoolTokenAmountA: bigint;
-      maximumPoolTokenAmountB: bigint;
-    }
-  | { __kind: 'CctpBridge' }
-  | { __kind: 'LzBridge' };
-
-export type PullArgsArgs =
-  | { __kind: 'SplTokenExternal' }
-  | {
-      __kind: 'SplTokenSwap';
-      amountA: number | bigint;
-      amountB: number | bigint;
-      maximumPoolTokenAmountA: number | bigint;
-      maximumPoolTokenAmountB: number | bigint;
-    }
-  | { __kind: 'CctpBridge' }
-  | { __kind: 'LzBridge' };
-
-export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
-  return getDiscriminatedUnionEncoder([
-    ['SplTokenExternal', getUnitEncoder()],
-    [
-      'SplTokenSwap',
-      getStructEncoder([
-        ['amountA', getU64Encoder()],
-        ['amountB', getU64Encoder()],
-        ['maximumPoolTokenAmountA', getU64Encoder()],
-        ['maximumPoolTokenAmountB', getU64Encoder()],
-      ]),
-    ],
-    ['CctpBridge', getUnitEncoder()],
-    ['LzBridge', getUnitEncoder()],
-  ]);
+export enum PullArgs {
+  SplTokenExternal,
+  CctpBridge,
+  LzBridge,
 }
 
-export function getPullArgsDecoder(): Decoder<PullArgs> {
-  return getDiscriminatedUnionDecoder([
-    ['SplTokenExternal', getUnitDecoder()],
-    [
-      'SplTokenSwap',
-      getStructDecoder([
-        ['amountA', getU64Decoder()],
-        ['amountB', getU64Decoder()],
-        ['maximumPoolTokenAmountA', getU64Decoder()],
-        ['maximumPoolTokenAmountB', getU64Decoder()],
-      ]),
-    ],
-    ['CctpBridge', getUnitDecoder()],
-    ['LzBridge', getUnitDecoder()],
-  ]);
+export type PullArgsArgs = PullArgs;
+
+export function getPullArgsEncoder(): FixedSizeEncoder<PullArgsArgs> {
+  return getEnumEncoder(PullArgs);
 }
 
-export function getPullArgsCodec(): Codec<PullArgsArgs, PullArgs> {
+export function getPullArgsDecoder(): FixedSizeDecoder<PullArgs> {
+  return getEnumDecoder(PullArgs);
+}
+
+export function getPullArgsCodec(): FixedSizeCodec<PullArgsArgs, PullArgs> {
   return combineCodec(getPullArgsEncoder(), getPullArgsDecoder());
-}
-
-// Data Enum Helpers.
-export function pullArgs(
-  kind: 'SplTokenExternal'
-): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'SplTokenExternal'>;
-export function pullArgs(
-  kind: 'SplTokenSwap',
-  data: GetDiscriminatedUnionVariantContent<
-    PullArgsArgs,
-    '__kind',
-    'SplTokenSwap'
-  >
-): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'SplTokenSwap'>;
-export function pullArgs(
-  kind: 'CctpBridge'
-): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'CctpBridge'>;
-export function pullArgs(
-  kind: 'LzBridge'
-): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'LzBridge'>;
-export function pullArgs<K extends PullArgsArgs['__kind'], Data>(
-  kind: K,
-  data?: Data
-) {
-  return Array.isArray(data)
-    ? { __kind: kind, fields: data }
-    : { __kind: kind, ...(data ?? {}) };
-}
-
-export function isPullArgs<K extends PullArgs['__kind']>(
-  kind: K,
-  value: PullArgs
-): value is PullArgs & { __kind: K } {
-  return value.__kind === kind;
 }

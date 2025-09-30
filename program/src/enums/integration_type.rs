@@ -6,7 +6,6 @@ use shank::ShankType;
 pub enum IntegrationType {
     #[default]
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge,
     LzBridge,
     AtomicSwap,

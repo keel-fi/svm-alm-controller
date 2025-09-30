@@ -17,7 +17,6 @@ import {
 
 export enum IntegrationType {
   SplTokenExternal,
-  SplTokenSwap,
   CctpBridge,
   LzBridge,
   AtomicSwap,

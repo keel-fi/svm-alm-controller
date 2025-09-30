@@ -2,11 +2,11 @@ use super::{fetch_reserve_account, get_token_balance_or_zero};
 use crate::{
     helpers::{
         cctp::CctpDepositForBurnPdas,
-        constants::{DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW, TOKEN_SWAP_FEE_OWNER},
+        constants::{DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW},
     },
     subs::{
         derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
-        derive_swap_authority_pda_and_bump, get_mint_supply_or_zero,
+        get_mint_supply_or_zero,
     },
 };
 use borsh::BorshDeserialize;
@@ -33,12 +33,12 @@ use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::{Integration, Reserve},
     instructions::{
-        InitializeIntegrationBuilder, ManageIntegrationBuilder, PullBuilder, PushBuilder,
+        InitializeIntegrationBuilder, ManageIntegrationBuilder, PushBuilder,
         ResetLzPushInFlightBuilder,
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{
-        InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PullArgs, PushArgs,
+        InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PushArgs,
     },
 };
 
@@ -93,7 +93,6 @@ pub fn initialize_integration(
     let hash = hash(borsh::to_vec(config).unwrap().as_ref()).to_bytes();
     let integration_type = match config {
         IntegrationConfig::SplTokenExternal(_) => IntegrationType::SplTokenExternal,
-        IntegrationConfig::SplTokenSwap(_) => IntegrationType::SplTokenSwap,
         IntegrationConfig::CctpBridge(_) => panic!("Use Rust SDK instead"),
         IntegrationConfig::LzBridge(_) => IntegrationType::LzBridge,
         IntegrationConfig::AtomicSwap(_) => IntegrationType::AtomicSwap,
@@ -128,84 +127,6 @@ pub fn initialize_integration(
                 is_writable: false,
             },
         ],
-        IntegrationConfig::SplTokenSwap(c) => {
-            let mint_a_token_program = pinocchio_token::ID.into();
-            let mint_b_token_program = pinocchio_token::ID.into();
-            let lp_mint_token_program = pinocchio_token::ID.into();
-            let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
-            let swap_token_a = get_associated_token_address_with_program_id(
-                &swap_authority,
-                &c.mint_a,
-                &mint_a_token_program,
-            );
-            let swap_token_b = get_associated_token_address_with_program_id(
-                &swap_authority,
-                &c.mint_b,
-                &mint_b_token_program,
-            );
-            &[
-                AccountMeta {
-                    pubkey: c.swap,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: c.mint_a,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: c.mint_b,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: c.lp_mint,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: c.lp_token_account,
-                    is_signer: false,
-                    is_writable: true,
-                },
-                AccountMeta {
-                    pubkey: mint_a_token_program,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: mint_b_token_program,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: lp_mint_token_program,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: swap_token_a,
-                    is_signer: false,
-                    is_writable: false,
-                }, // swap_token_a
-                AccountMeta {
-                    pubkey: swap_token_b,
-                    is_signer: false,
-                    is_writable: false,
-                }, // swap_token_b
-                AccountMeta {
-                    pubkey: c.program,
-                    is_signer: false,
-                    is_writable: false,
-                },
-                AccountMeta {
-                    pubkey: pinocchio_associated_token_account::ID.into(),
-                    is_signer: false,
-                    is_writable: false,
-                },
-            ]
-        }
         IntegrationConfig::CctpBridge(c) => {
             let cctp_accounts = CctpDepositForBurnPdas::derive(
                 c.cctp_message_transmitter,
@@ -470,29 +391,6 @@ pub async fn push_integration(
             vault_a_balance_before = get_token_balance_or_zero(svm, &vault);
             other_value_before = get_token_balance_or_zero(svm, &c.token_account);
         }
-        IntegrationConfig::SplTokenSwap(ref c) => {
-            let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
-            let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
-            let token_program_a = Pubkey::from(pinocchio_token::ID);
-            let token_program_b = Pubkey::from(pinocchio_token::ID);
-            let vault_a = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_a,
-                &token_program_a,
-            );
-            let vault_b = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_b,
-                &token_program_b,
-            );
-            reserve_a_before = fetch_reserve_account(svm, &reserve_a_pda)
-                .expect("Failed to fetch reserve account");
-            reserve_b_before = fetch_reserve_account(svm, &reserve_b_pda)
-                .expect("Failed to fetch reserve account");
-            vault_a_balance_before = get_token_balance_or_zero(svm, &vault_a);
-            vault_b_balance_before = get_token_balance_or_zero(svm, &vault_b);
-            other_value_before = get_token_balance_or_zero(svm, &c.lp_token_account);
-        }
         IntegrationConfig::CctpBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
@@ -572,116 +470,6 @@ pub async fn push_integration(
                     },
                     AccountMeta {
                         pubkey: Pubkey::from(system_program::ID),
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                ],
-                &[],
-            )
-        }
-        IntegrationConfig::SplTokenSwap(ref c) => {
-            let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
-            let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
-            let token_program_a = Pubkey::from(pinocchio_token::ID);
-            let token_program_b = Pubkey::from(pinocchio_token::ID);
-            let token_program_lp = Pubkey::from(pinocchio_token::ID);
-            let vault_a = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_a,
-                &token_program_a,
-            );
-            let vault_b = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_b,
-                &token_program_b,
-            );
-            let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
-            let swap_token_a = get_associated_token_address_with_program_id(
-                &swap_authority,
-                &c.mint_a,
-                &token_program_a,
-            );
-            let swap_token_b = get_associated_token_address_with_program_id(
-                &swap_authority,
-                &c.mint_b,
-                &token_program_b,
-            );
-            (
-                reserve_a_pda,
-                reserve_b_pda,
-                &[
-                    AccountMeta {
-                        pubkey: c.swap,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: c.mint_a,
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: c.mint_b,
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: c.lp_mint,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: c.lp_token_account,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: token_program_a,
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: token_program_b,
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: token_program_lp,
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: swap_token_a,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: swap_token_b,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: vault_a,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: vault_b,
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: c.program,
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: pinocchio_associated_token_account::ID.into(),
-                        is_signer: false,
-                        is_writable: false,
-                    },
-                    AccountMeta {
-                        pubkey: swap_authority,
                         is_signer: false,
                         is_writable: false,
                     },
@@ -993,57 +781,6 @@ pub async fn push_integration(
                 "Other vault balance should have increased"
             );
         }
-        IntegrationConfig::SplTokenSwap(ref c) => {
-            let (amount_a, amount_b) = match push_args {
-                PushArgs::SplTokenSwap {
-                    amount_a,
-                    amount_b,
-                    minimum_pool_token_amount_a: _,
-                    minimum_pool_token_amount_b: _,
-                } => (*amount_a, *amount_b),
-                _ => panic!("Invalid push args"),
-            };
-            let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
-            let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
-            let token_program_a = Pubkey::from(pinocchio_token::ID);
-            let token_program_b = Pubkey::from(pinocchio_token::ID);
-            let vault_a = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_a,
-                &token_program_a,
-            );
-            let vault_b = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_b,
-                &token_program_b,
-            );
-            let reserve_a_after = fetch_reserve_account(svm, &reserve_a_pda)
-                .expect("Failed to fetch reserve account");
-            let reserve_b_after = fetch_reserve_account(svm, &reserve_b_pda)
-                .expect("Failed to fetch reserve account");
-            let vault_a_balance_after = get_token_balance_or_zero(svm, &vault_a);
-            let vault_b_balance_after = get_token_balance_or_zero(svm, &vault_b);
-            let lp_vault_balance_after = get_token_balance_or_zero(svm, &c.lp_token_account);
-            let vault_a_balance_diff = vault_a_balance_before - vault_a_balance_after;
-            let vault_b_balance_diff = vault_b_balance_before - vault_b_balance_after;
-            let reserve_a_rate_limit_diff = reserve_a_before
-                .unwrap()
-                .rate_limit_outflow_amount_available
-                - reserve_a_after.unwrap().rate_limit_outflow_amount_available;
-            let reserve_b_rate_limit_diff = reserve_b_before
-                .unwrap()
-                .rate_limit_outflow_amount_available
-                - reserve_b_after.unwrap().rate_limit_outflow_amount_available;
-            // A/B tokens spent
-            assert_eq!(vault_a_balance_diff, amount_a);
-            assert_eq!(vault_b_balance_diff, amount_b);
-            assert!(integration_rate_limit_diff != 0);
-            // Rate limits decreased
-            assert_eq!(reserve_a_rate_limit_diff, amount_a);
-            assert_eq!(reserve_b_rate_limit_diff, amount_b);
-            // LP tokens were received
-            assert!(lp_vault_balance_after > other_value_before);
-        }
         IntegrationConfig::CctpBridge(ref c) => {
             let reserve_pda = derive_reserve_pda(controller, &c.mint);
             let vault = get_associated_token_address_with_program_id(
@@ -1125,289 +862,4 @@ pub async fn push_integration(
     };
 
     Ok((tx_result, tx_keys))
-}
-
-pub fn pull_integration(
-    svm: &mut LiteSVM,
-    controller: &Pubkey,
-    integration: &Pubkey,
-    authority: &Keypair,
-    pull_args: &PullArgs,
-    // Having assertions in here is convenient, but prevents
-    // us from being able to assert against edge cases. This
-    // flag will skip all assertions and simply return
-    // the tx_result.
-    skip_assertions: bool,
-) -> Result<TransactionResult, Box<dyn Error>> {
-    let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
-    let controller_authority = derive_controller_authority_pda(controller);
-
-    let integration_account = fetch_integration_account(svm, integration)
-        .expect("Failed to fetch integration account")
-        .unwrap();
-
-    let mut reserve_a_before: Option<Reserve> = None;
-    let mut reserve_b_before: Option<Reserve> = None;
-    let mut vault_a_balance_before = 0u64;
-    let mut vault_b_balance_before = 0u64;
-    let mut other_value_before = 0u64;
-    match &integration_account.config {
-        IntegrationConfig::SplTokenSwap(ref c) => {
-            let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
-            let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
-            let token_program_a = Pubkey::from(pinocchio_token::ID);
-            let token_program_b = Pubkey::from(pinocchio_token::ID);
-            let vault_a = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_a,
-                &token_program_a,
-            );
-            let vault_b = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_b,
-                &token_program_b,
-            );
-            reserve_a_before = fetch_reserve_account(svm, &reserve_a_pda)
-                .expect("Failed to fetch reserve account");
-            reserve_b_before = fetch_reserve_account(svm, &reserve_b_pda)
-                .expect("Failed to fetch reserve account");
-            vault_a_balance_before = get_token_balance_or_zero(svm, &vault_a);
-            vault_b_balance_before = get_token_balance_or_zero(svm, &vault_b);
-            other_value_before = get_token_balance_or_zero(svm, &c.lp_token_account);
-        }
-        // NOTE: Do not add more integrations here! Please add the IX creation
-        // to the Rust SDK and write the TX processing and assertions directly
-        // in the tests.
-        _ => panic!("Not configured"),
-    };
-
-    let (reserve_a_pk, reserve_b_pk, remaining_accounts): (Pubkey, Pubkey, &[AccountMeta]) =
-        match &integration_account.config {
-            IntegrationConfig::SplTokenSwap(ref c) => {
-                let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
-                let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
-                let token_program_a = Pubkey::from(pinocchio_token::ID);
-                let token_program_b = Pubkey::from(pinocchio_token::ID);
-                let token_program_lp = Pubkey::from(pinocchio_token::ID);
-                let vault_a = get_associated_token_address_with_program_id(
-                    &controller_authority,
-                    &c.mint_a,
-                    &token_program_a,
-                );
-                let vault_b = get_associated_token_address_with_program_id(
-                    &controller_authority,
-                    &c.mint_b,
-                    &token_program_b,
-                );
-                let (swap_authority, _) = derive_swap_authority_pda_and_bump(&c.swap, &c.program);
-                let swap_token_a = get_associated_token_address_with_program_id(
-                    &swap_authority,
-                    &c.mint_a,
-                    &token_program_a,
-                );
-                let swap_token_b = get_associated_token_address_with_program_id(
-                    &swap_authority,
-                    &c.mint_b,
-                    &token_program_b,
-                );
-                let swap_fee_account = get_associated_token_address_with_program_id(
-                    &TOKEN_SWAP_FEE_OWNER,
-                    &c.lp_mint,
-                    &token_program_lp,
-                );
-                (
-                    reserve_a_pda,
-                    reserve_b_pda,
-                    &[
-                        AccountMeta {
-                            pubkey: c.swap,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: c.mint_a,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: c.mint_b,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: c.lp_mint,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: c.lp_token_account,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: token_program_a,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: token_program_b,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: token_program_lp,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: swap_token_a,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: swap_token_b,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: vault_a,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: vault_b,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                        AccountMeta {
-                            pubkey: c.program,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: pinocchio_associated_token_account::ID.into(),
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: swap_authority,
-                            is_signer: false,
-                            is_writable: false,
-                        },
-                        AccountMeta {
-                            pubkey: swap_fee_account,
-                            is_signer: false,
-                            is_writable: true,
-                        },
-                    ],
-                )
-            }
-            // NOTE: Do not add more integrations here! Please add the IX creation
-            // to the Rust SDK and write the TX processing and assertions directly
-            // in the tests.
-            _ => panic!("Invalid config for this type of PushArgs"),
-        };
-
-    let cu_limit_ixn = ComputeBudgetInstruction::set_compute_unit_limit(400_000);
-    let cu_price_ixn = ComputeBudgetInstruction::set_compute_unit_price(1);
-
-    let main_ixn = PullBuilder::new()
-        .pull_args(pull_args.clone())
-        .controller(*controller)
-        .controller_authority(controller_authority)
-        .authority(authority.pubkey())
-        .permission(calling_permission_pda)
-        .integration(*integration)
-        .reserve_a(reserve_a_pk)
-        .reserve_b(reserve_b_pk)
-        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
-        .add_remaining_accounts(remaining_accounts)
-        .instruction();
-
-    let txn = Transaction::new_signed_with_payer(
-        &[cu_limit_ixn, cu_price_ixn, main_ixn],
-        Some(&authority.pubkey()),
-        &[&authority],
-        svm.latest_blockhash(),
-    );
-
-    let tx_result = svm.send_transaction(txn);
-    if skip_assertions {
-        return Ok(tx_result);
-    }
-    if tx_result.is_err() {
-        println!("{:#?}", tx_result.clone().unwrap().logs);
-    } else {
-        assert!(tx_result.is_ok(), "Transaction failed to execute");
-    }
-
-    let integration_after = fetch_integration_account(svm, &integration)
-        .expect("Failed to fetch reserve account")
-        .unwrap();
-    let integration_rate_limit_diff = integration_after.rate_limit_outflow_amount_available
-        - integration_account.rate_limit_outflow_amount_available;
-
-    // Checks afterwards
-    match &integration_account.config {
-        IntegrationConfig::SplTokenSwap(ref c) => {
-            let (amount_a, amount_b) = match pull_args {
-                PullArgs::SplTokenSwap {
-                    amount_a,
-                    amount_b,
-                    maximum_pool_token_amount_a,
-                    maximum_pool_token_amount_b,
-                } => (*amount_a, *amount_b),
-                _ => panic!("Invalid pull args"),
-            };
-            let reserve_a_pda = derive_reserve_pda(controller, &c.mint_a);
-            let reserve_b_pda = derive_reserve_pda(controller, &c.mint_b);
-            let token_program_a = Pubkey::from(pinocchio_token::ID);
-            let token_program_b = Pubkey::from(pinocchio_token::ID);
-            let vault_a = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_a,
-                &token_program_a,
-            );
-            let vault_b = get_associated_token_address_with_program_id(
-                &controller_authority,
-                &c.mint_b,
-                &token_program_b,
-            );
-            let reserve_a_after = fetch_reserve_account(svm, &reserve_a_pda)
-                .expect("Failed to fetch reserve account");
-            let reserve_b_after = fetch_reserve_account(svm, &reserve_b_pda)
-                .expect("Failed to fetch reserve account");
-            let vault_a_balance_after = get_token_balance_or_zero(svm, &vault_a);
-            let vault_b_balance_after = get_token_balance_or_zero(svm, &vault_b);
-            let other_value_after = get_token_balance_or_zero(svm, &c.lp_token_account);
-
-            let vault_a_balance_diff = vault_a_balance_after - vault_a_balance_before;
-            let vault_b_balance_diff = vault_b_balance_after - vault_b_balance_before;
-            let reserve_a_rate_limit_diff =
-                reserve_a_after.unwrap().rate_limit_outflow_amount_available
-                    - reserve_a_before
-                        .unwrap()
-                        .rate_limit_outflow_amount_available;
-            let reserve_b_rate_limit_diff =
-                reserve_b_after.unwrap().rate_limit_outflow_amount_available
-                    - reserve_b_before
-                        .unwrap()
-                        .rate_limit_outflow_amount_available;
-            // A/B tokens received
-            assert_eq!(vault_a_balance_diff, amount_a);
-            assert_eq!(vault_b_balance_diff, amount_b);
-            // Rate limits increased
-            assert_eq!(reserve_a_rate_limit_diff, amount_a);
-            assert_eq!(reserve_b_rate_limit_diff, amount_b);
-            assert!(integration_rate_limit_diff != 0);
-            // LP tokens were spent
-            assert!(other_value_after < other_value_before);
-        }
-        // NOTE: Do not add more integrations here! Please add the IX creation
-        // to the Rust SDK and write the TX processing and assertions directly
-        // in the tests.
-        _ => panic!("Not configured"),
-    };
-
-    Ok(tx_result)
 }
