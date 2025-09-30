@@ -95,7 +95,7 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 - **can_manage_reserves_and_integrations**: Enables the Permission's authority to initialize or update a Reserve or Integration state including statuses, LUTs, rate limit params, etc. (configuration control)
 - **can_invoke_external_transfer**: Execute SplTokenExternal transfers (for example to fund DAO operations)
 - **can_execute_swap**: Execute AtomicSwap operations (operational)
-- **can_reallocate**: Execute SplTokenSwap LP operations (operational)
+- **can_reallocate**: Execute LP operations (operational)
 - **can_liquidate**: Can take actions explicitly permitted on the 'liquidation path' (i.e. reducing exposures and paying down borrows)
 
 #### Permission Matrix
