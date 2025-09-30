@@ -2,30 +2,26 @@ mod helpers;
 mod subs;
 use crate::helpers::constants::USDC_TOKEN_MINT_PUBKEY;
 use crate::subs::{
-    derive_controller_authority_pda, edit_ata_amount, initialize_ata, initialize_integration,
-    initialize_reserve, manage_permission, push_integration, transfer_tokens,
+    derive_controller_authority_pda, edit_ata_amount, initialize_ata, initialize_reserve,
+    manage_permission, push_integration, transfer_tokens,
 };
 use helpers::{
-    cctp::evm_address_to_solana_pubkey,
-    constants::{
-        CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_REMOTE_DOMAIN_ETH,
-        CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-    },
-    setup_test_controller, TestContext,
+    cctp::evm_address_to_solana_pubkey, constants::CCTP_REMOTE_DOMAIN_ETH, setup_test_controller,
+    TestContext,
 };
 use solana_sdk::signer::Signer;
-use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, ReserveStatus};
-use svm_alm_controller_client::generated::types::{
-    IntegrationConfig, IntegrationStatus, PermissionStatus,
-};
+use svm_alm_controller_client::generated::types::{IntegrationStatus, PermissionStatus};
+use svm_alm_controller_client::generated::types::{PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
 
     use solana_sdk::{
-        instruction::InstructionError, signature::Keypair, transaction::TransactionError,
+        instruction::InstructionError,
+        signature::Keypair,
+        transaction::{Transaction, TransactionError},
     };
-    use svm_alm_controller_client::generated::types::CctpBridgeConfig;
+    use svm_alm_controller_client::create_cctp_bridge_initialize_integration_instruction;
     use test_case::test_case;
 
     use crate::subs::airdrop_lamports;
@@ -85,31 +81,28 @@ mod tests {
         let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
-        // Initialize an External integration
-        let cctp_usdc_eth_bridge_integration_pk = initialize_integration(
-            &mut svm,
+        let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
             &controller_pk,
-            &super_authority, // payer
-            &super_authority, // authority
+            &super_authority.pubkey(),
             "ETH USDC CCTP Bridge",
             IntegrationStatus::Active,
-            1_000_000_000_000, // rate_limit_slope
-            1_000_000_000_000, // rate_limit_max_outflow
-            false,             // permit_liquidation
-            &IntegrationConfig::CctpBridge(CctpBridgeConfig {
-                cctp_token_messenger_minter: CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-                cctp_message_transmitter: CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
-                mint: USDC_TOKEN_MINT_PUBKEY,
-                destination_address: destination_address,
-                destination_domain: CCTP_REMOTE_DOMAIN_ETH,
-                padding: [0; 92],
-            }),
-            &InitializeArgs::CctpBridge {
-                destination_address,
-                destination_domain: CCTP_REMOTE_DOMAIN_ETH,
-            },
+            1_000_000_000_000,
+            1_000_000_000_000,
             false,
-        ).map_err(|e| e.err.to_string())?;
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+        // Integration is at index 5 in the IX
+        let cctp_usdc_eth_bridge_integration_pk = init_integration_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
 
         // Push the integration -- i.e. bridge using CCTP
         let (tx_res, _) = push_integration(
@@ -202,31 +195,28 @@ mod tests {
         let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
-        // Initialize an External integration
-        let cctp_usdc_eth_bridge_integration_pk = initialize_integration(
-            &mut svm,
+        let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
             &controller_pk,
-            &super_authority, // payer
-            &super_authority, // authority
+            &super_authority.pubkey(),
             "ETH USDC CCTP Bridge",
             IntegrationStatus::Active,
-            1_000_000_000_000,  // rate_limit_slope
-            1_000_000_000_000,  // rate_limit_max_outflow
-            permit_liquidation, // permit_liquidation
-            &IntegrationConfig::CctpBridge(CctpBridgeConfig {
-                cctp_token_messenger_minter: CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-                cctp_message_transmitter: CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
-                mint: USDC_TOKEN_MINT_PUBKEY,
-                destination_address: destination_address,
-                destination_domain: CCTP_REMOTE_DOMAIN_ETH,
-                padding: [0; 92],
-            }),
-            &InitializeArgs::CctpBridge {
-                destination_address,
-                destination_domain: CCTP_REMOTE_DOMAIN_ETH,
-            },
-            false,
-        ).map_err(|e| e.err.to_string())?;
+            1_000_000_000_000,
+            1_000_000_000_000,
+            permit_liquidation,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+        // Integration is at index 5 in the IX
+        let cctp_usdc_eth_bridge_integration_pk = init_integration_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
 
         let push_authority = Keypair::new();
         airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;
