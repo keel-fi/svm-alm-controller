@@ -74,7 +74,9 @@ pub fn process_push(
     }
 
     // Load in the reserve account for b (if applicable)
-    let reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
+    // `mut` is kept intentionally so `.as_mut()` can be used safely.
+    #[allow(unused_mut)] 
+    let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
         let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
         if reserve_b.status != ReserveStatus::Active {
             return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
