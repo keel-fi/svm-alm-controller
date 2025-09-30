@@ -1,9 +1,13 @@
+// These allows are left intentionally because this instruction contains boilerplate code.
+#![allow(unused_variables)]
+#![allow(unused_mut)]
+#![allow(unreachable_code)]
+
 use crate::{
     define_account_struct,
     enums::{IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
-    integrations::spl_token_swap::pull::process_pull_spl_token_swap,
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
@@ -84,17 +88,6 @@ pub fn process_pull(
     };
 
     match args {
-        PullArgs::SplTokenSwap { .. } => {
-            process_pull_spl_token_swap(
-                &controller,
-                &permission,
-                &mut integration,
-                &mut reserve_a,
-                reserve_b.as_mut().unwrap(),
-                &ctx,
-                &args,
-            )?;
-        }
         _ => return Err(ProgramError::InvalidArgument),
     }
 

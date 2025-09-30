@@ -2,12 +2,6 @@
 
 use solana_sdk::{pubkey, pubkey::Pubkey};
 
-// Keel Token Swap
-pub const TOKEN_SWAP_PROGRAM_ID: Pubkey =
-    pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
-pub const TOKEN_SWAP_FEE_OWNER: Pubkey =
-    pubkey!("GnsdTwuo44397Bva92s9G4sdCU4Xkbf8ALeXcssxRxyi");
-
 // CCTP
 pub const CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID: Pubkey =
     pubkey!("CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd");

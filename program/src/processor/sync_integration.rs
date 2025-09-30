@@ -1,8 +1,9 @@
+// This allow is left intentionally because this instruction contains boilerplate code.
+#![allow(unreachable_code)]
+
 use crate::{
     define_account_struct,
-    enums::IntegrationConfig,
     error::SvmAlmControllerErrors,
-    integrations::spl_token_swap::sync::process_sync_spl_token_swap,
     state::{keel_account::KeelAccount, Controller, Integration},
 };
 use pinocchio::{
@@ -50,9 +51,6 @@ pub fn process_sync_integration(
     // Depending on the integration, there may be an
     //  inner (integration-specific) sync logic to call
     match integration.config {
-        IntegrationConfig::SplTokenSwap(_config) => {
-            process_sync_spl_token_swap(&controller, &mut integration, &ctx)?
-        }
         // More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };

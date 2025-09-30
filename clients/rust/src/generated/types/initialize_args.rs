@@ -13,7 +13,6 @@ use solana_pubkey::Pubkey;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InitializeArgs {
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge {
         #[cfg_attr(
             feature = "serde",

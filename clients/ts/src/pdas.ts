@@ -74,21 +74,3 @@ export const deriveReservePda = async (controller: Address, mint: Address) => {
 
   return reservePda;
 };
-
-export const deriveSplTokenSwapLpTokenPda = async (
-  controller: Address,
-  lpMintAddress: Address
-) => {
-  const addressEncoder = getAddressEncoder();
-
-  const [lpTokenPda] = await getProgramDerivedAddress({
-    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
-    seeds: [
-      "spl-swap-lp",
-      addressEncoder.encode(address(controller)),
-      addressEncoder.encode(address(lpMintAddress)),
-    ],
-  });
-
-  return lpTokenPda;
-};

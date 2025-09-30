@@ -11,19 +11,7 @@ use borsh::BorshSerialize;
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PushArgs {
-    SplTokenExternal {
-        amount: u64,
-    },
-    SplTokenSwap {
-        amount_a: u64,
-        amount_b: u64,
-        minimum_pool_token_amount_a: u64,
-        minimum_pool_token_amount_b: u64,
-    },
-    CctpBridge {
-        amount: u64,
-    },
-    LzBridge {
-        amount: u64,
-    },
+    SplTokenExternal { amount: u64 },
+    CctpBridge { amount: u64 },
+    LzBridge { amount: u64 },
 }

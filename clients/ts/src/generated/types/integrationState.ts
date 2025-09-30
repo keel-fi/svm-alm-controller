@@ -34,8 +34,6 @@ import {
   getLzBridgeStateEncoder,
   getSplTokenExternalStateDecoder,
   getSplTokenExternalStateEncoder,
-  getSplTokenSwapStateDecoder,
-  getSplTokenSwapStateEncoder,
   type AtomicSwapState,
   type AtomicSwapStateArgs,
   type CctpBridgeState,
@@ -44,14 +42,11 @@ import {
   type LzBridgeStateArgs,
   type SplTokenExternalState,
   type SplTokenExternalStateArgs,
-  type SplTokenSwapState,
-  type SplTokenSwapStateArgs,
 } from '.';
 
 export type IntegrationState =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
   | { __kind: 'SplTokenExternal'; fields: readonly [SplTokenExternalState] }
-  | { __kind: 'SplTokenSwap'; fields: readonly [SplTokenSwapState] }
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeState] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeState] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] };
@@ -59,7 +54,6 @@ export type IntegrationState =
 export type IntegrationStateArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
   | { __kind: 'SplTokenExternal'; fields: readonly [SplTokenExternalStateArgs] }
-  | { __kind: 'SplTokenSwap'; fields: readonly [SplTokenSwapStateArgs] }
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeStateArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeStateArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] };
@@ -74,12 +68,6 @@ export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateA
       'SplTokenExternal',
       getStructEncoder([
         ['fields', getTupleEncoder([getSplTokenExternalStateEncoder()])],
-      ]),
-    ],
-    [
-      'SplTokenSwap',
-      getStructEncoder([
-        ['fields', getTupleEncoder([getSplTokenSwapStateEncoder()])],
       ]),
     ],
     [
@@ -113,12 +101,6 @@ export function getIntegrationStateDecoder(): FixedSizeDecoder<IntegrationState>
       'SplTokenExternal',
       getStructDecoder([
         ['fields', getTupleDecoder([getSplTokenExternalStateDecoder()])],
-      ]),
-    ],
-    [
-      'SplTokenSwap',
-      getStructDecoder([
-        ['fields', getTupleDecoder([getSplTokenSwapStateDecoder()])],
       ]),
     ],
     [
@@ -173,14 +155,6 @@ export function integrationState(
   '__kind',
   'SplTokenExternal'
 >;
-export function integrationState(
-  kind: 'SplTokenSwap',
-  data: GetDiscriminatedUnionVariantContent<
-    IntegrationStateArgs,
-    '__kind',
-    'SplTokenSwap'
-  >['fields']
-): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'SplTokenSwap'>;
 export function integrationState(
   kind: 'CctpBridge',
   data: GetDiscriminatedUnionVariantContent<

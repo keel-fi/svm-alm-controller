@@ -35,8 +35,8 @@ pub struct Permission {
     /// Enables the Permission's authority to execute ("Push") AtomicSwaps, swapping
     /// one of the Controllers Reserve tokens to another token in a separate Reserve.
     pub can_execute_swap: bool,
-    /// Enables the Permission's authority to execute ("Push" AND "Pull") SplTokenSwap integrations,
-    /// adding or removing liquidity from a SPL Token Swap pool.
+    /// Enables the Permission's authority to execute ("Push" AND "Pull") integrations,
+    /// allowing liquidity to be added or removed from a pool.
     pub can_reallocate: bool,
     /// Enables the Permission's authority to freeze the Controller, preventing any
     /// "Push" or "Pull" type actions from being invoked.

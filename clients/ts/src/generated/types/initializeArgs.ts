@@ -36,7 +36,6 @@ import {
 
 export type InitializeArgs =
   | { __kind: 'SplTokenExternal' }
-  | { __kind: 'SplTokenSwap' }
   | {
       __kind: 'CctpBridge';
       destinationAddress: Address;
@@ -53,7 +52,6 @@ export type InitializeArgs =
 
 export type InitializeArgsArgs =
   | { __kind: 'SplTokenExternal' }
-  | { __kind: 'SplTokenSwap' }
   | {
       __kind: 'CctpBridge';
       destinationAddress: Address;
@@ -71,7 +69,6 @@ export type InitializeArgsArgs =
 export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
   return getDiscriminatedUnionEncoder([
     ['SplTokenExternal', getUnitEncoder()],
-    ['SplTokenSwap', getUnitEncoder()],
     [
       'CctpBridge',
       getStructEncoder([
@@ -101,7 +98,6 @@ export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
 export function getInitializeArgsDecoder(): Decoder<InitializeArgs> {
   return getDiscriminatedUnionDecoder([
     ['SplTokenExternal', getUnitDecoder()],
-    ['SplTokenSwap', getUnitDecoder()],
     [
       'CctpBridge',
       getStructDecoder([
@@ -143,9 +139,6 @@ export function initializeArgs(
   '__kind',
   'SplTokenExternal'
 >;
-export function initializeArgs(
-  kind: 'SplTokenSwap'
-): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'SplTokenSwap'>;
 export function initializeArgs(
   kind: 'CctpBridge',
   data: GetDiscriminatedUnionVariantContent<
