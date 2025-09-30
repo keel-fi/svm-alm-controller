@@ -6,7 +6,6 @@ use crate::{
     integrations::{
         cctp_bridge::push::process_push_cctp_bridge, lz_bridge::push::process_push_lz_bridge,
         spl_token_external::push::process_push_spl_token_external,
-        spl_token_swap::push::process_push_spl_token_swap,
     },
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
@@ -75,15 +74,15 @@ pub fn process_push(
     }
 
     // Load in the reserve account for b (if applicable)
-    let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
-        let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
-        if reserve_b.status != ReserveStatus::Active {
-            return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
-        }
-        Some(reserve_b)
-    } else {
-        None
-    };
+    // let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
+    //     let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
+    //     if reserve_b.status != ReserveStatus::Active {
+    //         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
+    //     }
+    //     Some(reserve_b)
+    // } else {
+    //     None
+    // };
 
     match args {
         PushArgs::SplTokenExternal { .. } => {
@@ -92,21 +91,6 @@ pub fn process_push(
                 &permission,
                 &mut integration,
                 &mut reserve_a,
-                &ctx,
-                &args,
-            )?;
-        }
-        PushArgs::SplTokenSwap { .. } => {
-            if reserve_b.is_none() {
-                msg!("Reserve B is required for SplTokenSwap integration");
-                return Err(SvmAlmControllerErrors::InvalidReserve.into());
-            }
-            process_push_spl_token_swap(
-                &controller,
-                &permission,
-                &mut integration,
-                &mut reserve_a,
-                reserve_b.as_mut().unwrap(),
                 &ctx,
                 &args,
             )?;
@@ -137,9 +121,9 @@ pub fn process_push(
     // Save the reserve and integration accounts
     integration.save(ctx.integration)?;
     reserve_a.save(ctx.reserve_a)?;
-    if reserve_b.is_some() {
-        reserve_b.unwrap().save(ctx.reserve_b)?;
-    }
+    // if reserve_b.is_some() {
+    //     reserve_b.unwrap().save(ctx.reserve_b)?;
+    // }
 
     Ok(())
 }

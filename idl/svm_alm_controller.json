@@ -2213,152 +2213,6 @@
       }
     },
     {
-      "name": "SplTokenSwapConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "program",
-            "type": "publicKey"
-          },
-          {
-            "name": "swap",
-            "type": "publicKey"
-          },
-          {
-            "name": "mintA",
-            "type": "publicKey"
-          },
-          {
-            "name": "mintB",
-            "type": "publicKey"
-          },
-          {
-            "name": "lpMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "lpTokenAccount",
-            "type": "publicKey"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "DepositSingleTokenTypeExactAmountInArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "sourceTokenAmount",
-            "type": "u64"
-          },
-          {
-            "name": "minimumPoolTokenAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "WithdrawSingleTokenTypeExactAmountOutArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "destinationTokenAmount",
-            "type": "u64"
-          },
-          {
-            "name": "maximumPoolTokenAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SplTokenSwapState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "lastBalanceA",
-            "type": "u64"
-          },
-          {
-            "name": "lastBalanceB",
-            "type": "u64"
-          },
-          {
-            "name": "lastBalanceLp",
-            "type": "u64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                24
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapV1Subset",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "isInitialized",
-            "type": "bool"
-          },
-          {
-            "name": "bumpSeed",
-            "type": "u8"
-          },
-          {
-            "name": "tokenProgramId",
-            "type": "publicKey"
-          },
-          {
-            "name": "tokenA",
-            "type": "publicKey"
-          },
-          {
-            "name": "tokenB",
-            "type": "publicKey"
-          },
-          {
-            "name": "poolMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "tokenAMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "tokenBMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "poolFeeAccount",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
       "name": "Feed",
       "type": {
         "kind": "struct",
@@ -2428,14 +2282,6 @@
             ]
           },
           {
-            "name": "SplTokenSwap",
-            "fields": [
-              {
-                "defined": "SplTokenSwapConfig"
-              }
-            ]
-          },
-          {
             "name": "CctpBridge",
             "fields": [
               {
@@ -2490,14 +2336,6 @@
             ]
           },
           {
-            "name": "SplTokenSwap",
-            "fields": [
-              {
-                "defined": "SplTokenSwapState"
-              }
-            ]
-          },
-          {
             "name": "CctpBridge",
             "fields": [
               {
@@ -2545,9 +2383,6 @@
         "variants": [
           {
             "name": "SplTokenExternal"
-          },
-          {
-            "name": "SplTokenSwap"
           },
           {
             "name": "CctpBridge"
@@ -2694,9 +2529,6 @@
             "name": "SplTokenExternal"
           },
           {
-            "name": "SplTokenSwap"
-          },
-          {
             "name": "CctpBridge",
             "fields": [
               {
@@ -2761,27 +2593,6 @@
             ]
           },
           {
-            "name": "SplTokenSwap",
-            "fields": [
-              {
-                "name": "amount_a",
-                "type": "u64"
-              },
-              {
-                "name": "amount_b",
-                "type": "u64"
-              },
-              {
-                "name": "minimum_pool_token_amount_a",
-                "type": "u64"
-              },
-              {
-                "name": "minimum_pool_token_amount_b",
-                "type": "u64"
-              }
-            ]
-          },
-          {
             "name": "CctpBridge",
             "fields": [
               {
@@ -2809,27 +2620,6 @@
         "variants": [
           {
             "name": "SplTokenExternal"
-          },
-          {
-            "name": "SplTokenSwap",
-            "fields": [
-              {
-                "name": "amount_a",
-                "type": "u64"
-              },
-              {
-                "name": "amount_b",
-                "type": "u64"
-              },
-              {
-                "name": "maximum_pool_token_amount_a",
-                "type": "u64"
-              },
-              {
-                "name": "maximum_pool_token_amount_b",
-                "type": "u64"
-              }
-            ]
           },
           {
             "name": "CctpBridge"

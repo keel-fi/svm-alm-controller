@@ -16,9 +16,9 @@ import {
   type AccountMeta,
   type AccountSignerMeta,
   type Address,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -93,7 +93,7 @@ export type PushInstructionData = { discriminator: number; pushArgs: PushArgs };
 
 export type PushInstructionDataArgs = { pushArgs: PushArgsArgs };
 
-export function getPushInstructionDataEncoder(): Encoder<PushInstructionDataArgs> {
+export function getPushInstructionDataEncoder(): FixedSizeEncoder<PushInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ['discriminator', getU8Encoder()],
@@ -103,14 +103,14 @@ export function getPushInstructionDataEncoder(): Encoder<PushInstructionDataArgs
   );
 }
 
-export function getPushInstructionDataDecoder(): Decoder<PushInstructionData> {
+export function getPushInstructionDataDecoder(): FixedSizeDecoder<PushInstructionData> {
   return getStructDecoder([
     ['discriminator', getU8Decoder()],
     ['pushArgs', getPushArgsDecoder()],
   ]);
 }
 
-export function getPushInstructionDataCodec(): Codec<
+export function getPushInstructionDataCodec(): FixedSizeCodec<
   PushInstructionDataArgs,
   PushInstructionData
 > {

@@ -14,72 +14,40 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type GetDiscriminatedUnionVariant,
   type GetDiscriminatedUnionVariantContent,
 } from '@solana/kit';
 
 export type PushArgs =
   | { __kind: 'SplTokenExternal'; amount: bigint }
-  | {
-      __kind: 'SplTokenSwap';
-      amountA: bigint;
-      amountB: bigint;
-      minimumPoolTokenAmountA: bigint;
-      minimumPoolTokenAmountB: bigint;
-    }
   | { __kind: 'CctpBridge'; amount: bigint }
   | { __kind: 'LzBridge'; amount: bigint };
 
 export type PushArgsArgs =
   | { __kind: 'SplTokenExternal'; amount: number | bigint }
-  | {
-      __kind: 'SplTokenSwap';
-      amountA: number | bigint;
-      amountB: number | bigint;
-      minimumPoolTokenAmountA: number | bigint;
-      minimumPoolTokenAmountB: number | bigint;
-    }
   | { __kind: 'CctpBridge'; amount: number | bigint }
   | { __kind: 'LzBridge'; amount: number | bigint };
 
-export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
+export function getPushArgsEncoder(): FixedSizeEncoder<PushArgsArgs> {
   return getDiscriminatedUnionEncoder([
     ['SplTokenExternal', getStructEncoder([['amount', getU64Encoder()]])],
-    [
-      'SplTokenSwap',
-      getStructEncoder([
-        ['amountA', getU64Encoder()],
-        ['amountB', getU64Encoder()],
-        ['minimumPoolTokenAmountA', getU64Encoder()],
-        ['minimumPoolTokenAmountB', getU64Encoder()],
-      ]),
-    ],
     ['CctpBridge', getStructEncoder([['amount', getU64Encoder()]])],
     ['LzBridge', getStructEncoder([['amount', getU64Encoder()]])],
-  ]);
+  ]) as FixedSizeEncoder<PushArgsArgs>;
 }
 
-export function getPushArgsDecoder(): Decoder<PushArgs> {
+export function getPushArgsDecoder(): FixedSizeDecoder<PushArgs> {
   return getDiscriminatedUnionDecoder([
     ['SplTokenExternal', getStructDecoder([['amount', getU64Decoder()]])],
-    [
-      'SplTokenSwap',
-      getStructDecoder([
-        ['amountA', getU64Decoder()],
-        ['amountB', getU64Decoder()],
-        ['minimumPoolTokenAmountA', getU64Decoder()],
-        ['minimumPoolTokenAmountB', getU64Decoder()],
-      ]),
-    ],
     ['CctpBridge', getStructDecoder([['amount', getU64Decoder()]])],
     ['LzBridge', getStructDecoder([['amount', getU64Decoder()]])],
-  ]);
+  ]) as FixedSizeDecoder<PushArgs>;
 }
 
-export function getPushArgsCodec(): Codec<PushArgsArgs, PushArgs> {
+export function getPushArgsCodec(): FixedSizeCodec<PushArgsArgs, PushArgs> {
   return combineCodec(getPushArgsEncoder(), getPushArgsDecoder());
 }
 
@@ -92,14 +60,6 @@ export function pushArgs(
     'SplTokenExternal'
   >
 ): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'SplTokenExternal'>;
-export function pushArgs(
-  kind: 'SplTokenSwap',
-  data: GetDiscriminatedUnionVariantContent<
-    PushArgsArgs,
-    '__kind',
-    'SplTokenSwap'
-  >
-): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'SplTokenSwap'>;
 export function pushArgs(
   kind: 'CctpBridge',
   data: GetDiscriminatedUnionVariantContent<

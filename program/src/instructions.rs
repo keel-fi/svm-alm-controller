@@ -277,7 +277,6 @@ pub struct FeedArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum InitializeArgs {
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge {
         destination_address: Pubkey,
         destination_domain: u32,
@@ -305,12 +304,6 @@ pub enum PushArgs {
     SplTokenExternal {
         amount: u64,
     },
-    SplTokenSwap {
-        amount_a: u64,
-        amount_b: u64,
-        minimum_pool_token_amount_a: u64,
-        minimum_pool_token_amount_b: u64,
-    },
     CctpBridge {
         amount: u64,
     },
@@ -322,12 +315,6 @@ pub enum PushArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PullArgs {
     SplTokenExternal,
-    SplTokenSwap {
-        amount_a: u64,
-        amount_b: u64,
-        maximum_pool_token_amount_a: u64,
-        maximum_pool_token_amount_b: u64,
-    },
     CctpBridge,
     LzBridge,
 }
