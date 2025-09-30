@@ -2,20 +2,23 @@ mod helpers;
 mod subs;
 use crate::subs::{
     derive_controller_authority_pda, initialize_ata, initialize_mint, initialize_reserve,
-    manage_permission, manage_reserve, mint_tokens, push_integration,
+    manage_permission, manage_reserve, mint_tokens,
 };
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use svm_alm_controller_client::generated::types::ReserveStatus;
 use svm_alm_controller_client::generated::types::{
     IntegrationConfig, IntegrationStatus, PermissionStatus,
 };
-use svm_alm_controller_client::generated::types::{PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
     use crate::{
         helpers::{setup_test_controller, TestContext},
-        subs::{airdrop_lamports, fetch_integration_account},
+        subs::{
+            airdrop_lamports, fetch_integration_account, fetch_reserve_account,
+            get_token_balance_or_zero,
+        },
     };
 
     use super::*;
@@ -23,7 +26,10 @@ mod tests {
         instruction::InstructionError,
         transaction::{Transaction, TransactionError},
     };
-    use svm_alm_controller_client::create_spl_token_external_initialize_integration_instruction;
+    use svm_alm_controller_client::{
+        create_spl_token_external_initialize_integration_instruction,
+        create_spl_token_external_push_instruction,
+    };
     use test_case::test_case;
 
     #[test_case(spl_token::ID ; "SPL Token")]
@@ -125,12 +131,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
     #[test_case(spl_token::ID, None ; "SPL Token")]
     #[test_case(spl_token_2022::ID, None ; "Token2022")]
     #[test_case(spl_token_2022::ID, Some(100) ; "Token2022 TransferFee 100 bps")]
 
-    async fn transfer_token_external_success(
+    fn transfer_token_external_success(
         token_program: Pubkey,
         token_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -169,7 +174,8 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Initialize a reserve for the token
-        let _reserve_pk = initialize_reserve(
+        let reserve_rate_limit_max_outflow = 1_000_000_000_000;
+        let reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
             &mint,            // mint
@@ -188,13 +194,14 @@ mod tests {
             &mint,
             &super_authority,
             ReserveStatus::Active,
-            1_000_000_000_000, // rate_limit_slope
-            1_000_000_000_000, // rate_limit_max_outflow
+            1_000_000_000_000,              // rate_limit_slope
+            reserve_rate_limit_max_outflow, // rate_limit_max_outflow
         )?;
 
         // Initialize an External integration
         let external_ata =
             get_associated_token_address_with_program_id(&external.pubkey(), &mint, &token_program);
+        let integration_rate_mint_max_outflow = 1_000_000_000_000;
         let init_ix = create_spl_token_external_initialize_integration_instruction(
             &super_authority.pubkey(),
             &controller_pk,
@@ -202,7 +209,7 @@ mod tests {
             "DAO Treasury",
             IntegrationStatus::Active,
             1_000_000_000_000,
-            1_000_000_000_000,
+            integration_rate_mint_max_outflow,
             false,
             &token_program,
             &mint,
@@ -218,6 +225,7 @@ mod tests {
         ))
         .map_err(|e| e.err.to_string())?;
 
+        let vault_start_amount = 10_000_000;
         // Transfer funds directly to the controller's vault
         mint_tokens(
             &mut svm,
@@ -225,20 +233,57 @@ mod tests {
             &super_authority,
             &mint,
             &controller_authority,
-            10_000_000,
+            vault_start_amount,
         )?;
 
         // Push the integration
-        let (tx_result, _) = push_integration(
-            &mut svm,
+        let amount = 1_000_000;
+        let push_ix = create_spl_token_external_push_instruction(
             &controller_pk,
+            &super_authority.pubkey(),
             &external_integration_pk,
-            &super_authority,
-            &PushArgs::SplTokenExternal { amount: 1_000_000 },
-            false,
-        )
-        .await?;
-        tx_result.unwrap();
+            &reserve_keys.pubkey,
+            &token_program,
+            &mint,
+            &external.pubkey(),
+            amount,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx).unwrap();
+
+        let integration_after = fetch_integration_account(&svm, &external_integration_pk)
+            .unwrap()
+            .unwrap();
+        let reserve_after = fetch_reserve_account(&svm, &reserve_keys.pubkey)
+            .unwrap()
+            .unwrap();
+        let balance_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+        let recipient_balance_after = get_token_balance_or_zero(&svm, &external_ata);
+
+        // Assert Integration rate limits adjusted
+        assert_eq!(
+            integration_after.rate_limit_outflow_amount_available,
+            integration_rate_mint_max_outflow - amount
+        );
+        // Assert Reserve rate limits adjusted
+        assert_eq!(
+            reserve_after.rate_limit_outflow_amount_available,
+            reserve_rate_limit_max_outflow - amount
+        );
+        // Assert Reserve vault was debited exact amount
+        assert_eq!(balance_after, vault_start_amount - amount);
+        // Assert recipient's token account received the tokens
+        let expected_recipient_amount = match token_transfer_fee {
+            Some(fee_bps) => amount - amount * u64::from(fee_bps) / 10_000,
+            None => amount,
+        };
+        assert_eq!(recipient_balance_after, expected_recipient_amount);
 
         Ok(())
     }
@@ -292,7 +337,7 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
         // Initialize a reserve for the token
-        let _reserve_pk = initialize_reserve(
+        let reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
             &mint,            // mint
@@ -362,21 +407,31 @@ mod tests {
             can_liquidate,                        // can_liquidate
         )?;
 
-        let (tx_res, _) = push_integration(
-            &mut svm,
+        let amount = 1_000_000;
+        let push_ix = create_spl_token_external_push_instruction(
             &controller_pk,
+            &push_authority.pubkey(),
             &external_integration_pk,
-            &push_authority,
-            &PushArgs::SplTokenExternal { amount: 1_000_000 },
-            true,
-        )
-        .await?;
+            &reserve_keys.pubkey,
+            &spl_token::ID,
+            &mint,
+            &external.pubkey(),
+            amount,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&push_authority.pubkey()),
+            &[&push_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
         // Assert the expected result given the enabled privilege
         match result_ok {
             true => assert!(tx_res.is_ok()),
             false => assert_eq!(
                 tx_res.err().unwrap().err,
-                TransactionError::InstructionError(2, InstructionError::IncorrectAuthority)
+                TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
             ),
         }
 
