@@ -5,22 +5,14 @@ use solana_sdk::{
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
-use svm_alm_controller_client::generated::{
+use svm_alm_controller_client::{derive_reserve_pda, generated::{
     accounts::Reserve,
     instructions::{InitializeReserveBuilder, ManageReserveBuilder, SyncReserveBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
     types::ReserveStatus,
-};
+}};
 
 use crate::subs::{derive_controller_authority_pda, derive_permission_pda};
-
-pub fn derive_reserve_pda(controller_pda: &Pubkey, mint: &Pubkey) -> Pubkey {
-    let (reserve_pda, _reserve_bump) = Pubkey::find_program_address(
-        &[b"reserve", &controller_pda.to_bytes(), &mint.to_bytes()],
-        &Pubkey::from(SVM_ALM_CONTROLLER_ID),
-    );
-    reserve_pda
-}
 
 pub fn fetch_reserve_account(
     svm: &LiteSVM,

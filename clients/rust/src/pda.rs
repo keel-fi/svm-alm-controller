@@ -39,3 +39,11 @@ pub fn derive_controller_authority_pda(controller_pda: &Pubkey) -> Pubkey {
     );
     controller_authority_pda
 }
+
+pub fn derive_reserve_pda(controller_pda: &Pubkey, mint: &Pubkey) -> Pubkey {
+    let (reserve_pda, _reserve_bump) = Pubkey::find_program_address(
+        &[b"reserve", &controller_pda.to_bytes(), &mint.to_bytes()],
+        &crate::SVM_ALM_CONTROLLER_ID,
+    );
+    reserve_pda
+}

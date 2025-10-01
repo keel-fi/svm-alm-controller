@@ -12,7 +12,8 @@ mod tests {
     use svm_alm_controller_client::generated::types::{ControllerStatus, FeedArgs};
     use switchboard_on_demand::PRECISION;
 
-    use crate::subs::initialize_contoller;
+    use crate::subs::{initialize_contoller, manage_controller, manage_permission};
+    use svm_alm_controller_client::generated::types::PermissionStatus;
 
     use super::*;
 
@@ -143,6 +144,171 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed2);
+
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_initialize_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let authority = Keypair::new();
+        let freezer = Keypair::new();
+
+        // Airdrop to users
+        airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+
+        // Set up a controller
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            322u16, // Id
+        )?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &authority,       // payer
+            &authority,       // calling authority
+            &freezer.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to initialize oracle when frozen - should fail
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let oracle_type = 0;
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        let result = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &nonce,
+            &new_feed,
+            oracle_type,
+            &mint,
+            &quote_mint,
+        );
+
+        // TODO: check custom error
+        assert!(
+            result.is_err(),
+            "initialize_oracle should fail when controller is frozen"
+        );
+
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_update_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let authority = Keypair::new();
+        let authority2 = Keypair::new();
+        let freezer = Keypair::new();
+
+        // Airdrop to users
+        airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &authority2.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+
+        // Set up a controller
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            323u16, // Id
+        )?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &authority,       // payer
+            &authority,       // calling authority
+            &freezer.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let oracle_pda = derive_oracle_pda(&nonce);
+        let oracle_type = 0;
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        // Initialize Oracle account first (while controller is active)
+        initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &nonce,
+            &new_feed,
+            oracle_type,
+            &mint,
+            &quote_mint,
+        )?;
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to update oracle when frozen - should fail
+        let new_feed2 = Pubkey::new_unique();
+        let result = update_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &oracle_pda,
+            &new_feed2,
+            Some(FeedArgs { oracle_type }),
+            None,
+        );
+
+        // TODO: check custom error
+        assert!(
+            result.is_err(),
+            "update_oracle should fail when controller is frozen"
+        );
 
         Ok(())
     }

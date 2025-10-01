@@ -6755,6 +6755,7 @@ dependencies = [
  "borsh 1.5.5",
  "num-derive",
  "num-traits",
+ "pinocchio-associated-token-account",
  "solana-account-info",
  "solana-cpi",
  "solana-instruction",

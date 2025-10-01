@@ -278,4 +278,103 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_manage_permission_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let freezer = Keypair::new();
+        let regular_user = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &regular_user.pubkey(), 1_000_000_000)?;
+
+        // Initialize a mint
+        let usdc_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &usdc_mint,
+        )?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &usdc_mint,
+            &super_authority.pubkey(),
+            1_000_000,
+        )?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,       // payer
+            &super_authority,       // calling authority
+            &freezer.pubkey(),      // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to manage permission when frozen - should fail
+        let result = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,       // payer
+            &super_authority,       // calling authority
+            &regular_user.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            false, // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        );
+
+        // TODO: check custom error
+        assert!(
+            result.is_err(),
+            "manage_permission should fail when controller is frozen"
+        );
+
+        Ok(())
+    }
 }

@@ -2,7 +2,7 @@ use super::{fetch_reserve_account, get_token_balance_or_zero};
 use crate::{
     helpers::constants::{DEVNET_RPC, LZ_ENDPOINT_PROGRAM_ID, LZ_USDS_ESCROW},
     subs::{
-        derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
+        derive_controller_authority_pda, derive_permission_pda,
         get_mint_supply_or_zero,
     },
 };
@@ -30,7 +30,7 @@ use solana_sdk::{
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
-use svm_alm_controller_client::generated::{
+use svm_alm_controller_client::{derive_reserve_pda, generated::{
     accounts::{Integration, Reserve},
     instructions::{
         InitializeIntegrationBuilder, ManageIntegrationBuilder, PushBuilder,
@@ -38,7 +38,7 @@ use svm_alm_controller_client::generated::{
     },
     programs::SVM_ALM_CONTROLLER_ID,
     types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PushArgs},
-};
+}};
 
 pub fn derive_integration_pda(controller_pda: &Pubkey, hash: &[u8; 32]) -> Pubkey {
     let (integration_pda, _integration_bump) = Pubkey::find_program_address(
