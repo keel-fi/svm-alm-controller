@@ -4,7 +4,10 @@ use std::error::Error;
 
 use borsh::BorshDeserialize;
 use bytemuck::Zeroable;
-use litesvm::LiteSVM;
+use litesvm::{
+    types::{FailedTransactionMetadata, TransactionMetadata},
+    LiteSVM,
+};
 use solana_sdk::{
     account::Account, clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer,
     system_program, transaction::Transaction,
@@ -102,12 +105,9 @@ pub fn initialize_oracle(
     oracle_type: u8,
     mint: &Pubkey,
     quote_mint: &Pubkey,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<TransactionMetadata, FailedTransactionMetadata> {
     let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
-
-    let oracle_before = fetch_oracle_account(svm, &oracle_pda)?;
-
     let ixn = InitializeOracleBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
@@ -128,25 +128,42 @@ pub fn initialize_oracle(
         &[&authority],
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn.clone());
-    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
+    svm.send_transaction(txn)
+}
 
-    let oracle_after = fetch_oracle_account(svm, &oracle_pda)?;
-    // assert expected event
-    let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
-         controller: *controller,
-        oracle: oracle_pda,
-        authority: authority.pubkey(),
-        old_state: oracle_before,
-        new_state: oracle_after,
-    });
-    assert_contains_controller_cpi_event!(
-        tx_result.unwrap(), 
-        txn.message.account_keys.as_slice(), 
-        expected_event
+pub fn initialize_oracle_returns_tx(
+    svm: &mut LiteSVM,
+    controller: &Pubkey,
+    authority: &Keypair,
+    nonce: &Pubkey,
+    price_feed: &Pubkey,
+    oracle_type: u8,
+    mint: &Pubkey,
+    quote_mint: &Pubkey,
+) -> (Result<TransactionMetadata, FailedTransactionMetadata>, Transaction) {
+    let controller_authority = derive_controller_authority_pda(controller);
+    let oracle_pda = derive_oracle_pda(&nonce);
+    let ixn = InitializeOracleBuilder::new()
+        .controller(*controller)
+        .controller_authority(controller_authority)
+        .authority(authority.pubkey())
+        .oracle(oracle_pda)
+        .price_feed(*price_feed)
+        .system_program(system_program::ID)
+        .payer(authority.pubkey())
+        .oracle_type(oracle_type)
+        .nonce(*nonce)
+        .base_mint(*mint)
+        .quote_mint(*quote_mint)
+        .instruction();
+
+    let txn = Transaction::new_signed_with_payer(
+        &[ixn],
+        Some(&authority.pubkey()),
+        &[&authority],
+        svm.latest_blockhash(),
     );
-
-    Ok(())
+    (svm.send_transaction(txn.clone()), txn)
 }
 
 pub fn refresh_oracle(

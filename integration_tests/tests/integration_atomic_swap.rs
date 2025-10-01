@@ -128,7 +128,8 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        )?;
+        )
+        .map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(
             svm,
@@ -1182,6 +1183,23 @@ mod tests {
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
+        // Expect failure when mutliple borrow/repays in one TX
+        let txn = Transaction::new_signed_with_payer(
+            &[
+                borrow_ix.clone(),
+                mint_ix.clone(),
+                repay_ix.clone(),
+                borrow_ix.clone(),
+                mint_ix.clone(),
+                repay_ix.clone(),
+            ],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
+            svm.latest_blockhash(),
+        );
+        let res = svm.send_transaction(txn);
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
+
         Ok(())
     }
 
@@ -1477,7 +1495,8 @@ mod tests {
             0,
             &swap_env.coin_token_mint,
             &swap_env.pc_token_mint,
-        )?;
+        )
+        .map_err(|e| e.err.to_string())?;
         let init_ix = create_atomic_swap_initialize_integration_instruction(
             &swap_env.relayer_authority_kp.pubkey(),
             &swap_env.controller_pk,                 // controller

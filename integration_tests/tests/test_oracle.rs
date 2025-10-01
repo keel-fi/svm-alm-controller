@@ -9,14 +9,24 @@ use svm_alm_controller_client::generated::accounts::Oracle;
 
 #[cfg(test)]
 mod tests {
-    use svm_alm_controller_client::generated::types::{ControllerStatus, FeedArgs};
-    use switchboard_on_demand::PRECISION;
+    use solana_sdk::{
+        account::Account, instruction::InstructionError, transaction::TransactionError,
+    };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller_client::generated::types::{ControllerStatus, FeedArgs, OracleUpdateEvent, SvmAlmControllerEvent};
+    use switchboard_on_demand::{
+        Discriminator, PullFeedAccountData, ON_DEMAND_MAINNET_PID, PRECISION,
+    };
 
-    use crate::subs::initialize_contoller;
+    use crate::{
+        helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
+        subs::initialize_contoller,
+    };
+    use borsh::BorshDeserialize;
 
     use super::*;
 
-    #[test_log::test]
+    #[test]
     fn test_oracle_init_refresh_and_update_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -50,7 +60,7 @@ mod tests {
         set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        initialize_oracle(
+        let (tx_result, tx) = initialize_oracle_returns_tx(
             &mut svm,
             &controller_pk,
             &authority,
@@ -59,7 +69,9 @@ mod tests {
             0,
             &mint,
             &quote_mint,
-        )?;
+        );
+
+        let meta = tx_result.map_err(|e| e.err.to_string())?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
@@ -74,6 +86,20 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed);
+
+        // assert event was emitted
+        let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
+            controller: controller_pk,
+            oracle: oracle_pda,
+            authority: authority.pubkey(),
+            old_state: None,
+            new_state: Some(oracle),
+        });
+        assert_contains_controller_cpi_event!(
+            meta, 
+            tx.message.account_keys.as_slice(),
+            expected_event
+        );
 
         // Refresh Oracle account with price.
         refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed)?;
@@ -143,6 +169,134 @@ mod tests {
         assert_eq!(oracle.reserved, [0; 64]);
         assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(oracle.feeds[0].price_feed, new_feed2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_oracle_init_fails_with_unsupported_oracle_type(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        // Stub invalid price feed data: Incorrect length
+        let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>() - 1);
+        serialized.extend_from_slice(&PullFeedAccountData::DISCRIMINATOR);
+
+        svm.set_account(
+            new_feed,
+            Account {
+                lamports: 1_000_000_000,
+                data: serialized,
+                owner: ON_DEMAND_MAINNET_PID,
+                executable: false,
+                rent_epoch: u64::MAX,
+            },
+        )?;
+
+        // Initialize Oracle account
+        let tx_result = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
+
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        // Stub invalid price feed data: Incorrect discriminator
+        let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>());
+        serialized.extend_from_slice(&[1u8; 8]);
+
+        svm.set_account(
+            new_feed,
+            Account {
+                lamports: 1_000_000_000,
+                data: serialized,
+                owner: ON_DEMAND_MAINNET_PID,
+                executable: false,
+                rent_epoch: u64::MAX,
+            },
+        )?;
+
+        // Initialize Oracle account
+        let tx_result = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
+
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        // Stub invalid price feed data: Incorrect owner
+        let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>());
+        serialized.extend_from_slice(&PullFeedAccountData::DISCRIMINATOR);
+
+        svm.set_account(
+            new_feed,
+            Account {
+                lamports: 1_000_000_000,
+                data: serialized,
+                owner: svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
+                executable: false,
+                rent_epoch: u64::MAX,
+            },
+        )?;
+
+        // Initialize Oracle account
+        let tx_result = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidAccountData);
+
+        // Initialize Oracle account with unsupported oracle_type
+        let tx_result = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &nonce,
+            &new_feed,
+            1,
+            &mint,
+            &quote_mint,
+        );
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnsupportedOracleType);
 
         Ok(())
     }
