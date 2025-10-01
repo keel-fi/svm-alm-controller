@@ -771,6 +771,59 @@ mod tests {
 
         assert_custom_error(&res, 4, SvmAlmControllerErrors::SlippageExceeded);
 
+        let (mint_a_token_program, mint_b_token_program) = if mint_b == swap_env.pc_token_mint {
+            (coin_token_program, pc_token_program)
+        } else {
+            (pc_token_program, coin_token_program)
+        };
+        let [refresh_ix, borrow_ix, _mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            mint_a,
+            mint_b,
+            swap_env.oracle,
+            swap_env.price_feed,
+            recipient_a, // payer_account_a
+            recipient_b, // payer_account_b
+            mint_a_token_program,
+            mint_b_token_program,
+            borrow_amount,
+            repay_amount,
+            &swap_env.mint_authority,
+            borrow_amount,
+        );
+
+        // Burn tokens to trigger underflow when calculating Tokne B diff during Repay.
+        let burn_token_b_ix = spl_token_2022::instruction::burn_checked(
+            &mint_b_token_program,
+            &recipient_b,
+            &mint_b,
+            &swap_env.relayer_authority_kp.pubkey(),
+            &[],
+            10,
+            6,
+        )
+        .unwrap();
+
+        let txn = Transaction::new_signed_with_payer(
+            &[
+                refresh_ix.clone(),
+                borrow_ix.clone(),
+                burn_token_b_ix,
+                repay_ix.clone(),
+            ],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        );
+        let res = svm.send_transaction(txn);
+        assert_eq!(
+            res.err().unwrap().err,
+            TransactionError::InstructionError(3, InstructionError::ProgramFailedToComplete)
+        );
+
         Ok(())
     }
 
@@ -969,13 +1022,15 @@ mod tests {
         );
 
         // Transfer some to vault_a
-        let transfer_ix = spl_token_2022::instruction::transfer(
+        let transfer_ix = spl_token_2022::instruction::transfer_checked(
             &pc_token_program,
             &swap_env.relayer_pc,
+            &swap_env.pc_token_mint,
             &swap_env.pc_reserve_vault,
             &swap_env.relayer_authority_kp.pubkey(),
             &[&swap_env.relayer_authority_kp.pubkey()],
             mid_tx_transfer_amount,
+            6,
         )?;
 
         // Expect failure when vault balances are modified btw borrow and repay.
@@ -995,13 +1050,15 @@ mod tests {
         assert_custom_error(&res, 4, SvmAlmControllerErrors::InvalidSwapState);
 
         // Transfer some to vault_b
-        let transfer_ix = spl_token_2022::instruction::transfer(
+        let transfer_ix = spl_token_2022::instruction::transfer_checked(
             &coin_token_program,
             &swap_env.relayer_coin,
+            &swap_env.coin_token_mint,
             &swap_env.coin_reserve_vault,
             &swap_env.relayer_authority_kp.pubkey(),
             &[&swap_env.relayer_authority_kp.pubkey()],
             mid_tx_transfer_amount,
+            6,
         )?;
 
         // Expect failure when vault balances are modified btw borrow and repay.
@@ -1384,13 +1441,15 @@ mod tests {
 
         // Transfer some tokens out of relayer_pc to simulate spending.
         let spent_a = 15;
-        let transfer_ix = spl_token_2022::instruction::transfer(
+        let transfer_ix = spl_token_2022::instruction::transfer_checked(
             &pc_token_program,
             &swap_env.relayer_pc,
+            &swap_env.pc_token_mint,
             &random_user_pc_token,
             &swap_env.relayer_authority_kp.pubkey(),
             &[&swap_env.relayer_authority_kp.pubkey()],
             spent_a,
+            6,
         )?;
 
         let txn = Transaction::new_signed_with_payer(
