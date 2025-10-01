@@ -7,14 +7,14 @@ use crate::{
     generated::{
         instructions::InitializeIntegrationBuilder,
         types::{
-            InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType,
-            SplTokenExternalConfig,
+            InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, LzBridgeConfig,
         },
     },
+    integrations::lz_oft,
 };
 
-/// Instruction generation for initializing SplTokenExternal integration
-pub fn create_spl_token_external_initialize_integration_instruction(
+/// Instruction generation for initializing LZ Bridge integration
+pub fn create_lz_bridge_initialize_integration_instruction(
     payer: &Pubkey,
     controller: &Pubkey,
     authority: &Pubkey,
@@ -23,20 +23,29 @@ pub fn create_spl_token_external_initialize_integration_instruction(
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
     permit_liquidation: bool,
-    token_program: &Pubkey,
+    oft_program_id: &Pubkey,
+    oft_token_escrow: &Pubkey,
+    destination_address: &Pubkey,
+    destination_eid: u32,
     mint: &Pubkey,
-    recipient: &Pubkey,
-    token_account: &Pubkey,
 ) -> Instruction {
-    let config = IntegrationConfig::SplTokenExternal(SplTokenExternalConfig {
-        program: *token_program,
+    let oft_store = lz_oft::derive_oft_store(oft_token_escrow, oft_program_id);
+    let peer_config = lz_oft::derive_peer_config(&oft_store, destination_eid, oft_program_id);
+    let config = IntegrationConfig::LzBridge(LzBridgeConfig {
+        program: *oft_program_id,
         mint: *mint,
-        recipient: *recipient,
-        token_account: *token_account,
-        padding: [0u8; 96],
+        oft_store,
+        peer_config,
+        oft_token_escrow: *oft_token_escrow,
+        destination_address: *destination_address,
+        destination_eid,
+        padding: [0u8; 28],
     });
 
-    let inner_args = InitializeArgs::SplTokenExternal;
+    let inner_args = InitializeArgs::LzBridge {
+        destination_address: *destination_address,
+        destination_eid,
+    };
 
     let hash = hash(borsh::to_vec(&config).unwrap().as_ref()).to_bytes();
     let integration_pda = derive_integration_pda(controller, &hash);
@@ -54,29 +63,29 @@ pub fn create_spl_token_external_initialize_integration_instruction(
             is_writable: false,
         },
         AccountMeta {
-            pubkey: *recipient,
+            pubkey: oft_store,
             is_signer: false,
             is_writable: false,
         },
         AccountMeta {
-            pubkey: *token_account,
-            is_signer: false,
-            is_writable: true,
-        },
-        AccountMeta {
-            pubkey: *token_program,
+            pubkey: peer_config,
             is_signer: false,
             is_writable: false,
         },
         AccountMeta {
-            pubkey: spl_associated_token_account_client::program::ID,
+            pubkey: *oft_program_id,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: *oft_token_escrow,
             is_signer: false,
             is_writable: false,
         },
     ];
 
     InitializeIntegrationBuilder::new()
-        .integration_type(IntegrationType::SplTokenExternal)
+        .integration_type(IntegrationType::LzBridge)
         .status(status)
         .description(description_encoding)
         .rate_limit_slope(rate_limit_slope)

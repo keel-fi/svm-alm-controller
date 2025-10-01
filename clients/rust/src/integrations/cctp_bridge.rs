@@ -1,5 +1,5 @@
-use solana_program::pubkey;
-use solana_program::pubkey::Pubkey;
+use solana_pubkey::{pubkey, Pubkey};
+
 
 // CCTP constants
 pub const CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID: Pubkey =

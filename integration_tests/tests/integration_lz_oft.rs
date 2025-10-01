@@ -1,8 +1,8 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    airdrop_lamports, initialize_ata, initialize_contoller, initialize_integration,
-    initialize_reserve, manage_permission, push_integration,
+    airdrop_lamports, initialize_ata, initialize_contoller, initialize_reserve, manage_permission,
+    push_integration,
 };
 use crate::{
     helpers::constants::USDS_TOKEN_MINT_PUBKEY,
@@ -16,7 +16,7 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 use svm_alm_controller_client::generated::types::{
     ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
 };
-use svm_alm_controller_client::generated::types::{InitializeArgs, PushArgs, ReserveStatus};
+use svm_alm_controller_client::generated::types::{PushArgs, ReserveStatus};
 
 #[cfg(test)]
 mod tests {
@@ -38,9 +38,9 @@ mod tests {
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::generated::{
-        instructions::{PushBuilder, ResetLzPushInFlightBuilder},
-        types::LzBridgeConfig,
+    use svm_alm_controller_client::{
+        create_lz_bridge_initialize_integration_instruction,
+        generated::instructions::{PushBuilder, ResetLzPushInFlightBuilder},
     };
     use test_case::test_case;
 
@@ -56,16 +56,16 @@ mod tests {
             utils::get_program_return_data,
         },
         subs::{
-            derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda, ReserveKeys,
+            derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
+            fetch_integration_account, ReserveKeys,
         },
     };
 
     use super::*;
 
-    fn setup_env(
+    fn setup_env_sans_integration(
         svm: &mut LiteSVM,
-        permit_liquidation: bool,
-    ) -> Result<(Pubkey, Pubkey, Keypair, ReserveKeys), Box<dyn std::error::Error>> {
+    ) -> Result<(Pubkey, Keypair, ReserveKeys), Box<dyn std::error::Error>> {
         let authority: Keypair = Keypair::new();
         // Load LZ OFT specific accounts.
         // Note: These are arbitrary accounts necessary for the OFT Send instruction.
@@ -214,40 +214,51 @@ mod tests {
             500_000_000,
         )?;
 
+        Ok((controller_pk, authority, usds_reserve_keys))
+    }
+
+    fn setup_env(
+        svm: &mut LiteSVM,
+        permit_liquidation: bool,
+    ) -> Result<(Pubkey, Pubkey, Keypair, ReserveKeys), Box<dyn std::error::Error>> {
+        let (controller_pk, authority, usds_reserve_keys) = setup_env_sans_integration(svm)?;
+
         // Serialize the destination address appropriately
         let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
         // Initialize an integration
-        let lz_usds_eth_bridge_integration_pk = initialize_integration(
-            svm,
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_lz_bridge_initialize_integration_instruction(
+            &authority.pubkey(),
             &controller_pk,
-            &authority, // payer
-            &authority, // authority
+            &authority.pubkey(),
             "ETH USDS LZ Bridge",
             IntegrationStatus::Active,
-            1_000_000_000_000,  // rate_limit_slope
-            1_000_000_000_000,  // rate_limit_max_outflow
-            permit_liquidation, // permit_liquidation
-            &IntegrationConfig::LzBridge(LzBridgeConfig {
-                program: LZ_USDS_OFT_PROGRAM_ID,
-                mint: USDS_TOKEN_MINT_PUBKEY,
-                destination_address: destination_address,
-                destination_eid: LZ_DESTINATION_DOMAIN_EID,
-                oft_token_escrow: LZ_USDS_ESCROW,
-                oft_store: LZ_USDS_OFT_STORE_PUBKEY,
-                peer_config: LZ_USDS_PEER_CONFIG_PUBKEY,
-                padding: [0; 28],
-            }),
-            &InitializeArgs::LzBridge {
-                destination_address,
-                destination_eid: LZ_DESTINATION_DOMAIN_EID,
-            },
-            false,
-        ).map_err(|e| e.err.to_string())?;
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &LZ_USDS_ESCROW,
+            &destination_address,
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+        );
+
+        // Integration is at index 5 in the IX
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
         Ok((
             controller_pk,
-            lz_usds_eth_bridge_integration_pk,
+            integration_pubkey,
             authority,
             usds_reserve_keys,
         ))
@@ -327,8 +338,6 @@ mod tests {
 
     async fn create_oft_send_ix(
         svm: &mut LiteSVM,
-        controller: &Pubkey,
-        integration: &Pubkey,
         authority: &Keypair,
         token_source: Pubkey,
         amount: u64,
@@ -411,6 +420,67 @@ mod tests {
         Ok(send_ixn)
     }
 
+    #[test]
+    fn lz_bridge_init_success() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+        let (controller_pk, authority, _reserve_keys) = setup_env_sans_integration(&mut svm)?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_lz_bridge_initialize_integration_instruction(
+            &authority.pubkey(),
+            &controller_pk,
+            &authority.pubkey(),
+            "ETH USDS LZ Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &LZ_USDS_ESCROW,
+            &destination_address,
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+        );
+
+        // Integration is at index 5 in the IX
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
+        let integration = fetch_integration_account(&svm, &integration_pubkey)
+            .expect("integration should exist")
+            .unwrap();
+
+        assert_eq!(integration.status, IntegrationStatus::Active);
+        assert_eq!(integration.rate_limit_slope, rate_limit_slope);
+        assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow);
+        assert_eq!(integration.controller, controller_pk);
+
+        match integration.config {
+            IntegrationConfig::LzBridge(c) => {
+                assert_eq!(c.destination_address, destination_address);
+                assert_eq!(c.destination_eid, LZ_DESTINATION_DOMAIN_EID);
+                assert_eq!(c.mint, USDS_TOKEN_MINT_PUBKEY);
+                assert_eq!(c.oft_store, LZ_USDS_OFT_STORE_PUBKEY);
+                assert_eq!(c.oft_token_escrow, LZ_USDS_ESCROW);
+                assert_eq!(c.peer_config, LZ_USDS_PEER_CONFIG_PUBKEY);
+                assert_eq!(c.program, LZ_USDS_OFT_PROGRAM_ID);
+            }
+            _ => panic!("invalid config"),
+        };
+        Ok(())
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn lz_push_with_oft_send_success() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
@@ -457,16 +527,8 @@ mod tests {
         let amount = 2000;
 
         let lz_push_ix = create_lz_push_ix(&controller, &integration, &authority)?;
-        let send_ixn = create_oft_send_ix(
-            &mut svm,
-            &controller,
-            &integration,
-            &authority,
-            authority_token_account,
-            amount,
-            true,
-        )
-        .await?;
+        let send_ixn =
+            create_oft_send_ix(&mut svm, &authority, authority_token_account, amount, true).await?;
         let reset_ix = ResetLzPushInFlightBuilder::new()
             .controller(controller)
             .integration(integration)
@@ -508,16 +570,8 @@ mod tests {
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when token_escrow doesn't match.
-        let send_ixn = create_oft_send_ix(
-            &mut svm,
-            &controller,
-            &integration,
-            &authority,
-            Pubkey::new_unique(),
-            amount,
-            true,
-        )
-        .await?;
+        let send_ixn =
+            create_oft_send_ix(&mut svm, &authority, Pubkey::new_unique(), amount, true).await?;
         let txn = Transaction::new_signed_with_payer(
             &[lz_push_ix.clone(), send_ixn, reset_ix.clone()],
             Some(&authority.pubkey()),
@@ -528,16 +582,8 @@ mod tests {
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidInstructions);
 
         // Expect failure when send amount doesn't match.
-        let send_ixn = create_oft_send_ix(
-            &mut svm,
-            &controller,
-            &integration,
-            &authority,
-            authority_token_account,
-            111,
-            true,
-        )
-        .await?;
+        let send_ixn =
+            create_oft_send_ix(&mut svm, &authority, authority_token_account, 111, true).await?;
         let txn = Transaction::new_signed_with_payer(
             &[lz_push_ix.clone(), send_ixn, reset_ix.clone()],
             Some(&authority.pubkey()),
@@ -564,16 +610,9 @@ mod tests {
         let amount = 2000;
 
         let lz_push_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
-        let send_ixn = create_oft_send_ix(
-            &mut svm,
-            &controller,
-            &integration,
-            &authority,
-            authority_token_account,
-            amount,
-            false,
-        )
-        .await?;
+        let send_ixn =
+            create_oft_send_ix(&mut svm, &authority, authority_token_account, amount, false)
+                .await?;
         let reset_ix = ResetLzPushInFlightBuilder::new()
             .controller(controller)
             .integration(integration)
