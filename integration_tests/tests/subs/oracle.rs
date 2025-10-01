@@ -14,7 +14,7 @@ use svm_alm_controller_client::{
     generated::{
         accounts::Oracle,
         instructions::{InitializeOracleBuilder, RefreshOracleBuilder, UpdateOracleBuilder},
-        types::FeedArgs,
+        types::{FeedArgs, OracleUpdateEvent, SvmAlmControllerEvent},
     },
     SVM_ALM_CONTROLLER_ID,
 };
@@ -22,7 +22,7 @@ use switchboard_on_demand::{
     Discriminator, OracleSubmission, PullFeedAccountData, ON_DEMAND_MAINNET_PID,
 };
 
-use crate::subs::derive_controller_authority_pda;
+use crate::{assert_contains_controller_cpi_event, subs::derive_controller_authority_pda};
 
 pub fn derive_oracle_pda(nonce: &Pubkey) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
@@ -105,6 +105,9 @@ pub fn initialize_oracle(
 ) -> Result<(), Box<dyn Error>> {
     let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
+
+    let oracle_before = fetch_oracle_account(svm, &oracle_pda)?;
+
     let ixn = InitializeOracleBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
@@ -125,8 +128,24 @@ pub fn initialize_oracle(
         &[&authority],
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
-    tx_result.unwrap();
+    let tx_result = svm.send_transaction(txn.clone());
+    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
+
+    let oracle_after = fetch_oracle_account(svm, &oracle_pda)?;
+    // assert expected event
+    let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
+         controller: *controller,
+        oracle: oracle_pda,
+        authority: authority.pubkey(),
+        old_state: oracle_before,
+        new_state: oracle_after,
+    });
+    assert_contains_controller_cpi_event!(
+        tx_result.unwrap(), 
+        txn.message.account_keys.as_slice(), 
+        expected_event
+    );
+
     Ok(())
 }
 
@@ -150,6 +169,8 @@ pub fn refresh_oracle(
     let tx_result = svm.send_transaction(txn);
     assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
 
+
+
     Ok(())
 }
 
@@ -163,6 +184,8 @@ pub fn update_oracle(
     new_authority: Option<&Keypair>,
 ) -> Result<(), Box<dyn Error>> {
     let controller_authority = derive_controller_authority_pda(controller);
+    let oracle_before = fetch_oracle_account(svm, &oracle_pda)?;
+
     let new_authority_pubkey = new_authority.map(|k| k.pubkey());
     let ixn = if let Some(feed_args) = feed_args {
         UpdateOracleBuilder::new()
@@ -196,7 +219,22 @@ pub fn update_oracle(
         &signing_keypairs.to_vec(),
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
+    let tx_result = svm.send_transaction(txn.clone());
     assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
+
+    let oracle_after = fetch_oracle_account(svm, &oracle_pda)?;
+    // assert expected event
+    let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
+         controller: *controller,
+        oracle: *oracle_pda,
+        authority: authority.pubkey(),
+        old_state: oracle_before,
+        new_state: oracle_after,
+    });
+    assert_contains_controller_cpi_event!(
+        tx_result.unwrap(), 
+        txn.message.account_keys.as_slice(), 
+        expected_event
+    );
     Ok(())
 }

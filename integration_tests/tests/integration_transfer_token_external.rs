@@ -20,7 +20,7 @@ mod tests {
             get_token_balance_or_zero,
         },
     };
-
+    use borsh::BorshDeserialize;
     use super::*;
     use solana_sdk::{
         clock::Clock,
@@ -29,7 +29,7 @@ mod tests {
     };
     use svm_alm_controller_client::{
         create_spl_token_external_initialize_integration_instruction,
-        create_spl_token_external_push_instruction,
+        create_spl_token_external_push_instruction, generated::types::{AccountingAction, AccountingDirection, AccountingEvent, IntegrationUpdateEvent, SvmAlmControllerEvent},
     };
     use test_case::test_case;
 
@@ -103,12 +103,13 @@ mod tests {
             &external_ata,
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_ix],
             Some(&super_authority.pubkey()),
             &[&super_authority],
             svm.latest_blockhash(),
-        ))
+        );
+        let tx_result = svm.send_transaction(tx.clone())
         .map_err(|e| e.err.to_string())?;
 
         let clock = svm.get_sysvar::<Clock>();
@@ -130,7 +131,7 @@ mod tests {
         assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
-        match integration.config {
+        match integration.clone().config {
             IntegrationConfig::SplTokenExternal(c) => {
                 assert_eq!(c.mint, mint);
                 assert_eq!(c.program, token_program);
@@ -139,6 +140,20 @@ mod tests {
             }
             _ => panic!("invalid config"),
         };
+
+        // Assert emitted event
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: controller_pk,
+            integration: integration_pubkey,
+            authority: super_authority.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_event
+        );
 
         Ok(())
     }
@@ -267,7 +282,7 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        svm.send_transaction(tx).unwrap();
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
 
         let integration_after = fetch_integration_account(&svm, &external_integration_pk)
             .unwrap()
@@ -296,6 +311,43 @@ mod tests {
             None => amount,
         };
         assert_eq!(recipient_balance_after, expected_recipient_amount);
+
+        let vault_balance_before = vault_start_amount;
+        let vault_balance_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+
+        let check_delta = vault_balance_before
+            .checked_sub(vault_balance_after)
+            .unwrap();
+        // Assert accounting events 
+        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+            controller: controller_pk, 
+            integration: None, 
+            reserve: Some(reserve_keys.pubkey),
+            mint: mint, 
+            action: AccountingAction::ExternalTransfer, 
+            delta: check_delta, 
+            direction: AccountingDirection::Debit, 
+        }); 
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_debit_event 
+        );
+
+        let expected_credit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: Some(external_integration_pk),
+            reserve: None,
+            mint: mint,
+            action: AccountingAction::ExternalTransfer,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_credit_event 
+        );
 
         Ok(())
     }

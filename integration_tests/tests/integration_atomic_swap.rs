@@ -6,17 +6,17 @@ mod tests {
     use std::i64;
 
     use crate::{
-        helpers::{
+        assert_contains_controller_cpi_event, helpers::{
             assert::{assert_custom_error, assert_program_error},
             lite_svm_with_programs,
-        },
-        subs::{
+        }, subs::{
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
             derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
             fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
             initialize_reserve, mint_tokens, sync_reserve, transfer_tokens, ReserveKeys,
-        },
+        }
     };
+    use borsh::BorshDeserialize;
     use litesvm::LiteSVM;
     use solana_sdk::{
         clock::Clock,
@@ -31,8 +31,7 @@ mod tests {
     use svm_alm_controller_client::{
         create_atomic_swap_initialize_integration_instruction,
         generated::types::{
-            ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus,
-            PermissionStatus, ReserveStatus,
+            AccountingAction, AccountingDirection, AccountingEvent, ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PermissionStatus, ReserveStatus, SvmAlmControllerEvent
         },
     };
 
@@ -281,13 +280,33 @@ mod tests {
                 invert_price_feed, // oracle_price_inverted
             );
             let integration_pubkey = init_ix.accounts[5].pubkey;
-            svm.send_transaction(Transaction::new_signed_with_payer(
+            let tx = Transaction::new_signed_with_payer(
                 &[init_ix],
                 Some(&relayer_authority_kp.pubkey()),
                 &[&relayer_authority_kp],
                 svm.latest_blockhash(),
-            ))
+            );
+            let tx_result = svm.send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
+
+            let integration = fetch_integration_account(&svm, &integration_pubkey)
+            .expect("integration should exist")
+            .unwrap();
+
+            // Assert event is emitted
+            let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+                controller: controller_pk,
+                integration: integration_pubkey,
+                authority: relayer_authority_kp.pubkey(),
+                old_state: None,
+                new_state: Some(integration),
+            });
+            assert_contains_controller_cpi_event!(
+                tx_result, 
+                tx.message.account_keys.as_slice(), 
+                expected_event
+            );
+
             integration_pubkey
         } else {
             Pubkey::default()
@@ -622,7 +641,8 @@ mod tests {
             &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
-        svm.send_transaction(txn).unwrap();
+        let txn_result = svm.send_transaction(txn.clone());
+        txn_result.clone().unwrap();
 
         // Because the AtomicSwap happened twice, we must double the amount lost from TransferFees.
         let total_transfer_fees_on_borrow = 2 * (borrow_amount - expected_borrow_amount);
@@ -654,6 +674,39 @@ mod tests {
         assert_eq!(relayer_a_increase, 0);
         assert_eq!(vault_b_increase, expected_repay_amount);
         assert_eq!(relayer_b_decrease, 0);
+
+        let final_input_amount = vault_a_decrease;
+        // Assert event was emitted
+        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: swap_env.controller_pk,
+            integration: None,
+            reserve: Some(swap_env.pc_reserve_pubkey),
+            mint: swap_env.pc_token_mint,
+            action: AccountingAction::Swap,
+            delta: final_input_amount,
+            direction: AccountingDirection::Debit,
+        });
+        assert_contains_controller_cpi_event!(
+            txn_result.clone().unwrap(), 
+            txn.message.account_keys.as_slice(), 
+            expected_debit_event
+        );
+
+        let balance_b_delta = vault_b_after.amount - vault_b_before.amount;
+        let expected_credit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: swap_env.controller_pk,
+            integration: None,
+            reserve: Some(swap_env.coin_reserve_pubkey),
+            mint: swap_env.coin_token_mint,
+            action: AccountingAction::Swap,
+            delta: balance_b_delta,
+            direction: AccountingDirection::Credit,
+        });
+        assert_contains_controller_cpi_event!(
+            txn_result.unwrap(), 
+            txn.message.account_keys.as_slice(), 
+            expected_credit_event
+        );
 
         Ok(())
     }
