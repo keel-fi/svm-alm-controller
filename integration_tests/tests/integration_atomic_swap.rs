@@ -68,6 +68,7 @@ mod tests {
         pc_token_program: &Pubkey,
         pc_token_transfer_fee: Option<u16>,
         invert_price_feed: bool,
+        max_staleness: u64
     ) -> Result<SwapEnv, Box<dyn std::error::Error>> {
         let relayer_authority_kp = Keypair::new();
         let price_feed = Pubkey::new_unique();
@@ -265,7 +266,7 @@ mod tests {
                 },
                 oracle,
                 max_slippage_bps: 123,
-                max_staleness: 100,
+                max_staleness,
                 input_mint_decimals: 6,
                 output_mint_decimals: 6,
                 expiry_timestamp,
@@ -274,7 +275,7 @@ mod tests {
             }),
             &InitializeArgs::AtomicSwap {
                 max_slippage_bps: 123,
-                max_staleness: 100,
+                max_staleness,
                 expiry_timestamp,
                 oracle_price_inverted: invert_price_feed,
             },
@@ -322,6 +323,7 @@ mod tests {
             &pc_token_program,
             None,
             false,
+            100
         )?;
 
         // Check that integration after init.
@@ -373,6 +375,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let _integration =
@@ -619,6 +622,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             invert_price_feed,
+            100
         )?;
 
         let _integration =
@@ -730,6 +734,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let borrow_amount = 100;
@@ -802,6 +807,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let repay_amount = 300;
@@ -872,6 +878,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let borrow_amount = 100;
@@ -973,6 +980,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let borrow_amount = 100;
@@ -1078,6 +1086,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let borrow_amount = 100;
@@ -1205,6 +1214,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let borrow_amount = 5_00_000;
@@ -1460,6 +1470,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
+            100
         )?;
 
         let repay_amount = 30_000_000;
@@ -1548,6 +1559,74 @@ mod tests {
             0,
         );
         assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
+
+        Ok(())
+    }
+
+    #[test_case( spl_token::ID, spl_token::ID,  1; "Coin Token, PC Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, 100; "Coin Token, PC Token2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, 10000; "Coin Token2022, PC Token")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, 1000000; "Coin Token2022, PC Token2022")]
+    fn atomic_swap_oracle_staleness_checks(
+        coin_token_program: Pubkey,
+        pc_token_program: Pubkey,
+        max_staleness: u64
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &coin_token_program,
+            None,
+            &pc_token_program,
+            None,
+            false,
+            max_staleness
+        )?;
+
+        let borrow_amount = 100;
+        let repay_amount = 300;
+
+        // advance clock slot by 1, staleness check in atomic_swap_repay should throw error
+        let mut clock = svm.get_sysvar::<Clock>();
+        clock.slot += max_staleness + 1;
+        svm.set_sysvar(&clock);
+
+        let res = atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            borrow_amount,
+            repay_amount,
+            &swap_env.mint_authority,
+            borrow_amount,
+        );
+
+        // assert it always errors since oracle is stale
+        assert_custom_error(&res, 4, SvmAlmControllerErrors::StaleOraclePrice);
+
+        // Check that integration after swap.
+        let integration =
+            fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
+
+        // Check that integration staleness config is correct and unchanged
+        if let IntegrationConfig::AtomicSwap(cfg) =
+            &integration.config
+        {
+            assert_eq!(cfg.max_staleness, max_staleness);
+        } else {
+            assert!(false)
+        }
 
         Ok(())
     }
