@@ -29,6 +29,7 @@ mod tests {
     };
     use solana_client::rpc_client::RpcClient;
     use solana_sdk::{
+        clock::Clock,
         compute_budget::ComputeBudgetInstruction,
         instruction::{Instruction, InstructionError},
         pubkey::Pubkey,
@@ -382,6 +383,7 @@ mod tests {
 
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
         let init_ix = create_lz_bridge_initialize_integration_instruction(
             &authority.pubkey(),
             &controller_pk,
@@ -390,7 +392,7 @@ mod tests {
             IntegrationStatus::Active,
             rate_limit_slope,
             rate_limit_max_outflow,
-            false,
+            permit_liquidation,
             &LZ_USDS_OFT_PROGRAM_ID,
             &LZ_USDS_ESCROW,
             &destination_address,
@@ -412,10 +414,20 @@ mod tests {
             .expect("integration should exist")
             .unwrap();
 
+        let clock = svm.get_sysvar::<Clock>();
+
+        assert_eq!(integration.controller, controller_pk);
         assert_eq!(integration.status, IntegrationStatus::Active);
         assert_eq!(integration.rate_limit_slope, rate_limit_slope);
         assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow);
-        assert_eq!(integration.controller, controller_pk);
+        assert_eq!(
+            integration.rate_limit_outflow_amount_available,
+            rate_limit_max_outflow
+        );
+        assert_eq!(integration.rate_limit_remainder, 0);
+        assert_eq!(integration.permit_liquidation, permit_liquidation);
+        assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
+        assert_eq!(integration.last_refresh_slot, clock.slot);
 
         match integration.config {
             IntegrationConfig::LzBridge(c) => {
