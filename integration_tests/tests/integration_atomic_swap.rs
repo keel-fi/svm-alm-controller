@@ -1563,10 +1563,14 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID,  1; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, 100; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, 10000; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, 1000000; "Coin Token2022, PC Token2022")]
+    #[test_case( spl_token::ID, spl_token::ID, 1; "Coin Token, PC Token, max_staleness 1")]
+    #[test_case( spl_token::ID, spl_token::ID, 100000; "Coin Token, PC Token, max_staleness 100000")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, 1; "Coin Token, PC Token2022, max_staleness 1")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, 100000; "Coin Token, PC Token2022, max_staleness 100000")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, 1; "Coin Token2022, PC Token, max_staleness 1")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, 100000; "Coin Token2022, PC Token, max_staleness 100000")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, 1; "Coin Token2022, PC Token2022, max_staleness 1")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, 100000; "Coin Token2022, PC Token2022, max_staleness 100000")]
     fn atomic_swap_oracle_staleness_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1589,7 +1593,7 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        // advance clock slot by 1, staleness check in atomic_swap_repay should throw error
+        // Advance clock slot by max_stallenes + 1, staleness check in atomic_swap_repay should throw error
         let mut clock = svm.get_sysvar::<Clock>();
         clock.slot += max_staleness + 1;
         svm.set_sysvar(&clock);
@@ -1604,15 +1608,15 @@ mod tests {
             swap_env.coin_token_mint,
             swap_env.oracle,
             swap_env.price_feed,
-            swap_env.relayer_pc,   // payer_account_a
-            swap_env.relayer_coin, // payer_account_b
+            swap_env.relayer_pc,
+            swap_env.relayer_coin,
             borrow_amount,
             repay_amount,
             &swap_env.mint_authority,
             borrow_amount,
         );
 
-        // assert it always errors since oracle is stale
+        // Assert it always errors since oracle is stale
         assert_custom_error(&res, 4, SvmAlmControllerErrors::StaleOraclePrice);
 
         // Check that integration after swap.
