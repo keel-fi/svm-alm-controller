@@ -268,6 +268,20 @@ mod tests {
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidAccountData);
 
+        // Initialize Oracle account with unsupported oracle_type
+        let tx_result = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &nonce,
+            &new_feed,
+            1,
+            &mint,
+            &quote_mint,
+        );
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnsupportedOracleType);
+
         Ok(())
     }
 }
