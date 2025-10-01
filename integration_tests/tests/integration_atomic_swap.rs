@@ -129,7 +129,8 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        )?;
+        )
+        .map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(
             svm,
@@ -1424,7 +1425,8 @@ mod tests {
             0,
             &swap_env.coin_token_mint,
             &swap_env.pc_token_mint,
-        )?;
+        )
+        .map_err(|e| e.err.to_string())?;
         let init_ix = create_atomic_swap_initialize_integration_instruction(
             &swap_env.relayer_authority_kp.pubkey(),
             &swap_env.controller_pk,                 // controller
