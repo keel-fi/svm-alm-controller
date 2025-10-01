@@ -8,13 +8,14 @@ mod tests {
     use crate::{
         helpers::{
             assert::{assert_custom_error, assert_program_error},
-            lite_svm_with_programs,
+            lite_svm_with_programs, setup_test_controller, TestContext,
         },
         subs::{
-            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
+            airdrop_lamports, atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
             derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
             fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
-            initialize_reserve, mint_tokens, sync_reserve, transfer_tokens, ReserveKeys,
+            initialize_reserve, manage_controller, mint_tokens, sync_reserve, transfer_tokens,
+            ReserveKeys,
         },
     };
     use litesvm::LiteSVM;
@@ -1042,7 +1043,7 @@ mod tests {
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
-         // Expect failure when repaying multiple times
+        // Expect failure when repaying multiple times
         let txn = Transaction::new_signed_with_payer(
             &[
                 borrow_ix.clone(),
@@ -1083,7 +1084,7 @@ mod tests {
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [_refresh_ix, borrow_ix,  mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [_refresh_ix, borrow_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1548,6 +1549,101 @@ mod tests {
             0,
         );
         assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_atomic_swap_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &spl_token::ID,
+            None,
+            &spl_token::ID,
+            None,
+            false,
+        )?;
+
+        let freezer = Keypair::new();
+        let unfreezer = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &unfreezer.pubkey(), 1_000_000_000)?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &swap_env.controller_pk,
+            &swap_env.relayer_authority_kp, // payer
+            &swap_env.relayer_authority_kp, // calling authority
+            &freezer.pubkey(),              // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        // Create a permission for unfreezer (can only unfreeze)
+        let _unfreezer_permission_pk = manage_permission(
+            &mut svm,
+            &swap_env.controller_pk,
+            &swap_env.relayer_authority_kp, // payer
+            &swap_env.relayer_authority_kp, // calling authority
+            &unfreezer.pubkey(),            // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            false, // can_freeze,
+            true,  // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        manage_controller(
+            &mut svm,
+            &swap_env.controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        let res = atomic_swap_borrow_repay(
+            &mut svm,
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            100,
+            300,
+            &swap_env.mint_authority,
+            0,
+        );
+
+        assert_custom_error(
+            &res,
+            1,
+            SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction,
+        );
 
         Ok(())
     }
