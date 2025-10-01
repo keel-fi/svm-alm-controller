@@ -707,6 +707,82 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_lz_oft_init_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+        let (controller_pk, authority, _reserve_keys) = setup_env_sans_integration(&mut svm)?;
+
+        let freezer = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &authority,          // payer
+            &authority,          // calling authority
+            &freezer.pubkey(),   // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_lz_bridge_initialize_integration_instruction(
+            &authority.pubkey(),
+            &controller_pk,
+            &authority.pubkey(),
+            "ETH USDS LZ Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &LZ_USDS_ESCROW,
+            &destination_address,
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
+
+        assert_custom_error(
+            &tx_res,
+            0,
+            SvmAlmControllerErrors::ControllerFrozen,
+        );
+
+        Ok(())
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_lz_oft_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();

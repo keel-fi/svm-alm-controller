@@ -8,7 +8,7 @@ mod tests {
     use crate::{
         helpers::{
             assert::{assert_custom_error, assert_program_error},
-            lite_svm_with_programs, setup_test_controller, TestContext,
+            lite_svm_with_programs,
         },
         subs::{
             airdrop_lamports, atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
@@ -1549,6 +1549,166 @@ mod tests {
             0,
         );
         assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_atomic_swap_init_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let relayer_authority_kp = Keypair::new();
+        let price_feed = Pubkey::new_unique();
+        let nonce = Pubkey::new_unique();
+        let coin_token_mint_kp = Keypair::new();
+        let coin_token_mint = coin_token_mint_kp.pubkey();
+        let pc_token_mint_kp = Keypair::new();
+        let pc_token_mint = pc_token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+
+        svm.airdrop(&relayer_authority_kp.pubkey(), 100_000_000)
+            .unwrap();
+
+        // Initialize price feed and oracle.
+        let update_slot = 1000_000;
+        svm.warp_to_slot(update_slot);
+        set_price_feed(&mut svm, &price_feed, 1_000_000_000_000)?; // $1
+
+        initialize_mint(
+            &mut svm,
+            &relayer_authority_kp,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(coin_token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+        initialize_mint(
+            &mut svm,
+            &relayer_authority_kp,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(pc_token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        // Set up a controller and relayer with swap capabilities.
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &relayer_authority_kp,
+            &relayer_authority_kp,
+            ControllerStatus::Active,
+            321u16, // Id
+        )?;
+        initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &relayer_authority_kp,
+            &nonce,
+            &price_feed,
+            0,
+            &pc_token_mint,
+            &coin_token_mint,
+        )?;
+        let _ = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &relayer_authority_kp,          // payer
+            &relayer_authority_kp,          // calling authority
+            &relayer_authority_kp.pubkey(), // subject authority
+            PermissionStatus::Active,
+            true,  // can_execute_swap,
+            true,  // can_manage_permissions,
+            true,  // can_invoke_external_transfer,
+            false, // can_reallocate,
+            false, // can_freeze,
+            false, // can_unfreeze,
+            true,  // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        let freezer = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &relayer_authority_kp, // payer
+            &relayer_authority_kp, // calling authority
+            &freezer.pubkey(),     // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to initialize an AtomicSwap integration
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let oracle = derive_oracle_pda(&nonce);
+        let res = initialize_integration(
+            &mut svm,
+            &controller_pk,
+            &relayer_authority_kp, // payer
+            &relayer_authority_kp, // authority
+            "Pc to Coin swap",
+            IntegrationStatus::Active,
+            1_000_000, // rate_limit_slope
+            1_000_000, // rate_limit_max_outflow
+            false,     // permit_liquidation
+            &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
+                input_token: pc_token_mint,
+                output_token: coin_token_mint,
+                oracle,
+                max_slippage_bps: 123,
+                max_staleness: 100,
+                input_mint_decimals: 6,
+                output_mint_decimals: 6,
+                expiry_timestamp,
+                oracle_price_inverted: false,
+                padding: [0u8; 107],
+            }),
+            &InitializeArgs::AtomicSwap {
+                max_slippage_bps: 123,
+                max_staleness: 100,
+                expiry_timestamp,
+                oracle_price_inverted: false,
+            },
+            true,
+        );
+
+        match res {
+            Err(failed_metadata) => {
+                assert_eq!(
+                    failed_metadata.err,
+                    TransactionError::InstructionError(
+                        0,
+                        InstructionError::Custom(SvmAlmControllerErrors::ControllerFrozen as u32)
+                    )
+                );
+            }
+            Ok(_) => panic!("Expected initialization to fail with ControllerFrozen error"),
+        }
 
         Ok(())
     }

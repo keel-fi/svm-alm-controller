@@ -440,6 +440,122 @@ mod tests {
     }
 
     #[test]
+    fn test_spl_token_external_init_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let external = Keypair::new();
+
+        // Initialize a mint
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+
+        let external_ata =
+            get_associated_token_address_with_program_id(&external.pubkey(), &mint, &spl_token::ID);
+
+        let _authority_ata =
+            initialize_ata(&mut svm, &super_authority, &super_authority.pubkey(), &mint)?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &mint,
+            &super_authority.pubkey(),
+            1_000_000,
+        )?;
+
+        // Initialize a reserve for the token
+        let _reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Active,
+            1_000_000_000, // rate_limit_slope
+            1_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        let freezer = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &freezer.pubkey(),        // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "DAO Treasury",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &spl_token::ID,
+            &mint,
+            &external.pubkey(),
+            &external_ata,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
+
+        assert_custom_error(
+            &tx_res,
+            0,
+            SvmAlmControllerErrors::ControllerFrozen,
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_spl_token_external_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,

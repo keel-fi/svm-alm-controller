@@ -435,6 +435,125 @@ mod tests {
     }
 
     #[test]
+    fn test_cctp_bridge_init_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        // Create an ATA for the USDC account
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+        )?;
+
+        // Cheat to give the authority some USDC
+        edit_ata_amount(
+            &mut svm,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            1_000_000_000,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let _usdc_reserve_pk = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY, // mint
+            &super_authority,        // payer
+            &super_authority,        // authority
+            ReserveStatus::Active,
+            1_000_000_000_000, // rate_limit_slope
+            1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        // Transfer funds into the reserve
+        transfer_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &controller_authority,
+            500_000_000,
+        )?;
+
+        let freezer = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
+
+        // Create a permission for freezer (can only freeze)
+        let _freezer_permission_pk = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &freezer.pubkey(),        // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        )?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &freezer, // payer
+            &freezer, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+
+        let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "ETH USDC CCTP Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
+
+        assert_custom_error(
+            &tx_res,
+            0,
+            SvmAlmControllerErrors::ControllerFrozen,
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_cctp_bridge_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
