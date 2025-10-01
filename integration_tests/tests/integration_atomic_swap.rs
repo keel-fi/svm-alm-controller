@@ -1617,9 +1617,9 @@ mod tests {
         );
 
         // Assert it always errors since oracle is stale
+        // Repay instruction is at index 4
         assert_custom_error(&res, 4, SvmAlmControllerErrors::StaleOraclePrice);
 
-        // Check that integration after swap.
         let integration =
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
 
