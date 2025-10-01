@@ -1130,6 +1130,23 @@ mod tests {
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
+        // Expect failure when mutliple borrow/repays in one TX
+        let txn = Transaction::new_signed_with_payer(
+            &[
+                borrow_ix.clone(),
+                mint_ix.clone(),
+                repay_ix.clone(),
+                borrow_ix.clone(),
+                mint_ix.clone(),
+                repay_ix.clone(),
+            ],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
+            svm.latest_blockhash(),
+        );
+        let res = svm.send_transaction(txn);
+        assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
+
         Ok(())
     }
 
