@@ -18,9 +18,7 @@ use svm_alm_controller_client::generated::types::{
 mod tests {
 
     use solana_sdk::{
-        instruction::InstructionError,
-        signature::Keypair,
-        transaction::{Transaction, TransactionError},
+        clock::Clock, instruction::InstructionError, signature::Keypair, transaction::{Transaction, TransactionError}
     };
     use svm_alm_controller_client::{
         create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
@@ -89,12 +87,15 @@ mod tests {
             500_000_000,
         )?;
 
+        let clock = svm.get_sysvar::<Clock>();
+
         // Serialize the destination address appropriately
         let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
         let destination_address = evm_address_to_solana_pubkey(evm_address);
 
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
 
         let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
             &super_authority.pubkey(),
@@ -104,7 +105,7 @@ mod tests {
             IntegrationStatus::Active,
             rate_limit_slope,
             rate_limit_max_outflow,
-            false,
+            permit_liquidation,
             &USDC_TOKEN_MINT_PUBKEY,
             &destination_address,
             CCTP_REMOTE_DOMAIN_ETH,
@@ -123,10 +124,15 @@ mod tests {
             .expect("integration should exist")
             .unwrap();
 
+        assert_eq!(integration.controller, controller_pk);
         assert_eq!(integration.status, IntegrationStatus::Active);
         assert_eq!(integration.rate_limit_slope, rate_limit_slope);
         assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow);
-        assert_eq!(integration.controller, controller_pk);
+        assert_eq!(integration.rate_limit_outflow_amount_available, rate_limit_max_outflow);
+        assert_eq!(integration.rate_limit_remainder, 0);
+        assert_eq!(integration.permit_liquidation, permit_liquidation);
+        assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
+        assert_eq!(integration.last_refresh_slot, clock.slot);
 
         match integration.config {
             IntegrationConfig::CctpBridge(c) => {

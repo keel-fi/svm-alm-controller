@@ -28,15 +28,18 @@ mod tests {
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::generated::types::{
-        AtomicSwapConfig, ControllerStatus, InitializeArgs, IntegrationConfig, IntegrationState,
-        IntegrationStatus, PermissionStatus, ReserveStatus,
+    use svm_alm_controller_client::{
+        create_atomic_swap_initialize_integration_instruction,
+        generated::types::{
+            ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus,
+            PermissionStatus, ReserveStatus,
+        },
     };
 
     use test_case::test_case;
 
     use crate::subs::{
-        initialize_contoller, initialize_integration, manage_permission,
+        initialize_contoller, manage_permission,
         oracle::{derive_oracle_pda, initialize_oracle, set_price_feed},
     };
 
@@ -69,6 +72,7 @@ mod tests {
         pc_token_transfer_fee: Option<u16>,
         invert_price_feed: bool,
         max_staleness: u64,
+        skip_initialize_integration: bool,
     ) -> Result<SwapEnv, Box<dyn std::error::Error>> {
         let relayer_authority_kp = Keypair::new();
         let price_feed = Pubkey::new_unique();
@@ -243,46 +247,52 @@ mod tests {
 
         // Initialize an AtomicSwap integration
         let oracle = derive_oracle_pda(&nonce);
-        let atomic_swap_integration_pk = initialize_integration(
-            svm,
-            &controller_pk,
-            &relayer_authority_kp, // payer
-            &relayer_authority_kp, // authority
-            "Pc to Coin swap",
-            IntegrationStatus::Active,
-            1_000_000, // rate_limit_slope
-            1_000_000, // rate_limit_max_outflow
-            false,     // permit_liquidation
-            &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
-                // Oracle is static, so we must change which is input vs output token
-                input_token: if invert_price_feed {
-                    coin_token_mint
-                } else {
-                    pc_token_mint
-                },
-                output_token: if invert_price_feed {
-                    pc_token_mint
-                } else {
-                    coin_token_mint
-                },
-                oracle,
-                max_slippage_bps: 123,
-                max_staleness,
-                input_mint_decimals: 6,
-                output_mint_decimals: 6,
+        let atomic_swap_integration_pk = if !skip_initialize_integration {
+            let rate_limit_slope = 1_000_000;
+            let rate_limit_max_outflow = 1_000_000;
+            let max_slippage = 123;
+            let permit_liquidation = false;
+            let input_token = if invert_price_feed {
+                coin_token_mint
+            } else {
+                pc_token_mint
+            };
+            let output_token = if invert_price_feed {
+                pc_token_mint
+            } else {
+                coin_token_mint
+            };
+            let init_ix = create_atomic_swap_initialize_integration_instruction(
+                &relayer_authority_kp.pubkey(),
+                &controller_pk,                 // controller
+                &relayer_authority_kp.pubkey(), // authority
+                "Pc to Coin swap",
+                IntegrationStatus::Active,
+                rate_limit_slope,       // rate_limit_slope
+                rate_limit_max_outflow, // rate_limit_max_outflow
+                permit_liquidation,     // permit_liquidation
+                &input_token,
+                6,             // input_mint_decimals
+                &output_token, // output_token
+                6,             // output_mint_decimals
+                &oracle,       // oracle
+                max_staleness, // max_staleness
                 expiry_timestamp,
-                oracle_price_inverted: invert_price_feed,
-                padding: [0u8; 107],
-            }),
-            &InitializeArgs::AtomicSwap {
-                max_slippage_bps: 123,
-                max_staleness,
-                expiry_timestamp,
-                oracle_price_inverted: invert_price_feed,
-            },
-            false,
-        )
-        .map_err(|e| e.err.to_string())?;
+                max_slippage,      // max_slippage_bps
+                invert_price_feed, // oracle_price_inverted
+            );
+            let integration_pubkey = init_ix.accounts[5].pubkey;
+            svm.send_transaction(Transaction::new_signed_with_payer(
+                &[init_ix],
+                Some(&relayer_authority_kp.pubkey()),
+                &[&relayer_authority_kp],
+                svm.latest_blockhash(),
+            ))
+            .map_err(|e| e.err.to_string())?;
+            integration_pubkey
+        } else {
+            Pubkey::default()
+        };
 
         Ok(SwapEnv {
             relayer_authority_kp,
@@ -315,7 +325,8 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
-        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        // note: warped to slot: 1_000_000
+        let expiry_timestamp = 1_000_000 + 1000;
         let swap_env = setup_integration_env(
             &mut svm,
             expiry_timestamp,
@@ -325,11 +336,58 @@ mod tests {
             None,
             false,
             100,
+            true,
         )?;
+        let clock = svm.get_sysvar::<Clock>();
+
+        let rate_limit_slope = 1_000_000;
+        let rate_limit_max_outflow = 1_000_000;
+        let max_staleness = 100;
+        let max_slippage = 123;
+        let permit_liquidation = true;
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
+            &swap_env.relayer_authority_kp.pubkey(),
+            &swap_env.controller_pk,                 // controller
+            &swap_env.relayer_authority_kp.pubkey(), // authority
+            "Pc to Coin swap",
+            IntegrationStatus::Active,
+            rate_limit_slope,          // rate_limit_slope
+            rate_limit_max_outflow,    // rate_limit_max_outflow
+            permit_liquidation,        // permit_liquidation
+            &swap_env.pc_token_mint,   // input_token
+            6,                         // input_mint_decimals
+            &swap_env.coin_token_mint, // output_token
+            6,                         // output_mint_decimals
+            &swap_env.oracle,          // oracle
+            max_staleness,             // max_staleness
+            expiry_timestamp,
+            max_slippage, // max_slippage_bps
+            false,        // oracle_price_inverted
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
 
         // Check that integration after init.
-        let integration =
-            fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
+        let integration = fetch_integration_account(&mut svm, &integration_pubkey)?.unwrap();
+
+        assert_eq!(integration.controller, swap_env.controller_pk);
+        assert_eq!(integration.status, IntegrationStatus::Active);
+        assert_eq!(integration.rate_limit_slope, rate_limit_slope);
+        assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow);
+        assert_eq!(
+            integration.rate_limit_outflow_amount_available,
+            rate_limit_max_outflow
+        );
+        assert_eq!(integration.rate_limit_remainder, 0);
+        assert_eq!(integration.permit_liquidation, permit_liquidation);
+        assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
+        assert_eq!(integration.last_refresh_slot, clock.slot);
 
         if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
             (&integration.config, integration.state)
@@ -337,8 +395,8 @@ mod tests {
             assert_eq!(cfg.input_token, swap_env.pc_token_mint);
             assert_eq!(cfg.output_token, swap_env.coin_token_mint);
             assert_eq!(cfg.oracle, swap_env.oracle);
-            assert_eq!(cfg.max_slippage_bps, 123);
-            assert_eq!(cfg.max_staleness, 100);
+            assert_eq!(cfg.max_slippage_bps, max_slippage);
+            assert_eq!(cfg.max_staleness, max_staleness);
             assert_eq!(cfg.input_mint_decimals, 6);
             assert_eq!(cfg.output_mint_decimals, 6);
             assert_eq!(cfg.expiry_timestamp, expiry_timestamp);
@@ -377,6 +435,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let _integration =
@@ -624,6 +683,7 @@ mod tests {
             pc_token_transfer_fee,
             invert_price_feed,
             100,
+            false,
         )?;
 
         let _integration =
@@ -736,6 +796,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let borrow_amount = 100;
@@ -809,6 +870,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let repay_amount = 300;
@@ -880,6 +942,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let borrow_amount = 100;
@@ -982,6 +1045,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let borrow_amount = 100;
@@ -1088,6 +1152,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let borrow_amount = 100;
@@ -1152,36 +1217,32 @@ mod tests {
             &spl_token::ID,
             None,
         )?;
-        let tx_result = initialize_integration(
-            &mut svm,
-            &swap_env.controller_pk,
-            &swap_env.relayer_authority_kp, // payer
-            &swap_env.relayer_authority_kp, // authority
+
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
+            &swap_env.relayer_authority_kp.pubkey(),
+            &swap_env.controller_pk,                 // controller
+            &swap_env.relayer_authority_kp.pubkey(), // authority
             "Pc to Coin swap",
             IntegrationStatus::Active,
             1_000_000, // rate_limit_slope
             1_000_000, // rate_limit_max_outflow
-            false,
-            &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
-                input_token: mint_1_pubkey,
-                output_token: mint_2_pubkey,
-                oracle,
-                max_slippage_bps: 123,
-                max_staleness: 100,
-                input_mint_decimals: 6,
-                output_mint_decimals: 6,
-                expiry_timestamp,
-                oracle_price_inverted: false,
-                padding: [0u8; 107],
-            }),
-            &InitializeArgs::AtomicSwap {
-                max_slippage_bps: 123,
-                max_staleness: 100,
-                expiry_timestamp,
-                oracle_price_inverted: false,
-            },
-            true,
+            false,     // permit_liquidation
+            &mint_1_pubkey,
+            6,              // input_mint_decimals
+            &mint_2_pubkey, // output_token
+            6,              // output_mint_decimals
+            &oracle,        // oracle
+            123,            // max_staleness
+            expiry_timestamp,
+            100,   // max_slippage_bps
+            false, // oracle_price_inverted
         );
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        ));
 
         assert_eq!(
             tx_result.err().unwrap().err,
@@ -1216,6 +1277,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let borrow_amount = 5_00_000;
@@ -1365,36 +1427,32 @@ mod tests {
             &swap_env.pc_token_mint,
         )
         .map_err(|e| e.err.to_string())?;
-        let integration_pk2 = initialize_integration(
-            &mut svm,
-            &swap_env.controller_pk,
-            &swap_env.relayer_authority_kp, // payer
-            &swap_env.relayer_authority_kp, // authority
-            "Coin to PC swap",
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
+            &swap_env.relayer_authority_kp.pubkey(),
+            &swap_env.controller_pk,                 // controller
+            &swap_env.relayer_authority_kp.pubkey(), // authority
+            "Pc to Coin swap",
             IntegrationStatus::Active,
-            1_000_000_000, // rate_limit_slope
-            1_000_000_000, // rate_limit_max_outflow
-            false,         // permit_liquidation
-            &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
-                input_token: swap_env.coin_token_mint,
-                output_token: swap_env.pc_token_mint,
-                oracle: oracle_2,
-                max_slippage_bps: 123,
-                max_staleness: 100,
-                input_mint_decimals: 6,
-                output_mint_decimals: 6,
-                expiry_timestamp,
-                oracle_price_inverted: false,
-                padding: [0u8; 107],
-            }),
-            &InitializeArgs::AtomicSwap {
-                max_slippage_bps: 123,
-                max_staleness: 100,
-                expiry_timestamp,
-                oracle_price_inverted: false,
-            },
-            false,
-        )
+            1_000_000, // rate_limit_slope
+            1_000_000, // rate_limit_max_outflow
+            false,     // permit_liquidation
+            &swap_env.coin_token_mint,
+            6,                       // input_mint_decimals
+            &swap_env.pc_token_mint, // output_token
+            6,                       // output_mint_decimals
+            &oracle_2,               // oracle
+            123,                     // max_staleness
+            expiry_timestamp,
+            100,   // max_slippage_bps
+            false, // oracle_price_inverted
+        );
+        let integration_pk2 = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        ))
         .map_err(|e| e.err.to_string())?;
 
         let borrow_amount = 100;
@@ -1473,6 +1531,7 @@ mod tests {
             pc_token_transfer_fee,
             false,
             100,
+            false,
         )?;
 
         let repay_amount = 30_000_000;
@@ -1501,36 +1560,32 @@ mod tests {
         assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
 
         // Initialize a different AtomicSwap integration with higher rate limit than reserve.
-        let integration_pk2 = initialize_integration(
-            &mut svm,
-            &swap_env.controller_pk,
-            &swap_env.relayer_authority_kp, // payer
-            &swap_env.relayer_authority_kp, // authority
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
+            &swap_env.relayer_authority_kp.pubkey(),
+            &swap_env.controller_pk,                 // controller
+            &swap_env.relayer_authority_kp.pubkey(), // authority
             "Pc to Coin swap",
             IntegrationStatus::Active,
             1_000_000_000,                             // rate_limit_slope
             reserve_pc_pre.rate_limit_max_outflow * 2, // rate_limit_max_outflow
             false,                                     // permit_liquidation
-            &IntegrationConfig::AtomicSwap(AtomicSwapConfig {
-                input_token: swap_env.pc_token_mint,
-                output_token: swap_env.coin_token_mint,
-                oracle: swap_env.oracle,
-                max_slippage_bps: 100,
-                max_staleness: 100,
-                input_mint_decimals: 6,
-                output_mint_decimals: 6,
-                expiry_timestamp,
-                oracle_price_inverted: false,
-                padding: [0u8; 107],
-            }),
-            &InitializeArgs::AtomicSwap {
-                max_slippage_bps: 100,
-                max_staleness: 100,
-                expiry_timestamp,
-                oracle_price_inverted: false,
-            },
-            false,
-        )
+            &swap_env.pc_token_mint,
+            6, // input_mint_decimals
+            &swap_env.coin_token_mint,
+            6,                // output_mint_decimals
+            &swap_env.oracle, // oracle
+            123,              // max_staleness
+            expiry_timestamp,
+            100,   // max_slippage_bps
+            false, // oracle_price_inverted
+        );
+        let integration_pk2 = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        ))
         .map_err(|e| e.err.to_string())?;
 
         // Transfer funds into the reserve
@@ -1590,6 +1645,7 @@ mod tests {
             None,
             false,
             max_staleness,
+            false,
         )?;
 
         let borrow_amount = 100;
