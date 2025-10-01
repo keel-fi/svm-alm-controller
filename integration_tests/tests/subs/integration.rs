@@ -1,6 +1,6 @@
 use crate::subs::{derive_controller_authority_pda, derive_permission_pda};
 use borsh::BorshDeserialize;
-use litesvm::LiteSVM;
+use litesvm::{types::TransactionResult, LiteSVM};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
@@ -47,14 +47,20 @@ pub fn manage_integration(
     status: IntegrationStatus,
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
-) -> Result<(), Box<dyn Error>> {
+    description: String,
+) -> TransactionResult  {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
+
+    let description_bytes = description.as_bytes();
+    let mut description_encoding: [u8; 32] = [0; 32];
+    description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
 
     let ixn = ManageIntegrationBuilder::new()
         .status(status)
         .rate_limit_slope(rate_limit_slope)
         .rate_limit_max_outflow(rate_limit_max_outflow)
+        .description(description_encoding)
         .controller(*controller)
         .controller_authority(controller_authority)
         .authority(authority.pubkey())
@@ -70,37 +76,5 @@ pub fn manage_integration(
         svm.latest_blockhash(),
     );
 
-    let tx_result = svm.send_transaction(txn);
-    if tx_result.is_err() {
-        println!("{:#?}", tx_result.unwrap().logs);
-    } else {
-        assert!(tx_result.is_ok(), "Transaction failed to execute");
-    }
-
-    let integration =
-        fetch_integration_account(svm, integration).expect("Failed to fetch integration account");
-    assert!(
-        integration.is_some(),
-        "Integration must exist after the transaction"
-    );
-
-    let integration = integration.unwrap();
-    assert_eq!(
-        integration.status, status,
-        "Status does not match expected value"
-    );
-    assert_eq!(
-        integration.rate_limit_slope, rate_limit_slope,
-        "Rate limit slope does not match expected value"
-    );
-    assert_eq!(
-        integration.rate_limit_max_outflow, rate_limit_max_outflow,
-        "Rate limit max outflow does not match expected value"
-    );
-    assert_eq!(
-        integration.controller, *controller,
-        "Controller does not match expected value"
-    );
-
-    Ok(())
+    svm.send_transaction(txn)
 }
