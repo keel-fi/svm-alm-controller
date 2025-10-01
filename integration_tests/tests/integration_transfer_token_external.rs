@@ -23,6 +23,7 @@ mod tests {
 
     use super::*;
     use solana_sdk::{
+        clock::Clock,
         instruction::InstructionError,
         transaction::{Transaction, TransactionError},
     };
@@ -86,6 +87,7 @@ mod tests {
 
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
         let init_ix = create_spl_token_external_initialize_integration_instruction(
             &super_authority.pubkey(),
             &controller_pk,
@@ -94,7 +96,7 @@ mod tests {
             IntegrationStatus::Active,
             rate_limit_slope,
             rate_limit_max_outflow,
-            false,
+            permit_liquidation,
             &token_program,
             &mint,
             &external.pubkey(),
@@ -109,14 +111,24 @@ mod tests {
         ))
         .map_err(|e| e.err.to_string())?;
 
+        let clock = svm.get_sysvar::<Clock>();
+
         let integration = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
 
+        assert_eq!(integration.controller, controller_pk);
         assert_eq!(integration.status, IntegrationStatus::Active);
         assert_eq!(integration.rate_limit_slope, rate_limit_slope);
         assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow);
-        assert_eq!(integration.controller, controller_pk);
+        assert_eq!(
+            integration.rate_limit_outflow_amount_available,
+            rate_limit_max_outflow
+        );
+        assert_eq!(integration.rate_limit_remainder, 0);
+        assert_eq!(integration.permit_liquidation, permit_liquidation);
+        assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
+        assert_eq!(integration.last_refresh_slot, clock.slot);
 
         match integration.config {
             IntegrationConfig::SplTokenExternal(c) => {
