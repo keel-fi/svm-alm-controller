@@ -10,6 +10,7 @@ pub mod assert;
 pub mod cctp;
 pub mod constants;
 pub mod lite_svm;
+pub mod lz_oft;
 pub mod macros;
 pub mod raydium;
 pub mod spl;
