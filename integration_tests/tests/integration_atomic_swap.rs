@@ -68,7 +68,7 @@ mod tests {
         pc_token_program: &Pubkey,
         pc_token_transfer_fee: Option<u16>,
         invert_price_feed: bool,
-        max_staleness: u64
+        max_staleness: u64,
     ) -> Result<SwapEnv, Box<dyn std::error::Error>> {
         let relayer_authority_kp = Keypair::new();
         let price_feed = Pubkey::new_unique();
@@ -125,7 +125,8 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        )?;
+        )
+        .map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(
             svm,
@@ -323,7 +324,7 @@ mod tests {
             &pc_token_program,
             None,
             false,
-            100
+            100,
         )?;
 
         // Check that integration after init.
@@ -375,7 +376,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let _integration =
@@ -622,7 +623,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             invert_price_feed,
-            100
+            100,
         )?;
 
         let _integration =
@@ -734,7 +735,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let borrow_amount = 100;
@@ -807,7 +808,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let repay_amount = 300;
@@ -878,7 +879,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let borrow_amount = 100;
@@ -980,7 +981,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let borrow_amount = 100;
@@ -1050,7 +1051,7 @@ mod tests {
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
-         // Expect failure when repaying multiple times
+        // Expect failure when repaying multiple times
         let txn = Transaction::new_signed_with_payer(
             &[
                 borrow_ix.clone(),
@@ -1086,13 +1087,13 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let borrow_amount = 100;
         let repay_amount = 300;
 
-        let [_refresh_ix, borrow_ix,  mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
+        let [_refresh_ix, borrow_ix, mint_ix, _burn_ix, repay_ix] = atomic_swap_borrow_repay_ixs(
             &swap_env.relayer_authority_kp,
             swap_env.controller_pk,
             swap_env.permission_pda,
@@ -1214,7 +1215,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let borrow_amount = 5_00_000;
@@ -1362,7 +1363,8 @@ mod tests {
             0,
             &swap_env.coin_token_mint,
             &swap_env.pc_token_mint,
-        )?;
+        )
+        .map_err(|e| e.err.to_string())?;
         let integration_pk2 = initialize_integration(
             &mut svm,
             &swap_env.controller_pk,
@@ -1470,7 +1472,7 @@ mod tests {
             &pc_token_program,
             pc_token_transfer_fee,
             false,
-            100
+            100,
         )?;
 
         let repay_amount = 30_000_000;
@@ -1574,7 +1576,7 @@ mod tests {
     fn atomic_swap_oracle_staleness_checks(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
-        max_staleness: u64
+        max_staleness: u64,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -1587,7 +1589,7 @@ mod tests {
             &pc_token_program,
             None,
             false,
-            max_staleness
+            max_staleness,
         )?;
 
         let borrow_amount = 100;
@@ -1624,9 +1626,7 @@ mod tests {
             fetch_integration_account(&mut svm, &swap_env.atomic_swap_integration_pk)?.unwrap();
 
         // Check that integration staleness config is correct and unchanged
-        if let IntegrationConfig::AtomicSwap(cfg) =
-            &integration.config
-        {
+        if let IntegrationConfig::AtomicSwap(cfg) = &integration.config {
             assert_eq!(cfg.max_staleness, max_staleness);
         } else {
             assert!(false)
