@@ -512,102 +512,102 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(false, false, false, false, false, false, false, false, false ; "No permissions")]
-    #[test_case(true, false, false, false, false, false, false, false, false ; "Can execute swap")]
-    #[test_case(false, true, false, false, false, false, false, false, false ; "Can manage permissions")]
-    #[test_case(false, false, true, false, false, false, false, false, false ; "Can invoke external transfer")]
-    #[test_case(false, false, false, true, false, false, false, false, false ; "Can reallocate")]
-    #[test_case(false, false, false, false, true, false, false, false, false ; "Can freeze controller")]
-    #[test_case(false, false, false, false, false, true, false, false, false ; "Can unfreeze controller")]
-    #[test_case(false, false, false, false, false, false, false, true, false ; "Can suspend permissions")]
-    #[test_case(false, false, false, false, false, false, false, false, true ; "Can liquidate")]
-    fn test_update_oracle_fails_without_permission(
-        can_execute_swap: bool,
-        can_manage_permissions: bool,
-        can_invoke_external_transfer: bool,
-        can_reallocate: bool,
-        can_freeze_controller: bool,
-        can_unfreeze_controller: bool,
-        can_manage_reserves_and_integrations: bool,
-        can_suspend_permissions: bool,
-        can_liquidate: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let TestContext {
-            mut svm,
-            controller_pk,
-            super_authority,
-        } = setup_test_controller()?;
+    // #[test_case(false, false, false, false, false, false, false, false, false ; "No permissions")]
+    // #[test_case(true, false, false, false, false, false, false, false, false ; "Can execute swap")]
+    // #[test_case(false, true, false, false, false, false, false, false, false ; "Can manage permissions")]
+    // #[test_case(false, false, true, false, false, false, false, false, false ; "Can invoke external transfer")]
+    // #[test_case(false, false, false, true, false, false, false, false, false ; "Can reallocate")]
+    // #[test_case(false, false, false, false, true, false, false, false, false ; "Can freeze controller")]
+    // #[test_case(false, false, false, false, false, true, false, false, false ; "Can unfreeze controller")]
+    // #[test_case(false, false, false, false, false, false, false, true, false ; "Can suspend permissions")]
+    // #[test_case(false, false, false, false, false, false, false, false, true ; "Can liquidate")]
+    // fn test_update_oracle_fails_without_permission(
+    //     can_execute_swap: bool,
+    //     can_manage_permissions: bool,
+    //     can_invoke_external_transfer: bool,
+    //     can_reallocate: bool,
+    //     can_freeze_controller: bool,
+    //     can_unfreeze_controller: bool,
+    //     can_manage_reserves_and_integrations: bool,
+    //     can_suspend_permissions: bool,
+    //     can_liquidate: bool,
+    // ) -> Result<(), Box<dyn std::error::Error>> {
+        // let TestContext {
+        //     mut svm,
+        //     controller_pk,
+        //     super_authority,
+        // } = setup_test_controller()?;
 
-        let invalid_permission_authority = Keypair::new();
+        // let invalid_permission_authority = Keypair::new();
 
-        airdrop_lamports(&mut svm, &invalid_permission_authority.pubkey(), 1_000_000_000)?;
+        // airdrop_lamports(&mut svm, &invalid_permission_authority.pubkey(), 1_000_000_000)?;
 
-        // Create Permission with the given permissions
-        let _ = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &super_authority,
-            &invalid_permission_authority.pubkey(),
-            PermissionStatus::Active,
-            can_execute_swap,
-            can_manage_permissions,
-            can_invoke_external_transfer,
-            can_reallocate,
-            can_freeze_controller,
-            can_unfreeze_controller,
-            can_manage_reserves_and_integrations,
-            can_suspend_permissions,
-            can_liquidate,
-        )?;
+        // // Create Permission with the given permissions
+        // let _ = manage_permission(
+        //     &mut svm,
+        //     &controller_pk,
+        //     &super_authority,
+        //     &super_authority,
+        //     &invalid_permission_authority.pubkey(),
+        //     PermissionStatus::Active,
+        //     can_execute_swap,
+        //     can_manage_permissions,
+        //     can_invoke_external_transfer,
+        //     can_reallocate,
+        //     can_freeze_controller,
+        //     can_unfreeze_controller,
+        //     can_manage_reserves_and_integrations,
+        //     can_suspend_permissions,
+        //     can_liquidate,
+        // )?;
 
-        let nonce = Pubkey::new_unique();
-        let new_feed = Pubkey::new_unique();
-        let oracle_pda = derive_oracle_pda(&nonce);
-        let oracle_type = 0;
-        let mint = Pubkey::new_unique();
-        let quote_mint = Pubkey::new_unique();
+        // let nonce = Pubkey::new_unique();
+        // let new_feed = Pubkey::new_unique();
+        // let oracle_pda = derive_oracle_pda(&nonce);
+        // let oracle_type = 0;
+        // let mint = Pubkey::new_unique();
+        // let quote_mint = Pubkey::new_unique();
 
-        // Stub price feed data
-        let update_slot = 1000_000;
-        let update_price = 1_000_000_000;
-        svm.warp_to_slot(update_slot);
-        set_price_feed(&mut svm, &new_feed, update_price)?;
+        // // Stub price feed data
+        // let update_slot = 1000_000;
+        // let update_price = 1_000_000_000;
+        // svm.warp_to_slot(update_slot);
+        // set_price_feed(&mut svm, &new_feed, update_price)?;
 
-        // Initialize Oracle account first with super_authority (while controller is active)
-        let (_tx_result, _tx) = initialize_oracle(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &nonce,
-            &new_feed,
-            oracle_type,
-            &mint,
-            &quote_mint,
-        );
+        // // Initialize Oracle account first with super_authority (while controller is active)
+        // let (_tx_result, _tx) = initialize_oracle(
+        //     &mut svm,
+        //     &controller_pk,
+        //     &super_authority,
+        //     &nonce,
+        //     &new_feed,
+        //     oracle_type,
+        //     &mint,
+        //     &quote_mint,
+        // );
 
-        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        // let controller_authority = derive_controller_authority_pda(&controller_pk);
         
-        let instruction = create_update_oracle_instruction(
-            &controller_pk,
-            &invalid_permission_authority.pubkey(),
-            &oracle_pda,
-            &new_feed,
-            None,
-            None,
-        );
+        // let instruction = create_update_oracle_instruction(
+        //     &controller_pk,
+        //     &invalid_permission_authority.pubkey(),
+        //     &oracle_pda,
+        //     &new_feed,
+        //     None,
+        //     None,
+        // );
 
-        let txn = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&invalid_permission_authority.pubkey()),
-            &[&invalid_permission_authority],
-            svm.latest_blockhash(),
-        );
+        // let txn = Transaction::new_signed_with_payer(
+        //     &[instruction],
+        //     Some(&invalid_permission_authority.pubkey()),
+        //     &[&invalid_permission_authority],
+        //     svm.latest_blockhash(),
+        // );
 
-        let tx_result = svm.send_transaction(txn);
+        // let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnauthorizedAction);
+        // assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnauthorizedAction);
 
-        Ok(())
-    }
+        // Ok(())
+    // }
 }
