@@ -47,3 +47,11 @@ pub fn derive_reserve_pda(controller_pda: &Pubkey, mint: &Pubkey) -> Pubkey {
     );
     reserve_pda
 }
+
+pub fn derive_oracle_pda(nonce: &Pubkey) -> Pubkey {
+    let (controller_pda, _controller_bump) = Pubkey::find_program_address(
+        &[b"oracle", &nonce.to_bytes()],
+        &crate::SVM_ALM_CONTROLLER_ID,
+    );
+    controller_pda
+}

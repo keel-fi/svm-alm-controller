@@ -9,10 +9,21 @@ use svm_alm_controller_client::generated::accounts::Oracle;
 
 #[cfg(test)]
 mod tests {
-    use svm_alm_controller_client::generated::types::{ControllerStatus, FeedArgs};
+    use solana_sdk::transaction::Transaction;
+    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller_client::{
+        create_initialize_oracle_instruction, create_update_oracle_instruction,
+        generated::{
+            instructions::RefreshOracleBuilder,
+            types::{ControllerStatus, FeedArgs},
+        },
+    };
     use switchboard_on_demand::PRECISION;
 
-    use crate::subs::{initialize_contoller, manage_controller, manage_permission};
+    use crate::{
+        helpers::assert::assert_custom_error,
+        subs::{initialize_contoller, manage_controller, manage_permission},
+    };
     use svm_alm_controller_client::generated::types::PermissionStatus;
 
     use super::*;
@@ -172,8 +183,8 @@ mod tests {
         let _freezer_permission_pk = manage_permission(
             &mut svm,
             &controller_pk,
-            &authority,       // payer
-            &authority,       // calling authority
+            &authority,        // payer
+            &authority,        // calling authority
             &freezer.pubkey(), // subject authority
             PermissionStatus::Active,
             false, // can_execute_swap,
@@ -203,10 +214,9 @@ mod tests {
         let mint = Pubkey::new_unique();
         let quote_mint = Pubkey::new_unique();
 
-        let result = initialize_oracle(
-            &mut svm,
+        let instruction = create_initialize_oracle_instruction(
             &controller_pk,
-            &authority,
+            &authority.pubkey(),
             &nonce,
             &new_feed,
             oracle_type,
@@ -214,11 +224,15 @@ mod tests {
             &quote_mint,
         );
 
-        // TODO: check custom error
-        assert!(
-            result.is_err(),
-            "initialize_oracle should fail when controller is frozen"
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
         );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }
@@ -249,8 +263,8 @@ mod tests {
         let _freezer_permission_pk = manage_permission(
             &mut svm,
             &controller_pk,
-            &authority,       // payer
-            &authority,       // calling authority
+            &authority,        // payer
+            &authority,        // calling authority
             &freezer.pubkey(), // subject authority
             PermissionStatus::Active,
             false, // can_execute_swap,
@@ -271,7 +285,13 @@ mod tests {
         let mint = Pubkey::new_unique();
         let quote_mint = Pubkey::new_unique();
 
-        // Initialize Oracle account first (while controller is active)
+        // Stub price feed data
+        let update_slot = 1000_000;
+        let update_price = 1_000_000_000;
+        svm.warp_to_slot(update_slot);
+        set_price_feed(&mut svm, &new_feed, update_price)?;
+
+        // Initialize Oracle account
         initialize_oracle(
             &mut svm,
             &controller_pk,
@@ -293,22 +313,24 @@ mod tests {
         )?;
 
         // Try to update oracle when frozen - should fail
-        let new_feed2 = Pubkey::new_unique();
-        let result = update_oracle(
-            &mut svm,
+        let ixn = create_update_oracle_instruction(
             &controller_pk,
-            &authority,
+            &authority.pubkey(),
             &oracle_pda,
-            &new_feed2,
-            Some(FeedArgs { oracle_type }),
+            &new_feed,
             None,
+            Some(&authority2.pubkey()),
         );
 
-        // TODO: check custom error
-        assert!(
-            result.is_err(),
-            "update_oracle should fail when controller is frozen"
+        let txn = Transaction::new_signed_with_payer(
+            &[ixn],
+            Some(&authority.pubkey()),
+            &[&authority, &authority2],
+            svm.latest_blockhash(),
         );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }

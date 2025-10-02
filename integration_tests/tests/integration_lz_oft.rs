@@ -39,7 +39,9 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_lz_bridge_initialize_integration_instruction, derive_reserve_pda, generated::instructions::{PushBuilder, ResetLzPushInFlightBuilder}
+        create_lz_bridge_initialize_integration_instruction, create_manage_integration_instruction,
+        create_sync_integration_instruction, derive_reserve_pda,
+        generated::instructions::{PushBuilder, ResetLzPushInFlightBuilder},
     };
     use test_case::test_case;
 
@@ -55,8 +57,8 @@ mod tests {
             utils::get_program_return_data,
         },
         subs::{
-            derive_controller_authority_pda, derive_permission_pda,
-            fetch_integration_account, ReserveKeys,
+            derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
+            ReserveKeys,
         },
     };
 
@@ -878,22 +880,24 @@ mod tests {
             ControllerStatus::Frozen,
         )?;
 
-        // Try to manage integration when frozen - should fail
-        let result = crate::subs::integration::manage_integration(
-            &mut svm,
+        let instruction = create_manage_integration_instruction(
             &controller_pk,
+            &super_authority.pubkey(),
             &lz_usds_eth_bridge_integration_pk,
-            &super_authority,
             IntegrationStatus::Suspended,
             1000,
             2000,
         );
 
-        // TODO: check custom error
-        assert!(
-            result.is_err(),
-            "manage_integration should fail when controller is frozen"
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
         );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }
@@ -902,7 +906,7 @@ mod tests {
     async fn test_sync_integration_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
-        let (controller_pk, _lz_usds_eth_bridge_integration_pk, super_authority, _reserve_keys) =
+        let (controller_pk, lz_usds_eth_bridge_integration_pk, super_authority, _reserve_keys) =
             setup_env(&mut svm, false)?;
 
         let freezer = Keypair::new();
@@ -939,14 +943,21 @@ mod tests {
         )?;
 
         // Try to sync integration when frozen - should fail
-        // Note: sync_integration function is not available in the test helpers
-        // This test would verify that sync_integration fails when controller is frozen
-        // let result = sync_integration(...)
-        // TODO: check custom error
-        // assert!(
-        //     result.is_err(),
-        //     "sync_integration should fail when controller is frozen"
-        // );
+        let instruction = create_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &lz_usds_eth_bridge_integration_pk,
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }
