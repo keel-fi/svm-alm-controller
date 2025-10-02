@@ -6,12 +6,44 @@ mod tests {
      use super::*;
     use litesvm::LiteSVM;
     use solana_keccak_hasher::hash;
-    use solana_sdk::{instruction::{AccountMeta, Instruction}, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction};
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction}, 
+        pubkey::Pubkey, signature::Keypair, 
+        signer::Signer, 
+        system_program, 
+        transaction::Transaction
+    };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use subs::controller::initialize_contoller;
     use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::{derive_permission_pda, generated::{instructions::{InitializeIntegrationBuilder, InitializeOracleBuilder, InitializeReserveBuilder, ManageControllerBuilder, ManageIntegrationBuilder, ManagePermissionBuilder, ManageReserveBuilder, SyncReserveBuilder, UpdateOracleBuilder}, types::{ControllerStatus, FeedArgs, InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PermissionStatus, ReserveStatus, SplTokenExternalConfig}}};
-    use crate::{helpers::{assert::assert_custom_error, lite_svm_with_programs}, subs::{airdrop_lamports, derive_controller_authority_pda, derive_integration_pda, derive_reserve_pda, initialize_mint, manage_permission, oracle::{derive_oracle_pda, set_price_feed}}};
+    use svm_alm_controller_client::{
+        derive_permission_pda, 
+        generated::{
+            instructions::{
+                InitializeIntegrationBuilder, InitializeOracleBuilder, 
+                InitializeReserveBuilder, ManageControllerBuilder, 
+                ManageIntegrationBuilder, ManagePermissionBuilder, 
+                ManageReserveBuilder, SyncReserveBuilder, UpdateOracleBuilder
+            }, 
+            types::{
+                ControllerStatus, FeedArgs, 
+                InitializeArgs, IntegrationConfig, 
+                IntegrationStatus, IntegrationType, 
+                PermissionStatus, ReserveStatus, SplTokenExternalConfig
+            }
+        }
+    };
+    use crate::{
+        helpers::{
+            assert::assert_custom_error, lite_svm_with_programs
+        }, 
+        subs::{
+            airdrop_lamports, derive_controller_authority_pda, 
+            derive_integration_pda, derive_reserve_pda, initialize_mint, 
+            manage_permission, 
+            oracle::{derive_oracle_pda, set_price_feed}
+        }
+    };
 
     fn get_init_oracle_ix(
         svm: &mut LiteSVM,
