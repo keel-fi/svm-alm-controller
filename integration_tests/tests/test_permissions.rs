@@ -395,10 +395,17 @@ mod tests {
         } = setup_test_controller()?;
 
         let invalid_permission_authority = Keypair::new();
+        let invalid_permission_authority2 = Keypair::new();
 
         airdrop_lamports(
             &mut svm,
             &invalid_permission_authority.pubkey(),
+            1_000_000_000,
+        )?;
+
+        airdrop_lamports(
+            &mut svm,
+            &invalid_permission_authority2.pubkey(),
             1_000_000_000,
         )?;
 
@@ -411,7 +418,7 @@ mod tests {
             &invalid_permission_authority.pubkey(),
             PermissionStatus::Active,
             can_execute_swap,
-            can_manage_permissions,
+            false,
             can_invoke_external_transfer,
             can_reallocate,
             can_freeze_controller,
@@ -423,11 +430,29 @@ mod tests {
 
         svm.expire_blockhash();
 
+        let _ = manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &super_authority,
+            &invalid_permission_authority.pubkey(),
+            PermissionStatus::Active,
+            can_execute_swap,
+            false,
+            can_invoke_external_transfer,
+            can_reallocate,
+            can_freeze_controller,
+            can_unfreeze_controller,
+            can_manage_reserves_and_integrations,
+            can_suspend_permissions,
+            can_liquidate,
+        )?;
+
         let instruction = create_manage_permissions_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &invalid_permission_authority.pubkey(),
-            &invalid_permission_authority.pubkey(),
+            &invalid_permission_authority2.pubkey(),
             PermissionStatus::Active,
             can_execute_swap,
             can_manage_permissions,
