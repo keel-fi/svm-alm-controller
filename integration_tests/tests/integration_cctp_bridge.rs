@@ -24,21 +24,25 @@ mod tests {
         },
         subs::{
             airdrop_lamports, fetch_integration_account, fetch_reserve_account,
-            get_mint_supply_or_zero, get_token_balance_or_zero,
+            get_mint_supply_or_zero, get_token_balance_or_zero, initialize_mint,
         },
     };
     use borsh::BorshDeserialize;
     use solana_sdk::{
         clock::Clock,
         instruction::InstructionError,
+        pubkey::Pubkey,
         signature::Keypair,
         transaction::{Transaction, TransactionError},
     };
     use svm_alm_controller_client::{
         create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
-        generated::types::{
-            AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig,
-            IntegrationUpdateEvent, SvmAlmControllerEvent,
+        generated::{
+            instructions::InitializeIntegrationBuilder,
+            types::{
+                AccountingAction, AccountingDirection, AccountingEvent, InitializeArgs,
+                IntegrationConfig, IntegrationType, IntegrationUpdateEvent, SvmAlmControllerEvent,
+            },
         },
     };
     use test_case::test_case;
@@ -700,6 +704,232 @@ mod tests {
             0,
             SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction,
         );
+
+        Ok(())
+    }
+
+    #[test]
+    // This test has many cases where we modify a single account to be invalid, assert
+    // the appropriate error is returned, then restore the account to the valid value.
+    fn init_cctp_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        // Create an ATA for the USDC account
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+        )?;
+
+        // Cheat to give the authority some USDC
+        edit_ata_amount(
+            &mut svm,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            1_000_000_000,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let _usdc_reserve_pk = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY, // mint
+            &super_authority,        // payer
+            &super_authority,        // authority
+            ReserveStatus::Active,
+            1_000_000_000_000, // rate_limit_slope
+            1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        // Transfer funds into the reserve
+        transfer_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &controller_authority,
+            500_000_000,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+
+        let mut init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "ETH USDC CCTP Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+
+        // Mint: Invalid owner
+        let prev_val = init_integration_ix.accounts[8].pubkey;
+        init_integration_ix.accounts[8].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        init_integration_ix.accounts[8].pubkey = prev_val;
+
+        // Mint: Invalid mint (does not match local token)
+        let invalid_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+        let prev_val = init_integration_ix.accounts[8].pubkey;
+        init_integration_ix.accounts[8].pubkey = invalid_mint;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        init_integration_ix.accounts[8].pubkey = prev_val;
+
+        // Invalid cctp_message_transmitter
+        let prev_val = init_integration_ix.accounts[11].pubkey;
+        init_integration_ix.accounts[11].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
+        );
+        init_integration_ix.accounts[11].pubkey = prev_val;
+
+        // Invalid cctp_token_messenger_minter
+        let prev_val = init_integration_ix.accounts[12].pubkey;
+        init_integration_ix.accounts[12].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
+        );
+        init_integration_ix.accounts[12].pubkey = prev_val;
+
+        // Local token invalid owner
+        svm.expire_blockhash();
+        let local_token = init_integration_ix.accounts[9].pubkey;
+        // stub local token with incorrect owner
+        let local_token_account = svm.get_account(&local_token).unwrap();
+        let mut invalid_local_token_account = local_token_account.clone();
+        invalid_local_token_account.owner = Pubkey::new_unique();
+        svm.set_account(local_token, invalid_local_token_account);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        svm.set_account(local_token, local_token_account);
+
+        // remote token messenger invalid owner
+        svm.expire_blockhash();
+        let remote_token_messenger = init_integration_ix.accounts[10].pubkey;
+        // stub local token with incorrect owner
+        let remote_token_messenger_account = svm.get_account(&remote_token_messenger).unwrap();
+        let mut invalid_remote_token_messenger_account = remote_token_messenger_account.clone();
+        invalid_remote_token_messenger_account.owner = Pubkey::new_unique();
+        svm.set_account(
+            remote_token_messenger,
+            invalid_remote_token_messenger_account,
+        );
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        svm.set_account(remote_token_messenger, remote_token_messenger_account);
+
+        // invalid destination domain
+        svm.expire_blockhash();
+        let prev_val = init_integration_ix.data;
+        init_integration_ix.data = InitializeIntegrationBuilder::new()
+            .integration_type(IntegrationType::CctpBridge)
+            .status(IntegrationStatus::Active)
+            .description([0u8; 32])
+            .rate_limit_slope(100)
+            .rate_limit_max_outflow(100)
+            .permit_liquidation(true)
+            .inner_args(InitializeArgs::CctpBridge {
+                destination_address: Pubkey::new_unique(),
+                destination_domain: 1234,
+            })
+            .payer(Pubkey::new_unique())
+            .controller(Pubkey::new_unique())
+            .controller_authority(Pubkey::new_unique())
+            .authority(Pubkey::new_unique())
+            .permission(Pubkey::new_unique())
+            .integration(Pubkey::new_unique())
+            .system_program(Pubkey::new_unique())
+            .program_id(Pubkey::new_unique())
+            .instruction()
+            .data;
+        // init_integration_ix.data =
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        init_integration_ix.data = prev_val;
 
         Ok(())
     }
