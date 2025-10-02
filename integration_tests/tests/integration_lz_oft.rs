@@ -1,7 +1,8 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    airdrop_lamports, initialize_ata, initialize_contoller, initialize_reserve, manage_permission,
+    airdrop_lamports, controller::manage_controller, initialize_ata, initialize_contoller,
+    initialize_reserve, manage_permission,
 };
 use crate::{
     helpers::constants::USDS_TOKEN_MINT_PUBKEY,
@@ -39,7 +40,13 @@ mod tests {
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_lz_bridge_initialize_integration_instruction, create_lz_bridge_push_instruction,
-        generated::{instructions::ResetLzPushInFlightBuilder, types::{AccountingAction, AccountingDirection, AccountingEvent, IntegrationUpdateEvent, SvmAlmControllerEvent}},
+        generated::{
+            instructions::ResetLzPushInFlightBuilder,
+            types::{
+                AccountingAction, AccountingDirection, AccountingEvent, IntegrationUpdateEvent,
+                SvmAlmControllerEvent,
+            },
+        },
     };
     use test_case::test_case;
 
@@ -56,7 +63,8 @@ mod tests {
             utils::get_program_return_data,
         },
         subs::{
-            derive_controller_authority_pda, derive_reserve_pda, fetch_integration_account, fetch_reserve_account, get_token_balance_or_zero, initialize_mint, ReserveKeys
+            derive_controller_authority_pda, fetch_integration_account,
+            fetch_reserve_account, get_token_balance_or_zero, initialize_mint, ReserveKeys,
         },
     };
 
@@ -258,7 +266,6 @@ mod tests {
         svm.send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
 
-
         Ok((
             controller_pk,
             integration_pubkey,
@@ -272,10 +279,11 @@ mod tests {
         integration: &Pubkey,
         authority: &Keypair,
     ) -> Result<Instruction, Box<dyn std::error::Error>> {
-        let reserve_pda = derive_reserve_pda(&controller, &USDS_TOKEN_MINT_PUBKEY);
+        let reserve_pda =
+            svm_alm_controller_client::derive_reserve_pda(&controller, &USDS_TOKEN_MINT_PUBKEY);
 
         let amount = 2000;
-        let push_ix = create_lz_bridge_push_instruction(
+        let push_ix = svm_alm_controller_client::create_lz_bridge_push_instruction(
             controller,
             &authority.pubkey(),
             integration,
@@ -409,8 +417,9 @@ mod tests {
             &[&authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone())
-        .map_err(|e| e.err.to_string())?;
+        let tx_result = svm
+            .send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         let integration = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
@@ -453,8 +462,8 @@ mod tests {
             new_state: Some(integration),
         });
         assert_contains_controller_cpi_event!(
-            tx_result, 
-            tx.message.account_keys.as_slice(), 
+            tx_result,
+            tx.message.account_keys.as_slice(),
             expected_event
         );
         Ok(())
@@ -474,7 +483,7 @@ mod tests {
             6,
             None,
             &spl_token_2022::ID,
-            Some(10)
+            Some(10),
         )?;
 
         // Serialize the destination address appropriately
@@ -508,8 +517,12 @@ mod tests {
             svm.latest_blockhash(),
         ));
 
-        // Assert InvalidTokenMintExtension error 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidTokenMintExtension);
+        // Assert InvalidTokenMintExtension error
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidTokenMintExtension,
+        );
 
         Ok(())
     }
@@ -596,8 +609,8 @@ mod tests {
             direction: AccountingDirection::Debit,
         });
         assert_contains_controller_cpi_event!(
-            result, 
-            tx.message.account_keys.as_slice(), 
+            result,
+            tx.message.account_keys.as_slice(),
             expected_debit_event
         );
 
@@ -611,8 +624,8 @@ mod tests {
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(
-            result, 
-            tx.message.account_keys.as_slice(), 
+            result,
+            tx.message.account_keys.as_slice(),
             expected_credit_event
         );
 
@@ -819,6 +832,100 @@ mod tests {
                 TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
             ),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lz_oft_init_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+        let (controller_pk, authority, _reserve_keys) = setup_env_sans_integration(&mut svm)?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &authority, // payer
+            &authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_lz_bridge_initialize_integration_instruction(
+            &authority.pubkey(),
+            &controller_pk,
+            &authority.pubkey(),
+            "ETH USDS LZ Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &LZ_USDS_ESCROW,
+            &destination_address,
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
+
+        assert_custom_error(&tx_res, 0, SvmAlmControllerErrors::ControllerFrozen);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_lz_oft_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let (controller_pk, lz_usds_eth_bridge_integration_pk, super_authority, _reserve_keys) =
+            setup_env(&mut svm, false)?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &super_authority, // payer
+            &super_authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to push the integration -- i.e. bridge using LZ OFT
+        let amount = 2000;
+        let ixs = create_lz_push_and_send_ixs(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &lz_usds_eth_bridge_integration_pk,
+            &svm_alm_controller_client::derive_reserve_pda(&controller_pk, &USDS_TOKEN_MINT_PUBKEY),
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &spl_token::ID,
+            &evm_address_to_solana_pubkey(EVM_DESTINATION),
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+            amount,
+        )
+        .await?;
+        let tx_res = svm.send_transaction(Transaction::new_signed_with_payer(
+            &ixs,
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+
+        assert_custom_error(
+            &tx_res,
+            0,
+            SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction,
+        );
 
         Ok(())
     }

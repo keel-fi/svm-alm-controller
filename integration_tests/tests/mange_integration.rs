@@ -7,14 +7,14 @@ mod tests {
     use solana_sdk::{
         pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction,
     };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_spl_token_external_initialize_integration_instruction,
-        generated::types::IntegrationStatus,
+        create_manage_integration_instruction, create_spl_token_external_initialize_integration_instruction, create_sync_integration_instruction, generated::types::{ControllerStatus, IntegrationStatus}
     };
 
     use crate::{
-        helpers::{setup_test_controller, TestContext},
-        subs::{fetch_integration_account, initialize_mint, manage_integration},
+        helpers::{assert::assert_custom_error, lite_svm_with_programs, setup_test_controller, TestContext},
+        subs::{fetch_integration_account, initialize_mint, manage_controller, manage_integration},
     };
 
     const DEFAULT_RATE_LIMIT_SLOPE: u64 = 1_000_000_000_000;
@@ -109,6 +109,89 @@ mod tests {
         assert_eq!(integration.rate_limit_slope, rate_limit_slope,);
         assert_eq!(integration.rate_limit_max_outflow, rate_limit_max_outflow,);
         assert_eq!(integration.controller, controller_pk);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_manage_integration_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            super_authority,
+            controller_pk,
+        } = setup_test_controller().unwrap();
+
+        let integration_pubkey =
+            create_test_integration(&mut svm, &controller_pk, &super_authority);
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &super_authority, // payer
+            &super_authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        let instruction = create_manage_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            IntegrationStatus::Suspended,
+            1000,
+            2000,
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_integration_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+
+        let TestContext {
+            mut svm,
+            super_authority,
+            controller_pk,
+        } = setup_test_controller().unwrap();
+
+        let integration_pubkey =
+            create_test_integration(&mut svm, &controller_pk, &super_authority);
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &super_authority, // payer
+            &super_authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to sync integration when frozen - should fail
+        let instruction = create_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }
