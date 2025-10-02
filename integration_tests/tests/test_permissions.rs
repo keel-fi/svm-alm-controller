@@ -1,8 +1,9 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    airdrop_lamports, derive_permission_pda, fetch_permission_account, initialize_ata,
-    initialize_mint, manage_controller, manage_permission, mint_tokens,
+    airdrop_lamports, derive_permission_pda,
+    fetch_permission_account, initialize_ata, initialize_mint, manage_controller,
+    manage_permission, mint_tokens,
 };
 use helpers::{setup_test_controller, TestContext};
 use solana_sdk::{signature::Keypair, signer::Signer};
@@ -10,6 +11,12 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 
 #[cfg(test)]
 mod tests {
+    use solana_sdk::transaction::Transaction;
+    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller_client::create_manage_permissions_instruction;
+
+    use crate::helpers::assert::assert_custom_error;
+
     use super::*;
 
     #[test]
@@ -326,9 +333,9 @@ mod tests {
         let _freezer_permission_pk = manage_permission(
             &mut svm,
             &controller_pk,
-            &super_authority,       // payer
-            &super_authority,       // calling authority
-            &freezer.pubkey(),      // subject authority
+            &super_authority,  // payer
+            &super_authority,  // calling authority
+            &freezer.pubkey(), // subject authority
             PermissionStatus::Active,
             false, // can_execute_swap,
             false, // can_manage_permissions,
@@ -351,12 +358,12 @@ mod tests {
         )?;
 
         // Try to manage permission when frozen - should fail
-        let result = manage_permission(
-            &mut svm,
+
+        let instruction = create_manage_permissions_instruction(
             &controller_pk,
-            &super_authority,       // payer
-            &super_authority,       // calling authority
-            &regular_user.pubkey(), // subject authority
+            &super_authority.pubkey(),
+            &super_authority.pubkey(),
+            &regular_user.pubkey(),
             PermissionStatus::Active,
             false, // can_execute_swap,
             false, // can_manage_permissions,
@@ -367,13 +374,16 @@ mod tests {
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
             false, // can_liquidate
-        );
+        ); 
 
-        // TODO: check custom error
-        assert!(
-            result.is_err(),
-            "manage_permission should fail when controller is frozen"
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
         );
+        let tx_result = svm.send_transaction(txn);
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }
