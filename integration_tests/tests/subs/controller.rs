@@ -1,17 +1,17 @@
 use borsh::BorshDeserialize;
 use litesvm::LiteSVM;
 use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
+    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction
 };
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::Controller,
     instructions::{InitializeControllerBuilder, ManageControllerBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
-    types::{ControllerStatus, PermissionStatus},
+    types::{ControllerStatus, ControllerUpdateEvent, PermissionStatus, SvmAlmControllerEvent},
 };
 
-use crate::subs::{derive_permission_pda, fetch_permission_account};
+use crate::{assert_contains_controller_cpi_event, subs::{derive_permission_pda, fetch_permission_account}};
 
 pub fn derive_controller_pda(id: &u16) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
@@ -72,20 +72,35 @@ pub fn initialize_contoller(
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
-        &[ixn],
+        &[ixn.clone()],
         Some(&payer.pubkey()),
         &[&authority, &payer],
         svm.latest_blockhash(),
     );
 
-    let tx_result = svm.send_transaction(txn);
+    let tx_result = svm.send_transaction(txn.clone());
     assert!(tx_result.is_ok(), "Transaction failed to execute");
 
     let controller = fetch_controller_account(svm, &controller_pda)?;
     let permission = fetch_permission_account(svm, &permission_pda)?;
 
     assert!(controller.is_some(), "Controller account is not found");
+
     let controller = controller.unwrap();
+
+    // assert expected event
+    let expected_event = SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
+        controller: controller_pda,
+        authority: authority.pubkey(),
+        old_state: None,
+        new_state: Some(controller.clone()),
+    });
+    assert_contains_controller_cpi_event!(
+        tx_result.unwrap(), 
+        txn.message.account_keys.as_slice(), 
+        expected_event
+    );
+
     assert_eq!(
         controller.status, status,
         "Controller status does not match the expected status"
@@ -178,7 +193,7 @@ pub fn manage_controller(
         svm.latest_blockhash(),
     );
 
-    let tx_result = svm.send_transaction(txn);
+    let tx_result = svm.send_transaction(txn.clone());
     
     // If transaction failed, return the error
     if tx_result.is_err() {
@@ -204,17 +219,30 @@ pub fn manage_controller(
     }
 
     // Check that the controller status has been updated correctly
-    let controller_after = controller_account_after.unwrap();
+    let controller_after = controller_account_after.clone().unwrap();
     if controller_after.status != status {
         return Err("Controller status does not match the expected status".into());
     }
 
     // If there was a previous controller state, verify other fields remain unchanged
-    if let Some(controller_before) = controller_account_before {
+    if let Some(controller_before) = controller_account_before.clone() {
         if controller_after.id != controller_before.id {
             return Err("Controller ID has changed unexpectedly".into());
         }
     }
+
+    // Assert event is emitted
+    let expected_event = SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
+        controller: *controller,
+        authority: calling_authority.pubkey(),
+        old_state: controller_account_before,
+        new_state: controller_account_after,
+    });
+    assert_contains_controller_cpi_event!(
+        tx_result.unwrap(), 
+        txn.message.account_keys.as_slice(), 
+        expected_event
+    );
 
     Ok(())
 }

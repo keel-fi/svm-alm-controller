@@ -22,10 +22,10 @@ mod tests {
     };
     use svm_alm_controller_client::{
         create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
-        generated::types::IntegrationConfig,
+        generated::types::{AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig, IntegrationUpdateEvent, SvmAlmControllerEvent},
     };
     use test_case::test_case;
-
+    use borsh::BorshDeserialize;
     use crate::{
         helpers::constants::{
             CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
@@ -112,12 +112,13 @@ mod tests {
         );
         // Integration is at index 5 in the IX
         let cctp_usdc_eth_bridge_integration_pk = init_integration_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_integration_ix],
             Some(&super_authority.pubkey()),
             &[&super_authority],
             svm.latest_blockhash(),
-        ))
+        );
+        let tx_result = svm.send_transaction(tx.clone())
         .map_err(|e| e.err.to_string())?;
 
         let integration = fetch_integration_account(&svm, &cctp_usdc_eth_bridge_integration_pk)
@@ -134,7 +135,7 @@ mod tests {
         assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
-        match integration.config {
+        match integration.clone().config {
             IntegrationConfig::CctpBridge(c) => {
                 assert_eq!(
                     c.cctp_message_transmitter,
@@ -150,6 +151,20 @@ mod tests {
             }
             _ => panic!("invalid config"),
         };
+
+        // assert emitted event
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: controller_pk,
+            integration: cctp_usdc_eth_bridge_integration_pk,
+            authority: super_authority.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_event
+        );
 
         Ok(())
     }
@@ -254,7 +269,7 @@ mod tests {
             &[&super_authority, &message_sent_event_data_kp],
             svm.latest_blockhash(),
         );
-        svm.send_transaction(tx).unwrap();
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
 
         let integration_after =
             fetch_integration_account(&svm, &cctp_usdc_eth_bridge_integration_pk)
@@ -282,6 +297,40 @@ mod tests {
         // Assert USDC was burned (i.e. supply decreased)
         let usdc_supply_delta = usdc_mint_supply_before - usdc_mint_supply_after;
         assert_eq!(usdc_supply_delta, amount);
+
+        // Assert accounting events are emitted
+        let check_delta = usdc_vault_start_amount
+            .checked_sub(usdc_balance_after)
+            .unwrap();
+        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: None,
+            reserve: Some(usdc_reserve_keys.pubkey),
+            mint: USDC_TOKEN_MINT_PUBKEY,
+            action: AccountingAction::BridgeSend,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_debit_event
+        );
+
+        let expected_credit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: Some(cctp_usdc_eth_bridge_integration_pk),
+            reserve: None,
+            mint: USDC_TOKEN_MINT_PUBKEY,
+            action: AccountingAction::BridgeSend,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_credit_event
+        );
 
         Ok(())
     }
