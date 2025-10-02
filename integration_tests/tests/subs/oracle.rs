@@ -96,41 +96,6 @@ pub fn set_price_feed(
     Ok(())
 }
 
-// pub fn initialize_oracle(
-//     svm: &mut LiteSVM,
-//     controller: &Pubkey,
-//     authority: &Keypair,
-//     nonce: &Pubkey,
-//     price_feed: &Pubkey,
-//     oracle_type: u8,
-//     mint: &Pubkey,
-//     quote_mint: &Pubkey,
-// ) -> Result<TransactionMetadata, FailedTransactionMetadata> {
-//     let controller_authority = derive_controller_authority_pda(controller);
-//     let oracle_pda = derive_oracle_pda(&nonce);
-//     let ixn = InitializeOracleBuilder::new()
-//         .controller(*controller)
-//         .controller_authority(controller_authority)
-//         .authority(authority.pubkey())
-//         .oracle(oracle_pda)
-//         .price_feed(*price_feed)
-//         .system_program(system_program::ID)
-//         .payer(authority.pubkey())
-//         .oracle_type(oracle_type)
-//         .nonce(*nonce)
-//         .base_mint(*mint)
-//         .quote_mint(*quote_mint)
-//         .instruction();
-
-//     let txn = Transaction::new_signed_with_payer(
-//         &[ixn],
-//         Some(&authority.pubkey()),
-//         &[&authority],
-//         svm.latest_blockhash(),
-//     );
-//     svm.send_transaction(txn)
-// }
-
 pub fn initialize_oracle(
     svm: &mut LiteSVM,
     controller: &Pubkey,
