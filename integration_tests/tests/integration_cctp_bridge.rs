@@ -782,7 +782,7 @@ mod tests {
         );
 
         // Mint: Invalid owner
-        let prev_val = init_integration_ix.accounts[8].pubkey;
+        let valid_mint_pubkey = init_integration_ix.accounts[8].pubkey;
         init_integration_ix.accounts[8].pubkey = Pubkey::new_unique();
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_integration_ix.clone()],
@@ -794,7 +794,7 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
         );
-        init_integration_ix.accounts[8].pubkey = prev_val;
+        init_integration_ix.accounts[8].pubkey = valid_mint_pubkey;
 
         // Mint: Invalid mint (does not match local token)
         let invalid_mint = initialize_mint(
@@ -807,7 +807,7 @@ mod tests {
             &spl_token::ID,
             None,
         )?;
-        let prev_val = init_integration_ix.accounts[8].pubkey;
+        let valid_mint_pubkey = init_integration_ix.accounts[8].pubkey;
         init_integration_ix.accounts[8].pubkey = invalid_mint;
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_integration_ix.clone()],
@@ -819,10 +819,10 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
         );
-        init_integration_ix.accounts[8].pubkey = prev_val;
+        init_integration_ix.accounts[8].pubkey = valid_mint_pubkey;
 
         // Invalid cctp_message_transmitter
-        let prev_val = init_integration_ix.accounts[11].pubkey;
+        let valid_cctp_message_transmitter = init_integration_ix.accounts[11].pubkey;
         init_integration_ix.accounts[11].pubkey = Pubkey::new_unique();
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_integration_ix.clone()],
@@ -834,10 +834,10 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
         );
-        init_integration_ix.accounts[11].pubkey = prev_val;
+        init_integration_ix.accounts[11].pubkey = valid_cctp_message_transmitter;
 
         // Invalid cctp_token_messenger_minter
-        let prev_val = init_integration_ix.accounts[12].pubkey;
+        let valid_cctp_token_messenger_minter = init_integration_ix.accounts[12].pubkey;
         init_integration_ix.accounts[12].pubkey = Pubkey::new_unique();
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_integration_ix.clone()],
@@ -849,14 +849,14 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
         );
-        init_integration_ix.accounts[12].pubkey = prev_val;
+        init_integration_ix.accounts[12].pubkey = valid_cctp_token_messenger_minter;
 
         // Local token invalid owner
         svm.expire_blockhash();
         let local_token = init_integration_ix.accounts[9].pubkey;
         // stub local token with incorrect owner
-        let local_token_account = svm.get_account(&local_token).unwrap();
-        let mut invalid_local_token_account = local_token_account.clone();
+        let valid_local_token_account = svm.get_account(&local_token).unwrap();
+        let mut invalid_local_token_account = valid_local_token_account.clone();
         invalid_local_token_account.owner = Pubkey::new_unique();
         svm.set_account(local_token, invalid_local_token_account);
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
@@ -869,14 +869,14 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
         );
-        svm.set_account(local_token, local_token_account);
+        svm.set_account(local_token, valid_local_token_account);
 
         // remote token messenger invalid owner
         svm.expire_blockhash();
         let remote_token_messenger = init_integration_ix.accounts[10].pubkey;
         // stub local token with incorrect owner
-        let remote_token_messenger_account = svm.get_account(&remote_token_messenger).unwrap();
-        let mut invalid_remote_token_messenger_account = remote_token_messenger_account.clone();
+        let valid_remote_token_messenger_account = svm.get_account(&remote_token_messenger).unwrap();
+        let mut invalid_remote_token_messenger_account = valid_remote_token_messenger_account.clone();
         invalid_remote_token_messenger_account.owner = Pubkey::new_unique();
         svm.set_account(
             remote_token_messenger,
@@ -892,11 +892,11 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
         );
-        svm.set_account(remote_token_messenger, remote_token_messenger_account);
+        svm.set_account(remote_token_messenger, valid_remote_token_messenger_account);
 
         // invalid destination domain
         svm.expire_blockhash();
-        let prev_val = init_integration_ix.data;
+        let valid_ix_data = init_integration_ix.data;
         init_integration_ix.data = InitializeIntegrationBuilder::new()
             .integration_type(IntegrationType::CctpBridge)
             .status(IntegrationStatus::Active)
@@ -929,7 +929,7 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
         );
-        init_integration_ix.data = prev_val;
+        init_integration_ix.data = valid_ix_data;
 
         Ok(())
     }
