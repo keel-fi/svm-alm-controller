@@ -34,6 +34,7 @@ mod tests {
             ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus,
             PermissionStatus, ReserveStatus,
         },
+        create_atomic_swap_initialize_integration_instruction,
     };
 
     use test_case::test_case;
@@ -262,7 +263,7 @@ mod tests {
             } else {
                 coin_token_mint
             };
-            let init_ix = svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
+            let init_ix = create_atomic_swap_initialize_integration_instruction(
                 &relayer_authority_kp.pubkey(),
                 &controller_pk,                 // controller
                 &relayer_authority_kp.pubkey(), // authority
@@ -345,7 +346,7 @@ mod tests {
         let max_staleness = 100;
         let max_slippage = 123;
         let permit_liquidation = true;
-        let init_ix = svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
             &swap_env.relayer_authority_kp.pubkey(),
             &swap_env.controller_pk,                 // controller
             &swap_env.relayer_authority_kp.pubkey(), // authority
@@ -1292,7 +1293,7 @@ mod tests {
             None,
         )?;
 
-        let init_ix = svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
             &swap_env.relayer_authority_kp.pubkey(),
             &swap_env.controller_pk,                 // controller
             &swap_env.relayer_authority_kp.pubkey(), // authority
@@ -1810,7 +1811,7 @@ mod tests {
         // Try to initialize an AtomicSwap integration
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
         let oracle = derive_oracle_pda(&nonce);
-        let init_ix = svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
             &relayer_authority_kp.pubkey(),
             &controller_pk,                 // controller
             &relayer_authority_kp.pubkey(), // authority
