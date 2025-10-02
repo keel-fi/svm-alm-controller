@@ -144,7 +144,7 @@ mod tests {
             true,  // can_manage_permissions,
             true,  // can_invoke_external_transfer,
             false, // can_reallocate,
-            false, // can_freeze,
+            true, // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
@@ -1769,33 +1769,9 @@ mod tests {
             true,  // can_manage_permissions,
             true,  // can_invoke_external_transfer,
             false, // can_reallocate,
-            false, // can_freeze,
+            true, // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
-        let freezer = Keypair::new();
-
-        // Airdrop to all users
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &relayer_authority_kp, // payer
-            &relayer_authority_kp, // calling authority
-            &freezer.pubkey(),     // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
             false, // can_liquidate
         )?;
@@ -1803,8 +1779,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &relayer_authority_kp, // payer
+            &relayer_authority_kp, // calling authority
             ControllerStatus::Frozen,
         )?;
 
@@ -1859,35 +1835,11 @@ mod tests {
             false,
         )?;
 
-        let freezer = Keypair::new();
-
-        // Airdrop to all users
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
+        manage_controller(
             &mut svm,
             &swap_env.controller_pk,
             &swap_env.relayer_authority_kp, // payer
             &swap_env.relayer_authority_kp, // calling authority
-            &freezer.pubkey(),              // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
-        manage_controller(
-            &mut svm,
-            &swap_env.controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
             ControllerStatus::Frozen,
         )?;
 

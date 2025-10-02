@@ -26,4 +26,3 @@ solana-program-error = { workspace = true }
 solana-pubkey = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
 spl-token-2022 = { workspace = true }
-pinocchio-associated-token-account = { workspace = true }

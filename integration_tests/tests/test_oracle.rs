@@ -167,11 +167,9 @@ mod tests {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
-        let freezer = Keypair::new();
 
         // Airdrop to users
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
 
         // Set up a controller
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
@@ -182,31 +180,12 @@ mod tests {
             322u16, // Id
         )?;
 
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &authority,        // payer
-            &authority,        // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
         // Freeze the controller
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &authority, // payer
+            &authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 
@@ -246,12 +225,10 @@ mod tests {
 
         let authority = Keypair::new();
         let authority2 = Keypair::new();
-        let freezer = Keypair::new();
 
         // Airdrop to users
         airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
         airdrop_lamports(&mut svm, &authority2.pubkey(), 1_000_000_000)?;
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
 
         // Set up a controller
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
@@ -262,23 +239,13 @@ mod tests {
             323u16, // Id
         )?;
 
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
+        // Freeze the controller
+        manage_controller(
             &mut svm,
             &controller_pk,
-            &authority,        // payer
-            &authority,        // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
+            &authority, // payer
+            &authority, // calling authority
+            ControllerStatus::Frozen,
         )?;
 
         let nonce = Pubkey::new_unique();
@@ -311,8 +278,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &authority, // payer
+            &authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 

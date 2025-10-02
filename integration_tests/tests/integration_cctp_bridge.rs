@@ -489,35 +489,11 @@ mod tests {
             500_000_000,
         )?;
 
-        let freezer = Keypair::new();
-
-        // Airdrop to all users
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,  // payer
-            &super_authority,  // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &super_authority, // payer
+            &super_authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 
@@ -631,35 +607,11 @@ mod tests {
         ))
         .map_err(|e| e.err.to_string())?;
 
-        let freezer = Keypair::new();
-
-        // Airdrop to all users
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,  // payer
-            &super_authority,  // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &super_authority, // payer
+            &super_authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 
@@ -702,36 +654,12 @@ mod tests {
             super_authority,
         } = setup_test_controller()?;
 
-        let freezer = Keypair::new();
-
-        // Airdrop to freezer
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,  // payer
-            &super_authority,  // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
         // Freeze the controller
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &super_authority, // payer
+            &super_authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 
@@ -768,30 +696,6 @@ mod tests {
             super_authority,
         } = setup_test_controller()?;
 
-        let freezer = Keypair::new();
-
-        // Airdrop to freezer
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,  // payer
-            &super_authority,  // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
         // Initialize reserve first (while controller is active)
         let _reserve_keys = initialize_reserve(
             &mut svm,
@@ -809,8 +713,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &super_authority, // payer
+            &super_authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 
@@ -844,30 +748,6 @@ mod tests {
             super_authority,
         } = setup_test_controller()?;
 
-        let freezer = Keypair::new();
-
-        // Airdrop to freezer
-        airdrop_lamports(&mut svm, &freezer.pubkey(), 1_000_000_000)?;
-
-        // Create a permission for freezer (can only freeze)
-        let _freezer_permission_pk = manage_permission(
-            &mut svm,
-            &controller_pk,
-            &super_authority,  // payer
-            &super_authority,  // calling authority
-            &freezer.pubkey(), // subject authority
-            PermissionStatus::Active,
-            false, // can_execute_swap,
-            false, // can_manage_permissions,
-            false, // can_invoke_external_transfer,
-            false, // can_reallocate,
-            true,  // can_freeze,
-            false, // can_unfreeze,
-            false, // can_manage_reserves_and_integrations
-            false, // can_suspend_permissions
-            false, // can_liquidate
-        )?;
-
         // Initialize reserve first (while controller is active)
         let _reserve_keys = initialize_reserve(
             &mut svm,
@@ -885,8 +765,8 @@ mod tests {
         manage_controller(
             &mut svm,
             &controller_pk,
-            &freezer, // payer
-            &freezer, // calling authority
+            &super_authority, // payer
+            &super_authority, // calling authority
             ControllerStatus::Frozen,
         )?;
 

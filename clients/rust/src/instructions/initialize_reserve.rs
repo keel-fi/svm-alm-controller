@@ -2,7 +2,6 @@ use crate::{
     derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda,
     generated::{instructions::InitializeReserveBuilder, types::ReserveStatus},
 };
-use pinocchio_associated_token_account::ID as PINOCCHIO_ASSOCIATED_TOKEN_ACCOUNT_ID;
 use solana_instruction::Instruction;
 use solana_program::system_program;
 use solana_pubkey::Pubkey;
@@ -41,7 +40,7 @@ pub fn create_initialize_reserve_instruction(
         .mint(*mint)
         .vault(vault)
         .token_program(*token_program)
-        .associated_token_program(PINOCCHIO_ASSOCIATED_TOKEN_ACCOUNT_ID.into())
+        .associated_token_program(spl_associated_token_account_client::program::ID.into())
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
         .system_program(system_program::ID)
         .instruction()
