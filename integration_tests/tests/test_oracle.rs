@@ -60,7 +60,7 @@ mod tests {
         set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        let (tx_result, tx) = initialize_oracle_returns_tx(
+        let (tx_result, tx) = initialize_oracle(
             &mut svm,
             &controller_pk,
             &authority,
@@ -75,17 +75,17 @@ mod tests {
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
-        let oracle = oracle.unwrap();
-        assert_eq!(oracle.version, 1);
-        assert_eq!(oracle.value, 0);
-        assert_eq!(oracle.precision, PRECISION);
-        assert_eq!(oracle.last_update_slot, 0);
-        assert_eq!(oracle.controller, controller_pk);
-        assert_eq!(oracle.base_mint, mint);
-        assert_eq!(oracle.quote_mint, quote_mint);
-        assert_eq!(oracle.reserved, [0; 64]);
-        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
-        assert_eq!(oracle.feeds[0].price_feed, new_feed);
+        let new_oracle = oracle.unwrap();
+        assert_eq!(new_oracle.version, 1);
+        assert_eq!(new_oracle.value, 0);
+        assert_eq!(new_oracle.precision, PRECISION);
+        assert_eq!(new_oracle.last_update_slot, 0);
+        assert_eq!(new_oracle.controller, controller_pk);
+        assert_eq!(new_oracle.base_mint, mint);
+        assert_eq!(new_oracle.quote_mint, quote_mint);
+        assert_eq!(new_oracle.reserved, [0; 64]);
+        assert_eq!(new_oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(new_oracle.feeds[0].price_feed, new_feed);
 
         // assert event was emitted
         let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
@@ -93,7 +93,7 @@ mod tests {
             oracle: oracle_pda,
             authority: authority.pubkey(),
             old_state: None,
-            new_state: Some(oracle),
+            new_state: Some(new_oracle),
         });
         assert_contains_controller_cpi_event!(
             meta, 
@@ -106,19 +106,19 @@ mod tests {
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
-        let oracle = oracle.unwrap();
-        assert_eq!(oracle.version, 1);
-        assert_eq!(oracle.authority, authority.pubkey());
-        assert_eq!(oracle.nonce, nonce);
-        assert_eq!(oracle.value, update_price);
-        assert_eq!(oracle.precision, PRECISION);
-        assert_eq!(oracle.last_update_slot, update_slot);
-        assert_eq!(oracle.reserved, [0; 64]);
-        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
-        assert_eq!(oracle.feeds[0].price_feed, new_feed);
+        let refreshed_oracle = oracle.unwrap();
+        assert_eq!(refreshed_oracle.version, 1);
+        assert_eq!(refreshed_oracle.authority, authority.pubkey());
+        assert_eq!(refreshed_oracle.nonce, nonce);
+        assert_eq!(refreshed_oracle.value, update_price);
+        assert_eq!(refreshed_oracle.precision, PRECISION);
+        assert_eq!(refreshed_oracle.last_update_slot, update_slot);
+        assert_eq!(refreshed_oracle.reserved, [0; 64]);
+        assert_eq!(refreshed_oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(refreshed_oracle.feeds[0].price_feed, new_feed);
 
         // Update Oracle account with new authority.
-        update_oracle(
+        let (tx_result, tx) = update_oracle(
             &mut svm,
             &controller_pk,
             &authority,
@@ -126,27 +126,43 @@ mod tests {
             &new_feed,
             None, // keep oracle_type unchanged.
             Some(&authority2),
-        )?;
+        );
+
+        let meta = tx_result.map_err(|e| e.err.to_string())?;
 
         // Verify that only authority is updated.
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
-        let oracle = oracle.unwrap();
-        assert_eq!(oracle.version, 1);
-        assert_eq!(oracle.authority, authority2.pubkey());
-        assert_eq!(oracle.nonce, nonce);
-        assert_eq!(oracle.value, update_price);
-        assert_eq!(oracle.precision, PRECISION);
-        assert_eq!(oracle.last_update_slot, update_slot);
-        assert_eq!(oracle.reserved, [0; 64]);
-        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
-        assert_eq!(oracle.feeds[0].price_feed, new_feed);
+        let updated_authority_oracle = oracle.unwrap();
+        assert_eq!(updated_authority_oracle.version, 1);
+        assert_eq!(updated_authority_oracle.authority, authority2.pubkey());
+        assert_eq!(updated_authority_oracle.nonce, nonce);
+        assert_eq!(updated_authority_oracle.value, update_price);
+        assert_eq!(updated_authority_oracle.precision, PRECISION);
+        assert_eq!(updated_authority_oracle.last_update_slot, update_slot);
+        assert_eq!(updated_authority_oracle.reserved, [0; 64]);
+        assert_eq!(updated_authority_oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(updated_authority_oracle.feeds[0].price_feed, new_feed);
+        
+        // assert event was emitted for authority update
+        let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
+            controller: controller_pk,
+            oracle: oracle_pda,
+            authority: authority.pubkey(),
+            old_state: Some(refreshed_oracle),
+            new_state: Some(updated_authority_oracle.clone()),
+        });
+        assert_contains_controller_cpi_event!(
+            meta, 
+            tx.message.account_keys.as_slice(),
+            expected_event
+        );
 
         // Update Oracle account with new feed.
         let new_feed2 = Pubkey::new_unique();
         let update_price = 2_500_000_000_000_000_000; // 2.5 (in 18 precision)
         set_price_feed(&mut svm, &new_feed2, update_price)?;
-        update_oracle(
+        let (tx_result, tx) = update_oracle(
             &mut svm,
             &controller_pk,
             &authority2,
@@ -154,21 +170,36 @@ mod tests {
             &new_feed2,
             Some(FeedArgs { oracle_type }),
             None,
-        )?;
+        );
+        let meta = tx_result.map_err(|e| e.err.to_string())?;
 
         // Verify that feed is updated.
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
-        let oracle = oracle.unwrap();
-        assert_eq!(oracle.version, 1);
-        assert_eq!(oracle.authority, authority2.pubkey());
-        assert_eq!(oracle.nonce, nonce);
-        assert_eq!(oracle.value, 0);
-        assert_eq!(oracle.precision, PRECISION);
-        assert_eq!(oracle.last_update_slot, 0);
-        assert_eq!(oracle.reserved, [0; 64]);
-        assert_eq!(oracle.feeds[0].oracle_type, oracle_type);
-        assert_eq!(oracle.feeds[0].price_feed, new_feed2);
+        let updated_feed_oracle = oracle.unwrap();
+        assert_eq!(updated_feed_oracle.version, 1);
+        assert_eq!(updated_feed_oracle.authority, authority2.pubkey());
+        assert_eq!(updated_feed_oracle.nonce, nonce);
+        assert_eq!(updated_feed_oracle.value, 0);
+        assert_eq!(updated_feed_oracle.precision, PRECISION);
+        assert_eq!(updated_feed_oracle.last_update_slot, 0);
+        assert_eq!(updated_feed_oracle.reserved, [0; 64]);
+        assert_eq!(updated_feed_oracle.feeds[0].oracle_type, oracle_type);
+        assert_eq!(updated_feed_oracle.feeds[0].price_feed, new_feed2);
+
+        // assert event was emitted for feed update
+        let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
+            controller: controller_pk,
+            oracle: oracle_pda,
+            authority: authority2.pubkey(),
+            old_state: Some(updated_authority_oracle),
+            new_state: Some(updated_feed_oracle),
+        });
+        assert_contains_controller_cpi_event!(
+            meta, 
+            tx.message.account_keys.as_slice(),
+            expected_event
+        );
 
         Ok(())
     }
@@ -203,7 +234,7 @@ mod tests {
         )?;
 
         // Initialize Oracle account
-        let tx_result = initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             &mut svm,
             &controller_pk,
             &super_authority,
@@ -237,7 +268,7 @@ mod tests {
         )?;
 
         // Initialize Oracle account
-        let tx_result = initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             &mut svm,
             &controller_pk,
             &super_authority,
@@ -271,7 +302,7 @@ mod tests {
         )?;
 
         // Initialize Oracle account
-        let tx_result = initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             &mut svm,
             &controller_pk,
             &super_authority,
@@ -285,7 +316,7 @@ mod tests {
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidAccountData);
 
         // Initialize Oracle account with unsupported oracle_type
-        let tx_result = initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             &mut svm,
             &controller_pk,
             &super_authority,

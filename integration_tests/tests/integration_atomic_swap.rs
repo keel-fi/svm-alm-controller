@@ -119,7 +119,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
-        initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             svm,
             &controller_pk,
             &relayer_authority_kp,
@@ -128,8 +128,9 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        )
-        .map_err(|e| e.err.to_string())?;
+        );
+
+        tx_result.map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(
             svm,
@@ -287,26 +288,8 @@ mod tests {
                 &[&relayer_authority_kp],
                 svm.latest_blockhash(),
             );
-            let tx_result = svm.send_transaction(tx.clone())
+            svm.send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
-
-            let integration = fetch_integration_account(&svm, &integration_pubkey)
-            .expect("integration should exist")
-            .unwrap();
-
-            // Assert event is emitted
-            let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
-                controller: controller_pk,
-                integration: integration_pubkey,
-                authority: relayer_authority_kp.pubkey(),
-                old_state: None,
-                new_state: Some(integration),
-            });
-            assert_contains_controller_cpi_event!(
-                tx_result, 
-                tx.message.account_keys.as_slice(), 
-                expected_event
-            );
 
             integration_pubkey
         } else {
@@ -384,13 +367,14 @@ mod tests {
             false,        // oracle_price_inverted
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
             &[&swap_env.relayer_authority_kp],
             svm.latest_blockhash(),
-        ))
-        .map_err(|e| e.err.to_string())?;
+        );
+        let tx_result = svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         // Check that integration after init.
         let integration = fetch_integration_account(&mut svm, &integration_pubkey)?.unwrap();
@@ -409,7 +393,7 @@ mod tests {
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
         if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
-            (&integration.config, integration.state)
+            (&integration.config, integration.clone().state)
         {
             assert_eq!(cfg.input_token, swap_env.pc_token_mint);
             assert_eq!(cfg.output_token, swap_env.coin_token_mint);
@@ -426,6 +410,20 @@ mod tests {
         } else {
             assert!(false)
         }
+
+        // Assert event is emitted
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: swap_env.controller_pk,
+            integration: integration_pubkey,
+            authority: swap_env.relayer_authority_kp.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_event
+        );
 
         Ok(())
     }
@@ -1486,7 +1484,7 @@ mod tests {
         let oracle_2 = derive_oracle_pda(&oracle_2_nonce);
         let price_feed_2 = Pubkey::new_unique();
         set_price_feed(&mut svm, &price_feed_2, 1_000_000_000_000)?; // $1
-        initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             &mut svm,
             &swap_env.controller_pk,
             &swap_env.relayer_authority_kp,
@@ -1495,8 +1493,9 @@ mod tests {
             0,
             &swap_env.coin_token_mint,
             &swap_env.pc_token_mint,
-        )
-        .map_err(|e| e.err.to_string())?;
+        );
+
+        tx_result.map_err(|e| e.err.to_string())?;
         let init_ix = create_atomic_swap_initialize_integration_instruction(
             &swap_env.relayer_authority_kp.pubkey(),
             &swap_env.controller_pk,                 // controller

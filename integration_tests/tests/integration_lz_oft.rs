@@ -256,26 +256,9 @@ mod tests {
             &[&authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone())
-        .map_err(|e| e.err.to_string())?;
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
-        let integration = fetch_integration_account(&svm, &integration_pubkey)
-            .expect("integration should exist")
-            .unwrap();
-
-        // Assert event is emitted
-        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
-            controller: controller_pk,
-            integration: integration_pubkey,
-            authority: authority.pubkey(),
-            old_state: None,
-            new_state: Some(integration),
-        });
-        assert_contains_controller_cpi_event!(
-            tx_result, 
-            tx.message.account_keys.as_slice(), 
-            expected_event
-        );
 
         Ok((
             controller_pk,
@@ -421,12 +404,13 @@ mod tests {
 
         // Integration is at index 5 in the IX
         let integration_pubkey = init_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_ix],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
-        ))
+        );
+        let tx_result = svm.send_transaction(tx.clone())
         .map_err(|e| e.err.to_string())?;
 
         let integration = fetch_integration_account(&svm, &integration_pubkey)
@@ -448,7 +432,7 @@ mod tests {
         assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
-        match integration.config {
+        match integration.clone().config {
             IntegrationConfig::LzBridge(c) => {
                 assert_eq!(c.destination_address, destination_address);
                 assert_eq!(c.destination_eid, LZ_DESTINATION_DOMAIN_EID);
@@ -460,6 +444,20 @@ mod tests {
             }
             _ => panic!("invalid config"),
         };
+
+        // Assert event is emitted
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: controller_pk,
+            integration: integration_pubkey,
+            authority: authority.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_event
+        );
         Ok(())
     }
 
