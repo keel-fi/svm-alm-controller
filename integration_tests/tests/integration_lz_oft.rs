@@ -56,8 +56,7 @@ mod tests {
             utils::get_program_return_data,
         },
         subs::{
-            derive_controller_authority_pda, derive_reserve_pda, fetch_integration_account,
-            fetch_reserve_account, get_token_balance_or_zero, ReserveKeys,
+            derive_controller_authority_pda, derive_reserve_pda, fetch_integration_account, fetch_reserve_account, get_token_balance_or_zero, initialize_mint, ReserveKeys
         },
     };
 
@@ -458,6 +457,60 @@ mod tests {
             tx.message.account_keys.as_slice(), 
             expected_event
         );
+        Ok(())
+    }
+
+    #[test]
+    fn lz_bridge_init_fails_with_transfer_fee_mint() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+        let (controller_pk, authority, _reserve_keys) = setup_env_sans_integration(&mut svm)?;
+
+        // create a Token2022 mint with transfer fee extension
+        let transfer_fee_mint = initialize_mint(
+            &mut svm,
+            &authority,
+            &authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token_2022::ID,
+            Some(10)
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+
+        let init_ix = create_lz_bridge_initialize_integration_instruction(
+            &authority.pubkey(),
+            &controller_pk,
+            &authority.pubkey(),
+            "ETH Transfer fee Mint LZ Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &LZ_USDS_ESCROW,
+            &destination_address,
+            LZ_DESTINATION_DOMAIN_EID,
+            &transfer_fee_mint,
+        );
+
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+
+        // Assert InvalidTokenMintExtension error 
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidTokenMintExtension);
+
         Ok(())
     }
 
