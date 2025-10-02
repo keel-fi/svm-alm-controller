@@ -6,18 +6,14 @@ mod tests {
     use std::i64;
 
     use crate::{
-        helpers::{
+        assert_contains_controller_cpi_event, helpers::{
             assert::{assert_custom_error, assert_program_error},
             lite_svm_with_programs,
-        },
-        subs::{
-            airdrop_lamports, atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
-            derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
-            fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
-            initialize_reserve, manage_controller, mint_tokens, sync_reserve, transfer_tokens,
-            ReserveKeys,
-        },
+        }, subs::{
+            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs, derive_controller_authority_pda, derive_permission_pda, fetch_integration_account, fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint, initialize_reserve, manage_controller, mint_tokens, sync_reserve, transfer_tokens, ReserveKeys
+        }
     };
+    use borsh::BorshDeserialize;
     use litesvm::LiteSVM;
     use solana_sdk::{
         clock::Clock,
@@ -31,8 +27,7 @@ mod tests {
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         generated::types::{
-            ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus,
-            PermissionStatus, ReserveStatus,
+            AccountingAction, AccountingDirection, AccountingEvent, ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PermissionStatus, ReserveStatus, SvmAlmControllerEvent
         },
         create_atomic_swap_initialize_integration_instruction,
     };
@@ -121,7 +116,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
-        initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             svm,
             &controller_pk,
             &relayer_authority_kp,
@@ -130,8 +125,9 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        )
-        .map_err(|e| e.err.to_string())?;
+        );
+
+        tx_result.map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let _ = manage_permission(
             svm,
@@ -283,13 +279,15 @@ mod tests {
                 invert_price_feed, // oracle_price_inverted
             );
             let integration_pubkey = init_ix.accounts[5].pubkey;
-            svm.send_transaction(Transaction::new_signed_with_payer(
+            let tx = Transaction::new_signed_with_payer(
                 &[init_ix],
                 Some(&relayer_authority_kp.pubkey()),
                 &[&relayer_authority_kp],
                 svm.latest_blockhash(),
-            ))
+            );
+            svm.send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
+
             integration_pubkey
         } else {
             Pubkey::default()
@@ -366,13 +364,14 @@ mod tests {
             false,        // oracle_price_inverted
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_ix],
             Some(&swap_env.relayer_authority_kp.pubkey()),
             &[&swap_env.relayer_authority_kp],
             svm.latest_blockhash(),
-        ))
-        .map_err(|e| e.err.to_string())?;
+        );
+        let tx_result = svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         // Check that integration after init.
         let integration = fetch_integration_account(&mut svm, &integration_pubkey)?.unwrap();
@@ -391,7 +390,7 @@ mod tests {
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
         if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
-            (&integration.config, integration.state)
+            (&integration.config, integration.clone().state)
         {
             assert_eq!(cfg.input_token, swap_env.pc_token_mint);
             assert_eq!(cfg.output_token, swap_env.coin_token_mint);
@@ -408,6 +407,20 @@ mod tests {
         } else {
             assert!(false)
         }
+
+        // Assert event is emitted
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: swap_env.controller_pk,
+            integration: integration_pubkey,
+            authority: swap_env.relayer_authority_kp.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_event
+        );
 
         Ok(())
     }
@@ -624,7 +637,8 @@ mod tests {
             &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
             svm.latest_blockhash(),
         );
-        svm.send_transaction(txn).unwrap();
+        let txn_result = svm.send_transaction(txn.clone());
+        txn_result.clone().unwrap();
 
         // Because the AtomicSwap happened twice, we must double the amount lost from TransferFees.
         let total_transfer_fees_on_borrow = 2 * (borrow_amount - expected_borrow_amount);
@@ -656,6 +670,39 @@ mod tests {
         assert_eq!(relayer_a_increase, 0);
         assert_eq!(vault_b_increase, expected_repay_amount);
         assert_eq!(relayer_b_decrease, 0);
+
+        let final_input_amount = vault_a_decrease;
+        // Assert event was emitted
+        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: swap_env.controller_pk,
+            integration: None,
+            reserve: Some(swap_env.pc_reserve_pubkey),
+            mint: swap_env.pc_token_mint,
+            action: AccountingAction::Swap,
+            delta: final_input_amount,
+            direction: AccountingDirection::Debit,
+        });
+        assert_contains_controller_cpi_event!(
+            txn_result.clone().unwrap(), 
+            txn.message.account_keys.as_slice(), 
+            expected_debit_event
+        );
+
+        let balance_b_delta = vault_b_after.amount - vault_b_before.amount;
+        let expected_credit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: swap_env.controller_pk,
+            integration: None,
+            reserve: Some(swap_env.coin_reserve_pubkey),
+            mint: swap_env.coin_token_mint,
+            action: AccountingAction::Swap,
+            delta: balance_b_delta,
+            direction: AccountingDirection::Credit,
+        });
+        assert_contains_controller_cpi_event!(
+            txn_result.unwrap(), 
+            txn.message.account_keys.as_slice(), 
+            expected_credit_event
+        );
 
         Ok(())
     }
@@ -1493,7 +1540,7 @@ mod tests {
         let oracle_2 = derive_oracle_pda(&oracle_2_nonce);
         let price_feed_2 = Pubkey::new_unique();
         set_price_feed(&mut svm, &price_feed_2, 1_000_000_000_000)?; // $1
-        initialize_oracle(
+        let (tx_result, _) = initialize_oracle(
             &mut svm,
             &swap_env.controller_pk,
             &swap_env.relayer_authority_kp,
@@ -1502,9 +1549,10 @@ mod tests {
             0,
             &swap_env.coin_token_mint,
             &swap_env.pc_token_mint,
-        )
-        .map_err(|e| e.err.to_string())?;
-        let init_ix = svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
+        );
+
+        tx_result.map_err(|e| e.err.to_string())?;
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
             &swap_env.relayer_authority_kp.pubkey(),
             &swap_env.controller_pk,                 // controller
             &swap_env.relayer_authority_kp.pubkey(), // authority
@@ -1747,6 +1795,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
+        
         initialize_oracle(
             &mut svm,
             &controller_pk,
@@ -1756,8 +1805,8 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        )
-        .map_err(|e| e.err.to_string())?;
+        );
+
         let _ = manage_permission(
             &mut svm,
             &controller_pk,

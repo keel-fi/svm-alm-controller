@@ -39,9 +39,14 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_lz_bridge_initialize_integration_instruction, create_manage_integration_instruction,
-        create_sync_integration_instruction,
-        generated::instructions::ResetLzPushInFlightBuilder,
+        create_lz_bridge_initialize_integration_instruction, create_lz_bridge_push_instruction,
+        generated::{
+            instructions::ResetLzPushInFlightBuilder,
+            types::{
+                AccountingAction, AccountingDirection, AccountingEvent, IntegrationUpdateEvent,
+                SvmAlmControllerEvent,
+            },
+        },
     };
     use test_case::test_case;
 
@@ -58,8 +63,8 @@ mod tests {
             utils::get_program_return_data,
         },
         subs::{
-            derive_controller_authority_pda, fetch_integration_account,
-            fetch_reserve_account, get_token_balance_or_zero, ReserveKeys,
+            derive_controller_authority_pda, fetch_integration_account, fetch_reserve_account,
+            get_token_balance_or_zero, ReserveKeys,
         },
     };
 
@@ -252,13 +257,14 @@ mod tests {
 
         // Integration is at index 5 in the IX
         let integration_pubkey = init_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_ix],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
-        ))
-        .map_err(|e| e.err.to_string())?;
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         Ok((
             controller_pk,
@@ -273,7 +279,8 @@ mod tests {
         integration: &Pubkey,
         authority: &Keypair,
     ) -> Result<Instruction, Box<dyn std::error::Error>> {
-        let reserve_pda = svm_alm_controller_client::derive_reserve_pda(&controller, &USDS_TOKEN_MINT_PUBKEY);
+        let reserve_pda =
+            svm_alm_controller_client::derive_reserve_pda(&controller, &USDS_TOKEN_MINT_PUBKEY);
 
         let amount = 2000;
         let push_ix = svm_alm_controller_client::create_lz_bridge_push_instruction(
@@ -404,13 +411,15 @@ mod tests {
 
         // Integration is at index 5 in the IX
         let integration_pubkey = init_ix.accounts[5].pubkey;
-        svm.send_transaction(Transaction::new_signed_with_payer(
+        let tx = Transaction::new_signed_with_payer(
             &[init_ix],
             Some(&authority.pubkey()),
             &[&authority],
             svm.latest_blockhash(),
-        ))
-        .map_err(|e| e.err.to_string())?;
+        );
+        let tx_result = svm
+            .send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         let integration = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
@@ -431,7 +440,7 @@ mod tests {
         assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
-        match integration.config {
+        match integration.clone().config {
             IntegrationConfig::LzBridge(c) => {
                 assert_eq!(c.destination_address, destination_address);
                 assert_eq!(c.destination_eid, LZ_DESTINATION_DOMAIN_EID);
@@ -443,6 +452,20 @@ mod tests {
             }
             _ => panic!("invalid config"),
         };
+
+        // Assert event is emitted
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: controller_pk,
+            integration: integration_pubkey,
+            authority: authority.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            expected_event
+        );
         Ok(())
     }
 
@@ -477,13 +500,14 @@ mod tests {
             amount,
         )
         .await?;
+        let tx = Transaction::new_signed_with_payer(
+            &ixs,
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
         let result = svm
-            .send_transaction(Transaction::new_signed_with_payer(
-                &ixs,
-                Some(&authority.pubkey()),
-                &[&authority],
-                svm.latest_blockhash(),
-            ))
+            .send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
 
         let integration_after = fetch_integration_account(&svm, &lz_usds_eth_bridge_integration_pk)
@@ -514,6 +538,38 @@ mod tests {
                 .unwrap();
         assert_eq!(oft_receipt.amount_sent_ld, amount);
         assert_eq!(oft_receipt.amount_received_ld, amount);
+
+        let check_delta = vault_balance_delta;
+        // Assert accounting events
+        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: None,
+            reserve: Some(reserve_keys.pubkey),
+            mint: USDS_TOKEN_MINT_PUBKEY,
+            action: AccountingAction::BridgeSend,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
+        });
+        assert_contains_controller_cpi_event!(
+            result,
+            tx.message.account_keys.as_slice(),
+            expected_debit_event
+        );
+
+        let expected_credit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: Some(lz_usds_eth_bridge_integration_pk),
+            reserve: None,
+            mint: USDS_TOKEN_MINT_PUBKEY,
+            action: AccountingAction::BridgeSend,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
+        });
+        assert_contains_controller_cpi_event!(
+            result,
+            tx.message.account_keys.as_slice(),
+            expected_credit_event
+        );
 
         Ok(())
     }

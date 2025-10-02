@@ -25,7 +25,7 @@ macro_rules! assert_contains_controller_cpi_event {
                         }
 
                       },
-                      Err(e) => {
+                      Err(_e) => {
                         println!("Failed to deserialze Controller CPI event");
                       }
                     }

@@ -105,7 +105,7 @@ pub fn initialize_oracle(
     oracle_type: u8,
     mint: &Pubkey,
     quote_mint: &Pubkey,
-) -> Result<TransactionMetadata, FailedTransactionMetadata> {
+) -> (Result<TransactionMetadata, FailedTransactionMetadata>, Transaction) {
     let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
     let ixn = InitializeOracleBuilder::new()
@@ -128,7 +128,7 @@ pub fn initialize_oracle(
         &[&authority],
         svm.latest_blockhash(),
     );
-    svm.send_transaction(txn)
+    (svm.send_transaction(txn.clone()), txn)
 }
 
 pub fn refresh_oracle(
@@ -151,6 +151,8 @@ pub fn refresh_oracle(
     let tx_result = svm.send_transaction(txn);
     assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
 
+
+
     Ok(())
 }
 
@@ -162,8 +164,9 @@ pub fn update_oracle(
     price_feed: &Pubkey,
     feed_args: Option<FeedArgs>,
     new_authority: Option<&Keypair>,
-) -> Result<(), Box<dyn Error>> {
+) -> (Result<TransactionMetadata, FailedTransactionMetadata>, Transaction) {
     let controller_authority = derive_controller_authority_pda(controller);
+
     let new_authority_pubkey = new_authority.map(|k| k.pubkey());
     let ixn = if let Some(feed_args) = feed_args {
         UpdateOracleBuilder::new()
@@ -197,7 +200,5 @@ pub fn update_oracle(
         &signing_keypairs.to_vec(),
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
-    Ok(())
+    (svm.send_transaction(txn.clone()), txn)
 }
