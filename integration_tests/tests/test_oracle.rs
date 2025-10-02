@@ -180,6 +180,25 @@ mod tests {
             322u16, // Id
         )?;
 
+        // Give authority freeze permissions
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &authority, // payer
+            &authority, // calling authority  
+            &authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            true, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations,
+            false, // can_suspend_permissions,
+            false, // can_liquidate
+        )?;
+
         // Freeze the controller
         manage_controller(
             &mut svm,
@@ -239,13 +258,23 @@ mod tests {
             323u16, // Id
         )?;
 
-        // Freeze the controller
-        manage_controller(
+        // Give authority freeze permissions (before initial oracle setup)
+        manage_permission(
             &mut svm,
             &controller_pk,
             &authority, // payer
-            &authority, // calling authority
-            ControllerStatus::Frozen,
+            &authority, // calling authority  
+            &authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            true, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations,
+            false, // can_suspend_permissions,
+            false, // can_liquidate
         )?;
 
         let nonce = Pubkey::new_unique();

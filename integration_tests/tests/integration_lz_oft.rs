@@ -809,7 +809,7 @@ mod tests {
 
         assert_custom_error(
             &tx_res,
-            2,
+            0,
             SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction,
         );
 
