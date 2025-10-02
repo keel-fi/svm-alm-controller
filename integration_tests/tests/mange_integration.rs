@@ -13,7 +13,7 @@ mod tests {
     };
 
     use crate::{
-        helpers::{assert::assert_custom_error, lite_svm_with_programs, setup_test_controller, TestContext},
+        helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
         subs::{fetch_integration_account, initialize_mint, manage_controller, manage_integration},
     };
 
