@@ -4,7 +4,6 @@ mod subs;
 use crate::subs::oracle::*;
 use helpers::lite_svm_with_programs;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
-use subs::airdrop_lamports;
 use svm_alm_controller_client::generated::accounts::Oracle;
 
 #[cfg(test)]
@@ -31,7 +30,7 @@ mod tests {
 
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
-        subs::{initialize_contoller, manage_controller, manage_permission},
+        subs::{airdrop_lamports, initialize_contoller, manage_controller, manage_permission},
     };
     use borsh::BorshDeserialize;
 
