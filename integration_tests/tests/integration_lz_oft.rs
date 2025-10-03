@@ -31,7 +31,7 @@ mod tests {
     use solana_sdk::{
         clock::Clock,
         compute_budget::ComputeBudgetInstruction,
-        instruction::{Instruction, InstructionError},
+        instruction::{AccountMeta, Instruction, InstructionError},
         pubkey::Pubkey,
         transaction::{Transaction, TransactionError},
     };
@@ -819,6 +819,34 @@ mod tests {
                 TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
             ),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn lz_push_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let (controller, integration, authority, _reserve_keys) = setup_env(&mut svm, false)?;
+
+        let mut lz_push_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
+
+        // Modify controller authority (index 1) to an invalid pubkey
+        let invalid_controller_authority = Pubkey::new_unique();
+        lz_push_ixn.accounts[1] = AccountMeta {
+            pubkey: invalid_controller_authority,
+            is_signer: false,
+            is_writable: false
+        };
+
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[lz_push_ixn],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
 
         Ok(())
     }

@@ -18,8 +18,9 @@ use svm_alm_controller_client::generated::types::{
 mod tests {
 
     use solana_sdk::{
-        clock::Clock, instruction::InstructionError, signature::Keypair, transaction::{Transaction, TransactionError}
+        clock::Clock, instruction::{AccountMeta, InstructionError}, pubkey::Pubkey, signature::Keypair, transaction::{Transaction, TransactionError}
     };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
         generated::types::{AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig, IntegrationUpdateEvent, SvmAlmControllerEvent},
@@ -27,9 +28,9 @@ mod tests {
     use test_case::test_case;
     use borsh::BorshDeserialize;
     use crate::{
-        helpers::constants::{
+        helpers::{assert::assert_custom_error, constants::{
             CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-        },
+        }},
         subs::{
             airdrop_lamports, fetch_integration_account, fetch_reserve_account,
             get_mint_supply_or_zero, get_token_balance_or_zero,
@@ -485,5 +486,121 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn cctp_push_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        // Create an ATA for the USDC account
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+        )?;
+
+        // Cheat to give the authority some USDC
+        edit_ata_amount(
+            &mut svm,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            1_000_000_000,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let reserve_rate_limit_max_outflow = 1_000_000_000_000;
+        let usdc_reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY, // mint
+            &super_authority,        // payer
+            &super_authority,        // authority
+            ReserveStatus::Active,
+            1_000_000_000_000,              // rate_limit_slope
+            reserve_rate_limit_max_outflow, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        // Transfer funds into the reserve
+        let usdc_vault_start_amount = 500_000_000;
+        transfer_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &controller_authority,
+            usdc_vault_start_amount,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let integration_rate_mint_max_outflow = 1_000_000_000_000;
+        let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "ETH USDC CCTP Bridge",
+            IntegrationStatus::Active,
+            1_000_000_000_000,
+            integration_rate_mint_max_outflow,
+            false,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+        // Integration is at index 5 in the IX
+        let cctp_usdc_eth_bridge_integration_pk = init_integration_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
+        let amount = 1_000_000;
+        let message_sent_event_data_kp = Keypair::new();
+        let mut push_ix = create_cctp_bridge_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &cctp_usdc_eth_bridge_integration_pk,
+            &usdc_reserve_keys.pubkey,
+            &message_sent_event_data_kp.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            CCTP_REMOTE_DOMAIN_ETH,
+            amount,
+        );
+
+        // Modify controller authority (index 1) to an invalid pubkey
+        let invalid_controller_authority = Pubkey::new_unique();
+        push_ix.accounts[1] = AccountMeta {
+            pubkey: invalid_controller_authority,
+            is_signer: false,
+            is_writable: false
+        };
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &message_sent_event_data_kp],
+            svm.latest_blockhash(),
+        );
+
+        
+        let tx_result = svm.send_transaction(tx);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+
+        Ok(())
+
     }
 }

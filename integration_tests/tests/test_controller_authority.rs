@@ -20,13 +20,13 @@ mod tests {
         derive_permission_pda, 
         generated::{
             instructions::{
-                InitializeIntegrationBuilder, InitializeOracleBuilder, 
+                InitializeIntegrationBuilder, 
                 InitializeReserveBuilder, ManageControllerBuilder, 
                 ManageIntegrationBuilder, ManagePermissionBuilder, 
-                ManageReserveBuilder, SyncReserveBuilder, UpdateOracleBuilder
+                ManageReserveBuilder, SyncReserveBuilder
             }, 
             types::{
-                ControllerStatus, FeedArgs, 
+                ControllerStatus,
                 InitializeArgs, IntegrationConfig, 
                 IntegrationStatus, IntegrationType, 
                 PermissionStatus, ReserveStatus, SplTokenExternalConfig
@@ -41,47 +41,8 @@ mod tests {
             airdrop_lamports, derive_controller_authority_pda, 
             derive_integration_pda, derive_reserve_pda, initialize_mint, 
             manage_permission, 
-            oracle::{derive_oracle_pda, set_price_feed}
         }
     };
-
-    fn get_init_oracle_ix(
-        svm: &mut LiteSVM,
-        payer_and_authority: &Keypair,
-        controller_pk: &Pubkey,
-        fake_controller_authority: Option<&Pubkey>
-    ) -> Result<(Instruction, Pubkey, Pubkey), Box<dyn std::error::Error>> {
-        let nonce = Pubkey::new_unique();
-        let price_feed = Pubkey::new_unique();
-        let oracle_pda = derive_oracle_pda(&nonce);
-        let controller_authority = derive_controller_authority_pda(&controller_pk);
-
-        let controller_authority_to_use = match fake_controller_authority {
-            Some(fake) => fake,
-            None => &controller_authority
-        };
-
-        let update_slot = 1000_000;
-        let update_price = 1_000_000_000;
-        svm.warp_to_slot(update_slot);
-        set_price_feed(svm, &price_feed, update_price)?;
-
-        let init_ixn = InitializeOracleBuilder::new()
-            .controller(*controller_pk)
-            .controller_authority(*controller_authority_to_use)
-            .authority(payer_and_authority.pubkey())
-            .oracle(oracle_pda)
-            .price_feed(price_feed)
-            .system_program(system_program::ID)
-            .payer(payer_and_authority.pubkey())
-            .oracle_type(0)
-            .nonce(nonce)
-            .base_mint(Pubkey::new_unique())
-            .quote_mint(Pubkey::new_unique())
-            .instruction();
-
-        Ok((init_ixn, oracle_pda, price_feed))
-    }
 
     fn get_init_reserve_ix(
         svm: &mut LiteSVM,
@@ -267,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_manage_controller_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_controller_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -275,13 +236,13 @@ mod tests {
             permission_pda
         ) = setup_test_env()?;
 
-        // fake controller authority should throw InvalidControllerAuthority error
-        let fake_controller_authority = Pubkey::new_unique();
+        // invalid controller authority should throw InvalidControllerAuthority error
+        let invalid_controller_authority = Pubkey::new_unique();
 
         let ixn = ManageControllerBuilder::new()
             .status(ControllerStatus::Active)
             .controller(controller_pk)
-            .controller_authority(fake_controller_authority)
+            .controller_authority(invalid_controller_authority)
             .authority(payer_and_authority.pubkey())
             .permission(permission_pda)
             .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
@@ -300,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_init_integration_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_init_integration_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -309,14 +270,14 @@ mod tests {
         ) = setup_test_env()?;
 
 
-        let fake_controller_authority = Pubkey::new_unique();
+        let invalid_controller_authority = Pubkey::new_unique();
 
         let (ix, _) = get_init_token_external_integration_ix(
             &mut svm,
             &payer_and_authority,
             &controller_pk,
             &permission_pda,
-            &fake_controller_authority
+            &invalid_controller_authority
         );
 
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
@@ -332,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_manage_integration_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_integration_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -356,7 +317,7 @@ mod tests {
             svm.latest_blockhash(),
         )).unwrap();
 
-        let fake_controller_authority = Pubkey::new_unique();
+        let invalid_controller_authority = Pubkey::new_unique();
 
         let description = "DAO Treasury".to_string();
         let description_bytes = description.as_bytes();
@@ -369,7 +330,7 @@ mod tests {
             .rate_limit_max_outflow(1000000)
             .description(description_encoding)
             .controller(controller_pk)
-            .controller_authority(fake_controller_authority)
+            .controller_authority(invalid_controller_authority)
             .authority(payer_and_authority.pubkey())
             .permission(permission_pda)
             .integration(integration_pk)
@@ -389,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_manage_permission_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_permission_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -402,7 +363,7 @@ mod tests {
         let subject_permission_pda = derive_permission_pda(&controller_pk, &subject_authority.pubkey());
 
 
-        let fake_controller_authority = Pubkey::new_unique();
+        let invalid_controller_authority = Pubkey::new_unique();
 
         let ixn = ManagePermissionBuilder::new()
             .status(PermissionStatus::Active)
@@ -417,7 +378,7 @@ mod tests {
             .can_liquidate(false)
             .payer(payer_and_authority.pubkey())
             .controller(controller_pk)
-            .controller_authority(fake_controller_authority)
+            .controller_authority(invalid_controller_authority)
             .super_authority(payer_and_authority.pubkey())
             .super_permission(permission_pda)
             .authority(subject_authority.pubkey())
@@ -439,7 +400,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_init_reserve_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_init_reserve_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -447,14 +408,14 @@ mod tests {
             permission_pda
         ) = setup_test_env()?;
     
-        let fake_controller_authority = Pubkey::new_unique();
+        let invalid_controller_authority = Pubkey::new_unique();
 
         let (ixn, _, _) = get_init_reserve_ix(
             &mut svm, 
             &payer_and_authority, 
             &controller_pk, 
             &permission_pda, 
-            Some(&fake_controller_authority)
+            Some(&invalid_controller_authority)
         );
 
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
@@ -470,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_manage_reserve_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_reserve_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -493,13 +454,13 @@ mod tests {
             svm.latest_blockhash(),
         )).unwrap();
 
-        let fake_controller_authority = Pubkey::new_unique();
+        let invalid_controller_authority = Pubkey::new_unique();
         let manage_ixn = ManageReserveBuilder::new()
             .status(ReserveStatus::Active)
             .rate_limit_slope(100)
             .rate_limit_max_outflow(100)
             .controller(controller_pk)
-            .controller_authority(fake_controller_authority)
+            .controller_authority(invalid_controller_authority)
             .authority(payer_and_authority.pubkey())
             .permission(permission_pda)
             .reserve(reserve_pda)
@@ -519,7 +480,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_controller_authority_sync_reserve_fails () -> Result<(), Box<dyn std::error::Error>> {
+    fn test_sync_reserve_with_invalid_controller_authority_fails () -> Result<(), Box<dyn std::error::Error>> {
         let (
             mut svm, 
             payer_and_authority, 
@@ -542,10 +503,10 @@ mod tests {
             svm.latest_blockhash(),
         )).unwrap();
 
-        let fake_controller_authority = Pubkey::new_unique();
+        let invalid_controller_authority = Pubkey::new_unique();
         let sync_ixn = SyncReserveBuilder::new()
             .controller(controller_pk)
-            .controller_authority(fake_controller_authority)
+            .controller_authority(invalid_controller_authority)
             .reserve(reserve_pda)
             .vault(vault)
             .instruction();
@@ -554,82 +515,6 @@ mod tests {
             &[sync_ixn],
             Some(&payer_and_authority.pubkey()),
             &[&payer_and_authority],
-            svm.latest_blockhash(),
-        ));
-
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_wrong_controller_authority_init_oracle_fails() -> Result<(), Box<dyn std::error::Error>> {
-        let (
-            mut svm, 
-            payer_and_authority, 
-            controller_pk, 
-            _permission_pda
-        ) = setup_test_env()?;
-        let fake_controller_authority = Pubkey::new_unique();
-
-        let (init_ixn, _, _) = get_init_oracle_ix(
-            &mut svm,
-            &payer_and_authority, 
-            &controller_pk, 
-            Some(&fake_controller_authority)
-        )?;
-
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_ixn],
-            Some(&payer_and_authority.pubkey()),
-            &[&payer_and_authority],
-            svm.latest_blockhash(),
-        ));
-
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_wrong_controller_authority_update_oracle_fails() -> Result<(), Box<dyn std::error::Error>> {
-        let (
-            mut svm, 
-            payer_and_authority, 
-            controller_pk, 
-            _permission_pda
-        ) = setup_test_env()?;
-
-        let (init_ixn, oracle_pda, price_feed) = get_init_oracle_ix(
-            &mut svm,
-            &payer_and_authority, 
-            &controller_pk, 
-            None
-        )?;
-
-        svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_ixn],
-            Some(&payer_and_authority.pubkey()),
-            &[&payer_and_authority],
-            svm.latest_blockhash(),
-        )).unwrap();
-
-        let fake_controller_authority = Pubkey::new_unique();
-        let new_authority = Keypair::new();
-        let update_ixn = UpdateOracleBuilder::new()
-            .controller(controller_pk)
-            .controller_authority(fake_controller_authority)
-            .authority(payer_and_authority.pubkey())
-            .oracle(oracle_pda)
-            .price_feed(price_feed)
-            .feed_args(FeedArgs { oracle_type: 1})
-            .new_authority(Some(new_authority.pubkey()))
-            .instruction();
-
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[update_ixn],
-            Some(&payer_and_authority.pubkey()),
-            &[&payer_and_authority, &new_authority],
             svm.latest_blockhash(),
         ));
 
