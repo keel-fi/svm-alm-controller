@@ -129,7 +129,7 @@ mod tests {
 
         tx_result.map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
-        let _ = manage_permission(
+        manage_permission(
             svm,
             &controller_pk,
             &relayer_authority_kp,          // payer
@@ -1805,9 +1805,9 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        );
+        ).0.unwrap();
 
-        let _ = manage_permission(
+        manage_permission(
             &mut svm,
             &controller_pk,
             &relayer_authority_kp,          // payer
@@ -1986,6 +1986,112 @@ mod tests {
         } else {
             assert!(false)
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn atomic_swap_borrow_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &spl_token::ID,
+            None,
+            &spl_token::ID,
+            None,
+            false,
+            1000,
+            false,
+        )?;
+
+        let borrow_amount = 100;
+        let repay_amount = 300;
+        let [refresh_ix, mut borrow_ix, _, _, _] = atomic_swap_borrow_repay_ixs(
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            spl_token::ID,
+            spl_token::ID,
+            borrow_amount,
+            repay_amount,
+            &swap_env.mint_authority,
+            0,
+        );
+
+        // modify controller_authority (index 1) to a different pubkey
+        borrow_ix.accounts[1].pubkey = Pubkey::new_unique();
+
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[refresh_ix, borrow_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp],
+            svm.latest_blockhash(),
+        ));
+
+        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidControllerAuthority);
+
+        Ok(())
+    }
+
+    #[test]
+    fn atomic_swap_repay_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &spl_token::ID,
+            None,
+            &spl_token::ID,
+            None,
+            false,
+            1000,
+            false,
+        )?;
+
+        let borrow_amount = 100;
+        let repay_amount = 300;
+        let [refresh_ix, borrow_ix, mint_ix, burn_ix, mut repay_ix] = atomic_swap_borrow_repay_ixs(
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            spl_token::ID,
+            spl_token::ID,
+            borrow_amount,
+            repay_amount,
+            &swap_env.mint_authority,
+            0,
+        );
+
+        // modify controller_authority (index 2) to a different pubkey
+        repay_ix.accounts[2].pubkey =  Pubkey::new_unique();
+
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[refresh_ix, borrow_ix, mint_ix, burn_ix, repay_ix],
+            Some(&swap_env.relayer_authority_kp.pubkey()),
+            &[&swap_env.relayer_authority_kp, &swap_env.mint_authority],
+            svm.latest_blockhash(),
+        ));
+
+        assert_custom_error(&tx_result, 4, SvmAlmControllerErrors::InvalidControllerAuthority);
 
         Ok(())
     }

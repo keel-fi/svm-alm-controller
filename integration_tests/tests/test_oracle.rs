@@ -339,7 +339,7 @@ mod tests {
         set_price_feed(&mut svm, &new_feed, update_price)?;
 
         // Initialize Oracle account
-        initialize_oracle(
+        let _ = initialize_oracle(
             &mut svm,
             &controller_pk,
             &authority,

@@ -10,10 +10,10 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::transaction::Transaction;
+    use solana_sdk::{pubkey::Pubkey, transaction::Transaction};
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_manage_controller_instruction, create_manage_permissions_instruction,
+        create_manage_permissions_instruction,
     };
 
     use crate::helpers::assert::assert_custom_error;
@@ -475,6 +475,79 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnauthorizedAction);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_manage_permission_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let regular_user = Keypair::new();
+
+        // Airdrop to all users
+        airdrop_lamports(&mut svm, &regular_user.pubkey(), 1_000_000_000)?;
+
+        // Initialize a mint
+        let usdc_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &usdc_mint,
+        )?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &usdc_mint,
+            &super_authority.pubkey(),
+            1_000_000,
+        )?;
+
+        let mut instruction = create_manage_permissions_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &super_authority.pubkey(),
+            &regular_user.pubkey(),
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            false, // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        ); 
+
+        // modify controller authority to an invalid pubkey
+        instruction.accounts[2].pubkey = Pubkey::new_unique();
+
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
 
         Ok(())
     }

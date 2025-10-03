@@ -39,7 +39,7 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_lz_bridge_initialize_integration_instruction, create_lz_bridge_push_instruction,
+        create_lz_bridge_initialize_integration_instruction,
         generated::{
             instructions::ResetLzPushInFlightBuilder,
             types::{
@@ -926,6 +926,29 @@ mod tests {
             0,
             SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction,
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn lz_push_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let (controller, integration, authority, _reserve_keys) = setup_env(&mut svm, false)?;
+
+        let mut lz_push_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
+
+        // Modify controller authority (index 1) to a different pubkey
+        lz_push_ixn.accounts[1].pubkey = Pubkey::new_unique();
+
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[lz_push_ixn],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
 
         Ok(())
     }
