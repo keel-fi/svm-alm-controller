@@ -27,12 +27,11 @@ mod tests {
 
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
-        subs::{airdrop_lamports, derive_controller_authority_pda, initialize_contoller, manage_controller, manage_permission},
+        subs::{airdrop_lamports, initialize_contoller, manage_controller, manage_permission},
     };
     use borsh::BorshDeserialize;
 
     use super::*;
-    use test_case::test_case;
 
     #[test]
     fn test_oracle_init_refresh_and_update_success() -> Result<(), Box<dyn std::error::Error>> {
