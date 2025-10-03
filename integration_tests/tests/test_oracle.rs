@@ -10,17 +10,23 @@ use svm_alm_controller_client::generated::accounts::Oracle;
 #[cfg(test)]
 mod tests {
     use solana_sdk::{
-        account::Account, instruction::InstructionError, transaction::TransactionError,
+        account::Account, instruction::InstructionError, transaction::Transaction,
+        transaction::TransactionError,
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::generated::types::{ControllerStatus, FeedArgs, OracleUpdateEvent, SvmAlmControllerEvent};
+    use svm_alm_controller_client::{
+        create_initialize_oracle_instruction, create_update_oracle_instruction,
+        generated::types::{
+            ControllerStatus, FeedArgs, OracleUpdateEvent, PermissionStatus, SvmAlmControllerEvent,
+        },
+    };
     use switchboard_on_demand::{
         Discriminator, PullFeedAccountData, ON_DEMAND_MAINNET_PID, PRECISION,
     };
 
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
-        subs::initialize_contoller,
+        subs::{initialize_contoller, manage_controller, manage_permission},
     };
     use borsh::BorshDeserialize;
 
@@ -96,7 +102,7 @@ mod tests {
             new_state: Some(new_oracle),
         });
         assert_contains_controller_cpi_event!(
-            meta, 
+            meta,
             tx.message.account_keys.as_slice(),
             expected_event
         );
@@ -143,7 +149,7 @@ mod tests {
         assert_eq!(updated_authority_oracle.reserved, [0; 64]);
         assert_eq!(updated_authority_oracle.feeds[0].oracle_type, oracle_type);
         assert_eq!(updated_authority_oracle.feeds[0].price_feed, new_feed);
-        
+
         // assert event was emitted for authority update
         let expected_event = SvmAlmControllerEvent::OracleUpdate(OracleUpdateEvent {
             controller: controller_pk,
@@ -153,7 +159,7 @@ mod tests {
             new_state: Some(updated_authority_oracle.clone()),
         });
         assert_contains_controller_cpi_event!(
-            meta, 
+            meta,
             tx.message.account_keys.as_slice(),
             expected_event
         );
@@ -196,10 +202,182 @@ mod tests {
             new_state: Some(updated_feed_oracle),
         });
         assert_contains_controller_cpi_event!(
-            meta, 
+            meta,
             tx.message.account_keys.as_slice(),
             expected_event
         );
+
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_initialize_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let authority = Keypair::new();
+
+        // Airdrop to users
+        airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+
+        // Set up a controller
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            322u16, // Id
+        )?;
+
+        // Give authority freeze permissions
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &authority,          // payer
+            &authority,          // calling authority
+            &authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            true,  // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations,
+            false, // can_suspend_permissions,
+            false, // can_liquidate
+        )?;
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &authority, // payer
+            &authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to initialize oracle when frozen - should fail
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let oracle_type = 0;
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        let instruction = create_initialize_oracle_instruction(
+            &controller_pk,
+            &authority.pubkey(),
+            &nonce,
+            &new_feed,
+            oracle_type,
+            &mint,
+            &quote_mint,
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+
+        Ok(())
+    }
+
+    #[test_log::test]
+    fn test_update_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let authority = Keypair::new();
+        let authority2 = Keypair::new();
+
+        // Airdrop to users
+        airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(&mut svm, &authority2.pubkey(), 1_000_000_000)?;
+
+        // Set up a controller
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            323u16, // Id
+        )?;
+
+        // Give authority freeze permissions (before initial oracle setup)
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &authority,          // payer
+            &authority,          // calling authority
+            &authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            true,  // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            true,  // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations,
+            false, // can_suspend_permissions,
+            false, // can_liquidate
+        )?;
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let oracle_pda = derive_oracle_pda(&nonce);
+        let oracle_type = 0;
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        // Stub price feed data
+        let update_slot = 1000_000;
+        let update_price = 1_000_000_000;
+        svm.warp_to_slot(update_slot);
+        set_price_feed(&mut svm, &new_feed, update_price)?;
+
+        // Initialize Oracle account
+        let _ = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &nonce,
+            &new_feed,
+            oracle_type,
+            &mint,
+            &quote_mint,
+        );
+
+        // Freeze the controller
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &authority, // payer
+            &authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to update oracle when frozen - should fail
+        let ixn = create_update_oracle_instruction(
+            &controller_pk,
+            &authority.pubkey(),
+            &oracle_pda,
+            &new_feed,
+            None,
+            Some(&authority2.pubkey()),
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[ixn],
+            Some(&authority.pubkey()),
+            &[&authority, &authority2],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }

@@ -1,4 +1,6 @@
-use crate::subs::{derive_controller_authority_pda, derive_permission_pda};
+use crate::subs::{
+    derive_controller_authority_pda, derive_permission_pda,
+};
 use borsh::BorshDeserialize;
 use litesvm::{types::TransactionResult, LiteSVM};
 use solana_sdk::{

@@ -5,19 +5,26 @@ use solana_sdk::{
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use std::error::Error;
-use svm_alm_controller_client::generated::{
-    accounts::Reserve,
-    instructions::{InitializeReserveBuilder, ManageReserveBuilder, SyncReserveBuilder},
-    programs::SVM_ALM_CONTROLLER_ID,
-    types::{AccountingAction, AccountingDirection, AccountingEvent, ReserveStatus, ReserveUpdateEvent, SvmAlmControllerEvent},
+use svm_alm_controller_client::{
+    generated::{
+        accounts::Reserve,
+        instructions::{InitializeReserveBuilder, ManageReserveBuilder, SyncReserveBuilder},
+        types::{
+            AccountingAction, AccountingDirection, AccountingEvent, ReserveStatus,
+            ReserveUpdateEvent, SvmAlmControllerEvent,
+        },
+    },
 };
 
-use crate::{assert_contains_controller_cpi_event, subs::{derive_controller_authority_pda, derive_permission_pda}};
+use crate::{
+    assert_contains_controller_cpi_event,
+    subs::{derive_controller_authority_pda, derive_permission_pda},
+};
 
 pub fn derive_reserve_pda(controller_pda: &Pubkey, mint: &Pubkey) -> Pubkey {
     let (reserve_pda, _reserve_bump) = Pubkey::find_program_address(
         &[b"reserve", &controller_pda.to_bytes(), &mint.to_bytes()],
-        &Pubkey::from(SVM_ALM_CONTROLLER_ID),
+        &svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
     );
     reserve_pda
 }
@@ -137,8 +144,8 @@ pub fn initialize_reserve(
         new_state: Some(reserve),
     });
     assert_contains_controller_cpi_event!(
-        tx_result.unwrap(), 
-        txn.message.account_keys.as_slice(), 
+        tx_result.unwrap(),
+        txn.message.account_keys.as_slice(),
         expected_event
     );
 
@@ -220,8 +227,8 @@ pub fn manage_reserve(
         new_state: Some(reserve),
     });
     assert_contains_controller_cpi_event!(
-        tx_result.unwrap(), 
-        txn.message.account_keys.as_slice(), 
+        tx_result.unwrap(),
+        txn.message.account_keys.as_slice(),
         expected_event
     );
 
@@ -283,12 +290,11 @@ pub fn sync_reserve(
             direction,
         });
         assert_contains_controller_cpi_event!(
-            tx_result.unwrap(), 
-            txn.message.account_keys.as_slice(), 
+            tx_result.unwrap(),
+            txn.message.account_keys.as_slice(),
             expected_event
         );
     }
-
 
     Ok(())
 }

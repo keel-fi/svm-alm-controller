@@ -1,14 +1,14 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    derive_controller_authority_pda, initialize_ata, initialize_mint, initialize_reserve,
+    controller::manage_controller, derive_controller_authority_pda, initialize_ata, initialize_mint, initialize_reserve,
     manage_permission, manage_reserve, mint_tokens,
 };
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use svm_alm_controller_client::generated::types::ReserveStatus;
 use svm_alm_controller_client::generated::types::{
-    IntegrationConfig, IntegrationStatus, PermissionStatus,
+    ControllerStatus, IntegrationConfig, IntegrationStatus, PermissionStatus,
 };
 
 #[cfg(test)]
@@ -499,6 +499,209 @@ mod tests {
                 TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
             ),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_spl_token_external_init_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let external = Keypair::new();
+
+        // Initialize a mint
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+
+        let external_ata =
+            get_associated_token_address_with_program_id(&external.pubkey(), &mint, &spl_token::ID);
+
+        let _authority_ata =
+            initialize_ata(&mut svm, &super_authority, &super_authority.pubkey(), &mint)?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &mint,
+            &super_authority.pubkey(),
+            1_000_000,
+        )?;
+
+        // Initialize a reserve for the token
+        let _reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Active,
+            1_000_000_000, // rate_limit_slope
+            1_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &super_authority, // payer
+            &super_authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "DAO Treasury",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            false,
+            &spl_token::ID,
+            &mint,
+            &external.pubkey(),
+            &external_ata,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
+
+        assert_custom_error(
+            &tx_res,
+            0,
+            SvmAlmControllerErrors::ControllerFrozen,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_spl_token_external_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let external = Keypair::new();
+
+        // Initialize a mint
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Active,
+            1_000_000_000_000, // rate_limit_slope
+            1_000_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        // Transfer funds directly to the controller's vault
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &mint,
+            &controller_authority,
+            10_000_000,
+        )?;
+
+        // Initialize an External integration
+        let external_ata =
+            get_associated_token_address_with_program_id(&external.pubkey(), &mint, &spl_token::ID);
+        let init_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "DAO Treasury",
+            IntegrationStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            false,
+            &spl_token::ID,
+            &mint,
+            &external.pubkey(),
+            &external_ata,
+        );
+        let external_integration_pk = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
+        manage_controller(
+            &mut svm,
+            &controller_pk,
+            &super_authority, // payer
+            &super_authority, // calling authority
+            ControllerStatus::Frozen,
+        )?;
+
+        // Try to push the integration
+        let amount = 1_000_000;
+        let push_ix = create_spl_token_external_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &external_integration_pk,
+            &reserve_keys.pubkey,
+            &spl_token::ID,
+            &mint,
+            &external.pubkey(),
+            amount,
+        );
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_res = svm.send_transaction(tx);
+
+        assert_custom_error(
+            &tx_res,
+            0,
+            SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction,
+        );
 
         Ok(())
     }
