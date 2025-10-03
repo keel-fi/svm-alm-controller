@@ -11,19 +11,14 @@ mod tests {
     use solana_sdk::{
         account::Account,
         instruction::InstructionError,
-        system_program,
         transaction::{Transaction, TransactionError},
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_initialize_oracle_instruction, create_update_oracle_instruction,
         derive_controller_authority_pda,
-        generated::{
-            instructions::{InitializeOracleBuilder, UpdateOracleBuilder},
-            types::{
-                ControllerStatus, FeedArgs, OracleUpdateEvent, PermissionStatus,
-                SvmAlmControllerEvent,
-            },
+        generated::types::{
+            ControllerStatus, FeedArgs, OracleUpdateEvent, PermissionStatus, SvmAlmControllerEvent,
         },
     };
     use switchboard_on_demand::PRECISION;
@@ -439,19 +434,15 @@ mod tests {
 
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let oracle_pda = derive_oracle_pda(&nonce);
-        let mut init_ix = InitializeOracleBuilder::new()
-            .controller(controller_pk)
-            .controller_authority(controller_authority)
-            .authority(super_authority.pubkey())
-            .oracle(oracle_pda)
-            .price_feed(new_feed)
-            .system_program(system_program::ID)
-            .payer(super_authority.pubkey())
-            .oracle_type(0)
-            .nonce(nonce)
-            .base_mint(mint)
-            .quote_mint(quote_mint)
-            .instruction();
+        let mut init_ix = create_initialize_oracle_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
 
         // Controller: Invalid owner
         let valid_controller = init_ix.accounts[1].pubkey;
@@ -682,15 +673,14 @@ mod tests {
         );
         tx_result.unwrap();
 
-        let mut update_ix = UpdateOracleBuilder::new()
-            .controller(controller_pk)
-            .controller_authority(derive_controller_authority_pda(&controller_pk))
-            .authority(authority.pubkey())
-            .oracle(oracle_pda)
-            .price_feed(new_feed)
-            .new_authority(None)
-            .feed_args(FeedArgs { oracle_type: 0 })
-            .instruction();
+        let mut update_ix = create_update_oracle_instruction(
+            &controller_pk,
+            &authority.pubkey(),
+            &oracle_pda,
+            &new_feed,
+            Some(FeedArgs { oracle_type: 0 }),
+            None,
+        );
 
         // Controller: Invalid owner
         let valid_controller = update_ix.accounts[0].pubkey;
