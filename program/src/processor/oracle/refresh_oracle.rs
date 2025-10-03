@@ -6,7 +6,7 @@ use crate::{
 use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
-use switchboard_on_demand::{Discriminator, PullFeedAccountData};
+use switchboard_on_demand::{Discriminator, PullFeedAccountData, SWITCHBOARD_ON_DEMAND_PROGRAM_ID};
 
 define_account_struct! {
     pub struct RefreshOracle<'info> {
@@ -36,6 +36,13 @@ pub fn process_refresh_oracle(_program_id: &Pubkey, accounts: &[AccountInfo]) ->
 
     match feed.oracle_type {
         0 => {
+            if !ctx
+                .price_feed
+                .is_owned_by(&SWITCHBOARD_ON_DEMAND_PROGRAM_ID.to_bytes())
+            {
+                msg!("Invalid PullFeedAccount owner");
+                return Err(ProgramError::InvalidAccountOwner);
+            }
             if &feed_account[..8] != PullFeedAccountData::DISCRIMINATOR {
                 msg!("Invalid PullFeedAccount discriminator");
                 return Err(ProgramError::InvalidAccountData);

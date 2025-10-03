@@ -9,21 +9,19 @@ use svm_alm_controller_client::generated::accounts::Oracle;
 #[cfg(test)]
 mod tests {
     use solana_sdk::{
-        account::Account, instruction::InstructionError, transaction::Transaction,
-        transaction::TransactionError,
+        account::Account,
+        instruction::InstructionError,
+        transaction::{Transaction, TransactionError},
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_initialize_oracle_instruction, create_update_oracle_instruction,
-        generated::{
-            types::{
-                ControllerStatus, FeedArgs, OracleUpdateEvent, PermissionStatus, SvmAlmControllerEvent,
-            },
+        derive_controller_authority_pda,
+        generated::types::{
+            ControllerStatus, FeedArgs, OracleUpdateEvent, PermissionStatus, SvmAlmControllerEvent,
         },
     };
-    use switchboard_on_demand::{
-        Discriminator, PullFeedAccountData, ON_DEMAND_MAINNET_PID, PRECISION,
-    };
+    use switchboard_on_demand::PRECISION;
 
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
@@ -109,7 +107,8 @@ mod tests {
         );
 
         // Refresh Oracle account with price.
-        refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed)?;
+        refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed)
+            .map_err(|e| e.err.to_string())?;
 
         let oracle: Option<Oracle> = fetch_oracle_account(&svm, &oracle_pda)?;
         assert!(oracle.is_some(), "Oracle account is not found");
@@ -211,7 +210,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_initialize_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -287,7 +286,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_log::test]
+    #[test]
     fn test_update_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
@@ -397,103 +396,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let quote_mint = Pubkey::new_unique();
 
-        // Stub invalid price feed data: Incorrect length
-        let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>() - 1);
-        serialized.extend_from_slice(&PullFeedAccountData::DISCRIMINATOR);
-
-        svm.set_account(
-            new_feed,
-            Account {
-                lamports: 1_000_000_000,
-                data: serialized,
-                owner: ON_DEMAND_MAINNET_PID,
-                executable: false,
-                rent_epoch: u64::MAX,
-            },
-        )?;
-
-        // Initialize Oracle account
-        let (tx_result, _) = initialize_oracle(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &nonce,
-            &new_feed,
-            0,
-            &mint,
-            &quote_mint,
-        );
-
-        assert_eq!(
-            tx_result.err().expect("error").err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-
-        let nonce = Pubkey::new_unique();
-        let new_feed = Pubkey::new_unique();
-        // Stub invalid price feed data: Incorrect discriminator
-        let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>());
-        serialized.extend_from_slice(&[1u8; 8]);
-
-        svm.set_account(
-            new_feed,
-            Account {
-                lamports: 1_000_000_000,
-                data: serialized,
-                owner: ON_DEMAND_MAINNET_PID,
-                executable: false,
-                rent_epoch: u64::MAX,
-            },
-        )?;
-
-        // Initialize Oracle account
-        let (tx_result, _) = initialize_oracle(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &nonce,
-            &new_feed,
-            0,
-            &mint,
-            &quote_mint,
-        );
-
-        assert_eq!(
-            tx_result.err().expect("error").err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-
-        let nonce = Pubkey::new_unique();
-        let new_feed = Pubkey::new_unique();
-        // Stub invalid price feed data: Incorrect owner
-        let mut serialized = Vec::with_capacity(8 + std::mem::size_of::<PullFeedAccountData>());
-        serialized.extend_from_slice(&PullFeedAccountData::DISCRIMINATOR);
-
-        svm.set_account(
-            new_feed,
-            Account {
-                lamports: 1_000_000_000,
-                data: serialized,
-                owner: svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
-                executable: false,
-                rent_epoch: u64::MAX,
-            },
-        )?;
-
-        // Initialize Oracle account
-        let (tx_result, _) = initialize_oracle(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &nonce,
-            &new_feed,
-            0,
-            &mint,
-            &quote_mint,
-        );
-
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidAccountData);
-
         // Initialize Oracle account with unsupported oracle_type
         let (tx_result, _) = initialize_oracle(
             &mut svm,
@@ -507,6 +409,394 @@ mod tests {
         );
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnsupportedOracleType);
+
+        Ok(())
+    }
+
+    #[test]
+    fn init_oracle_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        // Stub price feed data
+        let update_slot = 1000_000;
+        let update_price = 1_000_000_000;
+        svm.warp_to_slot(update_slot);
+        set_price_feed(&mut svm, &new_feed, update_price)?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let oracle_pda = derive_oracle_pda(&nonce);
+        let mut init_ix = create_initialize_oracle_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
+
+        // Controller: Invalid owner
+        let valid_controller = init_ix.accounts[1].pubkey;
+        init_ix.accounts[1].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        init_ix.accounts[1].pubkey = valid_controller;
+
+        // Controller Authority: Invalid account
+        let valid_controller_authority = init_ix.accounts[2].pubkey;
+        init_ix.accounts[2].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
+        init_ix.accounts[2].pubkey = valid_controller_authority;
+
+        // Price Feed: Invalid discriminator
+        let valid_price_feed = svm.get_account(&new_feed).unwrap();
+        let mut invalid_price_feed = valid_price_feed.clone();
+        invalid_price_feed.data[..8].copy_from_slice(&[0u8; 8]);
+        svm.set_account(new_feed, invalid_price_feed);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(new_feed, valid_price_feed);
+        svm.expire_blockhash();
+
+        // Price Feed: Invalid owner
+        let valid_price_feed = svm.get_account(&new_feed).unwrap();
+        let mut invalid_price_feed = valid_price_feed.clone();
+        invalid_price_feed.owner = Pubkey::new_unique();
+        svm.set_account(new_feed, invalid_price_feed);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidAccountData);
+        svm.set_account(new_feed, valid_price_feed);
+        svm.expire_blockhash();
+
+        // Oracle: Should be empty
+        svm.set_account(
+            oracle_pda,
+            Account {
+                lamports: 1_000_000_000,
+                data: vec![0u8; 200],
+                owner: svm_alm_controller_client::SVM_ALM_CONTROLLER_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::AccountAlreadyInitialized)
+        );
+        // reset to empty account
+        svm.set_account(
+            oracle_pda,
+            Account {
+                lamports: 0,
+                data: vec![],
+                owner: Pubkey::default(),
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+        svm.expire_blockhash();
+
+        Ok(())
+    }
+
+    #[test]
+    fn refresh_oracle_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let authority = Keypair::new();
+
+        // Airdrop to payer
+        airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+
+        // Set up a controller and relayer with swap capabilities.
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            321u16, // Id
+        )?;
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let oracle_pda = derive_oracle_pda(&nonce);
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        // Stub price feed data
+        let update_slot = 1000_000;
+        let update_price = 1_000_000_000;
+        svm.warp_to_slot(update_slot);
+        set_price_feed(&mut svm, &new_feed, update_price)?;
+
+        // Initialize Oracle account
+        let (tx_result, _) = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
+        tx_result.unwrap();
+
+        // Price Feed: does not match oracle config
+        let tx_result = refresh_oracle(&mut svm, &authority, &oracle_pda, &Pubkey::new_unique());
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+
+        // Oracle: not owned by program
+        let tx_result = refresh_oracle(&mut svm, &authority, &Pubkey::new_unique(), &new_feed);
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+
+        // Price Feed: Invalid owner
+        let valid_price_feed = svm.get_account(&new_feed).unwrap();
+        let mut invalid_price_feed = valid_price_feed.clone();
+        invalid_price_feed.owner = Pubkey::new_unique();
+        svm.set_account(new_feed, invalid_price_feed);
+        let tx_result = refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed);
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        svm.set_account(new_feed, valid_price_feed);
+
+        // Price Feed: Invalid discriminator
+        svm.expire_blockhash();
+        let valid_price_feed = svm.get_account(&new_feed).unwrap();
+        let mut invalid_price_feed = valid_price_feed.clone();
+        invalid_price_feed.data[..8].copy_from_slice(&[0u8; 8]);
+        svm.set_account(new_feed, invalid_price_feed);
+        let tx_result = refresh_oracle(&mut svm, &authority, &oracle_pda, &new_feed);
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(new_feed, valid_price_feed);
+
+        Ok(())
+    }
+
+    #[test]
+    fn update_oracle_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let authority = Keypair::new();
+
+        // Airdrop to payer
+        airdrop_lamports(&mut svm, &authority.pubkey(), 1_000_000_000)?;
+
+        // Set up a controller and relayer with swap capabilities.
+        let (controller_pk, _authority_permission_pk) = initialize_contoller(
+            &mut svm,
+            &authority,
+            &authority,
+            ControllerStatus::Active,
+            321u16, // Id
+        )?;
+
+        let nonce = Pubkey::new_unique();
+        let new_feed = Pubkey::new_unique();
+        let oracle_pda = derive_oracle_pda(&nonce);
+        let mint = Pubkey::new_unique();
+        let quote_mint = Pubkey::new_unique();
+
+        // Stub price feed data
+        let update_slot = 1000_000;
+        let update_price = 1_000_000_000;
+        svm.warp_to_slot(update_slot);
+        set_price_feed(&mut svm, &new_feed, update_price)?;
+
+        // Initialize Oracle account
+        let (tx_result, _) = initialize_oracle(
+            &mut svm,
+            &controller_pk,
+            &authority,
+            &nonce,
+            &new_feed,
+            0,
+            &mint,
+            &quote_mint,
+        );
+        tx_result.unwrap();
+
+        let mut update_ix = create_update_oracle_instruction(
+            &controller_pk,
+            &authority.pubkey(),
+            &oracle_pda,
+            &new_feed,
+            Some(FeedArgs { oracle_type: 0 }),
+            None,
+        );
+
+        // Controller: Invalid owner
+        let valid_controller = update_ix.accounts[0].pubkey;
+        update_ix.accounts[0].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        update_ix.accounts[0].pubkey = valid_controller;
+
+        // Controller Authority: Invalid account
+        let valid_controller_authority = update_ix.accounts[1].pubkey;
+        update_ix.accounts[1].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
+        update_ix.accounts[1].pubkey = valid_controller_authority;
+
+        // Oracle: Invalid owner
+        let valid_oracle = update_ix.accounts[4].pubkey;
+        update_ix.accounts[4].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        update_ix.accounts[4].pubkey = valid_oracle;
+
+        // Oracle: Controller does not match
+        let valid_oracle = svm.get_account(&oracle_pda).unwrap();
+        let mut invalid_oracle = valid_oracle.clone();
+        invalid_oracle.data[101..133].copy_from_slice(&Pubkey::new_unique().to_bytes());
+        svm.set_account(oracle_pda, invalid_oracle);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::ControllerDoesNotMatchAccountData,
+        );
+        svm.set_account(oracle_pda, valid_oracle);
+        svm.expire_blockhash();
+
+        // Oracle: Authority does not match
+        let valid_oracle = svm.get_account(&oracle_pda).unwrap();
+        let mut invalid_oracle = valid_oracle.clone();
+        invalid_oracle.data[9..41].copy_from_slice(&Pubkey::new_unique().to_bytes());
+        svm.set_account(oracle_pda, invalid_oracle);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
+        );
+        svm.set_account(oracle_pda, valid_oracle);
+        svm.expire_blockhash();
+
+        // Price Feed: Invalid owner
+        let valid_price_feed = svm.get_account(&new_feed).unwrap();
+        let mut invalid_price_feed = valid_price_feed.clone();
+        invalid_price_feed.owner = Pubkey::new_unique();
+        svm.set_account(new_feed, invalid_price_feed);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidAccountData);
+        svm.set_account(new_feed, valid_price_feed);
+        svm.expire_blockhash();
+
+        // Price Feed: Invalid discriminator
+        let valid_price_feed = svm.get_account(&new_feed).unwrap();
+        let mut invalid_price_feed = valid_price_feed.clone();
+        invalid_price_feed.data[..8].copy_from_slice(&[0u8; 8]);
+        svm.set_account(new_feed, invalid_price_feed);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[update_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().expect("error").err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(new_feed, valid_price_feed);
+        svm.expire_blockhash();
 
         Ok(())
     }
