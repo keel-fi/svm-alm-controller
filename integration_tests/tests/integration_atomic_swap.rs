@@ -17,7 +17,7 @@ mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
         clock::Clock,
-        instruction::{AccountMeta, InstructionError},
+        instruction::InstructionError,
         pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
@@ -129,7 +129,7 @@ mod tests {
 
         tx_result.map_err(|e| e.err.to_string())?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
-        let _ = manage_permission(
+        manage_permission(
             svm,
             &controller_pk,
             &relayer_authority_kp,          // payer
@@ -1796,7 +1796,7 @@ mod tests {
             321u16, // Id
         )?;
         
-        let _ = initialize_oracle(
+        initialize_oracle(
             &mut svm,
             &controller_pk,
             &relayer_authority_kp,
@@ -1805,9 +1805,9 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        );
+        ).0.unwrap();
 
-        let _ = manage_permission(
+        manage_permission(
             &mut svm,
             &controller_pk,
             &relayer_authority_kp,          // payer
@@ -2029,12 +2029,7 @@ mod tests {
         );
 
         // modify controller_authority (index 1) to a different pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        borrow_ix.accounts[1] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        borrow_ix.accounts[1].pubkey = Pubkey::new_unique();
 
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[refresh_ix, borrow_ix],
@@ -2087,12 +2082,7 @@ mod tests {
         );
 
         // modify controller_authority (index 2) to a different pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        repay_ix.accounts[2] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        repay_ix.accounts[2].pubkey =  Pubkey::new_unique();
 
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[refresh_ix, borrow_ix, mint_ix, burn_ix, repay_ix],

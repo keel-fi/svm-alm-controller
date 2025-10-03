@@ -25,7 +25,7 @@ mod tests {
     use super::*;
     use solana_sdk::{
         clock::Clock,
-        instruction::{AccountMeta, InstructionError},
+        instruction::InstructionError,
         transaction::{Transaction, TransactionError},
     };
     use svm_alm_controller_client::{
@@ -818,13 +818,8 @@ mod tests {
             amount,
         );
 
-        // Modify controller authority (index 1) to an invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        push_ix.accounts[1] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        // Modify controller authority (index 1) to a different pubkey
+        push_ix.accounts[1].pubkey = Pubkey::new_unique();
 
         let tx = Transaction::new_signed_with_payer(
             &[push_ix],

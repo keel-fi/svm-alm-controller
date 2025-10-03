@@ -5,7 +5,7 @@ mod subs;
 mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
-        instruction::AccountMeta, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
+        pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
@@ -122,13 +122,8 @@ mod tests {
             &external_ata,
         );
 
-        // modify controller_authority with invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        init_ix.accounts[2] = AccountMeta { 
-            pubkey: invalid_controller_authority, 
-            is_signer: false, 
-            is_writable: false 
-        };
+        // modify controller_authority to a different pubkey
+        init_ix.accounts[2].pubkey = Pubkey::new_unique();
 
         let txn = Transaction::new_signed_with_payer(
             &[init_ix],
@@ -247,13 +242,8 @@ mod tests {
             2000,
         );
 
-        // modify controller authority (index 1) to invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        instruction.accounts[1] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        // modify controller authority (index 1) to a different pubkey
+        instruction.accounts[1].pubkey = Pubkey::new_unique();
 
         let txn = Transaction::new_signed_with_payer(
             &[instruction],

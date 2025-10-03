@@ -10,7 +10,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey, transaction::Transaction};
+    use solana_sdk::{pubkey::Pubkey, transaction::Transaction};
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_manage_permissions_instruction,
@@ -538,12 +538,7 @@ mod tests {
         ); 
 
         // modify controller authority to an invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        instruction.accounts[2] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        instruction.accounts[2].pubkey = Pubkey::new_unique();
 
         let txn = Transaction::new_signed_with_payer(
             &[instruction],

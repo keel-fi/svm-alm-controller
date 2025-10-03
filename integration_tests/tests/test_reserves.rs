@@ -10,7 +10,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, ReserveStatu
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{signature::Keypair, {instruction::AccountMeta, pubkey::Pubkey, transaction::Transaction}};
+    use solana_sdk::{signature::Keypair, {pubkey::Pubkey, transaction::Transaction}};
     use svm_alm_controller_client::{
         create_initialize_reserve_instruction, create_manage_reserve_instruction,
         create_sync_reserve_instruction, generated::types::PermissionStatus,
@@ -83,13 +83,8 @@ mod tests {
             1_000_000_000_000,
         );
 
-        // modify controller authority (index 2) to an invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        instruction.accounts[2] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        // modify controller authority (index 2) to a different pubkey
+        instruction.accounts[2].pubkey = Pubkey::new_unique();
 
 
         let txn = Transaction::new_signed_with_payer(
@@ -188,13 +183,8 @@ mod tests {
             2000,
         );
 
-        // modify controller authority (index 1) to invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        instruction.accounts[1] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        // modify controller authority (index 1) to a different pubkey
+        instruction.accounts[1].pubkey = Pubkey::new_unique();
 
         let txn = Transaction::new_signed_with_payer(
             &[instruction],
@@ -447,13 +437,8 @@ mod tests {
             &spl_token::ID,
         );
 
-        // modify controller authority (index ) to invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        instruction.accounts[1] = AccountMeta { 
-            pubkey: invalid_controller_authority, 
-            is_signer: false, 
-            is_writable: false
-        };
+        // modify controller authority (index ) to a different pubkey
+        instruction.accounts[1].pubkey = Pubkey::new_unique();
 
         let txn = Transaction::new_signed_with_payer(
             &[instruction],

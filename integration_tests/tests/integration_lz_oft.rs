@@ -32,7 +32,7 @@ mod tests {
     use solana_sdk::{
         clock::Clock,
         compute_budget::ComputeBudgetInstruction,
-        instruction::{AccountMeta, Instruction, InstructionError},
+        instruction::{Instruction, InstructionError},
         pubkey::Pubkey,
         transaction::{Transaction, TransactionError},
     };
@@ -938,13 +938,8 @@ mod tests {
 
         let mut lz_push_ixn = create_lz_push_ix(&controller, &integration, &authority)?;
 
-        // Modify controller authority (index 1) to an invalid pubkey
-        let invalid_controller_authority = Pubkey::new_unique();
-        lz_push_ixn.accounts[1] = AccountMeta {
-            pubkey: invalid_controller_authority,
-            is_signer: false,
-            is_writable: false
-        };
+        // Modify controller authority (index 1) to a different pubkey
+        lz_push_ixn.accounts[1].pubkey = Pubkey::new_unique();
 
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[lz_push_ixn],
