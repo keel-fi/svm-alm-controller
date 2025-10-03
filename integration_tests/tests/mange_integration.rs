@@ -205,12 +205,12 @@ mod tests {
 
     #[test_case(false, false, false, false, false, false, false, false ; "No permissions")]
     #[test_case(true, false, false, false, false, false, false, false ; "Can execute swap")]
-    #[test_case(false, false, false, false, false, false, false, false ; "Can manage permissions")]
-    #[test_case(false, false, false, false, false, false, false, false ; "Can invoke external transfer")]
-    #[test_case(false, true, false, false, false, false, false, false ; "Can reallocate")]
-    #[test_case(false, true, false, false, false, false, false, false ; "Can freeze controller")]
-    #[test_case(false, false, true, false, false, false, false, false ; "Can unfreeze controller")]
-    #[test_case(false, false, false, false, false, true, false, false ; "Can suspend permissions")]
+    #[test_case(false, true, false, false, false, false, false, false ; "Can manage permissions")]
+    #[test_case(false, false, true, false, false, false, false, false ; "Can invoke external transfer")]
+    #[test_case(false, false, false, true, false, false, false, false ; "Can reallocate")]
+    #[test_case(false, false, false, false, true, false, false, false ; "Can freeze controller")]
+    #[test_case(false, false, false, false, false, true, false, false ; "Can unfreeze controller")]
+    #[test_case(false, false, false, false, false, false, true, false ; "Can suspend permissions")]
     #[test_case(false, false, false, false, false, false, false, true ; "Can liquidate")]
     fn test_initialize_integration_fails_without_permission(
         can_execute_swap: bool,
@@ -256,7 +256,7 @@ mod tests {
         )?;
 
         let instruction = create_spl_token_external_initialize_integration_instruction(
-            &invalid_permission_authority.pubkey(),
+            &super_authority.pubkey(),
             &controller_pk,
             &invalid_permission_authority.pubkey(),
             &"DAO Treasury".to_string(),
@@ -294,7 +294,7 @@ mod tests {
 
         let txn = Transaction::new_signed_with_payer(
             &[instruction],
-            Some(&invalid_permission_authority.pubkey()),
+            Some(&super_authority.pubkey()),
             &[&super_authority, &invalid_permission_authority],
             svm.latest_blockhash(),
         );
@@ -307,12 +307,12 @@ mod tests {
 
     #[test_case(false, false, false, false, false, false, false, false ; "No permissions")]
     #[test_case(true, false, false, false, false, false, false, false ; "Can execute swap")]
-    #[test_case(false, false, false, false, false, false, false, false ; "Can manage permissions")]
-    #[test_case(false, false, false, false, false, false, false, false ; "Can invoke external transfer")]
-    #[test_case(false, true, false, false, false, false, false, false ; "Can reallocate")]
-    #[test_case(false, true, false, false, false, false, false, false ; "Can freeze controller")]
-    #[test_case(false, false, true, false, false, false, false, false ; "Can unfreeze controller")]
-    #[test_case(false, false, false, false, false, true, false, false ; "Can suspend permissions")]
+    #[test_case(false, true, false, false, false, false, false, false ; "Can manage permissions")]
+    #[test_case(false, false, true, false, false, false, false, false ; "Can invoke external transfer")]
+    #[test_case(false, false, false, true, false, false, false, false ; "Can reallocate")]
+    #[test_case(false, false, false, false, true, false, false, false ; "Can freeze controller")]
+    #[test_case(false, false, false, false, false, true, false, false ; "Can unfreeze controller")]
+    #[test_case(false, false, false, false, false, false, true, false ; "Can suspend permissions")]
     #[test_case(false, false, false, false, false, false, false, true ; "Can liquidate")]
     fn test_manage_integration_fails_without_permission(
         can_execute_swap: bool,
@@ -373,7 +373,7 @@ mod tests {
         let txn = Transaction::new_signed_with_payer(
             &[instruction],
             Some(&invalid_permission_authority.pubkey()),
-            &[&super_authority, &invalid_permission_authority],
+            &[&invalid_permission_authority, &invalid_permission_authority],
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);
