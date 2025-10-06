@@ -5,14 +5,14 @@ mod subs;
 mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
-        pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
+        account::Account, instruction::InstructionError, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::{Transaction, TransactionError}
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_manage_integration_instruction,
         create_spl_token_external_initialize_integration_instruction,
         create_sync_integration_instruction,
-        generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus},
+        generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus}, SVM_ALM_CONTROLLER_ID,
     };
 
     use test_case::test_case;
@@ -474,6 +474,205 @@ mod tests {
         let tx_result = svm.send_transaction(txn);
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnauthorizedAction);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_init_integration_outer_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller().unwrap();
+
+        // Initialize a mint
+        let mint_pk = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )
+        .unwrap();
+
+        let external = Pubkey::new_unique();
+        let external_ata = spl_associated_token_account_client::address::get_associated_token_address_with_program_id(
+            &external,
+            &mint_pk,
+            &spl_token::ID,
+        );
+
+        // In order to test the outer ctx account checks, we can use any integration
+        // In this case we use SPL Token External Integration
+        let mut init_integration_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "OuterCtxAccsChecks",
+            IntegrationStatus::Active,
+            10_000,
+            10_000,
+            true,
+            &spl_token::ID,
+            &mint_pk,
+            &external,
+            &external_ata
+        );
+
+        // Accounts in outer ctx (and checks):
+        // 0. payer (signer and mut - no need to test)
+        // 1. controller (owned by crate::ID)
+        // 2. controller_authority - already tested in `test_init_integration_fails_with_invalid_controller_authority`
+        // 3. authority (signer)
+        // 4. permission (owned by crate::ID)
+        // 5. integration (mut, owned by system program)
+        // 6. program_id (equals crate::ID)
+        // 7. system program (equals system program)
+
+        // controller with invalid owner: InvalidAccountOwner
+        change_account_owner(&mut svm, &controller_pk, &Pubkey::new_unique())?;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        change_account_owner(&mut svm, &controller_pk, &SVM_ALM_CONTROLLER_ID)?;
+
+        svm.expire_blockhash();
+
+        // permission with invalid owner: InvalidAccountOwner
+        let permission_pk = init_integration_ix.accounts[4].pubkey;
+        change_account_owner(&mut svm, &permission_pk, &Pubkey::new_unique())?;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        change_account_owner(&mut svm, &permission_pk, &SVM_ALM_CONTROLLER_ID)?;
+
+        svm.expire_blockhash();
+
+        // create Integration before creation in ix
+        let integration_pk = init_integration_ix.accounts[5].pubkey;
+        create_account(&mut svm, &integration_pk, &system_program::ID, vec![1,1,1,1])?;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::AccountAlreadyInitialized)
+        );
+        remove_account(&mut svm, &integration_pk)?;
+
+        svm.expire_blockhash();
+
+        // change program id to invalid pubkey
+        init_integration_ix.accounts[6].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
+        );
+        init_integration_ix.accounts[6].pubkey = SVM_ALM_CONTROLLER_ID;
+
+        svm.expire_blockhash();
+
+        // change system program id to an invalid pubkey
+        init_integration_ix.accounts[7].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
+        );
+        init_integration_ix.accounts[7].pubkey = system_program::ID;
+
+        svm.expire_blockhash();
+
+        // init works with unmodified accounts
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        )).unwrap();
+
+        Ok(())
+    }
+
+    fn change_account_owner(
+        svm: &mut LiteSVM,
+        account_pk : &Pubkey, 
+        new_owner: &Pubkey
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut account = svm
+            .get_account(account_pk)
+            .ok_or("Account not found")?;
+
+        account.owner = *new_owner;
+
+        svm.set_account(*account_pk, account)?;
+        Ok(())
+    }
+
+    fn create_account(
+        svm: &mut LiteSVM,
+        account_pk : &Pubkey,
+        owner: &Pubkey,
+        data: Vec<u8>
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let account = Account {
+            lamports: 1_000_000_000,  // arbitrary default lamports
+            data: data,
+            owner: *owner,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        svm.set_account(*account_pk, account)?;
+        Ok(())
+    }
+
+    fn remove_account(
+        svm: &mut LiteSVM,
+        account_pk : &Pubkey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        svm.set_account(
+            *account_pk,
+            Account {
+                lamports: 0,
+                data: vec![],
+                owner: system_program::id(),
+                executable: false,
+                rent_epoch: 0,
+            },
+        )?;
 
         Ok(())
     }
