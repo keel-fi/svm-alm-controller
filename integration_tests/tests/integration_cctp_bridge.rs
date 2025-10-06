@@ -6,8 +6,8 @@ use crate::subs::{
     initialize_ata, initialize_reserve, manage_permission, transfer_tokens,
 };
 use helpers::{
-    cctp::evm_address_to_solana_pubkey,
-    constants::CCTP_REMOTE_DOMAIN_ETH, setup_test_controller, TestContext,
+    cctp::evm_address_to_solana_pubkey, constants::CCTP_REMOTE_DOMAIN_ETH, setup_test_controller,
+    TestContext,
 };
 use solana_sdk::signer::Signer;
 use svm_alm_controller_client::generated::types::{
@@ -17,29 +17,36 @@ use svm_alm_controller_client::generated::types::{
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{
-        clock::Clock, instruction::InstructionError, pubkey::Pubkey, signature::Keypair, transaction::{Transaction, TransactionError}
-    };
-    use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::{
-        create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
-        generated::{instructions::InitializeIntegrationBuilder, types::{AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig, IntegrationUpdateEvent, SvmAlmControllerEvent}},
-    };
-    use borsh::BorshDeserialize;
+    use crate::test_invalid_accounts;
     use crate::{
-        helpers::{assert::assert_custom_error, constants::{
-            CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-        }},
+        helpers::{
+            assert::assert_custom_error,
+            constants::{
+                CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+            },
+        },
         subs::{
             airdrop_lamports, fetch_integration_account, fetch_reserve_account,
-            get_mint_supply_or_zero, get_token_balance_or_zero, initialize_mint,
+            get_mint_supply_or_zero, get_token_balance_or_zero,
         },
     };
+    use borsh::BorshDeserialize;
+    use solana_sdk::{
+        clock::Clock,
+        instruction::InstructionError,
+        pubkey::Pubkey,
+        signature::Keypair,
+        transaction::{Transaction, TransactionError},
+    };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller_client::generated::types::{InitializeArgs, IntegrationType};
     use svm_alm_controller_client::{
+        create_cctp_bridge_initialize_integration_instruction, create_cctp_bridge_push_instruction,
         generated::{
+            instructions::InitializeIntegrationBuilder,
             types::{
-                InitializeArgs,
-                IntegrationType,
+                AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig,
+                IntegrationUpdateEvent, SvmAlmControllerEvent,
             },
         },
     };
@@ -707,8 +714,6 @@ mod tests {
     }
 
     #[test]
-    // This test has many cases where we modify a single account to be invalid, assert
-    // the appropriate error is returned, then restore the account to the valid value.
     fn init_cctp_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -779,118 +784,22 @@ mod tests {
             CCTP_REMOTE_DOMAIN_ETH,
         );
 
-        // Mint: Invalid owner
-        let valid_mint_pubkey = init_integration_ix.accounts[8].pubkey;
-        init_integration_ix.accounts[8].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_integration_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
-        );
-        init_integration_ix.accounts[8].pubkey = valid_mint_pubkey;
-
-        // Mint: Invalid mint (does not match local token)
-        let invalid_mint = initialize_mint(
-            &mut svm,
-            &super_authority,
-            &super_authority.pubkey(),
-            None,
-            6,
-            None,
-            &spl_token::ID,
-            None,
+        // Test invalid accounts using the new helper macro
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            init_integration_ix.clone(),
+            {
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid mint (does not match local token)"),
+                11 => invalid_program_id(InstructionError::IncorrectProgramId, "Invalid cctp_message_transmitter"),
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Invalid cctp_token_messenger_minter"),
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Local token invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Remote token messenger invalid owner"),
+            }
         )?;
-        let valid_mint_pubkey = init_integration_ix.accounts[8].pubkey;
-        init_integration_ix.accounts[8].pubkey = invalid_mint;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_integration_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-        init_integration_ix.accounts[8].pubkey = valid_mint_pubkey;
-
-        // Invalid cctp_message_transmitter
-        let valid_cctp_message_transmitter = init_integration_ix.accounts[11].pubkey;
-        init_integration_ix.accounts[11].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_integration_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
-        );
-        init_integration_ix.accounts[11].pubkey = valid_cctp_message_transmitter;
-
-        // Invalid cctp_token_messenger_minter
-        let valid_cctp_token_messenger_minter = init_integration_ix.accounts[12].pubkey;
-        init_integration_ix.accounts[12].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_integration_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::IncorrectProgramId)
-        );
-        init_integration_ix.accounts[12].pubkey = valid_cctp_token_messenger_minter;
-
-        // Local token invalid owner
-        svm.expire_blockhash();
-        let local_token = init_integration_ix.accounts[9].pubkey;
-        // stub local token with incorrect owner
-        let valid_local_token_account = svm.get_account(&local_token).unwrap();
-        let mut invalid_local_token_account = valid_local_token_account.clone();
-        invalid_local_token_account.owner = Pubkey::new_unique();
-        let _ = svm.set_account(local_token, invalid_local_token_account);
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_integration_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
-        );
-        let _ = svm.set_account(local_token, valid_local_token_account);
-
-        // remote token messenger invalid owner
-        svm.expire_blockhash();
-        let remote_token_messenger = init_integration_ix.accounts[10].pubkey;
-        // stub local token with incorrect owner
-        let valid_remote_token_messenger_account = svm.get_account(&remote_token_messenger).unwrap();
-        let mut invalid_remote_token_messenger_account = valid_remote_token_messenger_account.clone();
-        invalid_remote_token_messenger_account.owner = Pubkey::new_unique();
-        let _ = svm.set_account(
-            remote_token_messenger,
-            invalid_remote_token_messenger_account,
-        );
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_integration_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
-        );
-        let _ = svm.set_account(remote_token_messenger, valid_remote_token_messenger_account);
 
         // invalid destination domain
         svm.expire_blockhash();
@@ -933,7 +842,8 @@ mod tests {
     }
 
     #[test]
-    fn cctp_push_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn cctp_push_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>>
+    {
         let TestContext {
             mut svm,
             controller_pk,
@@ -1034,12 +944,14 @@ mod tests {
             svm.latest_blockhash(),
         );
 
-        
         let tx_result = svm.send_transaction(tx);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
-
     }
 }
