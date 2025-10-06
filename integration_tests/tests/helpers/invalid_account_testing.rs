@@ -150,15 +150,18 @@ impl<'a> InvalidAccountTestBuilder<'a> {
         // Backup all accounts that will be modified and track original account keys
         for config in &self.test_configs {
             let account_pubkey = self.valid_instruction.accounts[config.account_index].pubkey;
-            
+
             // Always backup the original account key for cases that modify the instruction
             if matches!(
                 config.invalid_type,
-                InvalidAccountType::InvalidProgramId | InvalidAccountType::AccountNotFound | InvalidAccountType::InvalidData
+                InvalidAccountType::InvalidProgramId
+                    | InvalidAccountType::AccountNotFound
+                    | InvalidAccountType::InvalidData
             ) {
-                self.original_account_keys.insert(config.account_index, account_pubkey);
+                self.original_account_keys
+                    .insert(config.account_index, account_pubkey);
             }
-            
+
             // Backup the account data if the account exists
             if let Some(account) = self.svm.get_account(&account_pubkey) {
                 self.account_backups.insert(config.account_index, account);
@@ -196,11 +199,12 @@ impl<'a> InvalidAccountTestBuilder<'a> {
         match config.invalid_type {
             InvalidAccountType::InvalidOwner => {
                 // Use the original account key for InvalidOwner cases
-                let account_pubkey = self.original_account_keys
+                let account_pubkey = self
+                    .original_account_keys
                     .get(&config.account_index)
                     .copied()
                     .unwrap_or(self.valid_instruction.accounts[config.account_index].pubkey);
-                
+
                 if let Some(account) = self.svm.get_account(&account_pubkey) {
                     let mut invalid_account = account.clone();
                     invalid_account.owner = Pubkey::new_unique();
@@ -212,14 +216,14 @@ impl<'a> InvalidAccountTestBuilder<'a> {
                 // and create an account with the wrong program ID at that address
                 let new_account_key = Pubkey::new_unique();
                 self.valid_instruction.accounts[config.account_index].pubkey = new_account_key;
-                
+
                 // Create an account with the wrong program ID
                 // For mint accounts, we need to create a proper mint account with wrong data
                 // to get InvalidAccountData instead of InvalidAccountOwner
                 let invalid_account = solana_sdk::account::Account {
                     lamports: 1_000_000_000, // Give it some lamports
-                    data: vec![0; 82], // Proper mint account size but wrong data
-                    owner: spl_token::ID, // Correct owner (SPL Token program)
+                    data: vec![0; 82],       // Proper mint account size but wrong data
+                    owner: spl_token::ID,    // Correct owner (SPL Token program)
                     executable: false,
                     rent_epoch: 0,
                 };
@@ -232,7 +236,8 @@ impl<'a> InvalidAccountTestBuilder<'a> {
             InvalidAccountType::InvalidData => {
                 if let Some(ref invalid_account) = config.custom_invalid_account {
                     // Use the original account key for custom invalid data
-                    let account_pubkey = self.original_account_keys
+                    let account_pubkey = self
+                        .original_account_keys
                         .get(&config.account_index)
                         .copied()
                         .unwrap_or(self.valid_instruction.accounts[config.account_index].pubkey);
@@ -246,11 +251,12 @@ impl<'a> InvalidAccountTestBuilder<'a> {
             }
             InvalidAccountType::Uninitialized => {
                 // Use the original account key for uninitialized cases
-                let account_pubkey = self.original_account_keys
+                let account_pubkey = self
+                    .original_account_keys
                     .get(&config.account_index)
                     .copied()
                     .unwrap_or(self.valid_instruction.accounts[config.account_index].pubkey);
-                
+
                 // Create an uninitialized account
                 let uninitialized_account = solana_sdk::account::Account {
                     lamports: 0,
@@ -270,10 +276,14 @@ impl<'a> InvalidAccountTestBuilder<'a> {
     fn execute_transaction(&mut self) -> litesvm::types::TransactionResult {
         // Use a fresh blockhash for each transaction
         let blockhash = self.svm.latest_blockhash();
-        
+
         // Convert Vec<Box<&dyn Signer>> to &[&dyn Signer]
-        let signers_refs: Vec<&dyn solana_sdk::signer::Signer> = self.signers.iter().map(|s| s.as_ref() as &dyn solana_sdk::signer::Signer).collect();
-        
+        let signers_refs: Vec<&dyn solana_sdk::signer::Signer> = self
+            .signers
+            .iter()
+            .map(|s| s.as_ref() as &dyn solana_sdk::signer::Signer)
+            .collect();
+
         self.svm
             .send_transaction(Transaction::new_signed_with_payer(
                 &[self.valid_instruction.clone()],
