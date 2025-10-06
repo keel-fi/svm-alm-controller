@@ -1108,6 +1108,8 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
         );
+        svm.set_account(local_token_pk, local_token_acc_before)
+            .expect("failed to get account");
         svm.expire_blockhash();
 
 
