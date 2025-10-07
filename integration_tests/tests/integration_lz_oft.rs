@@ -30,11 +30,7 @@ mod tests {
     };
     use solana_client::rpc_client::RpcClient;
     use solana_sdk::{
-        clock::Clock,
-        compute_budget::ComputeBudgetInstruction,
-        instruction::{Instruction, InstructionError},
-        pubkey::Pubkey,
-        transaction::{Transaction, TransactionError},
+        account::Account, clock::Clock, compute_budget::ComputeBudgetInstruction, instruction::{Instruction, InstructionError}, pubkey::Pubkey, transaction::{Transaction, TransactionError}
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
@@ -949,6 +945,241 @@ mod tests {
         ));
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+
+        Ok(())
+    }
+
+    #[test]
+    fn lz_init_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+        let (controller_pk, authority, _) = setup_env_sans_integration(&mut svm)?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x0804a6e2798f42c7f3c97215ddf958d5500f8ec8";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        // Initialize an integration
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let mut init_ix = create_lz_bridge_initialize_integration_instruction(
+            &authority.pubkey(),
+            &controller_pk,
+            &authority.pubkey(),
+            "ETH USDS LZ Bridge",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            true,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &LZ_USDS_ESCROW,
+            &destination_address,
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+        );
+
+        // Checks for inner_ctx accounts:
+        // (index 8) mint:
+        //      owner by token2022 or spl token
+        // (index 9) oft_store: 
+        //      owned by inner_ctx.oft_program, 
+        //      (deserialized).token_mint == inner_ctx.mint,
+        //      (deserialized).token_escrow == inner_ctx.token_escrow
+        // (index 10) peer_config:
+        //      owned by inner_ctx.oft_program,
+        //      pubkey matches PDA,
+        //      succesfull deserialization
+
+        // modify oft_store.token_mint
+        let oft_store_pk = init_ix.accounts[9].pubkey;
+        let oft_store_acc_before = svm.get_account(&oft_store_pk)
+            .expect("failed to fetch account");
+        let oft_store_data_wrong_mint = Account {
+            data: vec![
+                oft_store_acc_before.data[..17].to_vec(),
+                Pubkey::new_unique().to_bytes().to_vec(),
+                oft_store_acc_before.data[49..].to_vec()
+            ].concat(),
+            ..oft_store_acc_before
+        };
+        svm.set_account(oft_store_pk, oft_store_data_wrong_mint)
+            .expect("failed to set account");
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(oft_store_pk, oft_store_acc_before.clone())
+            .expect("failed to set account");
+        svm.expire_blockhash();
+        
+        // modify oft_store.token_escrow
+        let oft_store_data_wrong_escrow = Account {
+            data: vec![
+                oft_store_acc_before.data[..49].to_vec(),
+                Pubkey::new_unique().to_bytes().to_vec(),
+                oft_store_acc_before.data[81..].to_vec()
+            ].concat(),
+            ..oft_store_acc_before
+        };
+        svm.set_account(oft_store_pk, oft_store_data_wrong_escrow)
+            .expect("failed to set account");
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(oft_store_pk, oft_store_acc_before)
+            .expect("failed to set account");
+        svm.expire_blockhash();
+
+
+        // modify peer_config pubkey
+        let peer_config_pk_before = init_ix.accounts[10].pubkey;
+        let peer_config_data_before = svm.get_account(&peer_config_pk_before)
+            .expect("failed to get account");
+        let peer_config_pk_after = Pubkey::new_unique();
+        svm.set_account(
+            peer_config_pk_after, 
+            peer_config_data_before.clone()
+        ).expect("failed to set account");
+        init_ix.accounts[10].pubkey = peer_config_pk_after;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        init_ix.accounts[10].pubkey = peer_config_pk_before;
+        svm.expire_blockhash();
+
+        // modify peer_config data so deserialization fails
+        svm.set_account(
+            peer_config_pk_before, 
+            Account { data: [1; 32].to_vec(), ..peer_config_data_before.clone() }
+        ).expect("failed to set account");
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(peer_config_pk_before, peer_config_data_before)
+            .expect("failed to set account");
+        svm.expire_blockhash();
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&authority), 
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            authority.pubkey(),
+            signers,
+            init_ix.clone(),
+            {
+                // modify mint owner
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
+                // modify oft_store owner
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Oft Store: Invalid owner"),
+                // modify peer_config owner
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Peer Config: Invalid owner"),
+            }
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn lz_push_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let (controller_pk, lz_usds_eth_bridge_integration_pk, authority, reserve_keys) =
+            setup_env(&mut svm, false)?;
+
+        // Push the integration -- i.e. bridge using LZ OFT
+        let amount = 2000;
+        let [mut push_ix, send_ix, reset_ix] = create_lz_push_and_send_ixs(
+            &controller_pk,
+            &authority.pubkey(),
+            &lz_usds_eth_bridge_integration_pk,
+            &reserve_keys.pubkey,
+            &LZ_USDS_OFT_PROGRAM_ID,
+            &spl_token::ID,
+            &evm_address_to_solana_pubkey(EVM_DESTINATION),
+            LZ_DESTINATION_DOMAIN_EID,
+            &USDS_TOKEN_MINT_PUBKEY,
+            amount,
+        )
+        .await?;
+
+
+        // Checks for inner_ctx accounts:
+        // (index 8) mint
+        //      pubkey == config.mint
+        //      pubkey == reserve_a.mint
+        // (index 9) vault
+        //      pubkey == reserve_a.vault
+        // (index 11) token program
+        //      pubkey == spl token or token2022
+        // (index 12) associated token program
+        //      pubkey == AT program
+        // (index 13) system program
+        //      pubkey == system program id
+        // (index 14) sysvar instruction
+        //      pubkey == sysvar instructions id
+
+        // modify vault pubkey so it doesnt match integration config
+        let vault_pk_before = push_ix.accounts[9].pubkey ;
+        push_ix.accounts[9].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone(), send_ix.clone(), reset_ix.clone()],
+            Some(&authority.pubkey()),
+            &[&authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        push_ix.accounts[9].pubkey = vault_pk_before;
+        svm.expire_blockhash();
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&authority), 
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            authority.pubkey(),
+            signers,
+            push_ix.clone(),
+            {
+                // modify mint pubkey (wont match config)
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid pubkey"),
+                // modify token program pubkey
+                11 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
+                // modify associated token program pubkey
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: Invalid program id"),
+                // modify system program pubkey
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
+                // modify instructions sysvars pubkey
+                14 => invalid_program_id(InstructionError::IncorrectProgramId, "Instructions sysvar: Invalid instructions sysvar"),
+            }
+        );
 
         Ok(())
     }

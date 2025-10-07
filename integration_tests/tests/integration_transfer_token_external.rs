@@ -24,9 +24,7 @@ mod tests {
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use super::*;
     use solana_sdk::{
-        clock::Clock,
-        instruction::InstructionError,
-        transaction::{Transaction, TransactionError},
+        account::Account, clock::Clock, instruction::InstructionError, system_program, transaction::{Transaction, TransactionError}
     };
     use svm_alm_controller_client::{
         create_spl_token_external_initialize_integration_instruction,
@@ -833,5 +831,337 @@ mod tests {
 
         Ok(())
         
+    }
+
+    #[test]
+    fn spl_token_external_init_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+        let token_program = spl_token::ID;
+        // Initialize a mint
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &token_program,
+            None,
+        )?;
+
+        let external = Keypair::new();
+        let external_ata =
+            get_associated_token_address_with_program_id(&external.pubkey(), &mint, &token_program);
+
+        let _authority_ata =
+            initialize_ata(&mut svm, &super_authority, &super_authority.pubkey(), &mint)?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &mint,
+            &super_authority.pubkey(),
+            1_000_000,
+        )?;
+
+        // Initialize a reserve for the token
+        initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Active,
+            1_000_000_000, // rate_limit_slope
+            1_000_000_000, // rate_limit_max_outflow
+            &token_program,
+        )?;
+
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let mut init_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "DAO Treasury",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &token_program,
+            &mint,
+            &external.pubkey(),
+            &external_ata,
+        );
+
+        // Checks for inner_ctx accounts:
+        // (index 8) mint
+        //      owned by spl token or token2022
+        // (index 10) token_account
+        //      mut, owned by spl token or token2022 or system program
+        // (index 11) token program
+        //      pubkey == spl token or token2022
+        // (index 12) AT program
+        //      pubkey == associated token program id
+
+        // change token_account to readonly
+        init_ix.accounts[10].is_writable = false;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::Immutable)
+        );
+        init_ix.accounts[10].is_writable = true;
+        svm.expire_blockhash();
+
+
+        // change token_account owner
+        // checks the case where the account is initialized but not owned by spl token or token2022
+        let token_account_pk = init_ix.accounts[10].pubkey;
+        svm.set_account(
+            token_account_pk, 
+            Account {
+            lamports: 10000000,
+            data: [1; 165].to_vec(),
+            owner: Pubkey::new_unique(),
+            executable: false,
+            rent_epoch: 0
+        })
+        .expect("Failed to set account");
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        svm.set_account(
+            token_account_pk, 
+            Account {
+            lamports: 0,
+            data: [].to_vec(),
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0
+        })
+        .expect("Failed to set account");
+        svm.expire_blockhash();
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&super_authority), 
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            init_ix.clone(),
+            {
+                // modify mint owner
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                // modify token program pubkey
+                11 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: incorrect program id"),
+                // modify associated token program pubkey
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: incorrect program id"),
+            }
+        );
+
+
+        Ok(())
+    }
+
+    #[test]
+    fn spl_token_external_push_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+        let token_program = spl_token::ID;
+        let external = Keypair::new();
+
+        // Initialize a mint
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &token_program,
+            None,
+        )?;
+
+        let _authority_ata =
+            initialize_ata(&mut svm, &super_authority, &super_authority.pubkey(), &mint)?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &mint,
+            &super_authority.pubkey(),
+            1_000_000,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let reserve_rate_limit_max_outflow = 1_000_000_000_000;
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Suspended,
+            0, // rate_limit_slope
+            0, // rate_limit_max_outflow
+            &token_program,
+        )?;
+
+        // Update the reserve
+        manage_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,              // rate_limit_slope
+            reserve_rate_limit_max_outflow, // rate_limit_max_outflow
+        )?;
+
+        // Initialize an External integration
+        let external_ata =
+            get_associated_token_address_with_program_id(&external.pubkey(), &mint, &token_program);
+        let integration_rate_mint_max_outflow = 1_000_000_000_000;
+        let init_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "DAO Treasury",
+            IntegrationStatus::Active,
+            1_000_000_000_000,
+            integration_rate_mint_max_outflow,
+            false,
+            &token_program,
+            &mint,
+            &external.pubkey(),
+            &external_ata,
+        );
+        let external_integration_pk = init_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
+        let vault_start_amount = 10_000_000;
+        // Transfer funds directly to the controller's vault
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Push the integration
+        let amount = 1_000_000;
+        let mut push_ix = create_spl_token_external_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &external_integration_pk,
+            &reserve_keys.pubkey,
+            &token_program,
+            &mint,
+            &external.pubkey(),
+            amount,
+        );
+
+        // Checks for inner_ctx accounts:
+        // (index 8) mint
+        //      pubkey == config.mint
+        //      owner == config.program
+        //      pubkey == reserve.mint
+        // (index 9) vault
+        //      mut,
+        //      pubkey == reserve.vault
+        // (index 10) recipient
+        //      pubkey == config.recipient
+        // (index 11) recipient_token_account
+        //      pubkey == config.token_account
+        //      owner == ctx.token_program or system program
+        // (index 12) token_program 
+        //      pubkey == config.program
+        // (index 13) AT program
+        //      pubkey == AT program id
+        // (index 14) system program
+        //      pubkey == system program id
+
+        // change vault to readonly
+        push_ix.accounts[9].is_writable = false;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::Immutable)
+        );
+        push_ix.accounts[9].is_writable = true;
+        svm.expire_blockhash();
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&super_authority), 
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            push_ix.clone(),
+            {
+                // change mint owner
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                // change mint pubkey
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
+                // change vault pubkey
+                9 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
+                // change recipient pubkey
+                10 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient: invalid pubkey"),
+                // change recipient token account pubkey
+                11 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient token account: invalid pubkey"),
+                // change recipient token account owner
+                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient token account: invalid owner"),
+                // modify token program id
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
+                // modify at program id
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: Invalid program id"),
+                // modify system program id
+                14 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
+            }
+        );
+        Ok(())
     }
 }
