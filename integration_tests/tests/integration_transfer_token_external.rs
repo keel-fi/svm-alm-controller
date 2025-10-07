@@ -927,6 +927,7 @@ mod tests {
 
 
         // change token_account owner
+        // checks the case where the account is initialized but not owned by spl token or token2022
         let token_account_pk = init_ix.accounts[10].pubkey;
         svm.set_account(
             token_account_pk, 
@@ -972,6 +973,7 @@ mod tests {
             {
                 // modify mint owner
                 8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
                 // modify token program pubkey
                 11 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: incorrect program id"),
                 // modify associated token program pubkey
@@ -1115,23 +1117,6 @@ mod tests {
         // (index 14) system program
         //      pubkey == system program id
 
-        // change mint pubkey
-        let mint_pk = push_ix.accounts[8].pubkey;
-        push_ix.accounts[8].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[8].pubkey = mint_pk;
-        svm.expire_blockhash();
-
-
         // change vault to readonly
         push_ix.accounts[9].is_writable = false;
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
@@ -1148,57 +1133,6 @@ mod tests {
         svm.expire_blockhash();
 
 
-        // change vault pubkey
-        let vault_pk = push_ix.accounts[9].pubkey;
-        push_ix.accounts[9].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[9].pubkey = vault_pk;
-        svm.expire_blockhash();
-
-
-        // change recipient pubkey
-        let recipient_pk = push_ix.accounts[10].pubkey;
-        push_ix.accounts[10].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[10].pubkey = recipient_pk;
-        svm.expire_blockhash();
-
-
-        // change recipient token account pubkey
-        let recipient_ta_pk = push_ix.accounts[11].pubkey;
-        push_ix.accounts[11].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[11].pubkey = recipient_ta_pk;
-        svm.expire_blockhash();
-
-        
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
             Box::new(&super_authority), 
         ];
@@ -1210,6 +1144,14 @@ mod tests {
             {
                 // change mint owner
                 8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                // change mint pubkey
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
+                // change vault pubkey
+                9 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
+                // change recipient pubkey
+                10 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient: invalid pubkey"),
+                // change recipient token account pubkey
+                11 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient token account: invalid pubkey"),
                 // change recipient token account owner
                 11 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient token account: invalid owner"),
                 // modify token program id
