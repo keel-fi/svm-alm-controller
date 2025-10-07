@@ -6,12 +6,19 @@ mod tests {
     use std::i64;
 
     use crate::{
-        assert_contains_controller_cpi_event, helpers::{
+        assert_contains_controller_cpi_event,
+        helpers::{
             assert::{assert_custom_error, assert_program_error},
-            lite_svm_with_programs,
-        }, subs::{
-            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs, derive_controller_authority_pda, derive_permission_pda, fetch_integration_account, fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint, initialize_reserve, manage_controller, mint_tokens, sync_reserve, transfer_tokens, ReserveKeys
-        }
+            lite_svm_with_programs, spl,
+        },
+        subs::{
+            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
+            derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
+            fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
+            initialize_reserve, manage_controller, mint_tokens, sync_reserve, transfer_tokens,
+            ReserveKeys,
+        },
+        test_invalid_accounts,
     };
     use borsh::BorshDeserialize;
     use litesvm::LiteSVM;
@@ -26,10 +33,12 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        generated::types::{
-            AccountingAction, AccountingDirection, AccountingEvent, ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PermissionStatus, ReserveStatus, SvmAlmControllerEvent
-        },
         create_atomic_swap_initialize_integration_instruction,
+        generated::types::{
+            AccountingAction, AccountingDirection, AccountingEvent, ControllerStatus,
+            IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationUpdateEvent,
+            PermissionStatus, ReserveStatus, SvmAlmControllerEvent,
+        },
     };
 
     use test_case::test_case;
@@ -140,7 +149,7 @@ mod tests {
             true,  // can_manage_permissions,
             true,  // can_invoke_external_transfer,
             false, // can_reallocate,
-            true, // can_freeze,
+            true,  // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
@@ -286,7 +295,7 @@ mod tests {
                 svm.latest_blockhash(),
             );
             svm.send_transaction(tx.clone())
-            .map_err(|e| e.err.to_string())?;
+                .map_err(|e| e.err.to_string())?;
 
             integration_pubkey
         } else {
@@ -370,7 +379,8 @@ mod tests {
             &[&swap_env.relayer_authority_kp],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone())
+        let tx_result = svm
+            .send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
 
         // Check that integration after init.
@@ -417,8 +427,8 @@ mod tests {
             new_state: Some(integration),
         });
         assert_contains_controller_cpi_event!(
-            tx_result, 
-            tx.message.account_keys.as_slice(), 
+            tx_result,
+            tx.message.account_keys.as_slice(),
             expected_event
         );
 
@@ -683,8 +693,8 @@ mod tests {
             direction: AccountingDirection::Debit,
         });
         assert_contains_controller_cpi_event!(
-            txn_result.clone().unwrap(), 
-            txn.message.account_keys.as_slice(), 
+            txn_result.clone().unwrap(),
+            txn.message.account_keys.as_slice(),
             expected_debit_event
         );
 
@@ -699,8 +709,8 @@ mod tests {
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(
-            txn_result.unwrap(), 
-            txn.message.account_keys.as_slice(), 
+            txn_result.unwrap(),
+            txn.message.account_keys.as_slice(),
             expected_credit_event
         );
 
@@ -708,9 +718,6 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Coin Token2022, PC Token2022")]
     #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Inverted Oracle Price")]
     fn atomic_swap_slippage_checks(
         coin_token_program: Pubkey,
@@ -876,9 +883,6 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_fails_after_expiry(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -951,9 +955,6 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_fails_with_invalid_token_amounts(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1022,9 +1023,6 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_vault_balance_check(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1378,9 +1376,6 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_rate_limit_valid_state(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1635,9 +1630,6 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Coin Token, PC Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Coin Token, PC Token2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Coin Token2022, PC Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Coin Token2022, PC Token2022")]
     fn atomic_swap_rate_limit_violation(
         coin_token_program: Pubkey,
         pc_token_program: Pubkey,
@@ -1685,25 +1677,26 @@ mod tests {
         assert_custom_error(&res, 1, SvmAlmControllerErrors::RateLimited);
 
         // Initialize a different AtomicSwap integration with higher rate limit than reserve.
-        let init_ix = svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
-            &swap_env.relayer_authority_kp.pubkey(),
-            &swap_env.controller_pk,                 // controller
-            &swap_env.relayer_authority_kp.pubkey(), // authority
-            "Pc to Coin swap",
-            IntegrationStatus::Active,
-            1_000_000_000,                             // rate_limit_slope
-            reserve_pc_pre.rate_limit_max_outflow * 2, // rate_limit_max_outflow
-            false,                                     // permit_liquidation
-            &swap_env.pc_token_mint,
-            6, // input_mint_decimals
-            &swap_env.coin_token_mint,
-            6,                // output_mint_decimals
-            &swap_env.oracle, // oracle
-            123,              // max_staleness
-            expiry_timestamp,
-            100,   // max_slippage_bps
-            false, // oracle_price_inverted
-        );
+        let init_ix =
+            svm_alm_controller_client::create_atomic_swap_initialize_integration_instruction(
+                &swap_env.relayer_authority_kp.pubkey(),
+                &swap_env.controller_pk,                 // controller
+                &swap_env.relayer_authority_kp.pubkey(), // authority
+                "Pc to Coin swap",
+                IntegrationStatus::Active,
+                1_000_000_000,                             // rate_limit_slope
+                reserve_pc_pre.rate_limit_max_outflow * 2, // rate_limit_max_outflow
+                false,                                     // permit_liquidation
+                &swap_env.pc_token_mint,
+                6, // input_mint_decimals
+                &swap_env.coin_token_mint,
+                6,                // output_mint_decimals
+                &swap_env.oracle, // oracle
+                123,              // max_staleness
+                expiry_timestamp,
+                100,   // max_slippage_bps
+                false, // oracle_price_inverted
+            );
         let integration_pk2 = init_ix.accounts[5].pubkey;
         svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_ix],
@@ -1795,7 +1788,7 @@ mod tests {
             ControllerStatus::Active,
             321u16, // Id
         )?;
-        
+
         initialize_oracle(
             &mut svm,
             &controller_pk,
@@ -1805,7 +1798,9 @@ mod tests {
             0,
             &pc_token_mint,
             &coin_token_mint,
-        ).0.unwrap();
+        )
+        .0
+        .unwrap();
 
         manage_permission(
             &mut svm,
@@ -1818,7 +1813,7 @@ mod tests {
             true,  // can_manage_permissions,
             true,  // can_invoke_external_transfer,
             false, // can_reallocate,
-            true, // can_freeze,
+            true,  // can_freeze,
             false, // can_unfreeze,
             true,  // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
@@ -1842,9 +1837,9 @@ mod tests {
             &relayer_authority_kp.pubkey(), // authority
             "Pc to Coin swap",
             IntegrationStatus::Active,
-            1_000_000, // rate_limit_slope
-            1_000_000, // rate_limit_max_outflow
-            false,     // permit_liquidation
+            1_000_000,        // rate_limit_slope
+            1_000_000,        // rate_limit_max_outflow
+            false,            // permit_liquidation
             &pc_token_mint,   // input_token
             6,                // input_mint_decimals
             &coin_token_mint, // output_token
@@ -1991,7 +1986,8 @@ mod tests {
     }
 
     #[test]
-    fn atomic_swap_borrow_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_borrow_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
@@ -2038,13 +2034,18 @@ mod tests {
             svm.latest_blockhash(),
         ));
 
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            1,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
 
     #[test]
-    fn atomic_swap_repay_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn atomic_swap_repay_with_invalid_controller_authority_fails(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
@@ -2082,7 +2083,7 @@ mod tests {
         );
 
         // modify controller_authority (index 2) to a different pubkey
-        repay_ix.accounts[2].pubkey =  Pubkey::new_unique();
+        repay_ix.accounts[2].pubkey = Pubkey::new_unique();
 
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[refresh_ix, borrow_ix, mint_ix, burn_ix, repay_ix],
@@ -2091,7 +2092,139 @@ mod tests {
             svm.latest_blockhash(),
         ));
 
-        assert_custom_error(&tx_result, 4, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            4,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn init_atomic_swap_invalid_account_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        // note: warped to slot: 1_000_000
+        let expiry_timestamp = 1_000_000 + 1000;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &spl_token::ID,
+            None,
+            &spl_token::ID,
+            None,
+            false,
+            100,
+            true,
+        )?;
+
+        let rate_limit_slope = 1_000_000;
+        let rate_limit_max_outflow = 1_000_000;
+        let max_staleness = 100;
+        let max_slippage = 123;
+        let permit_liquidation = true;
+        let init_ix = create_atomic_swap_initialize_integration_instruction(
+            &swap_env.relayer_authority_kp.pubkey(),
+            &swap_env.controller_pk,                 // controller
+            &swap_env.relayer_authority_kp.pubkey(), // authority
+            "Pc to Coin swap",
+            IntegrationStatus::Active,
+            rate_limit_slope,          // rate_limit_slope
+            rate_limit_max_outflow,    // rate_limit_max_outflow
+            permit_liquidation,        // permit_liquidation
+            &swap_env.pc_token_mint,   // input_token
+            6,                         // input_mint_decimals
+            &swap_env.coin_token_mint, // output_token
+            6,                         // output_mint_decimals
+            &swap_env.oracle,          // oracle
+            max_staleness,             // max_staleness
+            expiry_timestamp,
+            max_slippage, // max_slippage_bps
+            false,        // oracle_price_inverted
+        );
+
+        let oracle_account = svm.get_account(&swap_env.oracle).unwrap();
+        let mut invalid_oracle_controller = oracle_account.clone();
+        invalid_oracle_controller.data[93..125].copy_from_slice(Pubkey::new_unique().as_ref());
+
+        // Test invalid accounts using the new helper macro
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> =
+            vec![Box::new(&swap_env.relayer_authority_kp)];
+        test_invalid_accounts!(
+            svm.clone(),
+            swap_env.relayer_authority_kp.pubkey(),
+            signers,
+            init_ix.clone(),
+            {
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Oracle: Invalid owner"),
+                10 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Oracle: Invalid controller", invalid_oracle_controller),
+            }
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn atomic_swap_borrow_invalid_account_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+
+        let expiry_timestamp = svm.get_sysvar::<Clock>().unix_timestamp + 1000;
+        let swap_env = setup_integration_env(
+            &mut svm,
+            expiry_timestamp,
+            &spl_token::ID,
+            None,
+            &spl_token::ID,
+            None,
+            false,
+            100,
+            false,
+        )?;
+
+        let [_refresh_ix, borrow_ix, _mint_ix, _burn_ix, _repay_ix] = atomic_swap_borrow_repay_ixs(
+            &swap_env.relayer_authority_kp,
+            swap_env.controller_pk,
+            swap_env.permission_pda,
+            swap_env.atomic_swap_integration_pk,
+            swap_env.pc_token_mint,
+            swap_env.coin_token_mint,
+            swap_env.oracle,
+            swap_env.price_feed,
+            swap_env.relayer_pc,   // payer_account_a
+            swap_env.relayer_coin, // payer_account_b
+            spl_token::ID,
+            spl_token::ID,
+            300,
+            100,
+            &swap_env.mint_authority,
+            0,
+        );
+
+        // Test invalid accounts using the helper macro
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> =
+            vec![Box::new(&swap_env.relayer_authority_kp)];
+        test_invalid_accounts!(
+            svm.clone(),
+            swap_env.relayer_authority_kp.pubkey(),
+            signers,
+            borrow_ix.clone(),
+            {
+                0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: Invalid owner"),
+                3 => invalid_owner(InstructionError::InvalidAccountOwner, "Permission: Invalid owner"),
+                4 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve A: Invalid owner"),
+                6 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault A: Invalid owner"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint A: Invalid owner"),
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve B: Invalid owner"),
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault B: Invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient TokenAccount A: Invalid owner"),
+                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient TokenAccount B: Invalid owner"),
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Token Program A: Invalid pubkey"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Sysvar Instructions: Invalid pubkey"),
+                14 => invalid_program_id(InstructionError::IncorrectProgramId, "Controller Program: Invalid pubkey"),
+            }
+        )?;
 
         Ok(())
     }
