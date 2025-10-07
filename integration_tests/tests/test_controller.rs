@@ -14,13 +14,13 @@ use svm_alm_controller_client::{
 };
 
 #[cfg(test)]
-mod test {
+mod tests {
 
-    use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, transaction::TransactionError};
     use svm_alm_controller_client::generated::instructions::ManageControllerBuilder;
     use test_case::test_case;
 
-    use crate::{helpers::lite_svm_with_programs, subs::initialize_contoller};
+    use crate::{helpers::lite_svm_with_programs, subs::{derive_controller_authority_pda, initialize_contoller}};
 
     use super::*;
 
@@ -217,6 +217,73 @@ mod test {
         ));
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_manage_controller_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let mut svm = lite_svm_with_programs();
+        let payer_and_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &payer_and_authority.pubkey(), 10_000_000_000)?;
+
+        let (controller_pk, permission_pda) = initialize_contoller(
+            &mut svm,
+            &payer_and_authority,
+            &payer_and_authority,
+            ControllerStatus::Active,
+            0
+        )?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let mut manage_permission_ix = ManageControllerBuilder::new()
+            .status(ControllerStatus::Active)
+            .controller(controller_pk)
+            .controller_authority(controller_authority)
+            .authority(payer_and_authority.pubkey())
+            .permission(permission_pda)
+            .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
+            .instruction();
+
+        
+        // account checks:
+        // (index 0) controller: mut, owner == crate::ID
+        // (index 3) permission: owner == crate::ID
+        // (index 4) program_id: pubkey == crate::ID
+
+
+        // modify controller to readonly
+        manage_permission_ix.accounts[0].is_writable = false;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[manage_permission_ix.clone()],
+            Some(&payer_and_authority.pubkey()),
+            &[&payer_and_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::Immutable)
+        );
+        manage_permission_ix.accounts[0].is_writable = true;
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&payer_and_authority), 
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            payer_and_authority.pubkey(),
+            signers,
+            manage_permission_ix.clone(),
+            {
+                // modify controller owner
+                0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: invalid owner"),
+                // modify permission owner
+                3 => invalid_owner(InstructionError::InvalidAccountOwner, "Permission: invalid owner"),
+                // modify program pubkey
+                4 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid ID"),
+            }
+        );
 
         Ok(())
     }
