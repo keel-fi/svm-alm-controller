@@ -31,6 +31,8 @@ mod tests {
         },
     };
     use borsh::BorshDeserialize;
+    use solana_sdk::account_info::AccountInfo;
+    use solana_sdk::instruction::AccountMeta;
     use solana_sdk::{
         clock::Clock,
         instruction::InstructionError,
@@ -791,7 +793,6 @@ mod tests {
             super_authority.pubkey(),
             signers,
             init_integration_ix.clone(),
-            None,
             {
                 8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
                 8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid mint (does not match local token)"),
@@ -799,6 +800,13 @@ mod tests {
                 12 => invalid_program_id(InstructionError::IncorrectProgramId, "Invalid cctp_token_messenger_minter"),
                 9 => invalid_owner(InstructionError::InvalidAccountOwner, "Local token invalid owner"),
                 10 => invalid_owner(InstructionError::InvalidAccountOwner, "Remote token messenger invalid owner"),
+                10 => invalid_custom_account_data(InstructionError::InvalidAccountData, "Remote token messenger invalid owner", solana_sdk::account::Account {
+                    lamports: 0,
+                    data: vec![0; 82],
+                    owner: Pubkey::new_unique(),
+                    executable: false,
+                    rent_epoch: 0,
+                }),
             }
         )?;
 

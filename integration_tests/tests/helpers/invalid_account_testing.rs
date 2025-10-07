@@ -341,14 +341,13 @@ impl<'a> InvalidAccountTestBuilder<'a> {
 /// 
 /// Usage examples:
 /// 
-/// Basic usage (backward compatible):
+/// Basic usage:
 /// ```rust
 /// test_invalid_accounts!(
 ///     svm,
 ///     payer.pubkey(),
 ///     signers,
 ///     instruction,
-///     None,
 ///     {
 ///         0 => invalid_owner(InstructionError::InvalidAccountOwner, "Invalid owner"),
 ///         1 => invalid_program_id(InstructionError::IncorrectProgramId, "Wrong program"),
@@ -371,42 +370,41 @@ impl<'a> InvalidAccountTestBuilder<'a> {
 ///     payer.pubkey(),
 ///     signers,
 ///     instruction,
-///     Some(custom_invalid_account),
 ///     {
-///         0 => invalid_custom_account_data(InstructionError::InvalidAccountData, "Custom invalid data"),
+///         0 => invalid_custom_account_data(InstructionError::InvalidAccountData, "Custom invalid data", custom_invalid_account),
 ///     }
 /// )?;
 /// ```
 #[macro_export]
 macro_rules! test_invalid_accounts {
     // Helper macro to process each test case
-    (@process_case $builder:expr, $custom_invalid_account:expr, $account_index:literal => $invalid_type:ident($expected_error:expr, $description:expr)) => {
+    (@process_case $builder:expr, $account_index:literal => $invalid_type:ident($expected_error:expr, $description:expr)) => {
         match stringify!($invalid_type) {
             "invalid_owner" => $builder.with_invalid_owner($account_index, $expected_error, $description),
             "invalid_program_id" => $builder.with_invalid_program_id($account_index, $expected_error, $description),
             "account_not_found" => $builder.with_account_not_found($account_index, $expected_error, $description),
             "invalid_data" => $builder.with_invalid_data($account_index, $expected_error, $description),
-            "invalid_custom_account_data" => {
-                if let Some(custom_account) = $custom_invalid_account {
-                    $builder.with_custom_invalid_account($account_index, custom_account, $expected_error, $description)
-                } else {
-                    panic!("invalid_custom_account_data requires a custom account to be provided as the 5th parameter");
-                }
-            },
             _ => panic!("Unknown invalid account type: {}", stringify!($invalid_type)),
         }
     };
 
-    // Version with custom invalid account parameter
+    // Helper macro to process test cases with custom account data
+    (@process_case $builder:expr, $account_index:literal => $invalid_type:ident($expected_error:expr, $description:expr, $custom_account:expr)) => {
+        match stringify!($invalid_type) {
+            "invalid_custom_account_data" => $builder.with_custom_invalid_account($account_index, $custom_account, $expected_error, $description),
+            _ => panic!("Unknown invalid account type with custom data: {}", stringify!($invalid_type)),
+        }
+    };
+
+    // Main macro pattern - supports both regular test cases and custom account data test cases
     (
         $svm:expr,
         $payer:expr,
         $signers:expr,
         $instruction:expr,
-        $custom_invalid_account:expr,
         {
             $(
-                $account_index:literal => $invalid_type:ident($expected_error:expr, $description:expr)
+                $account_index:literal => $invalid_type:ident($expected_error:expr, $description:expr $(, $custom_account:expr)?)
             ),*
             $(,)?
         }
@@ -415,32 +413,11 @@ macro_rules! test_invalid_accounts {
         let mut builder = InvalidAccountTestBuilder::new($svm, $payer, $signers, $instruction);
 
         $(
-            builder = test_invalid_accounts!(@process_case builder, $custom_invalid_account, $account_index => $invalid_type($expected_error, $description));
-        )*
-
-        builder.run_tests()
-    }};
-    
-    // Version without custom invalid account parameter (for backward compatibility)
-    (
-        $svm:expr,
-        $payer:expr,
-        $signers:expr,
-        $instruction:expr,
-        {
-            $(
-                $account_index:literal => $invalid_type:ident($expected_error:expr, $description:expr)
-            ),*
-            $(,)?
-        }
-    ) => {{
-        use crate::helpers::invalid_account_testing::InvalidAccountTestBuilder;
-        let mut builder = InvalidAccountTestBuilder::new($svm, $payer, $signers, $instruction);
-
-        $(
-            builder = test_invalid_accounts!(@process_case builder, None, $account_index => $invalid_type($expected_error, $description));
+            builder = test_invalid_accounts!(@process_case builder, $account_index => $invalid_type($expected_error, $description $(, $custom_account)?));
         )*
 
         builder.run_tests()
     }};
 }
+
+
