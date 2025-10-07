@@ -791,6 +791,7 @@ mod tests {
             super_authority.pubkey(),
             signers,
             init_integration_ix.clone(),
+            None,
             {
                 8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
                 8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid mint (does not match local token)"),
