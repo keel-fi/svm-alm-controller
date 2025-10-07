@@ -9,7 +9,7 @@ mod tests {
         assert_contains_controller_cpi_event,
         helpers::{
             assert::{assert_custom_error, assert_program_error},
-            lite_svm_with_programs, spl,
+            lite_svm_with_programs,
         },
         subs::{
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
@@ -2201,6 +2201,35 @@ mod tests {
             0,
         );
 
+        let reserve_a_account = svm.get_account(&swap_env.pc_reserve_pubkey).unwrap();
+        let reserve_b_account = svm.get_account(&swap_env.coin_reserve_pubkey).unwrap();
+        let permission_account = svm.get_account(&swap_env.permission_pda).unwrap();
+        let integration_account = svm.get_account(&swap_env.atomic_swap_integration_pk).unwrap();
+        // overwrite controller to incorrect pubkey
+        let mut invalid_permission_controller = permission_account.clone();
+        invalid_permission_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite authority to incorrect pubkey
+        let mut invalid_permission_authority = permission_account.clone();
+        invalid_permission_authority.data[33..65].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite controller to incorrect pubkey
+        let mut invalid_reserve_a_controller = reserve_a_account.clone();
+        invalid_reserve_a_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite status to inactive
+        let mut invalid_reserve_a_inactive = reserve_a_account.clone();
+        invalid_reserve_a_inactive.data[97] = 0;
+        // overwrite controller to incorrect pubkey
+        let mut invalid_reserve_b_controller = reserve_b_account.clone();
+        invalid_reserve_b_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite status to inactive
+        let mut invalid_reserve_b_inactive = reserve_b_account.clone();
+        invalid_reserve_b_inactive.data[97] = 0;
+        // overwrite controller to incorrect pubkey
+        let mut invalid_integration_controller = integration_account.clone();
+        invalid_integration_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite status to inactive
+        let mut invalid_integration_inactive = integration_account.clone();
+        invalid_integration_inactive.data[97] = 0;
+
         // Test invalid accounts using the helper macro
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> =
             vec![Box::new(&swap_env.relayer_authority_kp)];
@@ -2212,11 +2241,19 @@ mod tests {
             {
                 0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: Invalid owner"),
                 3 => invalid_owner(InstructionError::InvalidAccountOwner, "Permission: Invalid owner"),
+                3 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Permission: Invalid controller", invalid_permission_controller),
+                3 => invalid_custom_account_data(InstructionError::IncorrectAuthority, "Permission: Invalid authority", invalid_permission_authority),
                 4 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
+                4 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Integration: Invalid controller", invalid_integration_controller),
+                4 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::IntegrationStatusDoesNotPermitAction as u32), "Integration: Invalid status", invalid_integration_inactive),
                 5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve A: Invalid owner"),
+                5 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Reserve A: Invalid controller", invalid_reserve_a_controller),
+                5 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction as u32), "Reserve A: Invalid status", invalid_reserve_a_inactive),
                 6 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault A: Invalid owner"),
                 7 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint A: Invalid owner"),
                 8 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve B: Invalid owner"),
+                8 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Reserve B: Invalid controller", invalid_reserve_b_controller),
+                8 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction as u32), "Reserve B: Invalid status", invalid_reserve_b_inactive),
                 9 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault B: Invalid owner"),
                 10 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient TokenAccount A: Invalid owner"),
                 11 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient TokenAccount B: Invalid owner"),
