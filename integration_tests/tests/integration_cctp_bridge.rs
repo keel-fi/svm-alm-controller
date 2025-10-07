@@ -31,6 +31,7 @@ mod tests {
         },
     };
     use borsh::BorshDeserialize;
+    use solana_sdk::account::Account;
     use solana_sdk::{
         clock::Clock,
         instruction::InstructionError,
@@ -950,6 +951,197 @@ mod tests {
             &tx_result,
             0,
             SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn cctp_push_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        // Create an ATA for the USDC account
+        let _authority_usdc_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+        )?;
+
+        // Cheat to give the authority some USDC
+        edit_ata_amount(
+            &mut svm,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            1_000_000_000,
+        )?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Initialize a reserve for the token
+        let reserve_rate_limit_max_outflow = 1_000_000_000_000;
+        let usdc_reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY, // mint
+            &super_authority,        // payer
+            &super_authority,        // authority
+            ReserveStatus::Active,
+            1_000_000_000_000,              // rate_limit_slope
+            reserve_rate_limit_max_outflow, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        // Transfer funds into the reserve
+        let usdc_vault_start_amount = 500_000_000;
+        transfer_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &controller_authority,
+            usdc_vault_start_amount,
+        )?;
+
+        // Serialize the destination address appropriately
+        let evm_address = "0x3BF0730133daa6398F3bcDBaf5395A9C86116642";
+        let destination_address = evm_address_to_solana_pubkey(evm_address);
+
+        let integration_rate_mint_max_outflow = 1_000_000_000_000;
+        let init_integration_ix = create_cctp_bridge_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "ETH USDC CCTP Bridge",
+            IntegrationStatus::Active,
+            1_000_000_000_000,
+            integration_rate_mint_max_outflow,
+            false,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &destination_address,
+            CCTP_REMOTE_DOMAIN_ETH,
+        );
+        // Integration is at index 5 in the IX
+        let cctp_usdc_eth_bridge_integration_pk = init_integration_ix.accounts[5].pubkey;
+        svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ))
+        .map_err(|e| e.err.to_string())?;
+
+        let amount = 1_000_000;
+        let message_sent_event_data_kp = Keypair::new();
+        let push_ix = create_cctp_bridge_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &cctp_usdc_eth_bridge_integration_pk,
+            &usdc_reserve_keys.pubkey,
+            &message_sent_event_data_kp.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            CCTP_REMOTE_DOMAIN_ETH,
+            amount,
+        );
+
+        // Checks for inner_ctx accounts:
+        // (index 8) mint: owned by SplToken / Token2022, pubkey == config.mint, pubkey == reserve.mint
+        // (index 9) vault: pubkey == reserve.vault
+        // (index 13) remote_token_messenger: owned by config.cctp_token_messenger_minter, (deserialized).domain == destination_domain
+        // (index 15) local_token: owned by config.cctp_token_messenger_minter, (deserialized).mint == inner_ctx.mint
+        // (index 17) cctp_message_transmitter: pubkey == config.cctp_message_transmitter
+        // (index 18) cctp_token_messenger_minter: pubkey == config.cctp_token_messenger_minter
+        // (index 20) token_program: pubkey == SplToken / Token2022
+        // (index 21) system_program: pubkey == systen_program_id
+
+
+        // change remote_token_messenger data
+        let remote_token_messenger_pk = push_ix.accounts[13].pubkey;
+        let remote_token_messenger_acc_before = svm
+            .get_account(&remote_token_messenger_pk)
+            .expect("failed to get account");
+        let remote_token_messenger_acc_after = Account {
+            data: [0; 44].to_vec(), // 8 bytes for discriminator + 4 bytes for domain + 32 bytes for token_message
+            ..remote_token_messenger_acc_before
+        };
+        svm.set_account(remote_token_messenger_pk, remote_token_messenger_acc_after)
+            .expect("failed to set account");
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &message_sent_event_data_kp],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(remote_token_messenger_pk, remote_token_messenger_acc_before)
+            .expect("failed to get account");
+        svm.expire_blockhash();
+
+
+        // change local_token data
+        let local_token_pk = push_ix.accounts[15].pubkey;
+        let local_token_acc_before = svm
+            .get_account(&local_token_pk)
+            .expect("failed to get account");
+        let local_token_acc_after = Account {
+            data: [0; 130].to_vec(),
+            ..local_token_acc_before
+        };
+        svm.set_account(local_token_pk, local_token_acc_after)
+            .expect("failed to set account");
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &message_sent_event_data_kp],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(local_token_pk, local_token_acc_before)
+            .expect("failed to get account");
+        svm.expire_blockhash();
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&super_authority), 
+            Box::new(&message_sent_event_data_kp)
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            push_ix.clone(),
+            {
+                // Change mint owner:
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
+                // Change mint pubkey:
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
+                // Change vault pubkey:
+                9 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
+                // Change remote_token_messenger owner
+                13 => invalid_owner(InstructionError::IllegalOwner, "Remote Token Messenger: Illegal owner"),
+                // Change local_token owner
+                15 => invalid_owner(InstructionError::IllegalOwner, "Local Token: Illegal owner"),
+                // Change cctp_message_transmitter pubkey
+                17 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Message Transmitter: invalid program id"),
+                // Change cctp_token_messenger_minter pubkey
+                18 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Token Messenger Minter: invalid program id"),
+                // Change token program id:
+                20 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid id"),
+                // Change system program id:
+                21 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid id"),
+            }
         );
 
         Ok(())

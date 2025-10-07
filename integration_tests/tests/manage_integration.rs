@@ -5,14 +5,11 @@ mod subs;
 mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
-        pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
+        account::Account, instruction::InstructionError, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::{Transaction, TransactionError}
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_manage_integration_instruction,
-        create_spl_token_external_initialize_integration_instruction,
-        create_sync_integration_instruction,
-        generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus},
+        create_manage_integration_instruction, create_spl_token_external_initialize_integration_instruction, create_spl_token_external_push_instruction, create_sync_integration_instruction, generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus}, SVM_ALM_CONTROLLER_ID
     };
 
     use test_case::test_case;
@@ -20,9 +17,8 @@ mod tests {
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
         subs::{
-            airdrop_lamports, fetch_integration_account, initialize_mint, manage_controller,
-            manage_integration, manage_permission,
-        },
+            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve, manage_controller, manage_integration, manage_permission
+        }, test_invalid_accounts,
     };
 
     const DEFAULT_RATE_LIMIT_SLOPE: u64 = 1_000_000_000_000;
@@ -32,7 +28,7 @@ mod tests {
         svm: &mut LiteSVM,
         controller: &Pubkey,
         authority: &Keypair,
-    ) -> Pubkey {
+    ) -> (Pubkey, Pubkey, Pubkey) {
         let permit_liquidation = true;
         // Initialize a mint
         let mint = initialize_mint(
@@ -76,7 +72,7 @@ mod tests {
             svm.latest_blockhash(),
         ))
         .unwrap();
-        integration_pubkey
+        (integration_pubkey, mint, external)
     }
 
     #[test]
@@ -146,7 +142,7 @@ mod tests {
             controller_pk,
         } = setup_test_controller().unwrap();
 
-        let integration_pubkey =
+        let (integration_pubkey, _, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
         let rate_limit_slope = 5_000_000_000_000;
@@ -188,7 +184,7 @@ mod tests {
             controller_pk,
         } = setup_test_controller().unwrap();
 
-        let integration_pubkey =
+        let (integration_pubkey, _, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
         // Freeze the controller
@@ -230,7 +226,7 @@ mod tests {
             controller_pk,
         } = setup_test_controller().unwrap();
 
-        let integration_pubkey =
+        let (integration_pubkey, _, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
         let mut instruction = create_manage_integration_instruction(
@@ -266,7 +262,7 @@ mod tests {
             controller_pk,
         } = setup_test_controller().unwrap();
 
-        let integration_pubkey =
+        let (integration_pubkey, _, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
         // Freeze the controller
@@ -453,7 +449,7 @@ mod tests {
         )?;
 
         // Initialize integration first (using super_authority with proper permissions)
-        let integration_pubkey =
+        let (integration_pubkey, _, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
         let instruction = create_manage_integration_instruction(
@@ -474,6 +470,180 @@ mod tests {
         let tx_result = svm.send_transaction(txn);
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::UnauthorizedAction);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_init_integration_outer_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller().unwrap();
+
+        // Initialize a mint
+        let mint_pk = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )
+        .unwrap();
+
+        let external = Pubkey::new_unique();
+        let external_ata = spl_associated_token_account_client::address::get_associated_token_address_with_program_id(
+            &external,
+            &mint_pk,
+            &spl_token::ID,
+        );
+
+        // In order to test the outer ctx account checks, we can use any integration
+        // In this case we use SPL Token External Integration
+        let init_integration_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "OuterCtxAccsChecks",
+            IntegrationStatus::Active,
+            10_000,
+            10_000,
+            true,
+            &spl_token::ID,
+            &mint_pk,
+            &external,
+            &external_ata
+        );
+
+        // Checks for outer ctx accounts:
+        // controller - change owner
+        // permission - change owner
+        // integration - initialize before ix, change owner
+        // program_id - change pubkey
+        // system program - change pubkey
+
+        // create Integration before creation in ix
+        let integration_pk = init_integration_ix.accounts[5].pubkey;
+        let account = Account {
+            lamports: 1_000_000_000,  // arbitrary default lamports
+            data: vec![1,1,1,1],
+            owner: SVM_ALM_CONTROLLER_ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        svm.set_account(integration_pk, account)?;
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_integration_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::AccountAlreadyInitialized)
+        );
+        svm.set_account(
+            integration_pk,
+            Account {
+                lamports: 0,
+                data: vec![],
+                owner: system_program::id(),
+                executable: false,
+                rent_epoch: 0,
+            },
+        )?;
+
+        svm.expire_blockhash();
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            init_integration_ix.clone(),
+            {
+                // Change controller (index 1) owner:
+                1 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: Invalid owner"),
+                // Change permission (index 4) owner:
+                4 => invalid_owner(InstructionError::InvalidAccountOwner, "Permission: Invalid owner"),
+                // Change integration (index 5) owner:
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
+                // Change program_id (index 6)
+                6 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
+                // Change system_program_id (index 7)
+                7 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_push_integration_outer_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            super_authority,
+            controller_pk,
+        } = setup_test_controller().unwrap();
+
+        let (integration_pubkey, mint, recipient) =
+            create_test_integration(&mut svm, &controller_pk, &super_authority);
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Active,
+            1_000_000_000, // rate_limit_slope
+            1_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
+
+        let push_ix = create_spl_token_external_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(), 
+            &integration_pubkey, 
+            &reserve_keys.pubkey, 
+            &spl_token::ID,
+            &mint, 
+            &recipient, 
+            1000
+        );
+
+        // Checks for outer ctx accounts:
+        // controller - change owner
+        // permission - change owner
+        // integration - change owner
+        // reserve - change owner
+        // program_id - change pubkey
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            push_ix.clone(),
+            {
+                // Change controller (index 1) owner:
+                0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: Invalid owner"),
+                // Change permission (index 3) owner:
+                3 => invalid_owner(InstructionError::InvalidAccountOwner, "Permission: Invalid owner"),
+                // Change integration (index 4) owner:
+                4 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
+                // Change reserve (index 5) owner:
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve: Invalid owner"),
+                // Change program_id (index 7) owner:
+                7 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
+            }
+        );
 
         Ok(())
     }
