@@ -2327,6 +2327,15 @@ mod tests {
         // overwrite controller to incorrect pubkey
         let mut invalid_integration_controller = integration_account.clone();
         invalid_integration_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite AtomicSwap Config input_token to incorrect pubkey
+        let mut invalid_integration_input_token = integration_account.clone();
+        invalid_integration_input_token.data[147..179].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite AtomicSwap Config output_token to incorrect pubkey
+        let mut invalid_integration_output_token = integration_account.clone();
+        invalid_integration_output_token.data[179..211].copy_from_slice(Pubkey::new_unique().as_ref());
+        // overwrite AtomicSwap Config oracle to incorrect pubkey
+        let mut invalid_integration_oracle = integration_account.clone();
+        invalid_integration_oracle.data[211..243].copy_from_slice(Pubkey::new_unique().as_ref());
 
         // Test invalid accounts using the helper macro
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> =
@@ -2343,6 +2352,9 @@ mod tests {
                 4 => invalid_custom_account_data(InstructionError::IncorrectAuthority, "Permission: Invalid authority", invalid_permission_authority),
                 5 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
                 5 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Integration: Invalid controller", invalid_integration_controller),
+                5 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::InvalidAccountData as u32), "Integration: Invalid config input_mint", invalid_integration_input_token),
+                5 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::InvalidAccountData as u32), "Integration: Invalid config output_token", invalid_integration_output_token),
+                5 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::InvalidAccountData as u32), "Integration: Invalid config oracle", invalid_integration_oracle),
                 6 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve A: Invalid owner"),
                 6 => invalid_custom_account_data(InstructionError::Custom(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData as u32), "Reserve A: Invalid controller", invalid_reserve_a_controller),
                 7 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault A: Invalid owner"),
