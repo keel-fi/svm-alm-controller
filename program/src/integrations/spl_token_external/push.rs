@@ -1,7 +1,7 @@
 use crate::{
     define_account_struct,
     enums::IntegrationConfig,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -13,16 +13,15 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_log::log;
-use pinocchio_token::{self, state::TokenAccount};
+use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
   pub struct PushSplTokenExternalAccounts<'info> {
       mint;
-      vault;
+      vault: mut;
       recipient;
       recipient_token_account: mut;
-      token_program;
+      token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       system_program: @pubkey(pinocchio_system::ID);
   }
@@ -114,10 +113,6 @@ pub fn process_push_spl_token_external(
         msg! {"vault: does not match config"};
         return Err(ProgramError::InvalidAccountData);
     }
-    if !inner_ctx.vault.is_writable() {
-        msg! {"vault: not mutable"};
-        return Err(ProgramError::InvalidAccountData);
-    }
     if inner_ctx.mint.key().ne(&reserve.mint) {
         msg! {"mint: mismatch between integration configs"};
         return Err(ProgramError::InvalidAccountData);
@@ -146,19 +141,21 @@ pub fn process_push_spl_token_external(
     .invoke()?;
 
     // Perform the transfer
+    let mint = Mint::from_account_info(&inner_ctx.mint)?;
     controller.transfer_tokens(
         outer_ctx.controller,
         outer_ctx.controller_authority,
         inner_ctx.vault,
         inner_ctx.recipient_token_account,
+        inner_ctx.mint,
         amount,
+        mint.decimals(),
+        inner_ctx.token_program.key(),
     )?;
 
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let post_transfer_balance = vault.amount();
-    log!("post_sync_balance: {}", post_sync_balance);
-    log!("post_transfer_balance: {}", post_transfer_balance);
     let check_delta = post_sync_balance
         .checked_sub(post_transfer_balance)
         .unwrap();
@@ -168,12 +165,12 @@ pub fn process_push_spl_token_external(
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
 
     // No state transitions for SplTokenExternal
 
     // Update reserve balance and rate limits for the outflow
-    reserve.update_for_outflow(clock, amount)?;
+    reserve.update_for_outflow(clock, check_delta, false)?;
 
     // Emit the accounting event
     controller.emit_event(
@@ -181,11 +178,30 @@ pub fn process_push_spl_token_external(
         outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
-            integration: *outer_ctx.integration.key(),
+            integration: None,
+            reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::ExternalTransfer,
-            before: post_sync_balance,
-            after: post_transfer_balance,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
+        }),
+    )?;
+
+    // Emit the accounting event for credit Integration
+    // Note: this is to ensure there is double accounting
+    // such that for each debit, there is a corresponding credit
+    // to track flow of funds.
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            reserve: None,
+            mint: *inner_ctx.mint.key(),
+            action: AccountingAction::ExternalTransfer,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

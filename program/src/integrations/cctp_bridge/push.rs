@@ -2,7 +2,7 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::IntegrationConfig,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger},
@@ -18,11 +18,11 @@ use pinocchio::{
     program_error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::{self, state::TokenAccount};
+use pinocchio_token_interface::TokenAccount;
 
 define_account_struct! {
     pub struct PushCctpBridgeAccounts<'info> {
-        mint: @owner(pinocchio_token::ID);
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         vault;
         sender_authority_pda;
         message_transmitter;
@@ -30,11 +30,11 @@ define_account_struct! {
         remote_token_messenger;
         token_minter;
         local_token;
-        message_sent_event_data;
+        message_sent_event_data: signer;
         cctp_message_transmitter;
         cctp_token_messenger_minter;
         event_authority;
-        token_program: @pubkey(pinocchio_token::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         system_program: @pubkey(pinocchio_system::ID);
     }
 }
@@ -69,9 +69,19 @@ impl<'info> PushCctpBridgeAccounts<'info> {
             msg! {"cctp_message_transmitter: does not match config"};
             return Err(ProgramError::IncorrectProgramId);
         }
-        if ctx.mint.key().ne(&config.mint) {
-            msg! {"mint: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
+        if !ctx
+            .remote_token_messenger
+            .is_owned_by(&config.cctp_token_messenger_minter)
+        {
+            msg! {"remote_token_messenger: invalid owner"};
+            return Err(ProgramError::IllegalOwner);
+        }
+        if !ctx
+            .local_token
+            .is_owned_by(&config.cctp_token_messenger_minter)
+        {
+            msg! {"local_token: invalid owner"};
+            return Err(ProgramError::IllegalOwner);
         }
 
         Ok(ctx)
@@ -103,8 +113,8 @@ pub fn process_push_cctp_bridge(
     }
 
     // Check permission
-    if !permission.can_invoke_external_transfer() {
-        msg! {"permission: can_invoke_external_transfer required"};
+    if !permission.can_reallocate() && !permission.can_liquidate(&integration) {
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 
@@ -122,26 +132,26 @@ pub fn process_push_cctp_bridge(
     };
 
     // Load in the CCTP Local Token Account and verify the mint matches
-    let local_mint =
-        LocalToken::deserialize(&mut &*inner_ctx.local_token.try_borrow_data()?).unwrap();
+    let local_mint = LocalToken::deserialize(&mut &*inner_ctx.local_token.try_borrow_data()?)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
     if local_mint.mint.ne(inner_ctx.mint.key()) {
         msg! {"mint: does not match local_mint state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
+    // Load in the CCTP RemoteTokenMessenger account
     let remote_token_messenger = RemoteTokenMessenger::deserialize(
         &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?,
     )
-    .unwrap();
+    .map_err(|_| ProgramError::InvalidAccountData)?;
     if remote_token_messenger.domain.ne(&destination_domain) {
-        msg! {"desination_domain: does not match remote_token_messenger state"};
+        msg! {"destination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve.vault) {
-        msg! {"mint: mismatch with reserve"};
+        msg! {"vault: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
     if inner_ctx.mint.key().ne(&reserve.mint) {
@@ -198,24 +208,43 @@ pub fn process_push_cctp_bridge(
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
 
     // No state transitions for CctpBridge
 
     // Update the reserve for the outflow
-    reserve.update_for_outflow(clock, amount)?;
+    reserve.update_for_outflow(clock, check_delta, false)?;
 
-    // Emit the accounting event
+    // Emit the accounting event for debit Reserve
     controller.emit_event(
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
-            integration: *outer_ctx.integration.key(),
+            integration: None,
+            reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
-            before: post_sync_balance,
-            after: post_transfer_balance,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
+        }),
+    )?;
+
+    // Emit the accounting event for credit Integration
+    // Note: this is to ensure there is double accounting
+    // such that for each debit, there is a corresponding credit
+    // to track flow of funds.
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            reserve: None,
+            mint: *inner_ctx.mint.key(),
+            action: AccountingAction::BridgeSend,
+            delta: check_delta,
+            direction: AccountingDirection::Credit,
         }),
     )?;
 

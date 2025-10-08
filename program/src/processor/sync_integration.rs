@@ -1,5 +1,8 @@
+// This allow is left intentionally because this instruction contains boilerplate code.
+#![allow(unreachable_code)]
+
 use crate::{
-    define_account_struct, enums::IntegrationConfig, integrations::{spl_token_swap::sync::process_sync_spl_token_swap, utilization_market::{config::UtilizationMarketConfig, kamino::sync::process_sync_kamino}}, state::{nova_account::NovaAccount, Controller, Integration, Reserve}
+    define_account_struct, enums::IntegrationConfig, error::SvmAlmControllerErrors, integrations::utilization_market::{config::UtilizationMarketConfig, kamino::sync::process_sync_kamino}, state::{keel_account::KeelAccount, Controller, Integration, Reserve}
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -34,10 +37,14 @@ pub fn process_sync_integration(
     let ctx = SyncIntegrationAccounts::from_accounts(accounts)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
 
-    // Load in controller state
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
+    // Load in integration state
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
     // Refresh the rate limits
     integration.refresh_rate_limit(clock)?;
@@ -45,15 +52,12 @@ pub fn process_sync_integration(
     // Depending on the integration, there may be an
     //  inner (integration-specific) sync logic to call
     match integration.config {
-        IntegrationConfig::SplTokenSwap(_config) => {
-            process_sync_spl_token_swap(&controller, &mut integration, &ctx)?
-        },
         IntegrationConfig::UtilizationMarket(c) => {
             match c {
                 UtilizationMarketConfig::KaminoConfig(_config) => {
                     // Load in the reserve account (kamino only handles one reserve)
                     let mut reserve 
-                        = Reserve::load_and_check_mut(ctx.reserve, ctx.controller.key())?;
+                        = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
                     process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?
                 }

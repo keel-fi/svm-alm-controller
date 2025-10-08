@@ -13,15 +13,20 @@ pub struct AtomicSwapConfig {
     pub output_token: Pubkey,
     /// The Oracle account that is used for this pair
     pub oracle: Pubkey,
-    /// The max amount of slippage from the oracle's price accepted.
-    pub max_slippage_bps: u16,
     /// Max allowed staleness of oracle's last_update_slot from clock slot.
     pub max_staleness: u64,
+    /// Expiry time of swap
+    pub expiry_timestamp: i64,
+    /// The max amount of slippage from the oracle's price accepted.
+    pub max_slippage_bps: u16,
     /// Input token mint's decimals
     pub input_mint_decimals: u8,
     /// Ouput token mint's decimals
     pub output_mint_decimals: u8,
-    /// Expiry time of swap
-    pub expiry_timestamp: i64,
-    pub padding: [u8; 108],
+    /// The Oracle value must be inverted due to the direction
+    /// of this swap being the opposite direction of the configured
+    /// Oracle. This will result in `price = 1 / value` when
+    /// set to true.
+    pub oracle_price_inverted: bool,
+    pub padding: [u8; 107],
 }

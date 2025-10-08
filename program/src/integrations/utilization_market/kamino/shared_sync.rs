@@ -39,18 +39,18 @@ pub fn sync_kamino_liquidity_value(
     )?;
 
     if last_liquidity_value != new_liquidity_value {
-        controller.emit_event(
-            controller_authority, 
-            controller_pubkey, 
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
-                controller: *controller_pubkey, 
-                integration: *integration_pubkey, 
-                mint: *liquidity_mint, 
-                action: AccountingAction::Sync, 
-                before: last_liquidity_value, 
-                after: new_liquidity_value
-            })
-        )?
+        // controller.emit_event(
+        //     controller_authority, 
+        //     controller_pubkey, 
+        //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+        //         controller: *controller_pubkey, 
+        //         integration: *integration_pubkey, 
+        //         mint: *liquidity_mint, 
+        //         action: AccountingAction::Sync, 
+        //         before: last_liquidity_value, 
+        //         after: new_liquidity_value
+        //     })
+        // )?
     }
 
     Ok((new_liquidity_value, new_lp_amount))

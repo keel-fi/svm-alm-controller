@@ -1,10 +1,11 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
 };
 use crate::{
     constants::{CONTROLLER_AUTHORITY_SEED, CONTROLLER_SEED},
     enums::ControllerStatus,
+    error::SvmAlmControllerErrors,
     events::SvmAlmControllerEvent,
     processor::shared::{create_pda_account, emit_cpi},
 };
@@ -12,11 +13,12 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
+    msg,
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
 };
-use pinocchio_token::instructions::Transfer;
+use pinocchio_token_interface::instructions::TransferChecked;
 use shank::ShankAccount;
 
 #[derive(Clone, Debug, PartialEq, ShankAccount, Copy, BorshSerialize, BorshDeserialize)]
@@ -34,7 +36,7 @@ impl Discriminator for Controller {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ControllerDiscriminator as u8;
 }
 
-impl NovaAccount for Controller {
+impl KeelAccount for Controller {
     // id + bump + status + authority + authority_bump + padding
     const LEN: usize = 2 + 1 + 1 + 32 + 1 + 128;
 
@@ -45,10 +47,8 @@ impl NovaAccount for Controller {
 
 impl Controller {
     pub fn derive_pda_bytes(id: u16) -> Result<(Pubkey, u8), ProgramError> {
-        try_find_program_address(
-            &[CONTROLLER_SEED, id.to_le_bytes().as_ref()],
-            &crate::ID,
-        ).ok_or(ProgramError::InvalidSeeds)
+        try_find_program_address(&[CONTROLLER_SEED, id.to_le_bytes().as_ref()], &crate::ID)
+            .ok_or(ProgramError::InvalidSeeds)
     }
 
     pub fn derive_authority(controller: &Pubkey) -> Result<(Pubkey, u8), ProgramError> {
@@ -59,24 +59,26 @@ impl Controller {
         .ok_or(ProgramError::InvalidSeeds)
     }
 
-    pub fn load_and_check(account_info: &AccountInfo) -> Result<Self, ProgramError> {
+    /// Deserializes the Controller
+    /// validates PDA and controller_authority
+    pub fn load_and_check(
+        account_info: &AccountInfo,
+        controller_authority: &Pubkey,
+    ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
-        let controller: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let controller: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         controller.verify_pda(account_info)?;
-        Ok(controller)
-    }
 
-    pub fn load_and_check_mut(account_info: &AccountInfo) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+        // Validate the controller_authority matches
+        if controller.authority.ne(controller_authority) {
+            msg!("controller_authority: does not match authority");
+            return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());
         }
-        let controller: Self =
-            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
-        controller.verify_pda(account_info)?;
+
         Ok(controller)
     }
 
@@ -91,7 +93,8 @@ impl Controller {
         let controller_id = id.to_le_bytes();
         let (pda, bump) = Self::derive_pda_bytes(id)?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Controller PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Derive authority PDA that has no SOL or data
@@ -100,7 +103,8 @@ impl Controller {
 
         if authority_info.key().ne(&controller_authority) {
             // Authority PDA was invalid
-            return Err(ProgramError::InvalidSeeds.into());
+            msg!("Controller Authority PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Create and serialize the controller
@@ -124,10 +128,10 @@ impl Controller {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
 
         // Commit the account on-chain
@@ -139,25 +143,32 @@ impl Controller {
     pub fn update_and_save(
         &mut self,
         account_info: &AccountInfo,
-        status: ControllerStatus
+        status: ControllerStatus,
     ) -> Result<(), ProgramError> {
-
         // No change will take place
         if self.status == status {
+            msg!("Controller status must change");
             return Err(ProgramError::InvalidArgument.into());
         }
 
-        // Update the status, 
+        // Update the status,
         self.status = status;
-    
+
         // Commit the account on-chain
         self.save(account_info)?;
 
         Ok(())
     }
 
+    /// All Controller operations normal.
     pub fn is_active(&self) -> bool {
         self.status == ControllerStatus::Active
+    }
+
+    /// All Controller activity should be halted.
+    /// Only valid operation is to unfreeze the Controller.
+    pub fn is_frozen(&self) -> bool {
+        self.status == ControllerStatus::Frozen
     }
 
     pub fn emit_event(
@@ -186,13 +197,19 @@ impl Controller {
         controller_authority: &AccountInfo,
         vault: &AccountInfo,
         recipient_token_account: &AccountInfo,
+        mint: &AccountInfo,
         amount: u64,
+        decimals: u8,
+        token_program: &Pubkey,
     ) -> Result<(), ProgramError> {
-        Transfer {
+        TransferChecked {
             from: vault,
             to: recipient_token_account,
+            mint,
             authority: controller_authority,
             amount,
+            decimals,
+            token_program,
         }
         .invoke_signed(&[Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),

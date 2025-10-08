@@ -8,6 +8,7 @@
 use crate::generated::types::AccountingEvent;
 use crate::generated::types::ControllerUpdateEvent;
 use crate::generated::types::IntegrationUpdateEvent;
+use crate::generated::types::OracleUpdateEvent;
 use crate::generated::types::PermissionUpdateEvent;
 use crate::generated::types::ReserveUpdateEvent;
 use borsh::BorshDeserialize;
@@ -21,4 +22,5 @@ pub enum SvmAlmControllerEvent {
     ReserveUpdate(ReserveUpdateEvent),
     IntegrationUpdate(IntegrationUpdateEvent),
     AccountingEvent(AccountingEvent),
+    OracleUpdate(OracleUpdateEvent),
 }

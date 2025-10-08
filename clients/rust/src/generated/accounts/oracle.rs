@@ -8,7 +8,7 @@
 use crate::generated::types::Feed;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
+use solana_pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -27,13 +27,28 @@ pub struct Oracle {
     pub value: i128,
     pub precision: u32,
     pub last_update_slot: u64,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub controller: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub base_mint: Pubkey,
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub quote_mint: Pubkey,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
     pub reserved: [u8; 64],
     pub feeds: [Feed; 1],
 }
 
 impl Oracle {
-    pub const LEN: usize = 253;
+    pub const LEN: usize = 349;
 
     #[inline(always)]
     pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
@@ -42,12 +57,10 @@ impl Oracle {
     }
 }
 
-impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Oracle {
+impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for Oracle {
     type Error = std::io::Error;
 
-    fn try_from(
-        account_info: &solana_program::account_info::AccountInfo<'a>,
-    ) -> Result<Self, Self::Error> {
+    fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
         let mut data: &[u8] = &(*account_info.data).borrow();
         Self::deserialize(&mut data)
     }
@@ -56,7 +69,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Oracle {
 #[cfg(feature = "fetch")]
 pub fn fetch_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &solana_pubkey::Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Oracle>, std::io::Error> {
     let accounts = fetch_all_oracle(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -65,7 +78,7 @@ pub fn fetch_oracle(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[solana_pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Oracle>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
@@ -90,7 +103,7 @@ pub fn fetch_all_oracle(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &solana_pubkey::Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Oracle>, std::io::Error> {
     let accounts = fetch_all_maybe_oracle(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -99,7 +112,7 @@ pub fn fetch_maybe_oracle(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_oracle(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[solana_pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Oracle>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
@@ -145,5 +158,5 @@ impl anchor_lang::IdlBuild for Oracle {}
 
 #[cfg(feature = "anchor-idl-build")]
 impl anchor_lang::Discriminator for Oracle {
-    const DISCRIMINATOR: [u8; 8] = [0; 8];
+    const DISCRIMINATOR: &[u8] = &[0; 8];
 }

@@ -7,7 +7,7 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
+use solana_pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -27,11 +27,12 @@ pub struct AtomicSwapConfig {
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
     pub oracle: Pubkey,
-    pub max_slippage_bps: u16,
     pub max_staleness: u64,
+    pub expiry_timestamp: i64,
+    pub max_slippage_bps: u16,
     pub input_mint_decimals: u8,
     pub output_mint_decimals: u8,
-    pub expiry_timestamp: i64,
+    pub oracle_price_inverted: bool,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 108],
+    pub padding: [u8; 107],
 }

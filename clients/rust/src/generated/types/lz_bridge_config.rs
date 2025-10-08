@@ -7,7 +7,7 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
+use solana_pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -36,7 +36,7 @@ pub struct LzBridgeConfig {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub token_escrow: Pubkey,
+    pub oft_token_escrow: Pubkey,
     #[cfg_attr(
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")

@@ -1,6 +1,3 @@
-extern crate alloc;
-
-use alloc::vec::Vec;
 use shank::ShankType;
 
 pub trait Discriminator {
@@ -16,18 +13,4 @@ pub enum AccountDiscriminators {
     IntegrationDiscriminator = 3,
     ReserveDiscriminator = 4,
     OracleDiscriminator = 5,
-}
-
-pub trait AccountSerialize: Discriminator {
-    /// Serialize the struct with the Discriminator prepended.
-    fn to_bytes(&self) -> Vec<u8> {
-        let mut data = Vec::new();
-        // Discriminator
-        data.push(Self::DISCRIMINATOR);
-        data.extend(self.to_bytes_inner());
-
-        data
-    }
-
-    fn to_bytes_inner(&self) -> Vec<u8>;
 }

@@ -225,18 +225,18 @@ pub fn process_sync_kamino(
                 vault.amount()
             };
             
-            controller.emit_event(
-                outer_ctx.controller_authority, 
-                outer_ctx.controller.key(), 
-                SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
-                    controller: *outer_ctx.controller.key(), 
-                    integration: *outer_ctx.integration.key(), 
-                    mint: *inner_ctx.rewards_mint.key(), 
-                    action: AccountingAction::Withdrawal, 
-                    before: post_sync_reserve_balance, 
-                    after: post_transfer_balance
-                })
-            )?
+            // controller.emit_event(
+            //     outer_ctx.controller_authority, 
+            //     outer_ctx.controller.key(), 
+            //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+            //         controller: *outer_ctx.controller.key(), 
+            //         integration: *outer_ctx.integration.key(), 
+            //         mint: *inner_ctx.rewards_mint.key(), 
+            //         action: AccountingAction::Withdrawal, 
+            //         before: post_sync_reserve_balance, 
+            //         after: post_transfer_balance
+            //     })
+            // )?
         }
     }
 

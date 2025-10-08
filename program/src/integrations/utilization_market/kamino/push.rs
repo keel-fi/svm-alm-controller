@@ -129,18 +129,18 @@ pub fn process_push_kamino(
 
     // emit accounting event
     if liquidity_amount_delta > 0 {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
-                mint: *inner_ctx.reserve_liquidity_mint.key(),
-                action: AccountingAction::Deposit,
-                before: liquidity_amount_before,
-                after: liquidity_amount_after,
-            }),
-        )?;
+        // controller.emit_event(
+        //     outer_ctx.controller_authority,
+        //     outer_ctx.controller.key(),
+        //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+        //         controller: *outer_ctx.controller.key(),
+        //         integration: *outer_ctx.integration.key(),
+        //         mint: *inner_ctx.reserve_liquidity_mint.key(),
+        //         action: AccountingAction::Deposit,
+        //         before: liquidity_amount_before,
+        //         after: liquidity_amount_after,
+        //     }),
+        // )?;
     }
 
     let (liquidity_value_after_deposit, lp_amount_after_deposit) = get_liquidity_and_lp_amount(
@@ -165,7 +165,8 @@ pub fn process_push_kamino(
     integration.update_rate_limit_for_outflow(clock, liquidity_amount_delta)?;
 
     // update the reserves for the flows
-    reserve.update_for_outflow(clock, liquidity_amount_delta)?;
+    // todo: verify allow_underflow
+    reserve.update_for_outflow(clock, liquidity_amount_delta, false)?;
 
     Ok(())
 }

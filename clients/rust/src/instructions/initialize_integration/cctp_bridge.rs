@@ -1,0 +1,106 @@
+use solana_instruction::{AccountMeta, Instruction};
+use solana_program::{keccak::hash, system_program};
+use solana_pubkey::Pubkey;
+
+use crate::{
+    derive_controller_authority_pda, derive_integration_pda, derive_permission_pda,
+    generated::{
+        instructions::InitializeIntegrationBuilder,
+        types::{
+            CctpBridgeConfig, InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType,
+        },
+    },
+    integrations::cctp_bridge,
+};
+
+/// Instruction generation for initializing CCTP integration
+pub fn create_cctp_bridge_initialize_integration_instruction(
+    payer: &Pubkey,
+    controller: &Pubkey,
+    authority: &Pubkey,
+    description: &str,
+    status: IntegrationStatus,
+    rate_limit_slope: u64,
+    rate_limit_max_outflow: u64,
+    permit_liquidation: bool,
+    // CCTP specific args
+    mint: &Pubkey,
+    destination_address: &Pubkey,
+    destination_domain: u32,
+) -> Instruction {
+    let config = IntegrationConfig::CctpBridge(CctpBridgeConfig {
+        cctp_token_messenger_minter: cctp_bridge::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+        cctp_message_transmitter: cctp_bridge::CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
+        mint: *mint,
+        destination_address: *destination_address,
+        destination_domain,
+        padding: [0u8; 92],
+    });
+
+    let inner_args = InitializeArgs::CctpBridge {
+        destination_address: *destination_address,
+        destination_domain,
+    };
+
+    let hash = hash(borsh::to_vec(&config).unwrap().as_ref()).to_bytes();
+    let integration_pda = derive_integration_pda(controller, &hash);
+    let permission_pda = derive_permission_pda(controller, authority);
+    let controller_authority = derive_controller_authority_pda(controller);
+
+    let description_bytes = description.as_bytes();
+    let mut description_encoding: [u8; 32] = [0; 32];
+    description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
+
+    let remaining_accounts = [
+        AccountMeta {
+            pubkey: *mint,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: cctp_bridge::derive_local_token_pda(
+                mint,
+                &cctp_bridge::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+            ),
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: cctp_bridge::derive_remote_token_messenger_pda(
+                &destination_domain.to_string(),
+                &cctp_bridge::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+            ),
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: cctp_bridge::CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: cctp_bridge::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+            is_signer: false,
+            is_writable: false,
+        },
+    ];
+
+    InitializeIntegrationBuilder::new()
+        .integration_type(IntegrationType::CctpBridge)
+        .status(status)
+        .description(description_encoding)
+        .rate_limit_slope(rate_limit_slope)
+        .rate_limit_max_outflow(rate_limit_max_outflow)
+        .permit_liquidation(permit_liquidation)
+        .inner_args(inner_args.clone())
+        .payer(*payer)
+        .controller(*controller)
+        .controller_authority(controller_authority)
+        .authority(*authority)
+        .permission(permission_pda)
+        .integration(integration_pda)
+        .add_remaining_accounts(&remaining_accounts)
+        .program_id(crate::SVM_ALM_CONTROLLER_ID)
+        .system_program(system_program::ID)
+        .instruction()
+}

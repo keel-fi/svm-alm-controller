@@ -1,4 +1,5 @@
 use crate::{
+    constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
@@ -7,17 +8,17 @@ use crate::{
         config::CctpBridgeConfig,
         state::CctpBridgeState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
 };
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
 define_account_struct! {
   pub struct InitializeCctpBridgeAccounts<'info> {
-      mint: @owner(pinocchio_token::ID);
+      mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
       local_token;
       remote_token_messenger;
-      cctp_message_transmitter;
-      cctp_token_messenger_minter;
+      cctp_message_transmitter @pubkey(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID);
+      cctp_token_messenger_minter @pubkey(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
   }
 }
 
@@ -26,6 +27,10 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
         account_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
         let ctx = InitializeCctpBridgeAccounts::from_accounts(account_infos)?;
+
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.mint, &[])?;
+
         if !ctx
             .local_token
             .is_owned_by(ctx.cctp_token_messenger_minter.key())
@@ -54,11 +59,11 @@ pub fn process_initialize_cctp_bridge(
     let inner_ctx =
         InitializeCctpBridgeAccounts::checked_from_accounts(outer_ctx.remaining_accounts)?;
 
-    let (desination_address, desination_domain) = match outer_args.inner_args {
+    let (destination_address, destination_domain) = match outer_args.inner_args {
         InitializeArgs::CctpBridge {
-            desination_address,
-            desination_domain,
-        } => (desination_address, desination_domain),
+            destination_address,
+            destination_domain,
+        } => (destination_address, destination_domain),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -70,13 +75,13 @@ pub fn process_initialize_cctp_bridge(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Load in the CCTP RemoteTokenMessenger account and verify the mint matches
+    // Load in the CCTP RemoteTokenMessenger account
     let remote_token_messenger = RemoteTokenMessenger::deserialize(
         &mut &*inner_ctx.remote_token_messenger.try_borrow_data()?,
     )
     .map_err(|e| e)?;
-    if remote_token_messenger.domain.ne(&desination_domain) {
-        msg! {"desination_domain: does not match remote_token_messenger state"};
+    if remote_token_messenger.domain.ne(&destination_domain) {
+        msg! {"destination_domain: does not match remote_token_messenger state"};
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -85,8 +90,8 @@ pub fn process_initialize_cctp_bridge(
         cctp_token_messenger_minter: Pubkey::from(*inner_ctx.cctp_token_messenger_minter.key()),
         cctp_message_transmitter: Pubkey::from(*inner_ctx.cctp_message_transmitter.key()),
         mint: Pubkey::from(*inner_ctx.mint.key()),
-        destination_address: Pubkey::from(desination_address),
-        destination_domain: desination_domain,
+        destination_address: Pubkey::from(destination_address),
+        destination_domain,
         _padding: [0u8; 92],
     });
 

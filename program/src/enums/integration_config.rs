@@ -1,7 +1,7 @@
 use crate::integrations::{
     atomic_swap::config::AtomicSwapConfig, cctp_bridge::config::CctpBridgeConfig,
     lz_bridge::config::LzBridgeConfig, spl_token_external::config::SplTokenExternalConfig,
-    spl_token_swap::config::SplTokenSwapConfig, utilization_market::config::UtilizationMarketConfig,
+    utilization_market::config::UtilizationMarketConfig,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
@@ -12,7 +12,6 @@ use solana_keccak_hasher::hash;
 pub enum IntegrationConfig {
     Undefined { _padding: [u8; 224] },
     SplTokenExternal(SplTokenExternalConfig),
-    SplTokenSwap(SplTokenSwapConfig),
     CctpBridge(CctpBridgeConfig),
     LzBridge(LzBridgeConfig),
     AtomicSwap(AtomicSwapConfig),

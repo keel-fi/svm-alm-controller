@@ -7,33 +7,33 @@
 
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
+use solana_pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InitializeArgs {
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge {
         #[cfg_attr(
             feature = "serde",
             serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
         )]
-        desination_address: Pubkey,
-        desination_domain: u32,
+        destination_address: Pubkey,
+        destination_domain: u32,
     },
     LzBridge {
         #[cfg_attr(
             feature = "serde",
             serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
         )]
-        desination_address: Pubkey,
+        destination_address: Pubkey,
         destination_eid: u32,
     },
     AtomicSwap {
         max_slippage_bps: u16,
         max_staleness: u64,
         expiry_timestamp: i64,
+        oracle_price_inverted: bool,
     },
     KaminoIntegration {
         obligation_id: u8,

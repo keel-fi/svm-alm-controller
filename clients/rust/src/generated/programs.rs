@@ -5,7 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use solana_program::{pubkey, pubkey::Pubkey};
+use solana_pubkey::{pubkey, Pubkey};
 
 /// `svm_alm_controller` program ID.
-pub const SVM_ALM_CONTROLLER_ID: Pubkey = pubkey!("2NCpU9nsgLfhqKX5CDVz24FfsZ8aRwjgUWtFbPsVZVu2");
+pub const SVM_ALM_CONTROLLER_ID: Pubkey = pubkey!("H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9");

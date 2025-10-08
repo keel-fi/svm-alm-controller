@@ -1,5 +1,4 @@
 use crate::{
-    constants::ADDRESS_LOOKUP_TABLE_PROGRAM_ID,
     define_account_struct,
     enums::IntegrationType,
     error::SvmAlmControllerErrors,
@@ -10,7 +9,7 @@ use crate::{
         cctp_bridge::initialize::process_initialize_cctp_bridge,
         lz_bridge::initialize::process_initialize_lz_bridge,
         spl_token_external::initialize::process_initialize_spl_token_external,
-        spl_token_swap::initialize::process_initialize_spl_token_swap, utilization_market::process_initialize_utilization_market,
+        utilization_market::process_initialize_utilization_market,
     },
     state::{Controller, Integration, Permission},
 };
@@ -27,27 +26,9 @@ define_account_struct! {
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, empty, @owner(pinocchio_system::ID);
-        lookup_table;
         program_id: @pubkey(crate::ID);
         system_program: @pubkey(pinocchio_system::ID);
         @remaining_accounts as remaining_accounts;
-    }
-}
-
-impl<'info> InitializeIntegrationAccounts<'info> {
-    pub fn checked_from_accounts(accounts: &'info [AccountInfo]) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts)?;
-
-        // The Lookuptable must be either a value ALUT or the system_program (i.e. no LUT provided)
-        if ctx.lookup_table.key().ne(&pinocchio_system::id())
-            && !ctx
-                .lookup_table
-                .is_owned_by(&ADDRESS_LOOKUP_TABLE_PROGRAM_ID)
-        {
-            msg! {"Lookup Table: wrong owner"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        Ok(ctx)
     }
 }
 
@@ -58,29 +39,34 @@ pub fn process_initialize_integration(
 ) -> ProgramResult {
     msg!("initialize_integration");
 
-    let ctx = InitializeIntegrationAccounts::checked_from_accounts(accounts)?;
+    let ctx = InitializeIntegrationAccounts::from_accounts(accounts)?;
     // // Deserialize the args
-    let args = InitializeIntegrationArgs::try_from_slice(instruction_data).unwrap();
+    let args = InitializeIntegrationArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
-    // Load in the super permission account
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
+    }
+
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
-    if !permission.can_manage_integrations() {
+    // Check that authority has permission and the permission is active
+    if !permission.can_manage_reserves_and_integrations() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
     let (config, state) = match args.integration_type {
         IntegrationType::SplTokenExternal => process_initialize_spl_token_external(&ctx, &args)?,
-        IntegrationType::SplTokenSwap => process_initialize_spl_token_swap(&ctx, &args)?,
         IntegrationType::CctpBridge => process_initialize_cctp_bridge(&ctx, &args)?,
         IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
         IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
         IntegrationType::UtilizationMarket(market) => process_initialize_utilization_market(&ctx, &args, market, &controller)?,
-        // TODO: More integration types to be supported
+        // More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -93,9 +79,9 @@ pub fn process_initialize_integration(
         config,
         state,
         args.description,
-        *ctx.lookup_table.key(),
         args.rate_limit_slope,
         args.rate_limit_max_outflow,
+        args.permit_liquidation,
     )?;
 
     // Emit the event

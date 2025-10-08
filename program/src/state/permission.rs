@@ -1,14 +1,16 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
 };
 use crate::{
-    constants::PERMISSION_SEED, enums::PermissionStatus, processor::shared::create_pda_account,
+    constants::PERMISSION_SEED, enums::PermissionStatus, error::SvmAlmControllerErrors,
+    processor::shared::create_pda_account, state::Integration,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo,
     instruction::Seed,
+    msg,
     program_error::ProgramError,
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{rent::Rent, Sysvar},
@@ -33,28 +35,32 @@ pub struct Permission {
     /// Enables the Permission's authority to execute ("Push") AtomicSwaps, swapping
     /// one of the Controllers Reserve tokens to another token in a separate Reserve.
     pub can_execute_swap: bool,
-    /// Enables the Permission's authority to execute ("Push" AND "Pull") SplTokenSwap integrations,
-    /// adding or removing liquidity from a SPL Token Swap pool.
+    /// Enables the Permission's authority to execute ("Push" AND "Pull") integrations,
+    /// allowing liquidity to be added or removed from a pool.
     pub can_reallocate: bool,
     /// Enables the Permission's authority to freeze the Controller, preventing any
     /// "Push" or "Pull" type actions from being invoked.
     pub can_freeze_controller: bool,
     /// Enables the Permission's authority to unfreeze the Controller.
     pub can_unfreeze_controller: bool,
-    /// Enables the Permission's authority to update any Integration's status, LUT, and rate limit params.
-    pub can_manage_integrations: bool,
+    /// Enables the Permission's authority to initialize or update a Reserve or Integration
+    /// state including statuses, rate limit params, etc.
+    pub can_manage_reserves_and_integrations: bool,
     /// Enables the Permission's authority to suspend any Permission, EXCEPT for
     /// a Super Permission with `can_manage_permissions` enabled.
     pub can_suspend_permissions: bool,
-    pub _padding: [u8; 31],
+    /// Enables the Permission's authority to "Pull" funds from external Integrations
+    /// and Push funds back to Ethereum Mainnet.
+    pub can_liquidate: bool,
+    pub _padding: [u8; 30],
 }
 
 impl Discriminator for Permission {
     const DISCRIMINATOR: u8 = AccountDiscriminators::PermissionDiscriminator as u8;
 }
 
-impl NovaAccount for Permission {
-    const LEN: usize = 65 + 7 + 32; 
+impl KeelAccount for Permission {
+    const LEN: usize = 2 * 32 + 10 * 1 + 30;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -71,8 +77,12 @@ impl NovaAccount for Permission {
 
 impl Permission {
     pub fn check_data(&self, controller: &Pubkey, authority: &Pubkey) -> Result<(), ProgramError> {
-        if self.authority.ne(authority) || self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+        if self.authority.ne(authority) {
+            msg!("Permission authority mismatch");
+            return Err(ProgramError::IncorrectAuthority);
+        } else if self.controller.ne(controller) {
+            msg!("Controller does not match Permission controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -84,27 +94,12 @@ impl Permission {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 
-        let permission: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
-        permission.check_data(controller, authority)?;
-        permission.verify_pda(account_info)?;
-        Ok(permission)
-    }
-
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo,
-        controller: &Pubkey,
-        authority: &Pubkey,
-    ) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let permission: Self =
-            NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
+        let permission: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         permission.check_data(controller, authority)?;
         permission.verify_pda(account_info)?;
         Ok(permission)
@@ -122,8 +117,9 @@ impl Permission {
         can_reallocate: bool,
         can_freeze_controller: bool,
         can_unfreeze_controller: bool,
-        can_manage_integrations: bool,
+        can_manage_reserves_and_integrations: bool,
         can_suspend_permissions: bool,
+        can_liquidate: bool,
     ) -> Result<Self, ProgramError> {
         // Create and serialize the controller
         let permission = Permission {
@@ -136,15 +132,17 @@ impl Permission {
             can_reallocate,
             can_freeze_controller,
             can_unfreeze_controller,
-            can_manage_integrations,
+            can_manage_reserves_and_integrations,
             can_suspend_permissions,
-            _padding: [0; 31],
+            can_liquidate,
+            _padding: [0; 30],
         };
 
         // Derive the PDA
         let (pda, bump) = permission.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Permission PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Account creation PDA
@@ -159,10 +157,10 @@ impl Permission {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
 
         // Commit the account on-chain
@@ -173,6 +171,7 @@ impl Permission {
 
     pub fn update_and_save(
         &mut self,
+        account_info: &AccountInfo,
         status: Option<PermissionStatus>,
         can_manage_permissions: Option<bool>,
         can_invoke_external_transfer: Option<bool>,
@@ -180,8 +179,9 @@ impl Permission {
         can_reallocate: Option<bool>,
         can_freeze_controller: Option<bool>,
         can_unfreeze_controller: Option<bool>,
-        can_manage_integrations: Option<bool>,
+        can_manage_reserves_and_integrations: Option<bool>,
         can_suspend_permissions: Option<bool>,
+        can_liquidate: Option<bool>,
     ) -> Result<(), ProgramError> {
         if let Some(status) = status {
             self.status = status;
@@ -207,9 +207,15 @@ impl Permission {
         if let Some(can_unfreeze_controller) = can_unfreeze_controller {
             self.can_unfreeze_controller = can_unfreeze_controller;
         }
-        if let Some(can_manage_integrations) = can_manage_integrations {
-            self.can_manage_integrations = can_manage_integrations;
+        if let Some(can_manage_reserves_and_integrations) = can_manage_reserves_and_integrations {
+            self.can_manage_reserves_and_integrations = can_manage_reserves_and_integrations;
         }
+        if let Some(can_liquidate) = can_liquidate {
+            self.can_liquidate = can_liquidate;
+        }
+
+        // Commit the account on-chain
+        self.save(account_info)?;
 
         Ok(())
     }
@@ -230,8 +236,8 @@ impl Permission {
         self.status == PermissionStatus::Active && self.can_suspend_permissions
     }
 
-    pub fn can_manage_integrations(&self) -> bool {
-        self.status == PermissionStatus::Active && self.can_manage_integrations
+    pub fn can_manage_reserves_and_integrations(&self) -> bool {
+        self.status == PermissionStatus::Active && self.can_manage_reserves_and_integrations
     }
 
     pub fn can_execute_swap(&self) -> bool {
@@ -244,5 +250,13 @@ impl Permission {
 
     pub fn can_invoke_external_transfer(&self) -> bool {
         self.status == PermissionStatus::Active && self.can_invoke_external_transfer
+    }
+
+    /// Whether or not the Permission may liquidate, "Push" or "Pull", depending on
+    /// the Integration's config.
+    pub fn can_liquidate(&self, integration: &Integration) -> bool {
+        self.status == PermissionStatus::Active
+            && self.can_liquidate
+            && integration.permit_liquidation
     }
 }

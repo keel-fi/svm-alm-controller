@@ -12,6 +12,28 @@ macro_rules! key_as_str {
     };
 }
 
+/// Panic handle that prints the file and line:column numbers.
+#[macro_export]
+macro_rules! dev_panic_handler {
+    () => {
+        /// Default panic handler.
+        #[cfg(target_os = "solana")]
+        #[no_mangle]
+        fn custom_panic(info: &core::panic::PanicInfo<'_>) {
+            if let Some(location) = info.location() {
+                pinocchio_log::log!(
+                    "file: {} line {}:{}",
+                    location.file(),
+                    location.line() as u64,
+                    location.column() as u64
+                );
+            }
+            // Panic reporting.
+            pinocchio::log::sol_log("** PANICKED **");
+        }
+    };
+}
+
 /// Defines an account context struct and its `from_accounts` validator.
 ///
 /// ### Example
@@ -22,7 +44,7 @@ macro_rules! key_as_str {
 ///         controller;
 ///         authority: signer;
 ///         integration: mut;
-///         token_program: @pubkey(pinocchio_token::ID);
+///         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
 ///         reserve: @owner(SYSTEM_PROGRAM_ID, TOKEN_PROGRAM_ID);
 ///     }
 /// }
@@ -36,7 +58,7 @@ macro_rules! key_as_str {
 /// - `mut` - account must be writable
 /// - `empty` - account data field must be empty
 /// - `opt_signer` — account is optional, but must be a signer if provided
-/// - `@pubkey(KEY)` — account pubkey must match key provided
+/// - `@pubkey(KEY1, KEY2...)` — account pubkey must match one of the keys provided
 /// - `@owner(KEY1, KEY2...)` — account owner must match one of the keys provided
 ///
 /// Use `@remaining_accounts as remaining_accounts;` to capture extra accounts.
@@ -49,7 +71,7 @@ macro_rules! define_account_struct {
             $(
                 $field:ident
                 $( : $( $attr:ident ),* $(,)? )?
-                $( @pubkey ( $check_pubkey:expr ) )?
+                $( @pubkey( $( $check_pubkey:expr ),+ ) )?
                 $( @owner( $( $check_owner:expr ),+ ) )?
                 ;
             )*
@@ -99,7 +121,7 @@ macro_rules! define_account_struct {
                     )?
 
                     $(
-                        if $field.key() != &$check_pubkey {
+                        if !( $( $field.key().eq(&$check_pubkey) )||+ ) {
                             pinocchio_log::log!("{}: invalid key", stringify!($field));
                             return Err(ProgramError::IncorrectProgramId);
                         }

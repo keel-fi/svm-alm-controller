@@ -8,108 +8,116 @@
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
+pub const ATOMIC_SWAP_REPAY_DISCRIMINATOR: u8 = 16;
+
 /// Accounts.
 #[derive(Debug)]
 pub struct AtomicSwapRepay {
-    pub payer: solana_program::pubkey::Pubkey,
+    pub payer: solana_pubkey::Pubkey,
 
-    pub controller: solana_program::pubkey::Pubkey,
+    pub controller: solana_pubkey::Pubkey,
 
-    pub authority: solana_program::pubkey::Pubkey,
+    pub controller_authority: solana_pubkey::Pubkey,
 
-    pub permission: solana_program::pubkey::Pubkey,
+    pub authority: solana_pubkey::Pubkey,
 
-    pub integration: solana_program::pubkey::Pubkey,
+    pub permission: solana_pubkey::Pubkey,
 
-    pub reserve_a: solana_program::pubkey::Pubkey,
+    pub integration: solana_pubkey::Pubkey,
 
-    pub vault_a: solana_program::pubkey::Pubkey,
+    pub reserve_a: solana_pubkey::Pubkey,
 
-    pub reserve_b: solana_program::pubkey::Pubkey,
+    pub vault_a: solana_pubkey::Pubkey,
 
-    pub vault_b: solana_program::pubkey::Pubkey,
+    pub mint_a: solana_pubkey::Pubkey,
 
-    pub oracle: solana_program::pubkey::Pubkey,
+    pub reserve_b: solana_pubkey::Pubkey,
 
-    pub payer_account_a: solana_program::pubkey::Pubkey,
+    pub vault_b: solana_pubkey::Pubkey,
 
-    pub payer_account_b: solana_program::pubkey::Pubkey,
+    pub mint_b: solana_pubkey::Pubkey,
 
-    pub token_program: solana_program::pubkey::Pubkey,
+    pub oracle: solana_pubkey::Pubkey,
+
+    pub payer_account_a: solana_pubkey::Pubkey,
+
+    pub payer_account_b: solana_pubkey::Pubkey,
+
+    pub token_program_a: solana_pubkey::Pubkey,
+
+    pub token_program_b: solana_pubkey::Pubkey,
 }
 
 impl AtomicSwapRepay {
-    pub fn instruction(
-        &self,
-        args: AtomicSwapRepayInstructionArgs,
-    ) -> solana_program::instruction::Instruction {
-        self.instruction_with_remaining_accounts(args, &[])
+    pub fn instruction(&self) -> solana_instruction::Instruction {
+        self.instruction_with_remaining_accounts(&[])
     }
     #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
-        args: AtomicSwapRepayInstructionArgs,
-        remaining_accounts: &[solana_program::instruction::AccountMeta],
-    ) -> solana_program::instruction::Instruction {
-        let mut accounts = Vec::with_capacity(13 + remaining_accounts.len());
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        remaining_accounts: &[solana_instruction::AccountMeta],
+    ) -> solana_instruction::Instruction {
+        let mut accounts = Vec::with_capacity(17 + remaining_accounts.len());
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.payer, true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.controller,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.controller_authority,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.authority,
             true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.permission,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             self.integration,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.reserve_a,
+        accounts.push(solana_instruction::AccountMeta::new(self.reserve_a, false));
+        accounts.push(solana_instruction::AccountMeta::new(self.vault_a, false));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.mint_a,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.vault_a,
+        accounts.push(solana_instruction::AccountMeta::new(self.reserve_b, false));
+        accounts.push(solana_instruction::AccountMeta::new(self.vault_b, false));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.mint_b,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.reserve_b,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.vault_b,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.oracle,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             self.payer_account_a,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             self.payer_account_b,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            self.token_program,
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.token_program_a,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.token_program_b,
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&AtomicSwapRepayInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&args).unwrap();
-        data.append(&mut args);
+        let data = borsh::to_vec(&AtomicSwapRepayInstructionData::new()).unwrap();
 
-        solana_program::instruction::Instruction {
+        solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
             accounts,
             data,
@@ -135,46 +143,47 @@ impl Default for AtomicSwapRepayInstructionData {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AtomicSwapRepayInstructionArgs {
-    pub amount: u64,
-}
-
 /// Instruction builder for `AtomicSwapRepay`.
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` payer
+///   0. `[signer]` payer
 ///   1. `[]` controller
-///   2. `[signer]` authority
-///   3. `[]` permission
-///   4. `[writable]` integration
-///   5. `[writable]` reserve_a
-///   6. `[writable]` vault_a
-///   7. `[writable]` reserve_b
-///   8. `[writable]` vault_b
-///   9. `[]` oracle
-///   10. `[writable]` payer_account_a
-///   11. `[writable]` payer_account_b
-///   12. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///   2. `[]` controller_authority
+///   3. `[signer]` authority
+///   4. `[]` permission
+///   5. `[writable]` integration
+///   6. `[writable]` reserve_a
+///   7. `[writable]` vault_a
+///   8. `[]` mint_a
+///   9. `[writable]` reserve_b
+///   10. `[writable]` vault_b
+///   11. `[]` mint_b
+///   12. `[]` oracle
+///   13. `[writable]` payer_account_a
+///   14. `[writable]` payer_account_b
+///   15. `[]` token_program_a
+///   16. `[]` token_program_b
 #[derive(Clone, Debug, Default)]
 pub struct AtomicSwapRepayBuilder {
-    payer: Option<solana_program::pubkey::Pubkey>,
-    controller: Option<solana_program::pubkey::Pubkey>,
-    authority: Option<solana_program::pubkey::Pubkey>,
-    permission: Option<solana_program::pubkey::Pubkey>,
-    integration: Option<solana_program::pubkey::Pubkey>,
-    reserve_a: Option<solana_program::pubkey::Pubkey>,
-    vault_a: Option<solana_program::pubkey::Pubkey>,
-    reserve_b: Option<solana_program::pubkey::Pubkey>,
-    vault_b: Option<solana_program::pubkey::Pubkey>,
-    oracle: Option<solana_program::pubkey::Pubkey>,
-    payer_account_a: Option<solana_program::pubkey::Pubkey>,
-    payer_account_b: Option<solana_program::pubkey::Pubkey>,
-    token_program: Option<solana_program::pubkey::Pubkey>,
-    amount: Option<u64>,
-    __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
+    payer: Option<solana_pubkey::Pubkey>,
+    controller: Option<solana_pubkey::Pubkey>,
+    controller_authority: Option<solana_pubkey::Pubkey>,
+    authority: Option<solana_pubkey::Pubkey>,
+    permission: Option<solana_pubkey::Pubkey>,
+    integration: Option<solana_pubkey::Pubkey>,
+    reserve_a: Option<solana_pubkey::Pubkey>,
+    vault_a: Option<solana_pubkey::Pubkey>,
+    mint_a: Option<solana_pubkey::Pubkey>,
+    reserve_b: Option<solana_pubkey::Pubkey>,
+    vault_b: Option<solana_pubkey::Pubkey>,
+    mint_b: Option<solana_pubkey::Pubkey>,
+    oracle: Option<solana_pubkey::Pubkey>,
+    payer_account_a: Option<solana_pubkey::Pubkey>,
+    payer_account_b: Option<solana_pubkey::Pubkey>,
+    token_program_a: Option<solana_pubkey::Pubkey>,
+    token_program_b: Option<solana_pubkey::Pubkey>,
+    __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
 impl AtomicSwapRepayBuilder {
@@ -182,88 +191,96 @@ impl AtomicSwapRepayBuilder {
         Self::default()
     }
     #[inline(always)]
-    pub fn payer(&mut self, payer: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn payer(&mut self, payer: solana_pubkey::Pubkey) -> &mut Self {
         self.payer = Some(payer);
         self
     }
     #[inline(always)]
-    pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn controller(&mut self, controller: solana_pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
         self
     }
     #[inline(always)]
-    pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn controller_authority(
+        &mut self,
+        controller_authority: solana_pubkey::Pubkey,
+    ) -> &mut Self {
+        self.controller_authority = Some(controller_authority);
+        self
+    }
+    #[inline(always)]
+    pub fn authority(&mut self, authority: solana_pubkey::Pubkey) -> &mut Self {
         self.authority = Some(authority);
         self
     }
     #[inline(always)]
-    pub fn permission(&mut self, permission: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn permission(&mut self, permission: solana_pubkey::Pubkey) -> &mut Self {
         self.permission = Some(permission);
         self
     }
     #[inline(always)]
-    pub fn integration(&mut self, integration: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn integration(&mut self, integration: solana_pubkey::Pubkey) -> &mut Self {
         self.integration = Some(integration);
         self
     }
     #[inline(always)]
-    pub fn reserve_a(&mut self, reserve_a: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn reserve_a(&mut self, reserve_a: solana_pubkey::Pubkey) -> &mut Self {
         self.reserve_a = Some(reserve_a);
         self
     }
     #[inline(always)]
-    pub fn vault_a(&mut self, vault_a: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn vault_a(&mut self, vault_a: solana_pubkey::Pubkey) -> &mut Self {
         self.vault_a = Some(vault_a);
         self
     }
     #[inline(always)]
-    pub fn reserve_b(&mut self, reserve_b: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn mint_a(&mut self, mint_a: solana_pubkey::Pubkey) -> &mut Self {
+        self.mint_a = Some(mint_a);
+        self
+    }
+    #[inline(always)]
+    pub fn reserve_b(&mut self, reserve_b: solana_pubkey::Pubkey) -> &mut Self {
         self.reserve_b = Some(reserve_b);
         self
     }
     #[inline(always)]
-    pub fn vault_b(&mut self, vault_b: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn vault_b(&mut self, vault_b: solana_pubkey::Pubkey) -> &mut Self {
         self.vault_b = Some(vault_b);
         self
     }
     #[inline(always)]
-    pub fn oracle(&mut self, oracle: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn mint_b(&mut self, mint_b: solana_pubkey::Pubkey) -> &mut Self {
+        self.mint_b = Some(mint_b);
+        self
+    }
+    #[inline(always)]
+    pub fn oracle(&mut self, oracle: solana_pubkey::Pubkey) -> &mut Self {
         self.oracle = Some(oracle);
         self
     }
     #[inline(always)]
-    pub fn payer_account_a(
-        &mut self,
-        payer_account_a: solana_program::pubkey::Pubkey,
-    ) -> &mut Self {
+    pub fn payer_account_a(&mut self, payer_account_a: solana_pubkey::Pubkey) -> &mut Self {
         self.payer_account_a = Some(payer_account_a);
         self
     }
     #[inline(always)]
-    pub fn payer_account_b(
-        &mut self,
-        payer_account_b: solana_program::pubkey::Pubkey,
-    ) -> &mut Self {
+    pub fn payer_account_b(&mut self, payer_account_b: solana_pubkey::Pubkey) -> &mut Self {
         self.payer_account_b = Some(payer_account_b);
         self
     }
-    /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
     #[inline(always)]
-    pub fn token_program(&mut self, token_program: solana_program::pubkey::Pubkey) -> &mut Self {
-        self.token_program = Some(token_program);
+    pub fn token_program_a(&mut self, token_program_a: solana_pubkey::Pubkey) -> &mut Self {
+        self.token_program_a = Some(token_program_a);
         self
     }
     #[inline(always)]
-    pub fn amount(&mut self, amount: u64) -> &mut Self {
-        self.amount = Some(amount);
+    pub fn token_program_b(&mut self, token_program_b: solana_pubkey::Pubkey) -> &mut Self {
+        self.token_program_b = Some(token_program_b);
         self
     }
     /// Add an additional account to the instruction.
     #[inline(always)]
-    pub fn add_remaining_account(
-        &mut self,
-        account: solana_program::instruction::AccountMeta,
-    ) -> &mut Self {
+    pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
         self.__remaining_accounts.push(account);
         self
     }
@@ -271,145 +288,155 @@ impl AtomicSwapRepayBuilder {
     #[inline(always)]
     pub fn add_remaining_accounts(
         &mut self,
-        accounts: &[solana_program::instruction::AccountMeta],
+        accounts: &[solana_instruction::AccountMeta],
     ) -> &mut Self {
         self.__remaining_accounts.extend_from_slice(accounts);
         self
     }
     #[allow(clippy::clone_on_copy)]
-    pub fn instruction(&self) -> solana_program::instruction::Instruction {
+    pub fn instruction(&self) -> solana_instruction::Instruction {
         let accounts = AtomicSwapRepay {
             payer: self.payer.expect("payer is not set"),
             controller: self.controller.expect("controller is not set"),
+            controller_authority: self
+                .controller_authority
+                .expect("controller_authority is not set"),
             authority: self.authority.expect("authority is not set"),
             permission: self.permission.expect("permission is not set"),
             integration: self.integration.expect("integration is not set"),
             reserve_a: self.reserve_a.expect("reserve_a is not set"),
             vault_a: self.vault_a.expect("vault_a is not set"),
+            mint_a: self.mint_a.expect("mint_a is not set"),
             reserve_b: self.reserve_b.expect("reserve_b is not set"),
             vault_b: self.vault_b.expect("vault_b is not set"),
+            mint_b: self.mint_b.expect("mint_b is not set"),
             oracle: self.oracle.expect("oracle is not set"),
             payer_account_a: self.payer_account_a.expect("payer_account_a is not set"),
             payer_account_b: self.payer_account_b.expect("payer_account_b is not set"),
-            token_program: self.token_program.unwrap_or(solana_program::pubkey!(
-                "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-            )),
-        };
-        let args = AtomicSwapRepayInstructionArgs {
-            amount: self.amount.clone().expect("amount is not set"),
+            token_program_a: self.token_program_a.expect("token_program_a is not set"),
+            token_program_b: self.token_program_b.expect("token_program_b is not set"),
         };
 
-        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
+        accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
     }
 }
 
 /// `atomic_swap_repay` CPI accounts.
 pub struct AtomicSwapRepayCpiAccounts<'a, 'b> {
-    pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+    pub payer: &'b solana_account_info::AccountInfo<'a>,
 
-    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller: &'b solana_account_info::AccountInfo<'a>,
 
-    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller_authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub permission: &'b solana_program::account_info::AccountInfo<'a>,
+    pub authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub integration: &'b solana_program::account_info::AccountInfo<'a>,
+    pub permission: &'b solana_account_info::AccountInfo<'a>,
 
-    pub reserve_a: &'b solana_program::account_info::AccountInfo<'a>,
+    pub integration: &'b solana_account_info::AccountInfo<'a>,
 
-    pub vault_a: &'b solana_program::account_info::AccountInfo<'a>,
+    pub reserve_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub reserve_b: &'b solana_program::account_info::AccountInfo<'a>,
+    pub vault_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub vault_b: &'b solana_program::account_info::AccountInfo<'a>,
+    pub mint_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub oracle: &'b solana_program::account_info::AccountInfo<'a>,
+    pub reserve_b: &'b solana_account_info::AccountInfo<'a>,
 
-    pub payer_account_a: &'b solana_program::account_info::AccountInfo<'a>,
+    pub vault_b: &'b solana_account_info::AccountInfo<'a>,
 
-    pub payer_account_b: &'b solana_program::account_info::AccountInfo<'a>,
+    pub mint_b: &'b solana_account_info::AccountInfo<'a>,
 
-    pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub oracle: &'b solana_account_info::AccountInfo<'a>,
+
+    pub payer_account_a: &'b solana_account_info::AccountInfo<'a>,
+
+    pub payer_account_b: &'b solana_account_info::AccountInfo<'a>,
+
+    pub token_program_a: &'b solana_account_info::AccountInfo<'a>,
+
+    pub token_program_b: &'b solana_account_info::AccountInfo<'a>,
 }
 
 /// `atomic_swap_repay` CPI instruction.
 pub struct AtomicSwapRepayCpi<'a, 'b> {
     /// The program to invoke.
-    pub __program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub __program: &'b solana_account_info::AccountInfo<'a>,
 
-    pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+    pub payer: &'b solana_account_info::AccountInfo<'a>,
 
-    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller: &'b solana_account_info::AccountInfo<'a>,
 
-    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller_authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub permission: &'b solana_program::account_info::AccountInfo<'a>,
+    pub authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub integration: &'b solana_program::account_info::AccountInfo<'a>,
+    pub permission: &'b solana_account_info::AccountInfo<'a>,
 
-    pub reserve_a: &'b solana_program::account_info::AccountInfo<'a>,
+    pub integration: &'b solana_account_info::AccountInfo<'a>,
 
-    pub vault_a: &'b solana_program::account_info::AccountInfo<'a>,
+    pub reserve_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub reserve_b: &'b solana_program::account_info::AccountInfo<'a>,
+    pub vault_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub vault_b: &'b solana_program::account_info::AccountInfo<'a>,
+    pub mint_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub oracle: &'b solana_program::account_info::AccountInfo<'a>,
+    pub reserve_b: &'b solana_account_info::AccountInfo<'a>,
 
-    pub payer_account_a: &'b solana_program::account_info::AccountInfo<'a>,
+    pub vault_b: &'b solana_account_info::AccountInfo<'a>,
 
-    pub payer_account_b: &'b solana_program::account_info::AccountInfo<'a>,
+    pub mint_b: &'b solana_account_info::AccountInfo<'a>,
 
-    pub token_program: &'b solana_program::account_info::AccountInfo<'a>,
-    /// The arguments for the instruction.
-    pub __args: AtomicSwapRepayInstructionArgs,
+    pub oracle: &'b solana_account_info::AccountInfo<'a>,
+
+    pub payer_account_a: &'b solana_account_info::AccountInfo<'a>,
+
+    pub payer_account_b: &'b solana_account_info::AccountInfo<'a>,
+
+    pub token_program_a: &'b solana_account_info::AccountInfo<'a>,
+
+    pub token_program_b: &'b solana_account_info::AccountInfo<'a>,
 }
 
 impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
     pub fn new(
-        program: &'b solana_program::account_info::AccountInfo<'a>,
+        program: &'b solana_account_info::AccountInfo<'a>,
         accounts: AtomicSwapRepayCpiAccounts<'a, 'b>,
-        args: AtomicSwapRepayInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
             payer: accounts.payer,
             controller: accounts.controller,
+            controller_authority: accounts.controller_authority,
             authority: accounts.authority,
             permission: accounts.permission,
             integration: accounts.integration,
             reserve_a: accounts.reserve_a,
             vault_a: accounts.vault_a,
+            mint_a: accounts.mint_a,
             reserve_b: accounts.reserve_b,
             vault_b: accounts.vault_b,
+            mint_b: accounts.mint_b,
             oracle: accounts.oracle,
             payer_account_a: accounts.payer_account_a,
             payer_account_b: accounts.payer_account_b,
-            token_program: accounts.token_program,
-            __args: args,
+            token_program_a: accounts.token_program_a,
+            token_program_b: accounts.token_program_b,
         }
     }
     #[inline(always)]
-    pub fn invoke(&self) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke(&self) -> solana_program_error::ProgramResult {
         self.invoke_signed_with_remaining_accounts(&[], &[])
     }
     #[inline(always)]
     pub fn invoke_with_remaining_accounts(
         &self,
-        remaining_accounts: &[(
-            &'b solana_program::account_info::AccountInfo<'a>,
-            bool,
-            bool,
-        )],
-    ) -> solana_program::entrypoint::ProgramResult {
+        remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
+    ) -> solana_program_error::ProgramResult {
         self.invoke_signed_with_remaining_accounts(&[], remaining_accounts)
     }
     #[inline(always)]
-    pub fn invoke_signed(
-        &self,
-        signers_seeds: &[&[&[u8]]],
-    ) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
     #[allow(clippy::arithmetic_side_effects)]
@@ -418,104 +445,118 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
     pub fn invoke_signed_with_remaining_accounts(
         &self,
         signers_seeds: &[&[&[u8]]],
-        remaining_accounts: &[(
-            &'b solana_program::account_info::AccountInfo<'a>,
-            bool,
-            bool,
-        )],
-    ) -> solana_program::entrypoint::ProgramResult {
-        let mut accounts = Vec::with_capacity(13 + remaining_accounts.len());
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
+    ) -> solana_program_error::ProgramResult {
+        let mut accounts = Vec::with_capacity(17 + remaining_accounts.len());
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.payer.key,
             true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.controller_authority.key,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.authority.key,
             true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.permission.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.integration.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.reserve_a.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.vault_a.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.mint_a.key,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.reserve_b.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.vault_b.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.mint_b.key,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.oracle.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.payer_account_a.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.payer_account_b.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
-            *self.token_program.key,
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.token_program_a.key,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.token_program_b.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
-            accounts.push(solana_program::instruction::AccountMeta {
+            accounts.push(solana_instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
                 is_signer: remaining_account.1,
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&AtomicSwapRepayInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&self.__args).unwrap();
-        data.append(&mut args);
+        let data = borsh::to_vec(&AtomicSwapRepayInstructionData::new()).unwrap();
 
-        let instruction = solana_program::instruction::Instruction {
+        let instruction = solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(14 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(18 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.payer.clone());
         account_infos.push(self.controller.clone());
+        account_infos.push(self.controller_authority.clone());
         account_infos.push(self.authority.clone());
         account_infos.push(self.permission.clone());
         account_infos.push(self.integration.clone());
         account_infos.push(self.reserve_a.clone());
         account_infos.push(self.vault_a.clone());
+        account_infos.push(self.mint_a.clone());
         account_infos.push(self.reserve_b.clone());
         account_infos.push(self.vault_b.clone());
+        account_infos.push(self.mint_b.clone());
         account_infos.push(self.oracle.clone());
         account_infos.push(self.payer_account_a.clone());
         account_infos.push(self.payer_account_b.clone());
-        account_infos.push(self.token_program.clone());
+        account_infos.push(self.token_program_a.clone());
+        account_infos.push(self.token_program_b.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
         if signers_seeds.is_empty() {
-            solana_program::program::invoke(&instruction, &account_infos)
+            solana_cpi::invoke(&instruction, &account_infos)
         } else {
-            solana_program::program::invoke_signed(&instruction, &account_infos, signers_seeds)
+            solana_cpi::invoke_signed(&instruction, &account_infos, signers_seeds)
         }
     }
 }
@@ -524,71 +565,83 @@ impl<'a, 'b> AtomicSwapRepayCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` payer
+///   0. `[signer]` payer
 ///   1. `[]` controller
-///   2. `[signer]` authority
-///   3. `[]` permission
-///   4. `[writable]` integration
-///   5. `[writable]` reserve_a
-///   6. `[writable]` vault_a
-///   7. `[writable]` reserve_b
-///   8. `[writable]` vault_b
-///   9. `[]` oracle
-///   10. `[writable]` payer_account_a
-///   11. `[writable]` payer_account_b
-///   12. `[]` token_program
+///   2. `[]` controller_authority
+///   3. `[signer]` authority
+///   4. `[]` permission
+///   5. `[writable]` integration
+///   6. `[writable]` reserve_a
+///   7. `[writable]` vault_a
+///   8. `[]` mint_a
+///   9. `[writable]` reserve_b
+///   10. `[writable]` vault_b
+///   11. `[]` mint_b
+///   12. `[]` oracle
+///   13. `[writable]` payer_account_a
+///   14. `[writable]` payer_account_b
+///   15. `[]` token_program_a
+///   16. `[]` token_program_b
 #[derive(Clone, Debug)]
 pub struct AtomicSwapRepayCpiBuilder<'a, 'b> {
     instruction: Box<AtomicSwapRepayCpiBuilderInstruction<'a, 'b>>,
 }
 
 impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
-    pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
+    pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(AtomicSwapRepayCpiBuilderInstruction {
             __program: program,
             payer: None,
             controller: None,
+            controller_authority: None,
             authority: None,
             permission: None,
             integration: None,
             reserve_a: None,
             vault_a: None,
+            mint_a: None,
             reserve_b: None,
             vault_b: None,
+            mint_b: None,
             oracle: None,
             payer_account_a: None,
             payer_account_b: None,
-            token_program: None,
-            amount: None,
+            token_program_a: None,
+            token_program_b: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
     }
     #[inline(always)]
-    pub fn payer(&mut self, payer: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+    pub fn payer(&mut self, payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.payer = Some(payer);
         self
     }
     #[inline(always)]
     pub fn controller(
         &mut self,
-        controller: &'b solana_program::account_info::AccountInfo<'a>,
+        controller: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller = Some(controller);
         self
     }
     #[inline(always)]
-    pub fn authority(
+    pub fn controller_authority(
         &mut self,
-        authority: &'b solana_program::account_info::AccountInfo<'a>,
+        controller_authority: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
+        self.instruction.controller_authority = Some(controller_authority);
+        self
+    }
+    #[inline(always)]
+    pub fn authority(&mut self, authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.authority = Some(authority);
         self
     }
     #[inline(always)]
     pub fn permission(
         &mut self,
-        permission: &'b solana_program::account_info::AccountInfo<'a>,
+        permission: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.permission = Some(permission);
         self
@@ -596,55 +649,50 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn integration(
         &mut self,
-        integration: &'b solana_program::account_info::AccountInfo<'a>,
+        integration: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.integration = Some(integration);
         self
     }
     #[inline(always)]
-    pub fn reserve_a(
-        &mut self,
-        reserve_a: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
+    pub fn reserve_a(&mut self, reserve_a: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.reserve_a = Some(reserve_a);
         self
     }
     #[inline(always)]
-    pub fn vault_a(
-        &mut self,
-        vault_a: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
+    pub fn vault_a(&mut self, vault_a: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.vault_a = Some(vault_a);
         self
     }
     #[inline(always)]
-    pub fn reserve_b(
-        &mut self,
-        reserve_b: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
+    pub fn mint_a(&mut self, mint_a: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.mint_a = Some(mint_a);
+        self
+    }
+    #[inline(always)]
+    pub fn reserve_b(&mut self, reserve_b: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.reserve_b = Some(reserve_b);
         self
     }
     #[inline(always)]
-    pub fn vault_b(
-        &mut self,
-        vault_b: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
+    pub fn vault_b(&mut self, vault_b: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.vault_b = Some(vault_b);
         self
     }
     #[inline(always)]
-    pub fn oracle(
-        &mut self,
-        oracle: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
+    pub fn mint_b(&mut self, mint_b: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.mint_b = Some(mint_b);
+        self
+    }
+    #[inline(always)]
+    pub fn oracle(&mut self, oracle: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.oracle = Some(oracle);
         self
     }
     #[inline(always)]
     pub fn payer_account_a(
         &mut self,
-        payer_account_a: &'b solana_program::account_info::AccountInfo<'a>,
+        payer_account_a: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.payer_account_a = Some(payer_account_a);
         self
@@ -652,29 +700,32 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn payer_account_b(
         &mut self,
-        payer_account_b: &'b solana_program::account_info::AccountInfo<'a>,
+        payer_account_b: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.payer_account_b = Some(payer_account_b);
         self
     }
     #[inline(always)]
-    pub fn token_program(
+    pub fn token_program_a(
         &mut self,
-        token_program: &'b solana_program::account_info::AccountInfo<'a>,
+        token_program_a: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
-        self.instruction.token_program = Some(token_program);
+        self.instruction.token_program_a = Some(token_program_a);
         self
     }
     #[inline(always)]
-    pub fn amount(&mut self, amount: u64) -> &mut Self {
-        self.instruction.amount = Some(amount);
+    pub fn token_program_b(
+        &mut self,
+        token_program_b: &'b solana_account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.token_program_b = Some(token_program_b);
         self
     }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
         &mut self,
-        account: &'b solana_program::account_info::AccountInfo<'a>,
+        account: &'b solana_account_info::AccountInfo<'a>,
         is_writable: bool,
         is_signer: bool,
     ) -> &mut Self {
@@ -690,11 +741,7 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn add_remaining_accounts(
         &mut self,
-        accounts: &[(
-            &'b solana_program::account_info::AccountInfo<'a>,
-            bool,
-            bool,
-        )],
+        accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> &mut Self {
         self.instruction
             .__remaining_accounts
@@ -702,24 +749,23 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn invoke(&self) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke(&self) -> solana_program_error::ProgramResult {
         self.invoke_signed(&[])
     }
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
-    pub fn invoke_signed(
-        &self,
-        signers_seeds: &[&[&[u8]]],
-    ) -> solana_program::entrypoint::ProgramResult {
-        let args = AtomicSwapRepayInstructionArgs {
-            amount: self.instruction.amount.clone().expect("amount is not set"),
-        };
+    pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
         let instruction = AtomicSwapRepayCpi {
             __program: self.instruction.__program,
 
             payer: self.instruction.payer.expect("payer is not set"),
 
             controller: self.instruction.controller.expect("controller is not set"),
+
+            controller_authority: self
+                .instruction
+                .controller_authority
+                .expect("controller_authority is not set"),
 
             authority: self.instruction.authority.expect("authority is not set"),
 
@@ -734,9 +780,13 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
 
             vault_a: self.instruction.vault_a.expect("vault_a is not set"),
 
+            mint_a: self.instruction.mint_a.expect("mint_a is not set"),
+
             reserve_b: self.instruction.reserve_b.expect("reserve_b is not set"),
 
             vault_b: self.instruction.vault_b.expect("vault_b is not set"),
+
+            mint_b: self.instruction.mint_b.expect("mint_b is not set"),
 
             oracle: self.instruction.oracle.expect("oracle is not set"),
 
@@ -750,11 +800,15 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
                 .payer_account_b
                 .expect("payer_account_b is not set"),
 
-            token_program: self
+            token_program_a: self
                 .instruction
-                .token_program
-                .expect("token_program is not set"),
-            __args: args,
+                .token_program_a
+                .expect("token_program_a is not set"),
+
+            token_program_b: self
+                .instruction
+                .token_program_b
+                .expect("token_program_b is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -765,25 +819,24 @@ impl<'a, 'b> AtomicSwapRepayCpiBuilder<'a, 'b> {
 
 #[derive(Clone, Debug)]
 struct AtomicSwapRepayCpiBuilderInstruction<'a, 'b> {
-    __program: &'b solana_program::account_info::AccountInfo<'a>,
-    payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    integration: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    reserve_a: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    vault_a: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    reserve_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    vault_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    oracle: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    payer_account_a: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    payer_account_b: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    token_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    amount: Option<u64>,
+    __program: &'b solana_account_info::AccountInfo<'a>,
+    payer: Option<&'b solana_account_info::AccountInfo<'a>>,
+    controller: Option<&'b solana_account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+    authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+    permission: Option<&'b solana_account_info::AccountInfo<'a>>,
+    integration: Option<&'b solana_account_info::AccountInfo<'a>>,
+    reserve_a: Option<&'b solana_account_info::AccountInfo<'a>>,
+    vault_a: Option<&'b solana_account_info::AccountInfo<'a>>,
+    mint_a: Option<&'b solana_account_info::AccountInfo<'a>>,
+    reserve_b: Option<&'b solana_account_info::AccountInfo<'a>>,
+    vault_b: Option<&'b solana_account_info::AccountInfo<'a>>,
+    mint_b: Option<&'b solana_account_info::AccountInfo<'a>>,
+    oracle: Option<&'b solana_account_info::AccountInfo<'a>>,
+    payer_account_a: Option<&'b solana_account_info::AccountInfo<'a>>,
+    payer_account_b: Option<&'b solana_account_info::AccountInfo<'a>>,
+    token_program_a: Option<&'b solana_account_info::AccountInfo<'a>>,
+    token_program_b: Option<&'b solana_account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
-    __remaining_accounts: Vec<(
-        &'b solana_program::account_info::AccountInfo<'a>,
-        bool,
-        bool,
-    )>,
+    __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

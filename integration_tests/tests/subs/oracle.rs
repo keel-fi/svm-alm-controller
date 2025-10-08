@@ -1,14 +1,18 @@
+#![allow(dead_code)]
+
 use std::error::Error;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshDeserialize;
 use bytemuck::Zeroable;
-use litesvm::LiteSVM;
+use litesvm::{
+    types::{FailedTransactionMetadata, TransactionMetadata, TransactionResult},
+    LiteSVM,
+};
 use solana_sdk::{
     account::Account, clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer,
     system_program, transaction::Transaction,
 };
 
-use svm_alm_controller::state::{AccountDiscriminators, Feed};
 use svm_alm_controller_client::{
     generated::{
         accounts::Oracle,
@@ -20,6 +24,8 @@ use svm_alm_controller_client::{
 use switchboard_on_demand::{
     Discriminator, OracleSubmission, PullFeedAccountData, ON_DEMAND_MAINNET_PID,
 };
+
+use crate::subs::derive_controller_authority_pda;
 
 pub fn derive_oracle_pda(nonce: &Pubkey) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
@@ -90,16 +96,24 @@ pub fn set_price_feed(
     Ok(())
 }
 
-pub fn initalize_oracle(
+pub fn initialize_oracle(
     svm: &mut LiteSVM,
+    controller: &Pubkey,
     authority: &Keypair,
     nonce: &Pubkey,
     price_feed: &Pubkey,
     oracle_type: u8,
-    invert_price: bool,
-) -> Result<(), Box<dyn Error>> {
+    mint: &Pubkey,
+    quote_mint: &Pubkey,
+) -> (
+    Result<TransactionMetadata, FailedTransactionMetadata>,
+    Transaction,
+) {
+    let controller_authority = derive_controller_authority_pda(controller);
     let oracle_pda = derive_oracle_pda(&nonce);
     let ixn = InitializeOracleBuilder::new()
+        .controller(*controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .oracle(oracle_pda)
         .price_feed(*price_feed)
@@ -107,7 +121,8 @@ pub fn initalize_oracle(
         .payer(authority.pubkey())
         .oracle_type(oracle_type)
         .nonce(*nonce)
-        .invert_price(invert_price)
+        .base_mint(*mint)
+        .quote_mint(*quote_mint)
         .instruction();
 
     let txn = Transaction::new_signed_with_payer(
@@ -116,8 +131,7 @@ pub fn initalize_oracle(
         &[&authority],
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
-    Ok(())
+    (svm.send_transaction(txn.clone()), txn)
 }
 
 pub fn refresh_oracle(
@@ -125,7 +139,7 @@ pub fn refresh_oracle(
     payer: &Keypair,
     oracle_pda: &Pubkey,
     price_feed: &Pubkey,
-) -> Result<(), Box<dyn Error>> {
+) -> TransactionResult {
     let ixn = RefreshOracleBuilder::new()
         .oracle(*oracle_pda)
         .price_feed(*price_feed)
@@ -137,23 +151,28 @@ pub fn refresh_oracle(
         &[&payer],
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
-
-    Ok(())
+    svm.send_transaction(txn)
 }
 
 pub fn update_oracle(
     svm: &mut LiteSVM,
+    controller: &Pubkey,
     authority: &Keypair,
     oracle_pda: &Pubkey,
     price_feed: &Pubkey,
     feed_args: Option<FeedArgs>,
     new_authority: Option<&Keypair>,
-) -> Result<(), Box<dyn Error>> {
+) -> (
+    Result<TransactionMetadata, FailedTransactionMetadata>,
+    Transaction,
+) {
+    let controller_authority = derive_controller_authority_pda(controller);
+
     let new_authority_pubkey = new_authority.map(|k| k.pubkey());
     let ixn = if let Some(feed_args) = feed_args {
         UpdateOracleBuilder::new()
+            .controller(*controller)
+            .controller_authority(controller_authority)
             .authority(authority.pubkey())
             .oracle(*oracle_pda)
             .price_feed(*price_feed)
@@ -162,6 +181,8 @@ pub fn update_oracle(
             .instruction()
     } else {
         UpdateOracleBuilder::new()
+            .controller(*controller)
+            .controller_authority(controller_authority)
             .authority(authority.pubkey())
             .oracle(*oracle_pda)
             .price_feed(*price_feed)
@@ -180,7 +201,5 @@ pub fn update_oracle(
         &signing_keypairs.to_vec(),
         svm.latest_blockhash(),
     );
-    let tx_result = svm.send_transaction(txn);
-    assert!(tx_result.is_ok(), "Transaction failed: {:?}", tx_result);
-    Ok(())
+    (svm.send_transaction(txn.clone()), txn)
 }

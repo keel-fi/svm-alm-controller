@@ -2,4 +2,4 @@
 *keypair.json
 node_modules
 .DS_Store
-.cargo/
+dist

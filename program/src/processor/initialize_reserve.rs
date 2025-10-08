@@ -3,12 +3,15 @@ use crate::{
     error::SvmAlmControllerErrors,
     events::{ReserveUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeReserveArgs,
-    state::{nova_account::NovaAccount, Controller, Permission, Reserve},
+    processor::shared::validate_mint_extensions,
+    state::{keel_account::KeelAccount, Controller, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, pubkey::Pubkey, ProgramResult};
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_token::state::Mint;
+use pinocchio_token_interface::Mint;
 
 define_account_struct! {
   pub struct InitializeReserveAccounts<'info> {
@@ -20,7 +23,7 @@ define_account_struct! {
       reserve: mut, empty, @owner(pinocchio_system::ID);
       mint;
       vault: mut;
-      token_program: @pubkey(pinocchio_token::ID);
+      token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       program_id: @pubkey(crate::ID);
       system_program: @pubkey(pinocchio_system::ID);
@@ -36,27 +39,29 @@ pub fn process_initialize_reserve(
 
     let ctx = InitializeReserveAccounts::from_accounts(accounts)?;
     // // Deserialize the args
-    let args = InitializeReserveArgs::try_from_slice(instruction_data).unwrap();
+    let args = InitializeReserveArgs::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let controller = Controller::load_and_check(ctx.controller)?;
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
-    // Validate the controller authority
-    if controller.authority.ne(ctx.controller_authority.key()) {
-        return Err(SvmAlmControllerErrors::InvalidControllerAuthority.into());
+    // Error when Controller is frozen
+    if controller.is_frozen() {
+        return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
-    if !permission.can_manage_integrations() {
+    // Check that authority has permission and the permission is active
+    if !permission.can_manage_reserves_and_integrations() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
     // Validate the mint
     // Load in the mint account, validating it in the process
-    Mint::from_account_info(ctx.mint).unwrap();
+    Mint::from_account_info(ctx.mint)?;
+    validate_mint_extensions(ctx.mint, &[])?;
 
     // Invoke the CreateIdempotent ixn for the ATA
     // Will handle both the creation or the checking, if already created
@@ -68,8 +73,7 @@ pub fn process_initialize_reserve(
         system_program: ctx.system_program,
         token_program: ctx.token_program,
     }
-    .invoke()
-    .unwrap();
+    .invoke()?;
 
     // Initialize the reserve account
     let mut reserve = Reserve::init_account(

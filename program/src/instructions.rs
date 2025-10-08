@@ -19,7 +19,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(0, writable, signer, name = "payer")]
     #[account(1, signer, name = "authority")]
     #[account(2, writable, name = "controller")]
-    #[account(3, writable, name = "controller_authority")]
+    #[account(3, name = "controller_authority")]
     #[account(4, writable, name = "permission")]
     #[account(5, name = "program_id")]
     #[account(6, name = "system_program")]
@@ -32,7 +32,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, name = "program_id")]
     ManageController(ManageControllerArgs),
-  
+
     /// Initialize or manage a permission account
     #[account(0, writable, signer, name = "payer")]
     #[account(1, name = "controller")]
@@ -76,30 +76,24 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, signer, name = "authority")]
     #[account(4, name = "permission")]
     #[account(5, writable, name = "integration")]
-    #[account(6, name = "lookup_table")]
-    #[account(7, name = "program_id")]
-    #[account(8, name = "system_program")]
+    #[account(6, name = "program_id")]
+    #[account(7, name = "system_program")]
     InitializeIntegration(InitializeIntegrationArgs),
 
-  
     /// Manage an integration account
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
-    // NOTE: if there is no LUT, then the system_program ID should be used.
-    #[account(5, name = "lookup_table")]
-    #[account(6, name = "program_id")]
+    #[account(5, name = "program_id")]
     ManageIntegration(ManageIntegrationArgs),
 
-    // TOOD: Struct def does not match implementation. Has an extra `mint` account.
     /// SyncReserve
     #[account(0, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, writable, name = "reserve")]
-    #[account(3, name = "mint")]
-    #[account(4, name = "vault")]
+    #[account(3, name = "vault")]
     SyncReserve(SyncReserveArgs),
 
     /// SyncIntegration
@@ -135,17 +129,21 @@ pub enum SvmAlmControllerInstruction {
 
     /// InitializeOracle
     #[account(0, signer, writable, name = "payer")]
-    #[account(1, signer, name = "authority")]
-    #[account(2, name = "price_feed")]
-    #[account(3, writable, name = "oracle")]
-    #[account(4, name = "system_program")]
+    #[account(1, name = "controller")]
+    #[account(2, name = "controller_authority")]
+    #[account(3, signer, name = "authority")]
+    #[account(4, name = "price_feed")]
+    #[account(5, writable, name = "oracle")]
+    #[account(6, name = "system_program")]
     InitializeOracle(InitializeOracleArgs),
 
     /// UpdateOracle
-    #[account(0, signer, name = "authority")]
-    #[account(1, name = "price_feed")]
-    #[account(2, writable, name = "oracle")]
-    #[account(3, optional, signer, name = "new_authority")]
+    #[account(0, name = "controller")]
+    #[account(1, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "price_feed")]
+    #[account(4, writable, name = "oracle")]
+    #[account(5, optional, signer, name = "new_authority")]
     UpdateOracle(UpdateOracleArgs),
 
     /// RefreshOracle
@@ -161,29 +159,40 @@ pub enum SvmAlmControllerInstruction {
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
     #[account(6, writable, name = "vault_a")]
-    #[account(7, writable, name = "reserve_b")]
-    #[account(8, name = "vault_b")]
-    #[account(9, writable, name = "recipient_token_account")]
-    #[account(10, name = "token_program")]
-    #[account(11, name = "sysvar_instruction")]
-    #[account(12, name = "program_id")]
+    #[account(7, name = "mint_a")]
+    #[account(8, writable, name = "reserve_b")]
+    #[account(9, name = "vault_b")]
+    #[account(10, writable, name = "recipient_token_account_a")]
+    #[account(11, writable, name = "recipient_token_account_b")]
+    #[account(12, name = "token_program_a")]
+    #[account(13, name = "sysvar_instruction")]
+    #[account(14, name = "program_id")]
     AtomicSwapBorrow(AtomicSwapBorrowArgs),
 
     /// Atomic swap repay
-    #[account(0, signer, writable, name = "payer")]
+    #[account(0, signer, name = "payer")]
     #[account(1, name = "controller")]
-    #[account(2, signer, name = "authority")]
-    #[account(3, name = "permission")]
-    #[account(4, writable, name = "integration")]
-    #[account(5, writable, name = "reserve_a")]
-    #[account(6, writable, name = "vault_a")]
-    #[account(7, writable, name = "reserve_b")]
-    #[account(8, writable, name = "vault_b")]
-    #[account(9, name = "oracle")]
-    #[account(10, writable, name = "payer_account_a")]
-    #[account(11, writable, name = "payer_account_b")]
-    #[account(12, name = "token_program")]
-    AtomicSwapRepay(AtomicSwapRepayArgs),
+    #[account(2, name = "controller_authority")]
+    #[account(3, signer, name = "authority")]
+    #[account(4, name = "permission")]
+    #[account(5, writable, name = "integration")]
+    #[account(6, writable, name = "reserve_a")]
+    #[account(7, writable, name = "vault_a")]
+    #[account(8, name = "mint_a")]
+    #[account(9, writable, name = "reserve_b")]
+    #[account(10, writable, name = "vault_b")]
+    #[account(11, name = "mint_b")]
+    #[account(12, name = "oracle")]
+    #[account(13, writable, name = "payer_account_a")]
+    #[account(14, writable, name = "payer_account_b")]
+    #[account(15, name = "token_program_a")]
+    #[account(16, name = "token_program_b")]
+    AtomicSwapRepay,
+
+    #[account(0, name = "controller")]
+    #[account(1, writable, name = "integration")]
+    #[account(2, name = "sysvar_instruction")]
+    ResetLzPushInFlight,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -207,8 +216,9 @@ pub struct ManagePermissionArgs {
     pub can_reallocate: bool,
     pub can_freeze_controller: bool,
     pub can_unfreeze_controller: bool,
-    pub can_manage_integrations: bool,
+    pub can_manage_reserves_and_integrations: bool,
     pub can_suspend_permissions: bool,
+    pub can_liquidate: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -232,13 +242,13 @@ pub struct InitializeIntegrationArgs {
     pub description: [u8; 32],
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
+    pub permit_liquidation: bool,
     pub inner_args: InitializeArgs,
 }
 
-
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct ManageControllerArgs {
-    pub status: ControllerStatus
+    pub status: ControllerStatus,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -253,7 +263,8 @@ pub struct ManageIntegrationArgs {
 pub struct InitializeOracleArgs {
     pub oracle_type: u8,
     pub nonce: Pubkey,
-    pub invert_price: bool,
+    pub base_mint: Pubkey,
+    pub quote_mint: Pubkey,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -264,25 +275,24 @@ pub struct UpdateOracleArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct FeedArgs {
     pub oracle_type: u8,
-    pub invert_price: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum InitializeArgs {
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge {
-        desination_address: Pubkey,
-        desination_domain: u32,
+        destination_address: Pubkey,
+        destination_domain: u32,
     },
     LzBridge {
-        desination_address: Pubkey,
+        destination_address: Pubkey,
         destination_eid: u32,
     },
     AtomicSwap {
         max_slippage_bps: u16,
         max_staleness: u64,
         expiry_timestamp: i64,
+        oracle_price_inverted: bool,
     },
     KaminoIntegration {
         obligation_id: u8
@@ -297,17 +307,23 @@ pub struct SyncIntegrationArgs {}
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PushArgs {
-    SplTokenExternal { amount: u64 },
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
-    CctpBridge { amount: u64 },
-    LzBridge { amount: u64 },
-    Kamino { amount: u64 },
+    SplTokenExternal {
+        amount: u64,
+    },
+    CctpBridge {
+        amount: u64,
+    },
+    LzBridge {
+        amount: u64,
+    },
+    Kamino { 
+        amount: u64 
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PullArgs {
     SplTokenExternal,
-    SplTokenSwap { amount_a: u64, amount_b: u64 },
     CctpBridge,
     LzBridge,
     Kamino { amount: u64 }
@@ -315,11 +331,5 @@ pub enum PullArgs {
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct AtomicSwapBorrowArgs {
-    pub amount: u64,
-    pub repay_excess_token_a: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct AtomicSwapRepayArgs {
     pub amount: u64,
 }

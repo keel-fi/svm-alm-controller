@@ -9,29 +9,31 @@ use crate::generated::types::ControllerStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 
+pub const INITIALIZE_CONTROLLER_DISCRIMINATOR: u8 = 1;
+
 /// Accounts.
 #[derive(Debug)]
 pub struct InitializeController {
-    pub payer: solana_program::pubkey::Pubkey,
+    pub payer: solana_pubkey::Pubkey,
 
-    pub authority: solana_program::pubkey::Pubkey,
+    pub authority: solana_pubkey::Pubkey,
 
-    pub controller: solana_program::pubkey::Pubkey,
+    pub controller: solana_pubkey::Pubkey,
 
-    pub controller_authority: solana_program::pubkey::Pubkey,
+    pub controller_authority: solana_pubkey::Pubkey,
 
-    pub permission: solana_program::pubkey::Pubkey,
+    pub permission: solana_pubkey::Pubkey,
 
-    pub program_id: solana_program::pubkey::Pubkey,
+    pub program_id: solana_pubkey::Pubkey,
 
-    pub system_program: solana_program::pubkey::Pubkey,
+    pub system_program: solana_pubkey::Pubkey,
 }
 
 impl InitializeController {
     pub fn instruction(
         &self,
         args: InitializeControllerInstructionArgs,
-    ) -> solana_program::instruction::Instruction {
+    ) -> solana_instruction::Instruction {
         self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::arithmetic_side_effects)]
@@ -39,33 +41,25 @@ impl InitializeController {
     pub fn instruction_with_remaining_accounts(
         &self,
         args: InitializeControllerInstructionArgs,
-        remaining_accounts: &[solana_program::instruction::AccountMeta],
-    ) -> solana_program::instruction::Instruction {
+        remaining_accounts: &[solana_instruction::AccountMeta],
+    ) -> solana_instruction::Instruction {
         let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.payer, true,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new(self.payer, true));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.authority,
             true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.controller,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(self.controller, false));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.controller_authority,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            self.permission,
-            false,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new(self.permission, false));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.program_id,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.system_program,
             false,
         ));
@@ -74,7 +68,7 @@ impl InitializeController {
         let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
-        solana_program::instruction::Instruction {
+        solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
             accounts,
             data,
@@ -114,22 +108,22 @@ pub struct InitializeControllerInstructionArgs {
 ///   0. `[writable, signer]` payer
 ///   1. `[signer]` authority
 ///   2. `[writable]` controller
-///   3. `[writable]` controller_authority
+///   3. `[]` controller_authority
 ///   4. `[writable]` permission
 ///   5. `[]` program_id
 ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct InitializeControllerBuilder {
-    payer: Option<solana_program::pubkey::Pubkey>,
-    authority: Option<solana_program::pubkey::Pubkey>,
-    controller: Option<solana_program::pubkey::Pubkey>,
-    controller_authority: Option<solana_program::pubkey::Pubkey>,
-    permission: Option<solana_program::pubkey::Pubkey>,
-    program_id: Option<solana_program::pubkey::Pubkey>,
-    system_program: Option<solana_program::pubkey::Pubkey>,
+    payer: Option<solana_pubkey::Pubkey>,
+    authority: Option<solana_pubkey::Pubkey>,
+    controller: Option<solana_pubkey::Pubkey>,
+    controller_authority: Option<solana_pubkey::Pubkey>,
+    permission: Option<solana_pubkey::Pubkey>,
+    program_id: Option<solana_pubkey::Pubkey>,
+    system_program: Option<solana_pubkey::Pubkey>,
     id: Option<u16>,
     status: Option<ControllerStatus>,
-    __remaining_accounts: Vec<solana_program::instruction::AccountMeta>,
+    __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
 impl InitializeControllerBuilder {
@@ -137,41 +131,41 @@ impl InitializeControllerBuilder {
         Self::default()
     }
     #[inline(always)]
-    pub fn payer(&mut self, payer: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn payer(&mut self, payer: solana_pubkey::Pubkey) -> &mut Self {
         self.payer = Some(payer);
         self
     }
     #[inline(always)]
-    pub fn authority(&mut self, authority: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn authority(&mut self, authority: solana_pubkey::Pubkey) -> &mut Self {
         self.authority = Some(authority);
         self
     }
     #[inline(always)]
-    pub fn controller(&mut self, controller: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn controller(&mut self, controller: solana_pubkey::Pubkey) -> &mut Self {
         self.controller = Some(controller);
         self
     }
     #[inline(always)]
     pub fn controller_authority(
         &mut self,
-        controller_authority: solana_program::pubkey::Pubkey,
+        controller_authority: solana_pubkey::Pubkey,
     ) -> &mut Self {
         self.controller_authority = Some(controller_authority);
         self
     }
     #[inline(always)]
-    pub fn permission(&mut self, permission: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn permission(&mut self, permission: solana_pubkey::Pubkey) -> &mut Self {
         self.permission = Some(permission);
         self
     }
     #[inline(always)]
-    pub fn program_id(&mut self, program_id: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn program_id(&mut self, program_id: solana_pubkey::Pubkey) -> &mut Self {
         self.program_id = Some(program_id);
         self
     }
     /// `[optional account, default to '11111111111111111111111111111111']`
     #[inline(always)]
-    pub fn system_program(&mut self, system_program: solana_program::pubkey::Pubkey) -> &mut Self {
+    pub fn system_program(&mut self, system_program: solana_pubkey::Pubkey) -> &mut Self {
         self.system_program = Some(system_program);
         self
     }
@@ -187,10 +181,7 @@ impl InitializeControllerBuilder {
     }
     /// Add an additional account to the instruction.
     #[inline(always)]
-    pub fn add_remaining_account(
-        &mut self,
-        account: solana_program::instruction::AccountMeta,
-    ) -> &mut Self {
+    pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
         self.__remaining_accounts.push(account);
         self
     }
@@ -198,13 +189,13 @@ impl InitializeControllerBuilder {
     #[inline(always)]
     pub fn add_remaining_accounts(
         &mut self,
-        accounts: &[solana_program::instruction::AccountMeta],
+        accounts: &[solana_instruction::AccountMeta],
     ) -> &mut Self {
         self.__remaining_accounts.extend_from_slice(accounts);
         self
     }
     #[allow(clippy::clone_on_copy)]
-    pub fn instruction(&self) -> solana_program::instruction::Instruction {
+    pub fn instruction(&self) -> solana_instruction::Instruction {
         let accounts = InitializeController {
             payer: self.payer.expect("payer is not set"),
             authority: self.authority.expect("authority is not set"),
@@ -216,7 +207,7 @@ impl InitializeControllerBuilder {
             program_id: self.program_id.expect("program_id is not set"),
             system_program: self
                 .system_program
-                .unwrap_or(solana_program::pubkey!("11111111111111111111111111111111")),
+                .unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
         };
         let args = InitializeControllerInstructionArgs {
             id: self.id.clone().expect("id is not set"),
@@ -229,46 +220,46 @@ impl InitializeControllerBuilder {
 
 /// `initialize_controller` CPI accounts.
 pub struct InitializeControllerCpiAccounts<'a, 'b> {
-    pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+    pub payer: &'b solana_account_info::AccountInfo<'a>,
 
-    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
+    pub authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller: &'b solana_account_info::AccountInfo<'a>,
 
-    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller_authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub permission: &'b solana_program::account_info::AccountInfo<'a>,
+    pub permission: &'b solana_account_info::AccountInfo<'a>,
 
-    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+    pub program_id: &'b solana_account_info::AccountInfo<'a>,
 
-    pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub system_program: &'b solana_account_info::AccountInfo<'a>,
 }
 
 /// `initialize_controller` CPI instruction.
 pub struct InitializeControllerCpi<'a, 'b> {
     /// The program to invoke.
-    pub __program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub __program: &'b solana_account_info::AccountInfo<'a>,
 
-    pub payer: &'b solana_program::account_info::AccountInfo<'a>,
+    pub payer: &'b solana_account_info::AccountInfo<'a>,
 
-    pub authority: &'b solana_program::account_info::AccountInfo<'a>,
+    pub authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub controller: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller: &'b solana_account_info::AccountInfo<'a>,
 
-    pub controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+    pub controller_authority: &'b solana_account_info::AccountInfo<'a>,
 
-    pub permission: &'b solana_program::account_info::AccountInfo<'a>,
+    pub permission: &'b solana_account_info::AccountInfo<'a>,
 
-    pub program_id: &'b solana_program::account_info::AccountInfo<'a>,
+    pub program_id: &'b solana_account_info::AccountInfo<'a>,
 
-    pub system_program: &'b solana_program::account_info::AccountInfo<'a>,
+    pub system_program: &'b solana_account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: InitializeControllerInstructionArgs,
 }
 
 impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
     pub fn new(
-        program: &'b solana_program::account_info::AccountInfo<'a>,
+        program: &'b solana_account_info::AccountInfo<'a>,
         accounts: InitializeControllerCpiAccounts<'a, 'b>,
         args: InitializeControllerInstructionArgs,
     ) -> Self {
@@ -285,25 +276,18 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
         }
     }
     #[inline(always)]
-    pub fn invoke(&self) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke(&self) -> solana_program_error::ProgramResult {
         self.invoke_signed_with_remaining_accounts(&[], &[])
     }
     #[inline(always)]
     pub fn invoke_with_remaining_accounts(
         &self,
-        remaining_accounts: &[(
-            &'b solana_program::account_info::AccountInfo<'a>,
-            bool,
-            bool,
-        )],
-    ) -> solana_program::entrypoint::ProgramResult {
+        remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
+    ) -> solana_program_error::ProgramResult {
         self.invoke_signed_with_remaining_accounts(&[], remaining_accounts)
     }
     #[inline(always)]
-    pub fn invoke_signed(
-        &self,
-        signers_seeds: &[&[&[u8]]],
-    ) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
         self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
     }
     #[allow(clippy::arithmetic_side_effects)]
@@ -312,43 +296,36 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
     pub fn invoke_signed_with_remaining_accounts(
         &self,
         signers_seeds: &[&[&[u8]]],
-        remaining_accounts: &[(
-            &'b solana_program::account_info::AccountInfo<'a>,
-            bool,
-            bool,
-        )],
-    ) -> solana_program::entrypoint::ProgramResult {
+        remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
+    ) -> solana_program_error::ProgramResult {
         let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
-        accounts.push(solana_program::instruction::AccountMeta::new(
-            *self.payer.key,
-            true,
-        ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new(*self.payer.key, true));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.authority.key,
             true,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.controller.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.controller_authority.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.permission.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.program_id.key,
             false,
         ));
-        accounts.push(solana_program::instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.system_program.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
-            accounts.push(solana_program::instruction::AccountMeta {
+            accounts.push(solana_instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
                 is_signer: remaining_account.1,
                 is_writable: remaining_account.2,
@@ -358,7 +335,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
         let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
-        let instruction = solana_program::instruction::Instruction {
+        let instruction = solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
             accounts,
             data,
@@ -377,9 +354,9 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
         if signers_seeds.is_empty() {
-            solana_program::program::invoke(&instruction, &account_infos)
+            solana_cpi::invoke(&instruction, &account_infos)
         } else {
-            solana_program::program::invoke_signed(&instruction, &account_infos, signers_seeds)
+            solana_cpi::invoke_signed(&instruction, &account_infos, signers_seeds)
         }
     }
 }
@@ -391,7 +368,7 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
 ///   0. `[writable, signer]` payer
 ///   1. `[signer]` authority
 ///   2. `[writable]` controller
-///   3. `[writable]` controller_authority
+///   3. `[]` controller_authority
 ///   4. `[writable]` permission
 ///   5. `[]` program_id
 ///   6. `[]` system_program
@@ -401,7 +378,7 @@ pub struct InitializeControllerCpiBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
-    pub fn new(program: &'b solana_program::account_info::AccountInfo<'a>) -> Self {
+    pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(InitializeControllerCpiBuilderInstruction {
             __program: program,
             payer: None,
@@ -418,22 +395,19 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
         Self { instruction }
     }
     #[inline(always)]
-    pub fn payer(&mut self, payer: &'b solana_program::account_info::AccountInfo<'a>) -> &mut Self {
+    pub fn payer(&mut self, payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.payer = Some(payer);
         self
     }
     #[inline(always)]
-    pub fn authority(
-        &mut self,
-        authority: &'b solana_program::account_info::AccountInfo<'a>,
-    ) -> &mut Self {
+    pub fn authority(&mut self, authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.authority = Some(authority);
         self
     }
     #[inline(always)]
     pub fn controller(
         &mut self,
-        controller: &'b solana_program::account_info::AccountInfo<'a>,
+        controller: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller = Some(controller);
         self
@@ -441,7 +415,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn controller_authority(
         &mut self,
-        controller_authority: &'b solana_program::account_info::AccountInfo<'a>,
+        controller_authority: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.controller_authority = Some(controller_authority);
         self
@@ -449,7 +423,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn permission(
         &mut self,
-        permission: &'b solana_program::account_info::AccountInfo<'a>,
+        permission: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.permission = Some(permission);
         self
@@ -457,7 +431,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn program_id(
         &mut self,
-        program_id: &'b solana_program::account_info::AccountInfo<'a>,
+        program_id: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.program_id = Some(program_id);
         self
@@ -465,7 +439,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn system_program(
         &mut self,
-        system_program: &'b solana_program::account_info::AccountInfo<'a>,
+        system_program: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.system_program = Some(system_program);
         self
@@ -484,7 +458,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn add_remaining_account(
         &mut self,
-        account: &'b solana_program::account_info::AccountInfo<'a>,
+        account: &'b solana_account_info::AccountInfo<'a>,
         is_writable: bool,
         is_signer: bool,
     ) -> &mut Self {
@@ -500,11 +474,7 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn add_remaining_accounts(
         &mut self,
-        accounts: &[(
-            &'b solana_program::account_info::AccountInfo<'a>,
-            bool,
-            bool,
-        )],
+        accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> &mut Self {
         self.instruction
             .__remaining_accounts
@@ -512,15 +482,12 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn invoke(&self) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke(&self) -> solana_program_error::ProgramResult {
         self.invoke_signed(&[])
     }
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
-    pub fn invoke_signed(
-        &self,
-        signers_seeds: &[&[&[u8]]],
-    ) -> solana_program::entrypoint::ProgramResult {
+    pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
         let args = InitializeControllerInstructionArgs {
             id: self.instruction.id.clone().expect("id is not set"),
             status: self.instruction.status.clone().expect("status is not set"),
@@ -558,20 +525,16 @@ impl<'a, 'b> InitializeControllerCpiBuilder<'a, 'b> {
 
 #[derive(Clone, Debug)]
 struct InitializeControllerCpiBuilderInstruction<'a, 'b> {
-    __program: &'b solana_program::account_info::AccountInfo<'a>,
-    payer: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    controller: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    controller_authority: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    permission: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    program_id: Option<&'b solana_program::account_info::AccountInfo<'a>>,
-    system_program: Option<&'b solana_program::account_info::AccountInfo<'a>>,
+    __program: &'b solana_account_info::AccountInfo<'a>,
+    payer: Option<&'b solana_account_info::AccountInfo<'a>>,
+    authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+    controller: Option<&'b solana_account_info::AccountInfo<'a>>,
+    controller_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+    permission: Option<&'b solana_account_info::AccountInfo<'a>>,
+    program_id: Option<&'b solana_account_info::AccountInfo<'a>>,
+    system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     id: Option<u16>,
     status: Option<ControllerStatus>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
-    __remaining_accounts: Vec<(
-        &'b solana_program::account_info::AccountInfo<'a>,
-        bool,
-        bool,
-    )>,
+    __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

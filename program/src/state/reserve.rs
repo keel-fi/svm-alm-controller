@@ -1,14 +1,14 @@
 use super::{
     discriminator::{AccountDiscriminators, Discriminator},
-    nova_account::NovaAccount,
+    keel_account::KeelAccount,
     Controller,
 };
 use crate::{
     constants::RESERVE_SEED,
     enums::ReserveStatus,
     error::SvmAlmControllerErrors,
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent},
-    processor::shared::create_pda_account,
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
+    processor::shared::{calculate_rate_limit_increment, create_pda_account},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use pinocchio::{
@@ -19,10 +19,8 @@ use pinocchio::{
     pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, rent::Rent, Sysvar},
 };
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::TokenAccount;
 use shank::ShankAccount;
-
-const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 
 /// The Reserve account manages a specific TokenAccount ultimately owned by a specific Controller's
 /// authority PDA. The Reserve enforces certain policies like outflow rate limiting.
@@ -43,21 +41,26 @@ pub struct Reserve {
     pub rate_limit_max_outflow: u64,
     /// The current amount of tokens able to outflow on a rolling window basis
     pub rate_limit_outflow_amount_available: u64,
+    /// Remainder from previous refresh. This is necessary to avoid DOS
+    /// of the Reserve via the rate limit when the `rate_limit_max_outflow`
+    /// is set to a low value requiring longer time lapses before incrementing
+    /// the available outflow amount.
+    pub rate_limit_remainder: u64,
     /// The last recorded balance of the Reserve's vault TokenAccount
     pub last_balance: u64,
     /// Timestamp when the Reserve was last updated
     pub last_refresh_timestamp: i64,
     /// The Solana slot where the Reserve was last updated
     pub last_refresh_slot: u64,
-    pub _padding: [u8; 128],
+    pub _padding: [u8; 120],
 }
 
 impl Discriminator for Reserve {
     const DISCRIMINATOR: u8 = AccountDiscriminators::ReserveDiscriminator as u8;
 }
 
-impl NovaAccount for Reserve {
-    const LEN: usize = 32 * 3 + 8 * 6 + 1 + 128;
+impl KeelAccount for Reserve {
+    const LEN: usize = 3 * 32 + 1 + 7 * 8 + 120;
 
     fn derive_pda(&self) -> Result<(Pubkey, u8), ProgramError> {
         try_find_program_address(
@@ -71,7 +74,8 @@ impl NovaAccount for Reserve {
 impl Reserve {
     pub fn check_data(&self, controller: &Pubkey) -> Result<(), ProgramError> {
         if self.controller.ne(controller) {
-            return Err(ProgramError::InvalidAccountData);
+            msg!("Controller does not match Reserve controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
         Ok(())
     }
@@ -82,31 +86,18 @@ impl Reserve {
     ) -> Result<Self, ProgramError> {
         // Ensure account owner is the program
         if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
+            return Err(ProgramError::InvalidAccountOwner);
         }
         // Check PDA
 
-        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_data()?).unwrap();
+        let reserve: Self = KeelAccount::deserialize(&account_info.try_borrow_data()?)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
         reserve.check_data(controller)?;
         reserve.verify_pda(account_info)?;
         Ok(reserve)
     }
 
-    pub fn load_and_check_mut(
-        account_info: &AccountInfo,
-        controller: &Pubkey,
-    ) -> Result<Self, ProgramError> {
-        // Ensure account owner is the program
-        if !account_info.is_owned_by(&crate::ID) {
-            return Err(ProgramError::IncorrectProgramId);
-        }
-        let reserve: Self = NovaAccount::deserialize(&account_info.try_borrow_mut_data()?).unwrap();
-        reserve.check_data(controller)?;
-        reserve.verify_pda(account_info)?;
-        Ok(reserve)
-    }
-
-    /// Iniitalizes the PDA account for a reserve.
+    /// Initializes the PDA account for a reserve.
     pub fn init_account(
         account_info: &AccountInfo,
         payer_info: &AccountInfo,
@@ -130,12 +121,14 @@ impl Reserve {
             last_balance: 0,
             last_refresh_timestamp: clock.unix_timestamp,
             last_refresh_slot: clock.slot,
-            _padding: [0; 128],
+            rate_limit_remainder: 0,
+            _padding: [0; 120],
         };
         // Derive the PDA
         let (pda, bump) = reserve.derive_pda()?;
         if account_info.key().ne(&pda) {
-            return Err(ProgramError::InvalidSeeds.into()); // PDA was invalid
+            msg!("Reserve PDA mismatch");
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
         // Account creation PDA
         let rent = Rent::get()?;
@@ -149,10 +142,10 @@ impl Reserve {
         create_pda_account(
             payer_info,
             &rent,
-            1 + Self::LEN,
+            Self::DISCRIMINATOR_SIZE + Self::LEN,
             &crate::ID,
             account_info,
-            signer_seeds,
+            &signer_seeds,
         )?;
         // Commit the account on-chain
         reserve.save(account_info)?;
@@ -182,7 +175,8 @@ impl Reserve {
                 .unwrap();
             self.rate_limit_max_outflow = rate_limit_max_outflow;
             // Reset the rate_limit_outflow_amount_available such that the gap from the max remains the same
-            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow.saturating_sub(gap);
+            self.rate_limit_outflow_amount_available =
+                self.rate_limit_max_outflow.saturating_sub(gap);
         }
         Ok(())
     }
@@ -190,22 +184,26 @@ impl Reserve {
     /// Refresh the rate limit amount based on the slope and the time since the last refresh.
     /// If the rate limit is set to `u64::MAX`, it will not refresh.
     pub fn refresh_rate_limit(&mut self, clock: Clock) -> Result<(), ProgramError> {
-        if self.rate_limit_max_outflow == u64::MAX
-            || self.last_refresh_timestamp == clock.unix_timestamp
+        if self.rate_limit_max_outflow != u64::MAX
+            && self.last_refresh_timestamp != clock.unix_timestamp
         {
-            () // Do nothing
-        } else {
-            let increment = (self.rate_limit_slope as u128
-                * clock
-                    .unix_timestamp
-                    .checked_sub(self.last_refresh_timestamp)
-                    .unwrap() as u128
-                / SECONDS_PER_DAY as u128) as u64;
+            let (increment, remainder) = calculate_rate_limit_increment(
+                clock.unix_timestamp,
+                self.last_refresh_timestamp,
+                self.rate_limit_slope,
+                self.rate_limit_remainder,
+            );
             self.rate_limit_outflow_amount_available = self
                 .rate_limit_outflow_amount_available
                 .saturating_add(increment)
                 .min(self.rate_limit_max_outflow);
+            if self.rate_limit_outflow_amount_available == self.rate_limit_max_outflow {
+                self.rate_limit_remainder = 0;
+            } else {
+                self.rate_limit_remainder = remainder;
+            }
         }
+
         self.last_refresh_timestamp = clock.unix_timestamp;
         self.last_refresh_slot = clock.slot;
         Ok(())
@@ -220,7 +218,9 @@ impl Reserve {
             return Err(ProgramError::InvalidArgument);
         }
         // Cap the rate_limit_outflow_amount_available at the rate_limit_max_outflow
-        let v = self.rate_limit_outflow_amount_available.saturating_add(inflow);
+        let v = self
+            .rate_limit_outflow_amount_available
+            .saturating_add(inflow);
         if v > self.rate_limit_max_outflow {
             // Cannot daily max outflow
             self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow;
@@ -232,17 +232,33 @@ impl Reserve {
     }
 
     /// Decrement the rate limit amount for outflows and update the last balance by the amount sent.
-    pub fn update_for_outflow(&mut self, clock: Clock, outflow: u64) -> Result<(), ProgramError> {
+    /// NOTE: Due to Token2022 and PermanentDelegate extensions, it's possible for the outflow
+    /// to be larger than the available amount. In this scenario, we must skip the underflow check
+    /// in order to allow operations to proceed.
+    pub fn update_for_outflow(
+        &mut self,
+        clock: Clock,
+        outflow: u64,
+        allow_underflow: bool,
+    ) -> Result<(), ProgramError> {
         if !(self.last_refresh_timestamp == clock.unix_timestamp
             && self.last_refresh_slot == clock.slot)
         {
             msg! {"Rate limit must be refreshed before updating for flows"}
             return Err(ProgramError::InvalidArgument);
         }
-        self.rate_limit_outflow_amount_available = self
-            .rate_limit_outflow_amount_available
-            .checked_sub(outflow)
-            .ok_or(SvmAlmControllerErrors::RateLimited)?;
+
+        // Under certain conditions, we prevent erroring on underflow.
+        if allow_underflow {
+            self.rate_limit_outflow_amount_available = self
+                .rate_limit_outflow_amount_available
+                .saturating_sub(outflow);
+        } else {
+            self.rate_limit_outflow_amount_available = self
+                .rate_limit_outflow_amount_available
+                .checked_sub(outflow)
+                .ok_or(SvmAlmControllerErrors::RateLimited)?;
+        }
         self.last_balance = self.last_balance.checked_sub(outflow).unwrap();
         Ok(())
     }
@@ -257,10 +273,12 @@ impl Reserve {
         controller: &Controller,
     ) -> Result<(), ProgramError> {
         if vault_info.key().ne(&self.vault) {
+            msg!("Vault does not match Reserve vault");
             return Err(ProgramError::InvalidAccountData);
         }
         if controller_key.ne(&self.controller) {
-            return Err(ProgramError::InvalidAccountData);
+            msg!("Controller does not match Reserve controller");
+            return Err(SvmAlmControllerErrors::ControllerDoesNotMatchAccountData.into());
         }
 
         // Get the current slot and time
@@ -276,34 +294,75 @@ impl Reserve {
 
         if self.last_balance != new_balance {
             let previous_balance = self.last_balance;
+            let abs_delta = new_balance.abs_diff(previous_balance);
 
             // Update the rate limits and balance for the change
-            if new_balance > self.last_balance {
+            let direction = if new_balance > self.last_balance {
                 // => inflow
-                self.update_for_inflow(clock, new_balance.checked_sub(self.last_balance).unwrap())?;
+                self.update_for_inflow(clock, abs_delta)?;
+                AccountingDirection::Credit
             } else {
-                // new_balance < previous_balance => outflow (should not be possible)
+                // new_balance < previous_balance => outflow (possible with Token2022 and PermanentDelegate extension)
                 self.update_for_outflow(
-                    clock,
-                    self.last_balance.checked_sub(new_balance).unwrap(),
+                    clock, abs_delta,
+                    true, // Allow underflow since this can happen with Token2022 and PermanentDelegate
                 )?;
-            }
+                AccountingDirection::Debit
+            };
 
             controller.emit_event(
                 controller_authority_info,
                 controller_key,
                 SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                     controller: self.controller,
-                    // REVIEW: Should this be an Integration's pubkey?
-                    integration: self.derive_pda().unwrap().0,
+                    integration: None,
+                    reserve: Some(self.derive_pda()?.0),
                     mint: self.mint,
                     action: AccountingAction::Sync,
-                    before: previous_balance,
-                    after: self.last_balance, // (new balance after the update)
+                    delta: abs_delta,
+                    direction,
                 }),
             )?;
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reserve_update_for_outflow_allow_underflow() {
+        let mut reserve = Reserve {
+            controller: Pubkey::default(),
+            mint: Pubkey::default(),
+            vault: Pubkey::default(),
+            status: ReserveStatus::Active,
+            rate_limit_slope: 100,
+            rate_limit_max_outflow: 1000,
+            rate_limit_outflow_amount_available: 500,
+            rate_limit_remainder: 0,
+            last_balance: 1000,
+            last_refresh_timestamp: 0,
+            last_refresh_slot: 0,
+            _padding: [0; 120],
+        };
+
+        reserve
+            .update_for_outflow(Clock::default(), 600, true)
+            .unwrap();
+        assert_eq!(
+            reserve.rate_limit_outflow_amount_available, 0,
+            "Should clamp to 0 with allow_underflow"
+        );
+
+        assert!(
+            reserve
+                .update_for_outflow(Clock::default(), 600, false)
+                .is_err(),
+            "Should error on underflow without allow_underflow"
+        );
     }
 }

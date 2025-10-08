@@ -1,6 +1,5 @@
 use litesvm::types::{FailedTransactionMetadata, TransactionResult};
 use solana_sdk::instruction::InstructionError;
-use solana_sdk::program_error::ProgramError;
 use solana_sdk::transaction::TransactionError;
 use svm_alm_controller::error::SvmAlmControllerErrors;
 
@@ -19,8 +18,9 @@ pub fn assert_custom_error(
                 ..
             }) if *i == ix_idx && *c == expected_code,
         ),
-        "Got error {:?}",
-        res_tmp.err().unwrap().err
+        "Got error {:?} with logs:\n{:?}",
+        res_tmp.clone().err().unwrap().err,
+        res_tmp.err().unwrap().meta.logs,
     );
 }
 

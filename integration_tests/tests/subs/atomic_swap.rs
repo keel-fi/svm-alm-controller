@@ -1,34 +1,25 @@
-use std::error::Error;
-
 use litesvm::{types::TransactionResult, LiteSVM};
-use pinocchio_token::state::TokenAccount;
 use solana_sdk::{
-    address_lookup_table::instruction,
     instruction::Instruction,
     program_pack::Pack,
     pubkey::Pubkey,
     signature::{Keypair, Signer},
-    system_program,
-    sysvar::{Sysvar, SysvarId},
     transaction::Transaction,
 };
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
-use spl_token::state::Account;
-use svm_alm_controller_client::generated::instructions::{
+use spl_token_2022::state::Account;
+use svm_alm_controller_client::{derive_reserve_pda, generated::instructions::{
     AtomicSwapBorrowBuilder, AtomicSwapRepayBuilder, RefreshOracleBuilder,
-};
+}};
 
-use crate::subs::{derive_controller_authority_pda, derive_reserve_pda};
+use crate::subs::{derive_controller_authority_pda};
 
-use super::oracle;
-
-pub fn fetch_token_account(svm: &mut LiteSVM, token_account: &Pubkey) -> Account {
+pub fn fetch_token_account(svm: &LiteSVM, token_account: &Pubkey) -> Account {
     let info = svm.get_account(token_account).unwrap();
     Account::unpack(&info.data[..Account::LEN]).unwrap()
 }
 
 pub fn atomic_swap_borrow_repay_ixs(
-    svm: &mut LiteSVM,
     authority: &Keypair,
     controller: Pubkey,
     permission: Pubkey,
@@ -41,22 +32,23 @@ pub fn atomic_swap_borrow_repay_ixs(
     payer_account_b: Pubkey,
     token_program_a: Pubkey,
     token_program_b: Pubkey,
-    repay_excess_token_a: bool,
     borrow_amount: u64,
     repay_amount: u64,
-) -> [Instruction; 3] {
+    mint_authority: &Keypair,
+    spend_amount: u64,
+) -> [Instruction; 5] {
     let reserve_a = derive_reserve_pda(&controller, &mint_a);
     let reserve_b = derive_reserve_pda(&controller, &mint_b);
     let controller_authority = derive_controller_authority_pda(&controller);
     let vault_a = get_associated_token_address_with_program_id(
         &controller_authority,
         &mint_a,
-        &pinocchio_token::ID.into(),
+        &token_program_a,
     );
     let vault_b = get_associated_token_address_with_program_id(
         &controller_authority,
         &mint_b,
-        &pinocchio_token::ID.into(),
+        &token_program_b,
     );
 
     let refresh_ix = RefreshOracleBuilder::new()
@@ -72,32 +64,58 @@ pub fn atomic_swap_borrow_repay_ixs(
         .integration(integration)
         .reserve_a(reserve_a)
         .vault_a(vault_a)
+        .mint_a(mint_a)
         .reserve_b(reserve_b)
         .vault_b(vault_b)
-        .recipient_token_account(payer_account_a)
-        .token_program(token_program_a)
+        .recipient_token_account_a(payer_account_a)
+        .recipient_token_account_b(payer_account_b)
+        .token_program_a(token_program_a)
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
-        .repay_excess_token_a(repay_excess_token_a)
         .amount(borrow_amount)
         .instruction();
+
+    // Mint Token B to simulate receiving leg of a "purchase"
+    let mint_ix = spl_token_2022::instruction::mint_to(
+        &token_program_b,
+        &mint_b,
+        &payer_account_b,
+        &mint_authority.pubkey(),
+        &[],
+        repay_amount,
+    )
+    .unwrap();
+
+    // Burn Token A to simulate spending leg of a "purchase"
+    let burn_ix = spl_token_2022::instruction::burn(
+        &token_program_a,
+        &payer_account_a,
+        &mint_a,
+        &authority.pubkey(),
+        &[],
+        spend_amount,
+    )
+    .unwrap();
 
     let repay_ix = AtomicSwapRepayBuilder::new()
         .payer(authority.pubkey())
         .controller(controller)
+        .controller_authority(controller_authority)
         .authority(authority.pubkey())
         .permission(permission)
         .integration(integration)
         .reserve_a(reserve_a)
         .vault_a(vault_a)
+        .mint_a(mint_a)
         .reserve_b(reserve_b)
         .vault_b(vault_b)
+        .mint_b(mint_b)
         .oracle(oracle)
         .payer_account_a(payer_account_a)
         .payer_account_b(payer_account_b)
-        .token_program(token_program_b)
-        .amount(repay_amount)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
         .instruction();
-    [borrow_ix, refresh_ix, repay_ix]
+    [refresh_ix, borrow_ix, mint_ix, burn_ix, repay_ix]
 }
 
 pub fn atomic_swap_borrow_repay(
@@ -112,14 +130,14 @@ pub fn atomic_swap_borrow_repay(
     price_feed: Pubkey,
     payer_account_a: Pubkey,
     payer_account_b: Pubkey,
-    token_program_a: Pubkey,
-    token_program_b: Pubkey,
-    repay_excess_token_a: bool,
     borrow_amount: u64,
     repay_amount: u64,
+    mint_authority: &Keypair,
+    spend_amount: u64,
 ) -> TransactionResult {
+    let mint_a_token_program = svm.get_account(&mint_a).unwrap().owner;
+    let mint_b_token_program = svm.get_account(&mint_b).unwrap().owner;
     let instructions = atomic_swap_borrow_repay_ixs(
-        svm,
         authority,
         controller,
         permission,
@@ -130,16 +148,17 @@ pub fn atomic_swap_borrow_repay(
         price_feed,
         payer_account_a,
         payer_account_b,
-        token_program_a,
-        token_program_b,
-        repay_excess_token_a,
+        mint_a_token_program,
+        mint_b_token_program,
         borrow_amount,
         repay_amount,
+        mint_authority,
+        spend_amount,
     );
     let txn = Transaction::new_signed_with_payer(
         &instructions,
         Some(&authority.pubkey()),
-        &[&authority],
+        &[&authority, &mint_authority],
         svm.latest_blockhash(),
     );
 

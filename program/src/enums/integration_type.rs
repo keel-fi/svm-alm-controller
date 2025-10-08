@@ -8,9 +8,7 @@ use crate::integrations::utilization_market::UtilizationMarket;
 pub enum IntegrationType {
     #[default]
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge,
-    SwapIntent,
     LzBridge,
     AtomicSwap,
     UtilizationMarket(UtilizationMarket)

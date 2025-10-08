@@ -1,4 +1,3 @@
-use borsh::BorshDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     msg,
@@ -7,159 +6,240 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
-use pinocchio_token::{instructions::Transfer, state::TokenAccount};
+use pinocchio_token_interface::{instructions::TransferChecked, Mint, TokenAccount};
 
 use crate::{
     constants::BPS_DENOMINATOR,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
-    instructions::AtomicSwapRepayArgs,
-    state::{nova_account::NovaAccount, Integration, Oracle, Permission, Reserve},
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
+    state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
 define_account_struct! {
     pub struct AtomicSwapRepay<'info> {
         payer: signer;
-        controller;
+        controller: @owner(crate::ID);
+        controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
-        permission;
-        integration: mut;
-        reserve_a: mut;
-        vault_a: mut;
-        reserve_b: mut;
-        vault_b: mut;
-        oracle;
-        payer_account_a: mut;
-        payer_account_b: mut;
-        token_program: @pubkey(pinocchio_token::ID);
+        permission: @owner(crate::ID);
+        integration: mut, @owner(crate::ID);
+        reserve_a: mut, @owner(crate::ID);
+        vault_a: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_a: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_b: mut, @owner(crate::ID);
+        vault_b: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint_b:@owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        oracle: @owner(crate::ID);
+        payer_account_a: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        payer_account_b: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        token_program_a: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        token_program_b: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
     }
 }
 
 pub fn process_atomic_swap_repay(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
-    instruction_data: &[u8],
+    _instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("atomic_swap_repay");
     let ctx = AtomicSwapRepay::from_accounts(accounts)?;
-    let args: AtomicSwapRepayArgs = AtomicSwapRepayArgs::try_from_slice(instruction_data).unwrap();
     let clock = Clock::get()?;
 
-    // Load in the super permission account
+    // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;
-    // Check that super authority has permission and the permission is active
+    // Check that authority has permission and the permission is active
     if !permission.can_execute_swap() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
+    // Load Controller for event emission.
+    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+
     // Check that mint and vault account matches known keys in controller-associated Reserve.
-    let mut reserve_a = Reserve::load_and_check_mut(ctx.reserve_a, ctx.controller.key())?;
-    if reserve_a.vault != *ctx.vault_a.key() {
+    let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
+    if reserve_a.vault != *ctx.vault_a.key() || reserve_a.mint.ne(ctx.mint_a.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
-    let mut reserve_b = Reserve::load_and_check_mut(ctx.reserve_b, ctx.controller.key())?;
-    if reserve_b.vault != *ctx.vault_b.key() {
+    let mut reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
+    if reserve_b.vault != *ctx.vault_b.key() || reserve_b.mint.ne(ctx.mint_b.key()) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
     // Check that Integration account is valid and matches controller.
-    let mut integration = Integration::load_and_check_mut(ctx.integration, ctx.controller.key())?;
-    let mut excess_token_a = 0;
+    let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 
-    if let (IntegrationConfig::AtomicSwap(cfg), IntegrationState::AtomicSwap(state)) =
-        (&integration.config, &mut integration.state)
+    // Check that the Integration is of type AtomicSwap and has a valid config/state.
+    let config = match &integration.config {
+        IntegrationConfig::AtomicSwap(cfg) => cfg,
+        _ => return Err(SvmAlmControllerErrors::Invalid.into()),
+    };
+    let state = match &mut integration.state {
+        IntegrationState::AtomicSwap(state) => state,
+        _ => return Err(SvmAlmControllerErrors::Invalid.into()),
+    };
+    let vault_a_swap_starting_balance = state.last_balance_a;
+    let vault_b_swap_starting_balance = state.last_balance_b;
+
+    // Validate config matches account and reserve state.
+    if config.input_token.ne(&reserve_a.mint)
+        || config.output_token.ne(&reserve_b.mint)
+        || config.oracle.ne(ctx.oracle.key())
     {
-        if cfg.input_token != reserve_a.mint
-            || cfg.output_token != reserve_b.mint
-            || cfg.oracle != *ctx.oracle.key()
-        {
-            return Err(SvmAlmControllerErrors::InvalidAccountData.into());
-        }
-
-        if !state.has_swap_started() {
-            return Err(SvmAlmControllerErrors::SwapNotStarted.into());
-        }
-
-        let mut final_input_amount = state.amount_borrowed;
-        {
-            // Check that vault_a and vault_b amounts remain same as after atomic borrow.
-            let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
-            let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
-            let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
-
-            // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
-            if vault_a.amount().checked_add(state.amount_borrowed).unwrap() != state.last_balance_a
-                || vault_b.amount() != state.last_balance_b
-            {
-                return Err(SvmAlmControllerErrors::InvalidSwapState.into());
-            }
-
-            if state.repay_excess_token_a {
-                let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
-                excess_token_a = payer_account_a
-                    .amount()
-                    .saturating_sub(state.recipient_token_a_pre);
-                final_input_amount = final_input_amount.checked_sub(excess_token_a).unwrap();
-            }
-
-            if args.amount > payer_account_b.amount() {
-                return Err(ProgramError::InsufficientFunds);
-            }
-        }
-
-        // Transfer tokens to vault for repayment.
-        if excess_token_a > 0 {
-            Transfer {
-                from: ctx.payer_account_a,
-                to: ctx.vault_a,
-                authority: ctx.payer,
-                amount: excess_token_a,
-            }
-            .invoke()?;
-        }
-
-        Transfer {
-            from: ctx.payer_account_b,
-            to: ctx.vault_b,
-            authority: ctx.payer,
-            amount: args.amount,
-        }
-        .invoke()?;
-
-        let oracle = Oracle::load_and_check(ctx.oracle)?;
-
-        // Check that oracle was last refreshed within acceptable staleness.
-        if oracle.last_update_slot < clock.slot - cfg.max_staleness {
-            return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
-        }
-
-        // Check that swap is within accepted slippage of oracle price.
-        check_swap_slippage(
-            final_input_amount,
-            cfg.input_mint_decimals,
-            args.amount,
-            cfg.output_mint_decimals,
-            cfg.max_slippage_bps,
-            oracle.value,
-            oracle.precision,
-        )?;
-
-        // Reset state after repayment.
-        state.reset();
-    } else {
-        return Err(SvmAlmControllerErrors::Invalid.into());
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
+    // Error if the swap has not started (aka no AtomicBorrow).
+    if !state.has_swap_started() {
+        return Err(SvmAlmControllerErrors::SwapNotStarted.into());
+    }
+
+    // Check that vault_a and vault_b amounts remain same as after atomic borrow.
+    let vault_a = TokenAccount::from_account_info(ctx.vault_a)?;
+    let vault_a_balance_before = vault_a.amount();
+    let vault_b = TokenAccount::from_account_info(ctx.vault_b)?;
+    let vault_b_balance_before = vault_b.amount();
+
+    // Calculate the amount of token A/B the user has before repayment.
+    let payer_account_a = TokenAccount::from_account_info(ctx.payer_account_a)?;
+    // No need to error if the user overspent and has less tokens than the borrowed amount.
+    // Amount over the users previous balance that still exists.
+    let excess_token_a = payer_account_a
+        .amount()
+        .saturating_sub(state.recipient_token_a_pre);
+    let payer_account_b = TokenAccount::from_account_info(ctx.payer_account_b)?;
+    // Amount of Token B that the user accumulated between borrow & repay stages.
+    let amount = payer_account_b
+        .amount()
+        .checked_sub(state.recipient_token_b_pre)
+        .unwrap();
+
+    // drop after reading amounts.
+    drop(vault_a);
+    drop(vault_b);
+    drop(payer_account_a);
+    drop(payer_account_b);
+
+    // Check that vault_a and vault_b balances are not modified between atomic borrow and repay.
+    if vault_a_balance_before
+        .checked_add(state.amount_borrowed)
+        .unwrap()
+        != vault_a_swap_starting_balance
+        || vault_b_balance_before != vault_b_swap_starting_balance
+    {
+        return Err(SvmAlmControllerErrors::InvalidSwapState.into());
+    }
+
+    // Transfer tokens to vault for repayment.
+    let (final_input_amount, balance_a_delta) = if excess_token_a > 0 {
+        let mint_a = Mint::from_account_info(ctx.mint_a)?;
+        TransferChecked {
+            from: ctx.payer_account_a,
+            to: ctx.vault_a,
+            mint: ctx.mint_a,
+            authority: ctx.payer,
+            amount: excess_token_a,
+            decimals: mint_a.decimals(),
+            token_program: ctx.token_program_a.key(),
+        }
+        .invoke()?;
+        let balance_after = TokenAccount::from_account_info(ctx.vault_a)?.amount();
+        // Calculate the amount that was received by the Reserve. This accounts for
+        // a Transfer that has TransferFees enabled.
+        let _balance_a_delta = balance_after
+            .checked_sub(vault_a_balance_before)
+            .expect("overflow");
+        // Calculate the final amount the user spent from the Vault.
+        // Saturating sub used in the ~unlikely~ event the change in balance is
+        // greater than the amount borrowed.
+        let _final_input_amount = state.amount_borrowed.saturating_sub(_balance_a_delta);
+        (_final_input_amount, _balance_a_delta)
+    } else {
+        // No excess token A, so use the full amount borrowed and 0 for balance change since borrow.
+        (state.amount_borrowed, 0)
+    };
+
+    let mint_b = Mint::from_account_info(ctx.mint_b)?;
+    TransferChecked {
+        from: ctx.payer_account_b,
+        to: ctx.vault_b,
+        mint: ctx.mint_b,
+        authority: ctx.payer,
+        amount,
+        decimals: mint_b.decimals(),
+        token_program: ctx.token_program_b.key(),
+    }
+    .invoke()?;
+    let final_vault_balance_b = TokenAccount::from_account_info(ctx.vault_b)?.amount();
+    // Calculate the amount that was received by the Reserve. This accounts for
+    // a Transfer that has TransferFees enabled.
+    let balance_b_delta = final_vault_balance_b
+        .checked_sub(vault_b_balance_before)
+        .expect("overflow");
+
+    let oracle = Oracle::load_and_check(ctx.oracle, Some(ctx.controller.key()), None)?;
+
+    // Check that oracle was last refreshed within acceptable staleness.
+    if oracle.last_update_slot < clock.slot - config.max_staleness {
+        return Err(SvmAlmControllerErrors::StaleOraclePrice.into());
+    }
+
+    // Check that swap is within accepted slippage of oracle price.
+    check_swap_slippage(
+        final_input_amount,
+        config.input_mint_decimals,
+        balance_b_delta,
+        config.output_mint_decimals,
+        config.max_slippage_bps,
+        oracle.get_price(config.oracle_price_inverted),
+        oracle.precision,
+    )?;
+
+    // Reset state after repayment.
+    state.reset();
+
     // Update for rate limits and save.
-    reserve_a.update_for_inflow(clock, excess_token_a)?;
+    reserve_a.update_for_inflow(clock, balance_a_delta)?;
     reserve_a.save(ctx.reserve_a)?;
-    reserve_b.update_for_inflow(clock, args.amount)?;
+    reserve_b.update_for_inflow(clock, balance_b_delta)?;
     reserve_b.save(ctx.reserve_b)?;
 
-    integration.update_rate_limit_for_inflow(clock, excess_token_a)?;
+    // Credit the Integration with the amount of Token A repaid.
+    integration.update_rate_limit_for_inflow(clock, balance_a_delta)?;
     integration.save(ctx.integration)?;
+
+    // Emit debit event for token a Reserve
+    controller.emit_event(
+        ctx.controller_authority,
+        ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *ctx.controller.key(),
+            integration: None,
+            reserve: Some(*ctx.reserve_a.key()),
+            mint: *ctx.mint_a.key(),
+            action: AccountingAction::Swap,
+            delta: final_input_amount,
+            direction: AccountingDirection::Debit,
+        }),
+    )?;
+
+    // Emit credit event for token b Reserve
+    controller.emit_event(
+        ctx.controller_authority,
+        ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *ctx.controller.key(),
+            integration: None,
+            reserve: Some(*ctx.reserve_b.key()),
+            mint: *ctx.mint_b.key(),
+            action: AccountingAction::Swap,
+            delta: balance_b_delta,
+            direction: AccountingDirection::Credit,
+        }),
+    )?;
 
     Ok(())
 }
@@ -209,9 +289,16 @@ fn check_swap_slippage(
     oracle_price: i128,
     precision: u32,
 ) -> ProgramResult {
-    if input_amount == 0 || output_amount == 0 {
-        return Err(ProgramError::InvalidArgument);
+    // The External address repaid ALL of their tokens, thus we can skip
+    // the slippage check as any amount of output tokens is ok.
+    if input_amount == 0 {
+        return Ok(());
+    } else if output_amount == 0 {
+        // Error with insufficient funds as we're using the wallets
+        // change in balance
+        return Err(ProgramError::InsufficientFunds);
     }
+
     let swap_price = calc_swap_price(
         pow10(input_decimals.into()).unwrap(),
         pow10(output_decimals.into()).unwrap(),
@@ -250,6 +337,18 @@ mod tests {
             6,
         );
         assert!(res.is_ok());
+
+        // 0 input with any output is ok
+        let res = check_swap_slippage(
+            0,
+            6,
+            400_000_000, // output: $400
+            6,
+            100, // 1%
+            202_150_000,
+            6,
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
@@ -268,18 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swap_zero_input_or_output() {
-        let res = check_swap_slippage(
-            0,
-            6,
-            400_000_000, // output: $400
-            6,
-            100, // 1%
-            202_150_000,
-            6,
-        );
-        assert!(res.is_err());
-
+    fn test_swap_zero_output() {
         let res = check_swap_slippage(
             2_000_000,
             6,

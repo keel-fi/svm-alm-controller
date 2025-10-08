@@ -9,7 +9,6 @@ use crate::generated::types::AtomicSwapState;
 use crate::generated::types::CctpBridgeState;
 use crate::generated::types::LzBridgeState;
 use crate::generated::types::SplTokenExternalState;
-use crate::generated::types::SplTokenSwapState;
 use crate::generated::types::UtilizationMarketState;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
@@ -22,7 +21,6 @@ pub enum IntegrationState {
         padding: [u8; 48],
     },
     SplTokenExternal(SplTokenExternalState),
-    SplTokenSwap(SplTokenSwapState),
     CctpBridge(CctpBridgeState),
     LzBridge(LzBridgeState),
     AtomicSwap(AtomicSwapState),

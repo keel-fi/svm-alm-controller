@@ -10,7 +10,7 @@ use pinocchio_token::state::TokenAccount;
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED, 
     enums::IntegrationState, 
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PullArgs, 
     integrations::utilization_market::{
         kamino::{
@@ -107,18 +107,38 @@ pub fn process_pull_kamino(
         vault.amount()
     };
 
-    // emit accounting event
+    
     if liquidity_amount_before != liquidity_amount_after {
+        let check_delta = liquidity_amount_before.saturating_sub(liquidity_amount_after);
+        
+        // Emit accounting event for debit kamino integration
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: *outer_ctx.integration.key(),
+                integration: Some(*outer_ctx.integration.key()),
                 mint: *inner_ctx.reserve_liquidity_mint.key(),
+                reserve: None,
+                direction: AccountingDirection::Debit,
                 action: AccountingAction::Withdrawal,
-                before: liquidity_amount_before,
-                after: liquidity_amount_after,
+                delta: check_delta,
+            }),
+        )?;
+
+        // Emit accounting event for credit Reserve
+        // Note: this is to ensure there is double accounting
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                mint: *inner_ctx.reserve_liquidity_mint.key(),
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Withdrawal,
+                delta: check_delta,
             }),
         )?;
     }

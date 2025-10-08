@@ -13,9 +13,7 @@ use borsh::BorshSerialize;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum IntegrationType {
     SplTokenExternal,
-    SplTokenSwap,
     CctpBridge,
-    SwapIntent,
     LzBridge,
     AtomicSwap,
     UtilizationMarket(UtilizationMarket),
