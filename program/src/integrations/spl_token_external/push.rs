@@ -13,7 +13,6 @@ use pinocchio::{
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_log::log;
 use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {

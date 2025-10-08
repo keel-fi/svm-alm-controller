@@ -1,15 +1,15 @@
 use borsh::BorshDeserialize;
 use litesvm::LiteSVM;
 use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
+    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction
 };
 use std::error::Error;
 use svm_alm_controller_client::generated::{
     accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID,
-    types::PermissionStatus,
+    types::{PermissionStatus, PermissionUpdateEvent, SvmAlmControllerEvent},
 };
 
-use crate::subs::derive_controller_authority_pda;
+use crate::{assert_contains_controller_cpi_event, subs::derive_controller_authority_pda};
 
 pub fn derive_permission_pda(controller_pda: &Pubkey, authority: &Pubkey) -> Pubkey {
     let (permission_pda, _permission_bump) = Pubkey::find_program_address(
@@ -71,6 +71,8 @@ pub fn manage_permission(
 
     let subject_permission_pda = derive_permission_pda(controller, subject_authority);
 
+    let subject_permission_account_before = fetch_permission_account(svm, &subject_permission_pda)?;
+
     let ixn = ManagePermissionBuilder::new()
         .status(status)
         .can_execute_swap(can_execute_swap)
@@ -100,9 +102,9 @@ pub fn manage_permission(
         svm.latest_blockhash(),
     );
 
-    let tx_result = svm.send_transaction(txn);
+    let tx_result = svm.send_transaction(txn.clone());
     if tx_result.is_err() {
-        println!("{:#?}", tx_result.unwrap().logs);
+        println!("{:#?}", tx_result.clone().unwrap().logs);
     } else {
         assert!(tx_result.is_ok(), "Transaction failed to execute");
     }
@@ -131,7 +133,7 @@ pub fn manage_permission(
     }
 
     // Check that the subject values, controller, and authority are aligned to the inputs
-    let subject_permission_after = subject_permission_account_after.unwrap();
+    let subject_permission_after = subject_permission_account_after.clone().unwrap();
     assert_eq!(
         subject_permission_after.controller, *controller,
         "Subject permission controller does not match the expected controller"
@@ -174,5 +176,19 @@ pub fn manage_permission(
         "Subject permission to manage integrations does not match the expected value"
     );
 
+    // assert expected event was emitted
+    let expected_event = SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
+        controller: *controller,
+        permission: subject_permission_pda,
+        authority: *subject_authority,
+        old_state: subject_permission_account_before,
+        new_state: subject_permission_account_after,
+    });
+    assert_contains_controller_cpi_event!(
+        tx_result.unwrap(), 
+        txn.message.account_keys.as_slice(), 
+        expected_event
+    );
+    
     Ok(subject_permission_pda)
 }
