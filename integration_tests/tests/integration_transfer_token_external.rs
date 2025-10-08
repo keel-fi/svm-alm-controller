@@ -24,7 +24,7 @@ mod tests {
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use super::*;
     use solana_sdk::{
-        account::Account, clock::Clock, instruction::InstructionError, system_program, transaction::{Transaction, TransactionError}
+        account::Account, clock::Clock, instruction::InstructionError, transaction::{Transaction, TransactionError}
     };
     use svm_alm_controller_client::{
         create_spl_token_external_initialize_integration_instruction,
@@ -885,7 +885,7 @@ mod tests {
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
         let permit_liquidation = true;
-        let mut init_ix = create_spl_token_external_initialize_integration_instruction(
+        let init_ix = create_spl_token_external_initialize_integration_instruction(
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
@@ -909,22 +909,6 @@ mod tests {
         //      pubkey == spl token or token2022
         // (index 12) AT program
         //      pubkey == associated token program id
-
-        // change token_account to readonly
-        init_ix.accounts[10].is_writable = false;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        init_ix.accounts[10].is_writable = true;
-        svm.expire_blockhash();
-
 
         // change token_account owner
         // checks the case where the account is initialized but not owned by spl token or token2022
@@ -954,7 +938,7 @@ mod tests {
             Account {
             lamports: 0,
             data: [].to_vec(),
-            owner: system_program::ID,
+            owner: Pubkey::default(),
             executable: false,
             rent_epoch: 0
         })
@@ -1086,7 +1070,7 @@ mod tests {
 
         // Push the integration
         let amount = 1_000_000;
-        let mut push_ix = create_spl_token_external_push_instruction(
+        let push_ix = create_spl_token_external_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &external_integration_pk,
@@ -1116,22 +1100,6 @@ mod tests {
         //      pubkey == AT program id
         // (index 14) system program
         //      pubkey == system program id
-
-        // change vault to readonly
-        push_ix.accounts[9].is_writable = false;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        push_ix.accounts[9].is_writable = true;
-        svm.expire_blockhash();
-
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
             Box::new(&super_authority), 

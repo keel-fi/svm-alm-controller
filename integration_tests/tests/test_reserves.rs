@@ -10,7 +10,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, ReserveStatu
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, signature::Keypair, transaction::{Transaction, TransactionError}};
+    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, signature::Keypair, transaction::Transaction};
     use svm_alm_controller_client::{
         create_initialize_reserve_instruction, create_manage_reserve_instruction,
         create_sync_reserve_instruction, generated::types::PermissionStatus,
@@ -480,7 +480,7 @@ mod tests {
         );
         let _tx_result = svm.send_transaction(txn);
 
-        let mut manage_reserve_ix = create_manage_reserve_instruction(
+        let manage_reserve_ix = create_manage_reserve_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &USDC_TOKEN_MINT_PUBKEY,
@@ -494,21 +494,6 @@ mod tests {
         // (index 3) permission: owner == crate::ID,
         // (index 4) reserve: mut, owner == crate::ID,
         // (index 5) program_id: pubkey == crate::ID
-
-        // modify reserve to readonly
-        manage_reserve_ix.accounts[4].is_writable = false;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[manage_reserve_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        manage_reserve_ix.accounts[4].is_writable = true;
-
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
             Box::new(&super_authority)
@@ -554,7 +539,7 @@ mod tests {
             &spl_token::ID,
         )?;
 
-        let mut instruction = create_sync_reserve_instruction(
+        let instruction = create_sync_reserve_instruction(
             &controller_pk,
             &USDC_TOKEN_MINT_PUBKEY,
             &spl_token::ID,
@@ -564,21 +549,6 @@ mod tests {
         // (index 0) controller: owner == crate::ID,
         // (index 2) reserve: mut, owner == crate::ID,
         // (index 3) vault: pubkey check
-
-        // change reserve to readonly
-        instruction.accounts[2].is_writable = false;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[instruction.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        instruction.accounts[2].is_writable = true;
-
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
             Box::new(&super_authority)

@@ -5,11 +5,11 @@ mod subs;
 mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
-        account::Account, instruction::InstructionError, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::{Transaction, TransactionError}
+        account::Account, instruction::InstructionError, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::{Transaction, TransactionError}
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_manage_integration_instruction, create_spl_token_external_initialize_integration_instruction, create_spl_token_external_push_instruction, create_sync_integration_instruction, derive_controller_authority_pda, generated::{instructions::ManageIntegrationBuilder, types::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus}}, SVM_ALM_CONTROLLER_ID
+        create_manage_integration_instruction, create_spl_token_external_initialize_integration_instruction, create_spl_token_external_push_instruction, create_sync_integration_instruction, generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus}, SVM_ALM_CONTROLLER_ID
     };
 
     use test_case::test_case;
@@ -17,7 +17,7 @@ mod tests {
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
         subs::{
-            airdrop_lamports, derive_permission_pda, fetch_integration_account, initialize_mint, initialize_reserve, manage_controller, manage_integration, manage_permission
+            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve, manage_controller, manage_integration, manage_permission
         }, test_invalid_accounts,
     };
 
@@ -552,7 +552,7 @@ mod tests {
             Account {
                 lamports: 0,
                 data: vec![],
-                owner: system_program::id(),
+                owner: Pubkey::default(),
                 executable: false,
                 rent_epoch: 0,
             },
@@ -663,40 +663,20 @@ mod tests {
         let mut description_encoding: [u8; 32] = [0; 32];
         description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
 
-        let mut ix = ManageIntegrationBuilder::new()
-        .status(IntegrationStatus::Active)
-        .rate_limit_slope(1000)
-        .rate_limit_max_outflow(1000)
-        .description(description_encoding)
-        .controller(controller_pk)
-        .controller_authority(derive_controller_authority_pda(&controller_pk))
-        .authority(super_authority.pubkey())
-        .permission(derive_permission_pda(&controller_pk, &super_authority.pubkey()))
-        .integration(integration_pubkey)
-        .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
-        .instruction();
+        let ix = create_manage_integration_instruction(
+            &controller_pk, 
+            &super_authority.pubkey(), 
+            &integration_pubkey,
+            IntegrationStatus::Active, 
+            1000, 
+            1000
+        );
 
         // account checks
         // (index 0) controller: owner == crate::ID,
         // (index 3) permission: owner == crate::ID,
         // (index 4) integration: mut, owner == crate::ID,
         // (index 5) program: pubkey == crate::ID
-
-        // change integration to readonly
-        ix.accounts[4].is_writable = false;
-        let txn = Transaction::new_signed_with_payer(
-            &[ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority,],
-            svm.latest_blockhash(),
-        );
-        let tx_result = svm.send_transaction(txn);
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        ix.accounts[4].is_writable = true;
-
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(

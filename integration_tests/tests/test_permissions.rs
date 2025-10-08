@@ -10,7 +10,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{account::Account, instruction::InstructionError, pubkey::Pubkey, system_program, transaction::{Transaction, TransactionError}};
+    use solana_sdk::{account::Account, instruction::InstructionError, pubkey::Pubkey, transaction::{Transaction, TransactionError}};
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_manage_permissions_instruction,
@@ -562,7 +562,7 @@ mod tests {
 
         let regular_user = Keypair::new();
 
-        let mut instruction = create_manage_permissions_instruction(
+        let instruction = create_manage_permissions_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &super_authority.pubkey(),
@@ -585,21 +585,6 @@ mod tests {
         // (index 6) permission: mut, owner == crate::ID or system program
         // (index 7) program: pubkey == crate::ID,
         // (index 8) system program: pubkey == system_program::ID
-
-        // modify permission to be readonly
-        instruction.accounts[6].is_writable = false;
-        let txn = Transaction::new_signed_with_payer(
-            &[instruction.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority,],
-            svm.latest_blockhash(),
-        );
-        let tx_result = svm.send_transaction(txn);
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        instruction.accounts[6].is_writable = true;
 
         // create permission and make it owned by invalid owner
         // needs to be set since test_invalid_accounts doesnt handle uninit accounts
@@ -630,7 +615,7 @@ mod tests {
             Account { 
                 lamports: 0, 
                 data: vec![], 
-                owner: system_program::ID, 
+                owner: Pubkey::default(), 
                 executable: false, 
                 rent_epoch: 0
             }

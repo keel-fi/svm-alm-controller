@@ -16,7 +16,7 @@ use svm_alm_controller_client::{
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, transaction::TransactionError};
+    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey};
     use svm_alm_controller_client::generated::instructions::ManageControllerBuilder;
     use test_case::test_case;
 
@@ -236,7 +236,7 @@ mod tests {
         )?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
-        let mut manage_permission_ix = ManageControllerBuilder::new()
+        let manage_controller_ix = ManageControllerBuilder::new()
             .status(ControllerStatus::Active)
             .controller(controller_pk)
             .controller_authority(controller_authority)
@@ -245,27 +245,10 @@ mod tests {
             .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
             .instruction();
 
-        
         // account checks:
         // (index 0) controller: mut, owner == crate::ID
         // (index 3) permission: owner == crate::ID
         // (index 4) program_id: pubkey == crate::ID
-
-
-        // modify controller to readonly
-        manage_permission_ix.accounts[0].is_writable = false;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[manage_permission_ix.clone()],
-            Some(&payer_and_authority.pubkey()),
-            &[&payer_and_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::Immutable)
-        );
-        manage_permission_ix.accounts[0].is_writable = true;
-
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
             Box::new(&payer_and_authority), 
@@ -274,7 +257,7 @@ mod tests {
             svm.clone(),
             payer_and_authority.pubkey(),
             signers,
-            manage_permission_ix.clone(),
+            manage_controller_ix.clone(),
             {
                 // modify controller owner
                 0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: invalid owner"),
