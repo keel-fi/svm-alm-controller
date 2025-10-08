@@ -10,7 +10,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, ReserveStatu
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{signature::Keypair, {pubkey::Pubkey, transaction::Transaction}};
+    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, signature::Keypair, transaction::Transaction};
     use svm_alm_controller_client::{
         create_initialize_reserve_instruction, create_manage_reserve_instruction,
         create_sync_reserve_instruction, generated::types::PermissionStatus,
@@ -449,6 +449,124 @@ mod tests {
         let tx_result = svm.send_transaction(txn);
 
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_manage_reserve_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let instruction = create_initialize_reserve_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            &spl_token::ID,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
+        );
+        let _tx_result = svm.send_transaction(txn);
+
+        let manage_reserve_ix = create_manage_reserve_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &USDC_TOKEN_MINT_PUBKEY,
+            ReserveStatus::Suspended,
+            1000,
+            2000,
+        );
+
+        // account checks:
+        // (index 0) controller: owner == crate::ID,
+        // (index 3) permission: owner == crate::ID,
+        // (index 4) reserve: mut, owner == crate::ID,
+        // (index 5) program_id: pubkey == crate::ID
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&super_authority)
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            manage_reserve_ix.clone(),
+            {
+                // modify controller owner
+                0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: invalid owner"),
+                // modify permission owner
+                3 => invalid_owner(InstructionError::InvalidAccountOwner, "Permission: invalid owner"),
+                // modify reserve owner
+                4 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve: invalid owner"),
+                // modify program pubkey
+                5 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid ID"),
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_reserve_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        // Initialize reserve first (while controller is active)
+        let _reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            0,
+            0,
+            &spl_token::ID,
+        )?;
+
+        let instruction = create_sync_reserve_instruction(
+            &controller_pk,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &spl_token::ID,
+        );
+
+        // account checks
+        // (index 0) controller: owner == crate::ID,
+        // (index 2) reserve: mut, owner == crate::ID,
+        // (index 3) vault: pubkey check
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&super_authority)
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            instruction.clone(),
+            {
+                // modify controller owner
+                0 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: invalid owner"),
+                // modify reserve owner
+                2 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve: invalid owner"),
+                // modify vault pubkey
+                3 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
+            }
+        );
 
         Ok(())
     }

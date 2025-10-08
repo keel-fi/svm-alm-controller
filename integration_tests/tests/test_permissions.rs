@@ -10,7 +10,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{pubkey::Pubkey, transaction::Transaction};
+    use solana_sdk::{account::Account, instruction::InstructionError, pubkey::Pubkey, transaction::{Transaction, TransactionError}};
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_manage_permissions_instruction,
@@ -548,6 +548,100 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_manage_permission_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let regular_user = Keypair::new();
+
+        let instruction = create_manage_permissions_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &super_authority.pubkey(),
+            &regular_user.pubkey(),
+            PermissionStatus::Active,
+            false, // can_execute_swap,
+            false, // can_manage_permissions,
+            false, // can_invoke_external_transfer,
+            false, // can_reallocate,
+            false, // can_freeze,
+            false, // can_unfreeze,
+            false, // can_manage_reserves_and_integrations
+            false, // can_suspend_permissions
+            false, // can_liquidate
+        ); 
+
+        // account checks:
+        // (index 1) controller: owner == crate::ID,
+        // (index 4) super_permission: owner == crate::ID,
+        // (index 6) permission: mut, owner == crate::ID or system program
+        // (index 7) program: pubkey == crate::ID,
+        // (index 8) system program: pubkey == system_program::ID
+
+        // create permission and make it owned by invalid owner
+        // needs to be set since test_invalid_accounts doesnt handle uninit accounts
+        let permission_pk = instruction.accounts[6].pubkey;
+        svm.set_account(
+            permission_pk, 
+            Account {
+                lamports: 10000,
+                data: vec![1, 1, 1, 1],
+                owner: Pubkey::new_unique(),
+                executable: false,
+                rent_epoch: 1
+            }
+        ).expect("failed to set account");
+        let txn = Transaction::new_signed_with_payer(
+            &[instruction.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+        );
+        svm.set_account(
+            permission_pk, 
+            Account { 
+                lamports: 0, 
+                data: vec![], 
+                owner: Pubkey::default(), 
+                executable: false, 
+                rent_epoch: 0
+            }
+        ).expect("failed to set account");
+        svm.expire_blockhash();
+
+
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
+            Box::new(&super_authority),
+        ];
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            signers,
+            instruction.clone(),
+            {
+                // modify controller owner
+                1 => invalid_owner(InstructionError::InvalidAccountOwner, "Controller: invalid owner"),
+                // modify super permission owner
+                4 => invalid_owner(InstructionError::InvalidAccountOwner, "Super Permission: invalid owner"),
+                // modify program pubkey
+                7 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid ID"),
+                // modify system program id
+                8 => invalid_program_id(InstructionError::IncorrectProgramId, "System Program: invalid ID"),
+            }
+        );
 
         Ok(())
     }
