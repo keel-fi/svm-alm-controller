@@ -109,9 +109,12 @@ pub fn process_pull_kamino(
 
     
     if liquidity_amount_before != liquidity_amount_after {
-        let check_delta = liquidity_amount_before.saturating_sub(liquidity_amount_after);
-        
-        // Emit accounting event for debit kamino integration
+        // funds flow into the vault (inner_ctx.token_account) from kamino
+        // so balance increases
+        let check_delta 
+            = liquidity_amount_after.saturating_sub(liquidity_amount_before);
+
+        // Emit accounting event for debit integration
         controller.emit_event(
             outer_ctx.controller_authority,
             outer_ctx.controller.key(),
@@ -133,9 +136,9 @@ pub fn process_pull_kamino(
             outer_ctx.controller.key(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: *outer_ctx.controller.key(),
-                integration: Some(*outer_ctx.integration.key()),
+                integration: None,
                 mint: *inner_ctx.reserve_liquidity_mint.key(),
-                reserve: None,
+                reserve: Some(*outer_ctx.reserve_a.key()),
                 direction: AccountingDirection::Credit,
                 action: AccountingAction::Withdrawal,
                 delta: check_delta,

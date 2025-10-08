@@ -5,7 +5,7 @@ use pinocchio::{
 
 use crate::{
     enums::IntegrationState, 
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     integrations::utilization_market::{
         kamino::kamino_state::get_liquidity_and_lp_amount, 
         state::UtilizationMarketState
@@ -39,18 +39,29 @@ pub fn sync_kamino_liquidity_value(
     )?;
 
     if last_liquidity_value != new_liquidity_value {
-        // controller.emit_event(
-        //     controller_authority, 
-        //     controller_pubkey, 
-        //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
-        //         controller: *controller_pubkey, 
-        //         integration: *integration_pubkey, 
-        //         mint: *liquidity_mint, 
-        //         action: AccountingAction::Sync, 
-        //         before: last_liquidity_value, 
-        //         after: new_liquidity_value
-        //     })
-        // )?
+        let abs_delta = new_liquidity_value.abs_diff(last_liquidity_value);
+
+        let direction = if new_liquidity_value > last_liquidity_value {
+            // value increased
+            AccountingDirection::Credit
+        } else {
+            // value decreased
+            AccountingDirection::Debit
+        };
+
+        controller.emit_event(
+            controller_authority, 
+            controller_pubkey, 
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+                controller: *controller_pubkey, 
+                integration: Some(*integration_pubkey),
+                reserve: None,
+                mint: *liquidity_mint, 
+                action: AccountingAction::Sync, 
+                delta: abs_delta,
+                direction
+            })
+        )?
     }
 
     Ok((new_liquidity_value, new_lp_amount))

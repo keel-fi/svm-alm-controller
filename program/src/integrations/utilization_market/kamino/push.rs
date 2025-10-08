@@ -9,7 +9,7 @@ use pinocchio_token::state::TokenAccount;
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED, 
     enums::IntegrationState, 
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
     integrations::utilization_market::{
         kamino::{
@@ -127,20 +127,42 @@ pub fn process_push_kamino(
     let liquidity_amount_delta = liquidity_amount_before.checked_sub(liquidity_amount_after)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    // emit accounting event
     if liquidity_amount_delta > 0 {
-        // controller.emit_event(
-        //     outer_ctx.controller_authority,
-        //     outer_ctx.controller.key(),
-        //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-        //         controller: *outer_ctx.controller.key(),
-        //         integration: *outer_ctx.integration.key(),
-        //         mint: *inner_ctx.reserve_liquidity_mint.key(),
-        //         action: AccountingAction::Deposit,
-        //         before: liquidity_amount_before,
-        //         after: liquidity_amount_after,
-        //     }),
-        // )?;
+        // funds flow from the vault (inner_ctx.token_account) to kamino
+        // so balance decreases
+        let check_delta 
+            = liquidity_amount_before.saturating_sub(liquidity_amount_after);
+
+        // Emit accounting event for credit Integration
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: Some(*outer_ctx.integration.key()),
+                mint: *inner_ctx.reserve_liquidity_mint.key(),
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Deposit,
+                delta: check_delta
+            }),
+        )?;
+
+        // Emit accounting event for debit Reserve
+        // Note: this is to ensure there is double accounting
+        controller.emit_event(
+            outer_ctx.controller_authority,
+            outer_ctx.controller.key(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: *outer_ctx.controller.key(),
+                integration: None,
+                mint: *inner_ctx.reserve_liquidity_mint.key(),
+                reserve: Some(*outer_ctx.reserve_a.key()),
+                direction: AccountingDirection::Debit,
+                action: AccountingAction::Deposit,
+                delta: check_delta
+            }),
+        )?;
     }
 
     let (liquidity_value_after_deposit, lp_amount_after_deposit) = get_liquidity_and_lp_amount(

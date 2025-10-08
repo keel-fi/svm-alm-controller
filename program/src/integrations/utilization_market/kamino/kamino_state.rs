@@ -451,6 +451,7 @@ pub struct RewardInfo {
     pub token_mint: Pubkey,
     pub token_program: Pubkey,
     pub rewards_vault: Pubkey,
+    pub rewards_available: u64,
 }
 
 /// This is a slimmed down version of the `FarmState` state from `KFARMS` program.
@@ -464,11 +465,11 @@ pub struct FarmState {
 impl FarmState {
     const DISCRIMINATOR: [u8; 8] = FARM_STATE_DISCRIMINATOR;
 
-    pub fn find_reward_index(
+    pub fn find_reward_index_and_rewards_available(
         &self, 
         reward_mint: &Pubkey,
         reward_token_program: &Pubkey
-    ) -> Option<u64> {
+    ) -> Option<(u64, u64)> {
         self.rewards_info
             .iter()
             .enumerate()
@@ -476,7 +477,7 @@ impl FarmState {
                 if &reward_info.token_mint == reward_mint
                     && &reward_info.token_program == reward_token_program
                 {
-                    Some(index as u64)
+                    Some((index as u64, reward_info.rewards_available))
                 } else {
                     None
                 }
@@ -519,10 +520,17 @@ impl<'a> TryFrom<&'a [u8]> for FarmState {
             )
             .map_err(|_| ProgramError::InvalidAccountData)?;
 
+            let rewards_available = u64::from_le_bytes(
+                data[current_offset + 32 + 8 + 32 + 48 + 32 .. current_offset + 32 + 8 + 32 + 48 + 32 + 8]
+                    .try_into()
+                    .map_err(|_| ProgramError::InvalidAccountData)?
+            );
+
             *slot = RewardInfo { 
                 token_mint, 
                 token_program, 
-                rewards_vault 
+                rewards_vault,
+                rewards_available
             };
 
             current_offset += REWARD_INFO_LEN;
@@ -612,6 +620,7 @@ mod tests {
                 token_mint: pubkey!("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
                 token_program: pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
                 rewards_vault: pubkey!("5JehzcYZjvqhijhhavULvgsM9BQfRyqVoztqhfJ7mdBn"),
+                rewards_available: 0,
             },
             RewardInfo::default(),
             RewardInfo::default(),

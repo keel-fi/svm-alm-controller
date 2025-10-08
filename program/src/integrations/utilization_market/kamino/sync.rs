@@ -11,7 +11,7 @@ use crate::{
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
     error::SvmAlmControllerErrors, 
-    events::{AccountingAction, AccountingEvent, SvmAlmControllerEvent}, 
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     integrations::utilization_market::{
         config::UtilizationMarketConfig, 
         kamino::{
@@ -173,6 +173,7 @@ pub fn process_sync_kamino(
     };
 
     // claim farm rewards only if the reserve has a farm collateral
+    // and rewards_available > 0
     if kamino_reserve_state.has_collateral_farm() 
         && inner_ctx.rewards_ata.key().ne(&Pubkey::default())
     {
@@ -198,45 +199,67 @@ pub fn process_sync_kamino(
             let reserve_farm_data = inner_ctx.reserve_farm.try_borrow_data()?;
             FarmState::try_from(reserve_farm_data.as_ref())?
         };
-        let reward_index = reserve_farm_state
-            .find_reward_index(
+        let (reward_index, rewards_available) = reserve_farm_state
+            .find_reward_index_and_rewards_available(
                 inner_ctx.rewards_mint.key(), 
                 inner_ctx.token_program.key()
             )
             .ok_or(ProgramError::InvalidAccountData)?;
 
-        // claim farms rewards
-        harvest_reward(
-            reward_index, 
-            Signer::from(&[
-                Seed::from(CONTROLLER_AUTHORITY_SEED),
-                Seed::from(outer_ctx.controller.key()),
-                Seed::from(&[controller.authority_bump])
-            ]), 
-            outer_ctx.controller_authority, 
-            &inner_ctx
-        )?;
+        // only harvest rewards if rewards_available > 0
+        if rewards_available > 0 {
+            // claim farms rewards
+            harvest_reward(
+                reward_index, 
+                Signer::from(&[
+                    Seed::from(CONTROLLER_AUTHORITY_SEED),
+                    Seed::from(outer_ctx.controller.key()),
+                    Seed::from(&[controller.authority_bump])
+                ]), 
+                outer_ctx.controller_authority, 
+                &inner_ctx
+            )?;
 
-        // if there is a match between the reward_mint and the integration mint, emit event
-        if inner_ctx.rewards_mint.key().eq(&reserve.mint) {
-            msg!("reward mint and integration mint match, emitting accounting event");
-            let post_transfer_balance = {
-                let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
-                vault.amount()
-            };
-            
-            // controller.emit_event(
-            //     outer_ctx.controller_authority, 
-            //     outer_ctx.controller.key(), 
-            //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
-            //         controller: *outer_ctx.controller.key(), 
-            //         integration: *outer_ctx.integration.key(), 
-            //         mint: *inner_ctx.rewards_mint.key(), 
-            //         action: AccountingAction::Withdrawal, 
-            //         before: post_sync_reserve_balance, 
-            //         after: post_transfer_balance
-            //     })
-            // )?
+            // if there is a match between the reward_mint and the integration mint, emit event
+            if inner_ctx.rewards_mint.key().eq(&reserve.mint) {
+                msg!("reward mint and integration mint match, emitting accounting event");
+                let post_transfer_balance = {
+                    let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
+                    vault.amount()
+                };
+
+                let check_delta = post_transfer_balance.saturating_sub(post_sync_reserve_balance);
+                
+                // Emit accounting event for debit (outflow) integration
+                controller.emit_event(
+                    outer_ctx.controller_authority, 
+                    outer_ctx.controller.key(), 
+                    SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+                        controller: *outer_ctx.controller.key(), 
+                        integration: Some(*outer_ctx.integration.key()),
+                        reserve: None, 
+                        direction: AccountingDirection::Debit,
+                        mint: *inner_ctx.rewards_mint.key(), 
+                        action: AccountingAction::Withdrawal, 
+                        delta: check_delta
+                    })
+                )?;
+
+                // Emit accounting event for credit  (inflow) reserve
+                controller.emit_event(
+                    outer_ctx.controller_authority, 
+                    outer_ctx.controller.key(), 
+                    SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+                        controller: *outer_ctx.controller.key(), 
+                        integration: None, 
+                        reserve: Some(*outer_ctx.reserve.key()),
+                        direction: AccountingDirection::Credit,
+                        mint: *inner_ctx.rewards_mint.key(), 
+                        action: AccountingAction::Withdrawal, 
+                        delta: check_delta
+                    })
+                )?
+            }
         }
     }
 
