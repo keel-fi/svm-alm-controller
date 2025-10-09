@@ -6,33 +6,30 @@ use solana_sdk::{
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
 use crate::{
-    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
-    generated::{
-        instructions::PushBuilder,
-        types::{KaminoConfig, PushArgs},
-    },
-    pdas::{
+    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, generated::{
+        instructions::PullBuilder,
+        types::{KaminoConfig, PullArgs},
+    }, pda::{
         derive_controller_authority_pda, derive_market_authority_address,
         derive_obligation_farm_address, derive_permission_pda, derive_reserve_collateral_mint,
         derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_reserve_pda,
-    },
-    SVM_ALM_CONTROLLER_ID,
+    }, SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID
 };
 
-/// Creates a `Push` instruction to deposit funds into a **Kamino Lend integration**
-/// under the SVM ALM Controller program.
+/// Creates a `Pull` instruction to withdraw funds from a **Kamino Lend integration** under
+/// the SVM ALM Controller program.
 ///
-/// This instruction moves `amount` of the reserve liquidity token from the controller’s
-/// vault ATA into the Kamino reserve, updating the Kamino obligation and collateral
-/// positions (via Kamino Lend and Kamino Farms where required).
+/// This instruction pulls liquidity from the Kamino lending market into the controller’s vault.
+/// It sets up all the necessary PDAs and account references (reserves, obligations, collateral,
+/// markets, farms, etc.) required to execute a withdrawal against the Kamino protocol.
 ///
 /// # Parameters
 ///
-/// - `controller`: Controller account that owns the integration.
+/// - `controller`: The controller account that owns the integration.
 /// - `integration`: The integration PDA for this Kamino Lend integration.
-/// - `authority`: The authority allowed to perform the push.
+/// - `authority`: The authority allowed to perform the pull.
 /// - `kamino_config`: Configuration object describing the Kamino market, reserve, and farm accounts.
-/// - `amount`: Quantity to deposit of `reserve_liquidity_mint`.
+/// - `amount`: The amount of collateral to pull.
 ///
 /// # Derived Accounts
 ///
@@ -43,19 +40,13 @@ use crate::{
 /// - **Reserve PDA**.
 /// - **Obligation Farm Collateral PDA**.
 /// - **Market Authority PDA**.
-/// - **Kamino Reserve PDAs**.
+/// - **Kamino Reserve PDAs**. 
 ///
 /// # Returns
 ///
 /// - `Instruction`: The fully built Solana instruction ready to be sent.
 ///
-/// # Requirements / Notes
-///
-/// - The **vault ATA must exist** and hold at least `amount`.
-/// - `amount` uses the **decimals of `kamino_reserve_liquidity_mint`**.
-/// - Both `.reserve_a` and `.reserve_b` are set to the same reserve PDA (single-reserve flow).
-///
-pub fn create_push_kamino_lend_ix(
+pub fn create_pull_kamino_lend_ix(
     controller: &Pubkey,
     integration: &Pubkey,
     authority: &Pubkey,
@@ -64,7 +55,6 @@ pub fn create_push_kamino_lend_ix(
 ) -> Instruction {
     let calling_permission_pda = derive_permission_pda(controller, authority);
     let controller_authority = derive_controller_authority_pda(controller);
-
     let obligation = kamino_config.obligation;
     let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
     let kamino_reserve = kamino_config.reserve;
@@ -79,11 +69,12 @@ pub fn create_push_kamino_lend_ix(
     let market_authority = derive_market_authority_address(&kamino_market);
     let obligation_farm_collateral =
         derive_obligation_farm_address(&reserve_farm_collateral, &obligation);
+
     let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         &kamino_reserve_liquidity_mint,
-        &spl_token::ID,
+        &SPL_TOKEN_PROGRAM_ID,
     );
 
     let remaining_accounts = &[
@@ -133,12 +124,12 @@ pub fn create_push_kamino_lend_ix(
             is_writable: false,
         },
         AccountMeta {
-            pubkey: spl_token::ID,
+            pubkey: SPL_TOKEN_PROGRAM_ID,
             is_signer: false,
             is_writable: false,
         },
         AccountMeta {
-            pubkey: spl_token::ID,
+            pubkey: SPL_TOKEN_PROGRAM_ID,
             is_signer: false,
             is_writable: false,
         },
@@ -169,8 +160,8 @@ pub fn create_push_kamino_lend_ix(
         },
     ];
 
-    PushBuilder::new()
-        .push_args(PushArgs::Kamino { amount })
+    PullBuilder::new()
+        .pull_args(PullArgs::Kamino { amount })
         .controller(*controller)
         .controller_authority(controller_authority)
         .authority(*authority)

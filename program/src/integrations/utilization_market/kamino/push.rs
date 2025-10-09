@@ -124,15 +124,9 @@ pub fn process_push_kamino(
         vault.amount()
     };
 
-    let liquidity_amount_delta = liquidity_amount_before.checked_sub(liquidity_amount_after)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
+    let liquidity_amount_delta = liquidity_amount_before.saturating_sub(liquidity_amount_after);
 
     if liquidity_amount_delta > 0 {
-        // funds flow from the vault (inner_ctx.token_account) to kamino
-        // so balance decreases
-        let check_delta 
-            = liquidity_amount_before.saturating_sub(liquidity_amount_after);
-
         // Emit accounting event for credit Integration
         controller.emit_event(
             outer_ctx.controller_authority,
@@ -144,7 +138,7 @@ pub fn process_push_kamino(
                 reserve: None,
                 direction: AccountingDirection::Credit,
                 action: AccountingAction::Deposit,
-                delta: check_delta
+                delta: liquidity_amount_delta
             }),
         )?;
 
@@ -160,7 +154,7 @@ pub fn process_push_kamino(
                 reserve: Some(*outer_ctx.reserve_a.key()),
                 direction: AccountingDirection::Debit,
                 action: AccountingAction::Deposit,
-                delta: check_delta
+                delta: liquidity_amount_delta
             }),
         )?;
     }

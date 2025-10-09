@@ -9,6 +9,7 @@ pub mod sync_integration;
 pub mod manage_permissions;
 pub mod initialize_reserve;
 pub mod manage_controller;
+pub mod pull;
 
 pub use initialize_integration::{
     create_atomic_swap_initialize_integration_instruction, create_cctp_bridge_initialize_integration_instruction,

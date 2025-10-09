@@ -49,7 +49,7 @@ fn derive_anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
     sighash
 }
 
-pub fn refresh_reserve(
+pub fn refresh_kamino_reserve(
     svm: &mut LiteSVM,
     payer: &Keypair,
     reserve: &Pubkey,
@@ -127,7 +127,7 @@ pub fn refresh_reserve(
 
 /// If obligation has reserves, they need to be added as remaining accounts!
 /// for the sake of simplicity, this method only support obligations with 1 reserve.
-pub fn refresh_obligation(
+pub fn refresh_kamino_obligation(
     svm: &mut LiteSVM,
     payer: &Keypair,
     market: &Pubkey,

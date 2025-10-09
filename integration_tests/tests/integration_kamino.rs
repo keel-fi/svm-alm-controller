@@ -3,39 +3,70 @@ mod subs;
 
 mod tests {
     use litesvm::LiteSVM;
-    use solana_sdk::{compute_budget::ComputeBudgetInstruction, pubkey::Pubkey, signer::Signer, transaction::Transaction};
-    use svm_alm_controller_client::{generated::types::{IntegrationConfig, IntegrationStatus, KaminoConfig, ReserveStatus, UtilizationMarketConfig}, initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix, SVM_ALM_CONTROLLER_ID};
-
-    use crate::{helpers::{
-        constants::{
-            BONK_MINT, KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_REFERRER_METADATA, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_BONK_TREASURY_VAULT, KAMINO_USDC_RESERVE_BONK_VAULT, KAMINO_USDC_RESERVE_COLLATERAL_MINT, KAMINO_USDC_RESERVE_COLLATERAL_SUPPLY, KAMINO_USDC_RESERVE_FARM_COLLATERAL, KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, KAMINO_USDC_RESERVE_LIQUIDITY_SUPPLY, KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY
+    use solana_sdk::{
+        clock::Clock, compute_budget::ComputeBudgetInstruction, 
+        instruction::Instruction, pubkey::Pubkey, 
+        signature::Keypair, signer::Signer, transaction::Transaction
+    };
+    use spl_associated_token_account_client::address::get_associated_token_address;
+    use svm_alm_controller_client::{
+        generated::types::{
+            IntegrationConfig, IntegrationStatus, 
+            KaminoConfig, ReserveStatus, UtilizationMarketConfig
         }, 
-        lite_svm::get_account_data_from_json, setup_test_controller, TestContext
-    }, subs::{derive_controller_authority_pda, derive_vanilla_obligation_address, edit_ata_amount, initialize_ata, initialize_reserve, transfer_tokens}};
+        initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix, 
+        pull::kamino_lend::create_pull_kamino_lend_ix, 
+        push::create_push_kamino_lend_ix, 
+        sync_integration::create_sync_kamino_lend_ix
+    };
 
-    #[test]
-    fn kamino_init_success() -> Result<(), Box<dyn std::error::Error>> {
-        let TestContext {
-            mut svm,
-            controller_pk,
-            super_authority,
-        } = setup_test_controller()?;
+    use crate::{
+        helpers::{ 
+            constants::{
+                BONK_MINT, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, 
+                KAMINO_MAIN_MARKET, KAMINO_REFERRER_METADATA, 
+                KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_BONK_TREASURY_VAULT, 
+                KAMINO_USDC_RESERVE_BONK_VAULT, KAMINO_USDC_RESERVE_COLLATERAL_MINT, 
+                KAMINO_USDC_RESERVE_COLLATERAL_SUPPLY, KAMINO_USDC_RESERVE_FARM_COLLATERAL, 
+                KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, KAMINO_USDC_RESERVE_LIQUIDITY_SUPPLY, 
+                KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY
+            }, 
+            lite_svm::get_account_data_from_json, 
+            setup_test_controller, 
+            spl::SPL_TOKEN_PROGRAM_ID, 
+            TestContext
+        }, 
+        subs::{
+            derive_controller_authority_pda, 
+            derive_vanilla_obligation_address, 
+            edit_ata_amount, initialize_ata, 
+            initialize_reserve, refresh_kamino_obligation, 
+            refresh_kamino_reserve, transfer_tokens
+        }
+    };
 
-        set_kamino_accounts(&mut svm);
-        let usdc_mint = USDC_TOKEN_MINT_PUBKEY;
+    fn setup_env_and_get_init_ix(
+        svm: &mut LiteSVM,
+        controller_pk: &Pubkey,
+        super_authority: &Keypair,
+        kamino_config: &KaminoConfig,
+        mint: &Pubkey,
+        obligation_id: u8
+    ) -> Result<(Instruction, Pubkey), Box<dyn std::error::Error>> {
+        set_kamino_accounts(svm);
+
         // Create an ATA for the USDC account
-        let _authority_usdc_ata = initialize_ata(
-            &mut svm,
+        let _authority_mint_ata = initialize_ata(
+            svm,
             &super_authority,
             &super_authority.pubkey(),
-            &usdc_mint,
+            mint,
         )?;
 
-        // Cheat to give the authority some USDC
         edit_ata_amount(
-            &mut svm,
+            svm,
             &super_authority.pubkey(),
-            &usdc_mint,
+            mint,
             1_000_000_000,
         )?;
 
@@ -43,9 +74,9 @@ mod tests {
 
         // Initialize a reserve for the USDC token
         let _usdc_reserve_pk = initialize_reserve(
-            &mut svm,
+            svm,
             &controller_pk,
-            &usdc_mint, // mint
+            mint, // mint
             &super_authority, // payer
             &super_authority, // authority
             ReserveStatus::Active,
@@ -56,61 +87,153 @@ mod tests {
 
         // Transfer funds into the reserve
         transfer_tokens(
-            &mut svm,
+            svm,
             &super_authority,
             &super_authority,
-            &usdc_mint,
+            mint,
             &controller_authority,
             1_000_000_000,
         )?;
-
-        let market = KAMINO_MAIN_MARKET;
-        let reserve = KAMINO_USDC_RESERVE;
-        let reserve_farm_collateral = KAMINO_USDC_RESERVE_FARM_COLLATERAL;
-        let reserve_farm_debt = Pubkey::default();
-
-        let obligation_id = 0;
-        // Initialize a kamino main market USDC Integration
-        let obligation = derive_vanilla_obligation_address(
-            obligation_id, 
-            &controller_authority, 
-            &market, 
-            &KAMINO_LEND_PROGRAM_ID
-        );
-        
-        let kamino_config = KaminoConfig { 
-            market, 
-            reserve, 
-            reserve_farm_collateral,
-            reserve_farm_debt,
-            reserve_liquidity_mint: usdc_mint, 
-            obligation, 
-            obligation_id, 
-            padding: [0; 30] 
-        };
 
         let clock = svm.get_sysvar::<solana_sdk::sysvar::clock::Clock>();
 
         let (
             kamino_init_ix, 
-            _kamino_integration_pk
+            kamino_integration_pk
         ) = create_initialize_kamino_lend_integration_ix(
             &controller_pk,
             &super_authority.pubkey(),
             &super_authority.pubkey(),
             "test",
             IntegrationStatus::Active,
-            10000,
-            10000,
+            1_000_000_000_000,
+            1_000_000_000_000,
             true,
-            &IntegrationConfig::UtilizationMarket(UtilizationMarketConfig::KaminoConfig(kamino_config)),
+            &IntegrationConfig::UtilizationMarket(UtilizationMarketConfig::KaminoConfig(kamino_config.clone())),
             clock.slot,
             obligation_id,
             &KAMINO_LEND_PROGRAM_ID
         );
 
-        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        Ok((kamino_init_ix, kamino_integration_pk))
+
+    }
+
+    fn get_push_ix(
+        svm: &mut LiteSVM,
+        controller_pk: &Pubkey,
+        super_authority: &Keypair,
+        integration_pk: &Pubkey,
+        obligation: &Pubkey,
+        kamino_config: &KaminoConfig,
+        amount: u64
+    ) -> Result<Instruction, Box<dyn std::error::Error>> {
+
+        // refresh the reserve and the obligation (kamino) 
+        refresh_kamino_reserve(
+            svm, 
+            &super_authority, 
+            &kamino_config.reserve, 
+            &kamino_config.market, 
+            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED,
+        )?;
+
+        refresh_kamino_obligation(
+            svm, 
+            super_authority, 
+            &kamino_config.market, 
+            obligation,
+            None
+        )?;
         
+        let push_ix = create_push_kamino_lend_ix(
+            controller_pk, 
+            integration_pk, 
+            &super_authority.pubkey(), 
+            &kamino_config, 
+            amount
+        );
+
+        Ok(push_ix)
+    }
+
+    fn get_pull_ix(
+        svm: &mut LiteSVM,
+        controller_pk: &Pubkey,
+        super_authority: &Keypair,
+        integration_pk: &Pubkey,
+        obligation: &Pubkey,
+        kamino_config: &KaminoConfig,
+        reserve: &Pubkey,
+        amount: u64
+    ) -> Result<Instruction, Box<dyn std::error::Error>> {
+        // refresh the reserve and the obligation (kamino) 
+        refresh_kamino_reserve(
+            svm, 
+            &super_authority, 
+            &kamino_config.reserve, 
+            &kamino_config.market, 
+            &KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED,
+        )?;
+
+        refresh_kamino_obligation(
+            svm, 
+            super_authority, 
+            &kamino_config.market, 
+            obligation,
+            Some(reserve)
+        )?;
+        
+        let pull_ix = create_pull_kamino_lend_ix(
+            &controller_pk, 
+            &integration_pk, 
+            &super_authority.pubkey(), 
+            &kamino_config, 
+            amount
+        );
+
+        Ok(pull_ix)
+    }
+
+    #[test]
+    fn test_kamino_init_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let obligation_id = 0;
+
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id, 
+            &controller_authority, 
+            &KAMINO_MAIN_MARKET, 
+            &KAMINO_LEND_PROGRAM_ID
+        );
+        
+        let kamino_config = KaminoConfig { 
+            market: KAMINO_MAIN_MARKET, 
+            reserve: KAMINO_USDC_RESERVE, 
+            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            reserve_farm_debt: Pubkey::default(),
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
+            obligation, 
+            obligation_id, 
+            padding: [0; 30] 
+        };
+
+        let (kamino_init_ix, _) = setup_env_and_get_init_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &kamino_config, 
+            &USDC_TOKEN_MINT_PUBKEY, 
+            obligation_id
+        ).unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
             &[cu_ix, kamino_init_ix],
             Some(&super_authority.pubkey()),
@@ -122,6 +245,267 @@ mod tests {
 
         assert!(tx_result.is_ok(), "{:#?}", tx_result.err());
         
+        Ok(())
+    }
+
+    #[test]
+    fn test_kamino_push_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let obligation_id = 0;
+
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id, 
+            &controller_authority, 
+            &KAMINO_MAIN_MARKET, 
+            &KAMINO_LEND_PROGRAM_ID
+        );
+        
+        let kamino_config = KaminoConfig { 
+            market: KAMINO_MAIN_MARKET, 
+            reserve: KAMINO_USDC_RESERVE, 
+            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            reserve_farm_debt: Pubkey::default(),
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
+            obligation, 
+            obligation_id, 
+            padding: [0; 30] 
+        };
+
+        let (kamino_init_ix, integration_pk) = setup_env_and_get_init_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &kamino_config, 
+            &USDC_TOKEN_MINT_PUBKEY, 
+            obligation_id
+        ).unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm
+            .send_transaction(tx.clone())
+            .unwrap();
+
+        // advance time to avoid math overflow in kamino refresh calls
+        let mut initial_clock = svm.get_sysvar::<Clock>();
+        initial_clock.unix_timestamp = 1754682844;
+        initial_clock.slot = 358754275;
+        svm.set_sysvar::<Clock>(&initial_clock);
+        
+        let push_ix = get_push_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &integration_pk, 
+            &obligation, 
+            &kamino_config,
+            100_000_000
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm
+            .send_transaction(tx.clone());
+
+        assert!(tx_result.is_ok(), "{:#?}", tx_result.err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_kamino_pull_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let obligation_id = 0;
+
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id, 
+            &controller_authority, 
+            &KAMINO_MAIN_MARKET, 
+            &KAMINO_LEND_PROGRAM_ID
+        );
+        
+        let kamino_config = KaminoConfig { 
+            market: KAMINO_MAIN_MARKET, 
+            reserve: KAMINO_USDC_RESERVE, 
+            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            reserve_farm_debt: Pubkey::default(),
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
+            obligation, 
+            obligation_id, 
+            padding: [0; 30] 
+        };
+
+        let (kamino_init_ix, integration_pk) = setup_env_and_get_init_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &kamino_config, 
+            &USDC_TOKEN_MINT_PUBKEY, 
+            obligation_id
+        ).unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm
+            .send_transaction(tx.clone())
+            .unwrap();
+
+        // advance time to avoid math overflow in kamino refresh calls
+        let mut initial_clock = svm.get_sysvar::<Clock>();
+        initial_clock.unix_timestamp = 1754682844;
+        initial_clock.slot = 358754275;
+        svm.set_sysvar::<Clock>(&initial_clock);
+        
+        let push_ix = get_push_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &integration_pk, 
+            &obligation, 
+            &kamino_config,
+            100_000_000
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm
+            .send_transaction(tx)
+            .unwrap();
+
+        svm.expire_blockhash();
+
+        let pull_ix = get_pull_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &integration_pk, 
+            &obligation, 
+            &kamino_config, 
+            &kamino_config.reserve,
+            100_000
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, pull_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm
+            .send_transaction(tx.clone());
+
+        assert!(tx_result.is_ok(), "{:#?}", tx_result.err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_kamino_sync_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let obligation_id = 0;
+
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id, 
+            &controller_authority, 
+            &KAMINO_MAIN_MARKET, 
+            &KAMINO_LEND_PROGRAM_ID
+        );
+        
+        let kamino_config = KaminoConfig { 
+            market: KAMINO_MAIN_MARKET, 
+            reserve: KAMINO_USDC_RESERVE, 
+            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            reserve_farm_debt: Pubkey::default(),
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
+            obligation, 
+            obligation_id, 
+            padding: [0; 30] 
+        };
+
+        let (kamino_init_ix, integration_pk) = setup_env_and_get_init_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            &kamino_config, 
+            &USDC_TOKEN_MINT_PUBKEY, 
+            obligation_id
+        ).unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm
+            .send_transaction(tx.clone())
+            .unwrap();
+
+        let rewards_ata = get_associated_token_address(
+            &controller_authority, 
+            &BONK_MINT
+        );
+
+        let sync_ix = create_sync_kamino_lend_ix(
+            &controller_pk, 
+            &integration_pk,
+            &super_authority.pubkey(), 
+            &kamino_config, 
+            &BONK_MINT, 
+            &KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, 
+            &rewards_ata, 
+            &KAMINO_FARMS_PROGRAM_ID, 
+            &SPL_TOKEN_PROGRAM_ID
+        );
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, sync_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm
+            .send_transaction(tx.clone());
+
+        assert!(tx_result.is_ok(), "{:#?}", tx_result.err());
+
         Ok(())
     }
 
