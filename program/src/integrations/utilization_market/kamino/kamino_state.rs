@@ -107,6 +107,7 @@ const COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET: usize = COLLATERAL_MINT_OFFSET + 32;
 
 /// This is a slimmed down version of the `Reserve` state from `KLEND` program.
 /// For more details, see: https://github.com/Kamino-Finance/klend/blob/master/programs/klend/src/state/reserve.rs#L60-L91
+#[derive(Clone)]
 pub struct KaminoReserve {
     pub lending_market: Pubkey,
     pub farm_collateral: Pubkey,
@@ -551,6 +552,80 @@ mod tests {
     use base64::engine::general_purpose::STANDARD as bs64;
     use base64::Engine;
     use pinocchio_pubkey::pubkey;
+
+    fn sf_u64(n: u64) -> u128 {
+        Fraction::from_num(n).to_bits()
+    }
+
+    #[test]
+    fn collateral_to_liquidity_works() {
+        let base_reserve = KaminoReserve {
+            lending_market: Pubkey::default(),
+            farm_collateral: Pubkey::default(),
+            farm_debt: Pubkey::default(),
+            liquidity_mint: Pubkey::default(),
+            liquidity_available_amount: 0,
+            liquidity_borrowed_amount_sf: 0,
+            liquidity_accumulated_protocol_fees_sf: 0,
+            liquidity_accumulated_referrer_fees_sf: 0,
+            liquidity_pending_referrer_fees_sf: 0,
+            collateral_mint: Pubkey::default(),
+            collateral_mint_total_supply: 0,
+        };
+
+        // 1:2 ratio -> 0.5x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 1_000_000;
+        reserve.collateral_mint_total_supply = 2_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 500);
+
+        // 1:1 ratio -> 1x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 1_000_000;
+        reserve.collateral_mint_total_supply = 1_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 1_000);
+
+        // borrowed liquidity adds up (1M + 3M) / 2M = 2x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 1_000_000;
+        reserve.liquidity_borrowed_amount_sf = sf_u64(3_000_000);
+        reserve.collateral_mint_total_supply = 2_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 2_000);
+
+        // fees reduce total (1M + 3M - 0.1M - 0.05M - 0.05M) / 2M = 1.9x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 1_000_000;
+        reserve.liquidity_borrowed_amount_sf = sf_u64(3_000_000);
+        reserve.liquidity_accumulated_protocol_fees_sf = sf_u64(100_000);
+        reserve.liquidity_accumulated_referrer_fees_sf = sf_u64(50_000);
+        reserve.liquidity_pending_referrer_fees_sf = sf_u64(50_000);
+        reserve.collateral_mint_total_supply = 2_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 1_900);
+
+        // small ratio (0.05x)
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 500_000;
+        reserve.collateral_mint_total_supply = 10_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 50);
+
+        // rounding down (999_999 / 2_000_000 = 0.4999995 -> floor -> 499)
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 999_999;
+        reserve.collateral_mint_total_supply = 2_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 499);
+
+        // zero supply guard
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 0;
+        reserve.collateral_mint_total_supply = 0;
+        assert_eq!(reserve.collateral_to_liquidity(1), 1);
+
+        // zero liquidity, nonzero collateral (guard path gives 1:1)
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity_available_amount = 0;
+        reserve.collateral_mint_total_supply = 1_000_000;
+        assert_eq!(reserve.collateral_to_liquidity(1_000), 1_000);
+    }
 
     #[test]
     fn reserve_try_from_works() {
