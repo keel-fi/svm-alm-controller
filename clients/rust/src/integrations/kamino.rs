@@ -45,12 +45,12 @@ pub fn derive_anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
 
 /// Reduced version of `KaminoReserve`, with only the fields needed for liquidity value calculations
 pub struct KaminoReserve {
-    liquidity_available_amount: u64,
-    liquidity_borrowed_amount_sf: u128,
-    liquidity_accumulated_protocol_fees_sf: u128,
-    liquidity_accumulated_referrer_fees_sf: u128,
-    liquidity_pending_referrer_fees_sf: u128,
-    collateral_mint_total_supply: u64,
+    pub liquidity_available_amount: u64,
+    pub liquidity_borrowed_amount_sf: u128,
+    pub liquidity_accumulated_protocol_fees_sf: u128,
+    pub liquidity_accumulated_referrer_fees_sf: u128,
+    pub liquidity_pending_referrer_fees_sf: u128,
+    pub collateral_mint_total_supply: u64,
 }
 
 
@@ -148,18 +148,18 @@ impl KaminoReserve {
     }
 }
 
-const RESERVE_SIZE: usize = 8616;
-const RESERVE_LENDING_MARKET_OFFSET: usize = 8 + 8 + 16;
-const FARM_COLLATERAL_OFFSET: usize = RESERVE_LENDING_MARKET_OFFSET + 32;
-const FARM_DEBT_OFFSET: usize = FARM_COLLATERAL_OFFSET + 32;
-const LIQUIDITY_MINT_OFFSET: usize = FARM_DEBT_OFFSET + 32;
-const LIQUIDITY_AVAILABLE_AMOUNT_OFFSET: usize = LIQUIDITY_MINT_OFFSET + 32 + 32 + 32;
-const LIQUIDITY_BORROWED_AMOUNT_OFFSET: usize = LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8;
-const LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET: usize = LIQUIDITY_BORROWED_AMOUNT_OFFSET + 112;
-const LIQUIDITY_ACC_REFERRER_FEES_OFFSET: usize = LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET + 16;
-const LIQUIDITY_PENDING_REFERRER_FEES: usize = LIQUIDITY_ACC_REFERRER_FEES_OFFSET + 16;
-const COLLATERAL_MINT_OFFSET: usize = LIQUIDITY_PENDING_REFERRER_FEES + 2184;
-const COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET: usize = COLLATERAL_MINT_OFFSET + 32;
+pub const RESERVE_SIZE: usize = 8616;
+pub const RESERVE_LENDING_MARKET_OFFSET: usize = 8 + 8 + 16;
+pub const FARM_COLLATERAL_OFFSET: usize = RESERVE_LENDING_MARKET_OFFSET + 32;
+pub const FARM_DEBT_OFFSET: usize = FARM_COLLATERAL_OFFSET + 32;
+pub const LIQUIDITY_MINT_OFFSET: usize = FARM_DEBT_OFFSET + 32;
+pub const LIQUIDITY_AVAILABLE_AMOUNT_OFFSET: usize = LIQUIDITY_MINT_OFFSET + 32 + 32 + 32;
+pub const LIQUIDITY_BORROWED_AMOUNT_OFFSET: usize = LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8;
+pub const LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET: usize = LIQUIDITY_BORROWED_AMOUNT_OFFSET + 112;
+pub const LIQUIDITY_ACC_REFERRER_FEES_OFFSET: usize = LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET + 16;
+pub const LIQUIDITY_PENDING_REFERRER_FEES: usize = LIQUIDITY_ACC_REFERRER_FEES_OFFSET + 16;
+pub const COLLATERAL_MINT_OFFSET: usize = LIQUIDITY_PENDING_REFERRER_FEES + 2184;
+pub const COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET: usize = COLLATERAL_MINT_OFFSET + 32;
 
 /// Reduced version of `Obligation`, with only the fields needed for liquidity value calculations
 pub struct Obligation {

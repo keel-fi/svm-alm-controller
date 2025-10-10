@@ -59,7 +59,11 @@ pub fn process_sync_integration(
                     let mut reserve 
                         = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
-                    process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?
+                    process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?;
+
+                    // TODO: reserve will be moved into sync_kamino inner_ctx
+                    // since it's the only integration that needs it for now.
+                    reserve.save(ctx.reserve)?;
                 }
             }
         }

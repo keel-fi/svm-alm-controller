@@ -2,11 +2,9 @@ use std::error::Error;
 
 use litesvm::LiteSVM;
 use solana_sdk::{
-    instruction::{AccountMeta, Instruction}, 
-    pubkey::Pubkey, signature::Keypair, 
-    signer::Signer, transaction::Transaction
+    account::Account, instruction::{AccountMeta, Instruction}, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
 };
-use svm_alm_controller_client::integrations::kamino::{derive_anchor_discriminator, KaminoReserve, Obligation};
+use svm_alm_controller_client::integrations::kamino::{derive_anchor_discriminator, KaminoReserve, Obligation, LIQUIDITY_AVAILABLE_AMOUNT_OFFSET};
 
 use crate::helpers::constants::KAMINO_LEND_PROGRAM_ID;
 
@@ -44,6 +42,38 @@ pub fn get_liquidity_and_lp_amount(
     };
 
     Ok((liquidity_value, lp_amount))
+}
+
+pub fn fetch_kamino_reserve(
+    svm: &mut LiteSVM,
+    kamino_reserve_pk: &Pubkey,
+) -> Result<KaminoReserve, Box<dyn std::error::Error>> {
+    let acc = svm.get_account(kamino_reserve_pk)
+        .expect("failed to get kamino account");
+
+    let kamino_reserve = KaminoReserve::try_deserialize(&acc.data)?;
+
+    Ok(kamino_reserve)
+}
+
+pub fn set_kamino_reserve_liquidity_available_amount(
+    svm: &mut LiteSVM,
+    kamino_reserve_pk: &Pubkey,
+    amount: u64
+) -> Result<(), Box<dyn std::error::Error>> {
+    let acc = svm.get_account(kamino_reserve_pk)
+        .expect("failed to get kamino reserve ");
+
+    svm.set_account(*kamino_reserve_pk, Account {
+        data : vec![
+            acc.data[..LIQUIDITY_AVAILABLE_AMOUNT_OFFSET].to_vec(),
+            amount.to_le_bytes().to_vec(),
+            acc.data[LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8..].to_vec()
+        ].concat(),
+        ..acc
+    }).expect("failed to set kamino reserve ");
+
+    Ok(())
 }
 
 pub fn refresh_kamino_reserve(

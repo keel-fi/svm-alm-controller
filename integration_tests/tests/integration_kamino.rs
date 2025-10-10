@@ -31,7 +31,7 @@ mod tests {
             spl::SPL_TOKEN_PROGRAM_ID, 
             TestContext
         }, subs::{
-            derive_controller_authority_pda, edit_ata_amount, fetch_integration_account, fetch_reserve_account, get_liquidity_and_lp_amount, get_token_balance_or_zero, initialize_ata, initialize_reserve, refresh_kamino_obligation, refresh_kamino_reserve, transfer_tokens, ReserveKeys
+            derive_controller_authority_pda, edit_ata_amount, fetch_integration_account, fetch_kamino_reserve, fetch_reserve_account, get_liquidity_and_lp_amount, get_token_balance_or_zero, initialize_ata, initialize_reserve, refresh_kamino_obligation, refresh_kamino_reserve, set_kamino_reserve_liquidity_available_amount, transfer_tokens, ReserveKeys
         }
     };
 
@@ -62,7 +62,7 @@ mod tests {
             svm,
             &super_authority.pubkey(),
             mint,
-            1_000_000_000,
+            1_000_000_000_000,
         )?;
 
         let controller_authority = derive_controller_authority_pda(&controller_pk);
@@ -854,7 +854,7 @@ mod tests {
         let (
             kamino_init_ix, 
             integration_pk,
-            _
+            reserve_keys
         ) = setup_env_and_get_init_ix(
             &mut svm, 
             &controller_pk, 
@@ -909,11 +909,46 @@ mod tests {
             &BONK_MINT
         );
 
-        // advance time to test sync
-        let mut initial_clock = svm.get_sysvar::<Clock>();
-        initial_clock.unix_timestamp = 1754782844;
-        initial_clock.slot = 358764275;
-        svm.set_sysvar::<Clock>(&initial_clock);
+        let reserve_before 
+            = fetch_reserve_account(&svm, &reserve_keys.pubkey)?
+            .unwrap();
+
+        edit_ata_amount(
+            &mut svm, 
+            &controller_authority, 
+            &kamino_config.reserve_liquidity_mint, 
+            100_000_000_000
+        )?;
+
+        // increase the liquidity amount available in the kamino reserve
+        // in order to trigger liquidity value change event
+
+        let (liquidity_value_before, lp_amount_before) = get_liquidity_and_lp_amount(
+            &mut svm, 
+            &kamino_config.reserve, 
+            &kamino_config.obligation
+        )?;
+
+        let kamino_reserve = fetch_kamino_reserve(
+            &mut svm, 
+            &kamino_config.reserve
+        )?;
+        let new_kamino_reserve_liq_available_amount = kamino_reserve.liquidity_available_amount + 100_000_000_000;
+        set_kamino_reserve_liquidity_available_amount(
+            &mut svm, 
+            &kamino_config.reserve, 
+            new_kamino_reserve_liq_available_amount
+        )?;
+
+        let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
+            &mut svm, 
+            &kamino_config.reserve, 
+            &kamino_config.obligation
+        )?;
+
+        let integration_before = fetch_integration_account(&svm, &integration_pk)
+            .unwrap()
+            .unwrap();
 
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk, 
@@ -933,22 +968,88 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let _tx_result = svm
+        let tx_result = svm
             .send_transaction(tx.clone())
             .unwrap();
 
+        let integration_after = fetch_integration_account(&svm, &integration_pk)
+            .unwrap()
+            .unwrap();
+
+        let reserve_after 
+            = fetch_reserve_account(&svm, &reserve_keys.pubkey)?
+            .unwrap();
 
         // Assert emitted events 
-
-        // no reserve sync event since no change in reserve balance since last push
+        
+        let liq_value_delta = reserve_after.last_balance.abs_diff(reserve_before.last_balance);
+        // assert reserve sync
+        let expected_reserve_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: None,
+            reserve: Some(reserve_keys.pubkey),
+            mint: kamino_config.reserve_liquidity_mint,
+            action: AccountingAction::Sync,
+            delta: liq_value_delta,
+            direction: AccountingDirection::Credit,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_reserve_event 
+        );
 
         // current reward mint has no rewards_available and doesnt match reserve mint
         // no event will be emited. TODO: create a reserve with rewards available
 
-        // TODO: in order to test integration state changes and liquidity value change events
-        // we need to actually increase the liquidity value somehow (other integration depositing liquidity)
-        // moving time forward is not enough, since the exchange rate is determined by collateral_supply
-        // and total liquidity
+        // assert lp amount didnt change
+        assert_eq!(lp_amount_after, lp_amount_before);
+
+        // assert liquidity_value change event was emitted
+        let liq_value_delta = liquidity_value_after.abs_diff(liquidity_value_before);
+        let expected_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+            controller: controller_pk, 
+            integration: Some(integration_pk),
+            reserve: None,
+            mint: kamino_config.reserve_liquidity_mint, 
+            action: AccountingAction::Sync, 
+            delta: liq_value_delta,
+            direction: AccountingDirection::Credit
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_event 
+        );
+
+        // assert integration state changed
+        let state_before = match integration_before.clone().state {
+            IntegrationState::UtilizationMarket(s) => {
+                match s  {
+                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
+                }
+            }
+            _ => panic!("invalid config"),
+        };
+        let state_after = match integration_after.clone().state {
+            IntegrationState::UtilizationMarket(s) => {
+                match s  {
+                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
+                }
+            }
+            _ => panic!("invalid config"),
+        };
+
+        assert_eq!(
+            state_before.last_liquidity_value + liq_value_delta,
+            state_after.last_liquidity_value
+        );
+
+        //assert lp amount did not change
+        assert_eq!(
+            state_after.last_lp_amount,
+            state_before.last_lp_amount
+        );
 
         Ok(())
     }
