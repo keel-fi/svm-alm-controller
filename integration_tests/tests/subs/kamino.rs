@@ -1,52 +1,49 @@
 use std::error::Error;
 
 use litesvm::LiteSVM;
-use solana_program::hash;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction}, 
     pubkey::Pubkey, signature::Keypair, 
     signer::Signer, transaction::Transaction
 };
+use svm_alm_controller_client::integrations::kamino::{derive_anchor_discriminator, KaminoReserve, Obligation};
 
 use crate::helpers::constants::KAMINO_LEND_PROGRAM_ID;
 
+pub fn get_liquidity_and_lp_amount(
+    svm: &mut LiteSVM,
+    kamino_reserve_pk: &Pubkey,
+    obligation_pk: &Pubkey,
+) -> Result<(u64, u64), Box<dyn std::error::Error>> {
+    let obligation_acc = svm.get_account(obligation_pk)
+        .expect("could not get obligation");
 
-pub fn derive_vanilla_obligation_address(
-    obligation_id: u8,
-    authority: &Pubkey,
-    market: &Pubkey,
-    kamino_program: &Pubkey
-) -> Pubkey {
-    let (obligation_pda, _) = Pubkey::find_program_address(
-        &[
-            // tag 0 for vanilla obligation
-            &0_u8.to_le_bytes(),
-            // id 0 as default
-            &obligation_id.to_le_bytes(),
-            // user
-            authority.as_ref(),
-            // kamino market
-            market.as_ref(),
-            // seed 1, for lending obligation is the token
-            Pubkey::default().as_ref(),
-            // seed 2, for lending obligation is the token
-            Pubkey::default().as_ref(),
-        ],
-        kamino_program
-    );
+    let obligation_state = Obligation::try_deserialize(&obligation_acc.data)?;
 
-    obligation_pda
-}
+    // if the obligation is closed 
+    // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
+    // then the lp_amount is 0
+    let is_obligation_closed = obligation_acc.lamports == 0;
 
-fn derive_anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
-    let preimage = format!("{}:{}", namespace, name);
+    let lp_amount = if is_obligation_closed { 0 } else {
+        // if it's not closed, then we read the state,
+        // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
+        // in that case lp_amount is also 0
 
-    let mut sighash = [0_u8; 8];
-    sighash.copy_from_slice(
-        &hash::hash(preimage.as_bytes()).to_bytes()[..8]
-    );
+        // handles the case where no ObligationCollateral is found
+        obligation_state.get_obligation_collateral_for_reserve(kamino_reserve_pk)
+            .map_or(0, |collateral| collateral.deposited_amount)
+    };
 
-    sighash
+    // avoids deserializing kamino_reserve if lp_amount is 0
+    let liquidity_value = if lp_amount == 0 { 0 } else {
+        let kamino_reserve_acc = svm.get_account(kamino_reserve_pk)
+        .expect("could not get kamino reserve");
+        let kamino_reserve_state = KaminoReserve::try_deserialize(&kamino_reserve_acc.data)?;
+        kamino_reserve_state.collateral_to_liquidity(lp_amount)
+    };
+
+    Ok((liquidity_value, lp_amount))
 }
 
 pub fn refresh_kamino_reserve(

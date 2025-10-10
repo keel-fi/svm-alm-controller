@@ -105,6 +105,11 @@ pub fn process_push_kamino(
         vault.amount()
     };
 
+    let (liquidity_value_before, _) = get_liquidity_and_lp_amount(
+        inner_ctx.kamino_reserve, 
+        inner_ctx.obligation
+    )?;
+
     // perform kamino deposit liquidity cpi
     deposit_reserve_liquidity_v2(
         amount, 
@@ -123,10 +128,20 @@ pub fn process_push_kamino(
             = TokenAccount::from_account_info(inner_ctx.token_account)?;
         vault.amount()
     };
-
     let liquidity_amount_delta = liquidity_amount_before.saturating_sub(liquidity_amount_after);
 
-    if liquidity_amount_delta > 0 {
+    let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
+        inner_ctx.kamino_reserve, 
+        inner_ctx.obligation
+    )?;
+    let liquidity_value_delta = liquidity_value_after.saturating_sub(liquidity_value_before);
+    
+    
+    if liquidity_amount_delta > 0 && liquidity_value_delta > 0 {
+
+        // In order to reflect the actual value of the liquidity deposit,
+        // we use kamino's calculations (liquidity value delta)
+
         // Emit accounting event for credit Integration
         controller.emit_event(
             outer_ctx.controller_authority,
@@ -138,7 +153,7 @@ pub fn process_push_kamino(
                 reserve: None,
                 direction: AccountingDirection::Credit,
                 action: AccountingAction::Deposit,
-                delta: liquidity_amount_delta
+                delta: liquidity_value_delta
             }),
         )?;
 
@@ -159,18 +174,13 @@ pub fn process_push_kamino(
         )?;
     }
 
-    let (liquidity_value_after_deposit, lp_amount_after_deposit) = get_liquidity_and_lp_amount(
-        inner_ctx.kamino_reserve, 
-        inner_ctx.obligation
-    )?;
-
     // update the state
     match &mut integration.state {
         IntegrationState::UtilizationMarket(state) => {
             match state {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.last_liquidity_value = liquidity_value_after_deposit;
-                    kamino_state.last_lp_amount = lp_amount_after_deposit;
+                    kamino_state.last_liquidity_value = liquidity_value_after;
+                    kamino_state.last_lp_amount = lp_amount_after;
                 }
             }
         },                   
@@ -181,7 +191,6 @@ pub fn process_push_kamino(
     integration.update_rate_limit_for_outflow(clock, liquidity_amount_delta)?;
 
     // update the reserves for the flows
-    // todo: verify allow_underflow
     reserve.update_for_outflow(clock, liquidity_amount_delta, false)?;
 
     Ok(())

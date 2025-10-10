@@ -89,6 +89,11 @@ pub fn process_pull_kamino(
         vault.amount()
     };
 
+    let (liquidity_value_before, _) = get_liquidity_and_lp_amount(
+        inner_ctx.kamino_reserve, 
+        inner_ctx.obligation
+    )?;
+
     withdraw_obligation_collateral_v2(
         amount, 
         Signer::from(&[
@@ -106,13 +111,15 @@ pub fn process_pull_kamino(
             = TokenAccount::from_account_info(inner_ctx.token_account)?;
         vault.amount()
     };
+    let liquidity_amount_delta = liquidity_amount_after.saturating_sub(liquidity_amount_before);
 
+    let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
+        inner_ctx.kamino_reserve, 
+        inner_ctx.obligation
+    )?;
+    let liquidity_value_delta = liquidity_value_before.saturating_sub(liquidity_value_after);
     
-    if liquidity_amount_before != liquidity_amount_after {
-        // funds flow into the vault (inner_ctx.token_account) from kamino
-        // so balance increases
-        let check_delta 
-            = liquidity_amount_after.saturating_sub(liquidity_amount_before);
+    if liquidity_amount_delta > 0 && liquidity_value_delta > 0 {
 
         // Emit accounting event for debit integration
         controller.emit_event(
@@ -125,7 +132,7 @@ pub fn process_pull_kamino(
                 reserve: None,
                 direction: AccountingDirection::Debit,
                 action: AccountingAction::Withdrawal,
-                delta: check_delta,
+                delta: liquidity_value_delta,
             }),
         )?;
 
@@ -141,26 +148,18 @@ pub fn process_pull_kamino(
                 reserve: Some(*outer_ctx.reserve_a.key()),
                 direction: AccountingDirection::Credit,
                 action: AccountingAction::Withdrawal,
-                delta: check_delta,
+                delta: liquidity_amount_delta,
             }),
         )?;
     }
-
-    let (
-        liquidity_value_after_withdraw,
-        lp_amount_amount_after_withdraw
-    ) = get_liquidity_and_lp_amount(
-        inner_ctx.kamino_reserve, 
-        inner_ctx.obligation, 
-    )?;
 
     // update the state
     match &mut integration.state {
         IntegrationState::UtilizationMarket(state) => {
             match state {
                 UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.last_liquidity_value = liquidity_value_after_withdraw;
-                    kamino_state.last_lp_amount = lp_amount_amount_after_withdraw;
+                    kamino_state.last_liquidity_value = liquidity_value_after;
+                    kamino_state.last_lp_amount = lp_amount_after;
                 }
             }
         },

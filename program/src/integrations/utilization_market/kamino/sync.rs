@@ -43,7 +43,7 @@ define_account_struct! {
         rewards_ata: mut;
         rewards_mint: @owner(pinocchio_token::ID);
         scope_prices;
-        token_program: @pubkey(pinocchio_token::ID); // TODO token2022
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);

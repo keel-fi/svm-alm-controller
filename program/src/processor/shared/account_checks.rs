@@ -108,3 +108,18 @@ pub fn verify_owner_mutability(
 
     Ok(())
 }
+
+/// Checks whether an account has been closed.
+///
+/// An account is considered closed if:
+/// - Its lamports balance is `0`.
+/// - Its data field is empty.
+///
+/// # Arguments
+/// * `account_info` - The account to verify.
+///
+/// # Returns
+/// * `true` if the account is closed, otherwise `false`.
+pub fn is_account_closed(account_info: &AccountInfo) -> bool {
+    account_info.lamports() == 0 && account_info.data_is_empty()
+}

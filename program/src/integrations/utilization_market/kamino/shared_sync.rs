@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Calculates the current `liquidity_value` of `position`/`kamino_reserve` and emits Sync event
-/// in the case of a change regarding previously stores `liquidity_value`.
+/// in the case of a change regarding previously stored `liquidity_value`.
 /// Used in Push/Pull/Sync.
 pub fn sync_kamino_liquidity_value(
     controller: &Controller,

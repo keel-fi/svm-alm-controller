@@ -10,7 +10,7 @@ use crate::{
             RESERVE_DISCRIMINATOR
         }, 
         initialize::InitializeKaminoAccounts
-    }
+    }, processor::shared::is_account_closed
 };
 
 
@@ -299,9 +299,8 @@ pub fn get_liquidity_and_lp_amount(
     // if the obligation is closed 
     // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
     // then the lp_amount is 0
-    let is_obligation_closed = obligation.lamports() == 0;
 
-    let lp_amount = if is_obligation_closed { 0 } else {
+    let lp_amount = if is_account_closed(obligation) { 0 } else {
         // if it's not closed, then we read the state,
         // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
         // in that case lp_amount is also 0
@@ -313,7 +312,7 @@ pub fn get_liquidity_and_lp_amount(
             .map_or(0, |collateral| collateral.deposited_amount)
     };
 
-    // avoids deserializing kamino_reserve is lp_amount is 0
+    // avoids deserializing kamino_reserve if lp_amount is 0
     let liquidity_value = if lp_amount == 0 { 0 } else {
         let kamino_reserve_state = KaminoReserve::try_from(
             kamino_reserve.try_borrow_data()?.as_ref()
@@ -585,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    fn obligation_try_form_works() {
+    fn obligation_try_from_works() {
             let lending_market = pubkey!("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
             let owner = pubkey!("4EiYqK5PCfLVyvL3WQRkifkPoVtaRHdTvYTzeLkydtHW");
             let collateral_reserves: [ObligationCollateral; 8] = [

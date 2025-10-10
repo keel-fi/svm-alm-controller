@@ -27,17 +27,17 @@ use pinocchio_token::state::TokenAccount;
 define_account_struct! {
     pub struct PushPullKaminoAccounts<'info> {
         // Pull = liquidity_destination, Push = liquidity_source
-        token_account: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
+        token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         obligation: mut @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
-        reserve_liquidity_mint: @owner(pinocchio_token::ID); // TODO: token 2022 support
-        reserve_liquidity_supply: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
-        reserve_collateral_mint: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
-        reserve_collateral_supply: mut @owner(pinocchio_token::ID); // TODO: token 2022 support
+        reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_collateral_mint: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
-        collateral_token_program: @pubkey(pinocchio_token::ID); // TODO: token 2022 support
-        liquidity_token_program: @pubkey(pinocchio_token::ID); // TODO: token 2022 support
+        collateral_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        liquidity_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         instruction_sysvar_account: @pubkey(INSTRUCTIONS_ID);
         obligation_farm_collateral: mut;
         reserve_farm_collateral: mut;
@@ -128,7 +128,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
             ctx.market.key(), 
             &KAMINO_LEND_PROGRAM_ID
         )?;
-        if &market_authority_pda != ctx.market_authority.key() {
+        if ctx.market_authority.key().ne(&market_authority_pda)  {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }

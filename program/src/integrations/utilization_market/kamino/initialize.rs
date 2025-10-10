@@ -37,7 +37,7 @@ use crate::{
 define_account_struct! {
     pub struct InitializeKaminoAccounts<'info> {
         obligation: mut;
-        reserve_liquidity_mint: @owner(pinocchio_token::ID); // TODO Token2022
+        reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_metadata: mut;
         user_lookup_table: mut;
         referrer_metadata;
@@ -156,10 +156,10 @@ pub fn process_initialize_kamino(
             obligation_id
         )?;
 
-    let reserve = KaminoReserve::try_from(
+    let kamino_reserve = KaminoReserve::try_from(
         inner_ctx.kamino_reserve.try_borrow_data()?.as_ref()
     )?;
-    reserve.check_from_account(&inner_ctx)?;
+    kamino_reserve.check_from_account(&inner_ctx)?;
 
     // initialize LUT and metadata if owned by system program
     if inner_ctx.user_metadata.is_owned_by(&pinocchio_system::ID) {
@@ -193,7 +193,7 @@ pub fn process_initialize_kamino(
 
     // initialize obligation farm for the reserve we are targeting,
     // only if the reserve has a collateral_farm
-    if reserve.has_collateral_farm() {
+    if kamino_reserve.has_collateral_farm() {
         initialize_obligation_farm(OBLIGATION_FARM_COLLATERAL_MODE, outer_ctx, &inner_ctx)?;
     }
 
