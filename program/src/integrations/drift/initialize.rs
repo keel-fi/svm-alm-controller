@@ -2,6 +2,7 @@ use pinocchio::instruction::Seed;
 use pinocchio::sysvars::rent::RENT_ID;
 use pinocchio::{instruction::Signer, program_error::ProgramError};
 
+use crate::account_utils::account_is_uninitialized;
 use crate::constants::CONTROLLER_AUTHORITY_SEED;
 use crate::instructions::InitializeArgs;
 use crate::integrations::drift::cpi::InitializeUser;
@@ -37,55 +38,60 @@ pub fn process_initialize_drift(
     controller: &Controller,
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     let inner_ctx = InitializeDriftAccounts::from_accounts(outer_ctx.remaining_accounts)?;
-    let sub_account_id = match outer_args.inner_args {
-        InitializeArgs::Drift { sub_account_id } => sub_account_id,
+    let (sub_account_id, spot_market_index) = match outer_args.inner_args {
+        InitializeArgs::Drift {
+            sub_account_id,
+            spot_market_index,
+        } => (sub_account_id, spot_market_index),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
+    // Initialize UserStats when it does not exist
+    if account_is_uninitialized(inner_ctx.drift_user_stats) {
+        InitializeUserStats {
+            user_stats: inner_ctx.drift_user_stats,
+            state: inner_ctx.drift_state,
+            authority: outer_ctx.controller_authority,
+            payer: outer_ctx.payer,
+            rent: inner_ctx.rent,
+            system_program: outer_ctx.system_program,
+        }
+        .invoke_signed(Signer::from(&[
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(outer_ctx.controller.key()),
+            Seed::from(&[controller.authority_bump]),
+        ]))?;
+    }
+
+    // Initialize Drift User when it does not exist
+    if account_is_uninitialized(inner_ctx.drift_user) {
+        InitializeUser {
+            user: inner_ctx.drift_user,
+            user_stats: inner_ctx.drift_user_stats,
+            state: inner_ctx.drift_state,
+            authority: outer_ctx.controller_authority,
+            payer: outer_ctx.payer,
+            rent: inner_ctx.rent,
+            system_program: outer_ctx.system_program,
+        }
+        .invoke_signed(
+            sub_account_id,
+            Signer::from(&[
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
+            ]),
+        )?;
+    }
+
     let config = IntegrationConfig::Drift(DriftConfig {
         sub_account_id,
-        _padding: [0u8; 222],
+        spot_market_index,
+        _padding: [0u8; 220],
     });
     let state = IntegrationState::Drift(DriftState {
         _padding: [0u8; 48],
     });
-
-    // TODO check if UserStats exists to skip CPI
-    // Initialize UserStats
-    InitializeUserStats {
-        user_stats: inner_ctx.drift_user_stats,
-        state: inner_ctx.drift_state,
-        authority: outer_ctx.controller_authority,
-        payer: outer_ctx.payer,
-        rent: inner_ctx.rent,
-        system_program: outer_ctx.system_program,
-    }
-    .invoke_signed(Signer::from(&[
-        Seed::from(CONTROLLER_AUTHORITY_SEED),
-        Seed::from(outer_ctx.controller.key()),
-        Seed::from(&[controller.authority_bump]),
-    ]))?;
-
-    // TODO check if User exists
-    InitializeUser {
-        user: inner_ctx.drift_user,
-        user_stats: inner_ctx.drift_user_stats,
-        state: inner_ctx.drift_state,
-        authority: outer_ctx.controller_authority,
-        payer: outer_ctx.payer,
-        rent: inner_ctx.rent,
-        system_program: outer_ctx.system_program,
-    }
-    .invoke_signed(
-        sub_account_id,
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump]),
-        ]),
-    )?;
-
-    // TODO init User if does not exist
 
     Ok((config, state))
 }

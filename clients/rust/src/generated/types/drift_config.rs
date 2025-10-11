@@ -12,6 +12,7 @@ use borsh::BorshSerialize;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DriftConfig {
     pub sub_account_id: u16,
+    pub spot_market_index: u16,
     #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
-    pub padding: [u8; 222],
+    pub padding: [u8; 220],
 }

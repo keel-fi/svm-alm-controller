@@ -49,7 +49,7 @@ export type InitializeArgs =
       expiryTimestamp: bigint;
       oraclePriceInverted: boolean;
     }
-  | { __kind: 'Drift'; subAccountId: number };
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number };
 
 export type InitializeArgsArgs =
   | { __kind: 'SplTokenExternal' }
@@ -66,7 +66,7 @@ export type InitializeArgsArgs =
       expiryTimestamp: number | bigint;
       oraclePriceInverted: boolean;
     }
-  | { __kind: 'Drift'; subAccountId: number };
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number };
 
 export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -94,7 +94,13 @@ export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
         ['oraclePriceInverted', getBooleanEncoder()],
       ]),
     ],
-    ['Drift', getStructEncoder([['subAccountId', getU16Encoder()]])],
+    [
+      'Drift',
+      getStructEncoder([
+        ['subAccountId', getU16Encoder()],
+        ['spotMarketIndex', getU16Encoder()],
+      ]),
+    ],
   ]);
 }
 
@@ -124,7 +130,13 @@ export function getInitializeArgsDecoder(): Decoder<InitializeArgs> {
         ['oraclePriceInverted', getBooleanDecoder()],
       ]),
     ],
-    ['Drift', getStructDecoder([['subAccountId', getU16Decoder()]])],
+    [
+      'Drift',
+      getStructDecoder([
+        ['subAccountId', getU16Decoder()],
+        ['spotMarketIndex', getU16Decoder()],
+      ]),
+    ],
   ]);
 }
 

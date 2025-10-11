@@ -22,21 +22,27 @@ import {
   type ReadonlyUint8Array,
 } from '@solana/kit';
 
-export type DriftConfig = { subAccountId: number; padding: ReadonlyUint8Array };
+export type DriftConfig = {
+  subAccountId: number;
+  spotMarketIndex: number;
+  padding: ReadonlyUint8Array;
+};
 
 export type DriftConfigArgs = DriftConfig;
 
 export function getDriftConfigEncoder(): FixedSizeEncoder<DriftConfigArgs> {
   return getStructEncoder([
     ['subAccountId', getU16Encoder()],
-    ['padding', fixEncoderSize(getBytesEncoder(), 222)],
+    ['spotMarketIndex', getU16Encoder()],
+    ['padding', fixEncoderSize(getBytesEncoder(), 220)],
   ]);
 }
 
 export function getDriftConfigDecoder(): FixedSizeDecoder<DriftConfig> {
   return getStructDecoder([
     ['subAccountId', getU16Decoder()],
-    ['padding', fixDecoderSize(getBytesDecoder(), 222)],
+    ['spotMarketIndex', getU16Decoder()],
+    ['padding', fixDecoderSize(getBytesDecoder(), 220)],
   ]);
 }
 

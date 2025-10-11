@@ -37,5 +37,6 @@ pub enum InitializeArgs {
     },
     Drift {
         sub_account_id: u16,
+        spot_market_index: u16,
     },
 }

@@ -24,6 +24,8 @@ mod tests {
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
 
+    // TODO add test case checking if spot market index exists
+
     #[test]
     fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
@@ -60,6 +62,7 @@ mod tests {
 
         // Initialize Drift Integration
         let sub_account_id = 0;
+        let spot_market_index = 0;
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
         let permit_liquidation = true;
@@ -73,6 +76,7 @@ mod tests {
             rate_limit_max_outflow,
             permit_liquidation,
             sub_account_id,
+            spot_market_index,
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -81,13 +85,9 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone());
-        match tx_result.clone() {
-            Ok(_res) => {}
-            Err(e) => {
-                panic!("Transaction errored\n{:?}", e.meta.logs);
-            }
-        }
+        let tx_result = svm
+            .send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         let clock = svm.get_sysvar::<Clock>();
 
@@ -108,13 +108,14 @@ mod tests {
         assert_eq!(integration.last_refresh_timestamp, clock.unix_timestamp);
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
-        match integration.clone().config {
+        match &integration.config {
             IntegrationConfig::Drift(c) => {
                 assert_eq!(
                     c,
-                    DriftConfig {
+                    &DriftConfig {
                         sub_account_id,
-                        padding: [0u8; 222]
+                        spot_market_index,
+                        padding: [0u8; 220]
                     }
                 )
             }
@@ -138,18 +139,42 @@ mod tests {
         assert_eq!(drift_user.total_withdraws, 0);
 
         // Assert emitted event
-        // let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
-        //     controller: controller_pk,
-        //     integration: integration_pubkey,
-        //     authority: super_authority.pubkey(),
-        //     old_state: None,
-        //     new_state: Some(integration),
-        // });
-        // assert_contains_controller_cpi_event!(
-        //     tx_result,
-        //     tx.message.account_keys.as_slice(),
-        //     expected_event
-        // );
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: controller_pk,
+            integration: integration_pubkey,
+            authority: super_authority.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            expected_event
+        );
+
+        // Creation of a second Integraiton should work without error
+        // due to checks UserStats and User exist.
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            // Increment spot market index so integration key is different
+            spot_market_index + 1,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+        assert!(tx_result.is_ok());
 
         Ok(())
     }

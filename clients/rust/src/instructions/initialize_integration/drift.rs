@@ -27,13 +27,18 @@ pub fn create_drift_initialize_integration_instruction(
     rate_limit_max_outflow: u64,
     permit_liquidation: bool,
     sub_account_id: u16,
+    spot_market_index: u16,
 ) -> Instruction {
     let config = IntegrationConfig::Drift(DriftConfig {
         sub_account_id,
-        padding: [0u8; 222],
+        spot_market_index,
+        padding: [0u8; 220],
     });
 
-    let inner_args = InitializeArgs::Drift { sub_account_id };
+    let inner_args = InitializeArgs::Drift {
+        sub_account_id,
+        spot_market_index,
+    };
 
     let hash = hash(borsh::to_vec(&config).unwrap().as_ref()).to_bytes();
     let integration_pda = derive_integration_pda(controller, &hash);
