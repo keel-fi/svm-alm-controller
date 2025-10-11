@@ -24,3 +24,12 @@ pub fn derive_user_pda(authority: &Pubkey, sub_account_id: u16) -> Pubkey {
     )
     .0
 }
+
+/// Derives SpotMarket PDA
+pub fn derive_spot_market_pda(market_index: u16) -> Pubkey {
+    Pubkey::find_program_address(
+        &[b"spot_market", market_index.to_le_bytes().as_ref()],
+        &DRIFT_PROGRAM_ID,
+    )
+    .0
+}

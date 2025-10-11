@@ -1,7 +1,10 @@
 use bytemuck::{Pod, Zeroable};
-use solana_sdk::pubkey::Pubkey;
+use litesvm::LiteSVM;
+use solana_sdk::{account::Account, pubkey::Pubkey, signature::Keypair};
+use svm_alm_controller::constants::anchor_discriminator;
+use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, DRIFT_PROGRAM_ID};
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct HistoricalOracleData {
     /// precision: PRICE_PRECISION
@@ -18,7 +21,7 @@ pub struct HistoricalOracleData {
     pub last_oracle_price_twap_ts: i64,
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct HistoricalIndexData {
     /// precision: PRICE_PRECISION
@@ -33,7 +36,7 @@ pub struct HistoricalIndexData {
     pub last_index_price_twap_ts: i64,
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct PoolBalance {
     /// To get the pool's token amount, you must multiply the scaled balance by the market's cumulative
@@ -45,7 +48,7 @@ pub struct PoolBalance {
     pub padding: [u8; 6],
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct InsuranceFund {
     pub vault: Pubkey,
@@ -59,7 +62,7 @@ pub struct InsuranceFund {
     pub user_factor: u32,  // percentage of interest for user staked insurance
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct SpotMarket {
     /// The address of the spot market. It is a pda of the market index
@@ -241,4 +244,37 @@ pub struct SpotMarket {
     pub padding_3: [u8; 8],
     pub padding_4: [u8; 8],
     pub padding_5: [u8; 8],
+}
+impl SpotMarket {
+    pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
+}
+
+/// Setup Drift SpotMarket state in LiteSvm giving full control over state.
+///
+/// If anything is not set correctly for a subsequent test, either:
+/// - IF applicable to all tests, mutate state with a set value here
+/// - ELSE IF requires variable values for testing, add a argument
+///     and mutate state set from the arg.
+pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16) {
+    let admin = Keypair::new();
+    let mut spot_market = SpotMarket::default();
+    // -- Update state variables
+    spot_market.market_index = market_index;
+
+    let mut state_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
+    state_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
+    state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
+
+    let pubkey = derive_spot_market_pda(market_index);
+    svm.set_account(
+        pubkey,
+        Account {
+            lamports: u64::MAX,
+            rent_epoch: u64::MAX,
+            data: state_data,
+            owner: DRIFT_PROGRAM_ID,
+            executable: false,
+        },
+    )
+    .unwrap();
 }

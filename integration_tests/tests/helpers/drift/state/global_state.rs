@@ -114,9 +114,9 @@ pub fn setup_drift_state(svm: &mut LiteSVM) -> DriftTestContext {
     state_data.extend_from_slice(&State::DISCRIMINATOR);
     state_data.extend_from_slice(&bytemuck::bytes_of(&state));
 
-    let state_pda = derive_state_pda();
+    let pubkey = derive_state_pda();
     svm.set_account(
-        state_pda,
+        pubkey,
         Account {
             lamports: u64::MAX,
             rent_epoch: u64::MAX,
