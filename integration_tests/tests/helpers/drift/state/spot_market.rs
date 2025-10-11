@@ -256,7 +256,6 @@ impl SpotMarket {
 /// - ELSE IF requires variable values for testing, add a argument
 ///     and mutate state set from the arg.
 pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16) {
-    let admin = Keypair::new();
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
     spot_market.market_index = market_index;
