@@ -1157,6 +1157,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drift-protocol-v2-client"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "pinocchio",
+ "pinocchio-pubkey",
+ "solana-sdk",
+]
+
+[[package]]
 name = "dvn-client"
 version = "0.1.0"
 source = "git+https://github.com/keel-fi/lz-rust-client?branch=mods#9d5164768c4081c3b29f75df27fa334868f4e078"
@@ -6733,6 +6743,7 @@ dependencies = [
  "bs58 0.4.0",
  "bytemuck",
  "byteorder",
+ "drift-protocol-v2-client",
  "num-derive",
  "num-traits",
  "pinocchio",
@@ -6773,6 +6784,7 @@ dependencies = [
  "base64 0.22.1",
  "borsh 1.5.5",
  "bytemuck",
+ "drift-protocol-v2-client",
  "endpoint-client",
  "hex",
  "litesvm",
