@@ -291,7 +291,9 @@ pub enum InitializeArgs {
         expiry_timestamp: i64,
         oracle_price_inverted: bool,
     },
-    Drift,
+    Drift {
+        sub_account_id: u16,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

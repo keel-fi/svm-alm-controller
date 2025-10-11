@@ -2012,11 +2012,15 @@
         "kind": "struct",
         "fields": [
           {
+            "name": "subAccountId",
+            "type": "u16"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                224
+                222
               ]
             }
           }
@@ -2629,7 +2633,13 @@
             ]
           },
           {
-            "name": "Drift"
+            "name": "Drift",
+            "fields": [
+              {
+                "name": "sub_account_id",
+                "type": "u16"
+              }
+            ]
           }
         ]
       }

@@ -7,7 +7,7 @@ mod tests {
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
-            drift::{setup_drift_state, UserStats},
+            drift::{setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
         subs::{fetch_integration_account, initialize_mint, initialize_reserve},
@@ -21,7 +21,7 @@ mod tests {
             ReserveStatus, SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
-        integrations::drift::derive_user_stats_pda,
+        integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
 
     #[test]
@@ -59,7 +59,7 @@ mod tests {
         )?;
 
         // Initialize Drift Integration
-        let sub_account_id = 1;
+        let sub_account_id = 0;
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
         let permit_liquidation = true;
@@ -113,7 +113,8 @@ mod tests {
                 assert_eq!(
                     c,
                     DriftConfig {
-                        padding: [0u8; 224]
+                        sub_account_id,
+                        padding: [0u8; 222]
                     }
                 )
             }
@@ -126,7 +127,15 @@ mod tests {
         let drift_user_stats_acct = svm.get_account(&drift_user_stats_pda).unwrap();
         let drift_user_stats = UserStats::try_from(&drift_user_stats_acct.data).unwrap();
         assert_eq!(drift_user_stats.authority, controller_authority);
-        // TODO assert User created
+
+        // Assert User created
+        let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
+        let drift_user_acct = svm.get_account(&drift_user_pda).unwrap();
+        let drift_user = User::try_from(&drift_user_acct.data).unwrap();
+        assert_eq!(drift_user.authority, controller_authority);
+        assert_eq!(drift_user.sub_account_id, sub_account_id);
+        assert_eq!(drift_user.total_deposits, 0);
+        assert_eq!(drift_user.total_withdraws, 0);
 
         // Assert emitted event
         // let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {

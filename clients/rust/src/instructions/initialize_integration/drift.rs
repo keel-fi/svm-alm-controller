@@ -29,10 +29,11 @@ pub fn create_drift_initialize_integration_instruction(
     sub_account_id: u16,
 ) -> Instruction {
     let config = IntegrationConfig::Drift(DriftConfig {
-        padding: [0u8; 224],
+        sub_account_id,
+        padding: [0u8; 222],
     });
 
-    let inner_args = InitializeArgs::Drift;
+    let inner_args = InitializeArgs::Drift { sub_account_id };
 
     let hash = hash(borsh::to_vec(&config).unwrap().as_ref()).to_bytes();
     let integration_pda = derive_integration_pda(controller, &hash);
@@ -44,9 +45,15 @@ pub fn create_drift_initialize_integration_instruction(
     description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
 
     let user_stats = derive_user_stats_pda(&controller_authority);
+    let user = derive_user_pda(&controller_authority, sub_account_id);
     let state = derive_state_pda();
 
     let remaining_accounts = [
+        AccountMeta {
+            pubkey: user,
+            is_signer: false,
+            is_writable: true,
+        },
         AccountMeta {
             pubkey: user_stats,
             is_signer: false,

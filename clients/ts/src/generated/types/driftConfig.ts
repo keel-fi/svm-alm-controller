@@ -14,25 +14,29 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU16Decoder,
+  getU16Encoder,
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
   type ReadonlyUint8Array,
 } from '@solana/kit';
 
-export type DriftConfig = { padding: ReadonlyUint8Array };
+export type DriftConfig = { subAccountId: number; padding: ReadonlyUint8Array };
 
 export type DriftConfigArgs = DriftConfig;
 
 export function getDriftConfigEncoder(): FixedSizeEncoder<DriftConfigArgs> {
   return getStructEncoder([
-    ['padding', fixEncoderSize(getBytesEncoder(), 224)],
+    ['subAccountId', getU16Encoder()],
+    ['padding', fixEncoderSize(getBytesEncoder(), 222)],
   ]);
 }
 
 export function getDriftConfigDecoder(): FixedSizeDecoder<DriftConfig> {
   return getStructDecoder([
-    ['padding', fixDecoderSize(getBytesDecoder(), 224)],
+    ['subAccountId', getU16Decoder()],
+    ['padding', fixDecoderSize(getBytesDecoder(), 222)],
   ]);
 }
 
