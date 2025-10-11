@@ -1,6 +1,7 @@
 use solana_instruction::{AccountMeta, Instruction};
 use solana_program::{keccak::hash, system_program};
 use solana_pubkey::Pubkey;
+use solana_sysvar::rent::ID as RENT_ID;
 
 use crate::{
     derive_controller_authority_pda, derive_integration_pda, derive_permission_pda,
@@ -9,6 +10,9 @@ use crate::{
         types::{
             DriftConfig, InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType,
         },
+    },
+    integrations::drift::{
+        derive_state_pda, derive_user_pda, derive_user_stats_pda, DRIFT_PROGRAM_ID,
     },
 };
 
@@ -22,7 +26,7 @@ pub fn create_drift_initialize_integration_instruction(
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
     permit_liquidation: bool,
-    mint: &Pubkey,
+    sub_account_id: u16,
 ) -> Instruction {
     let config = IntegrationConfig::Drift(DriftConfig {
         padding: [0u8; 224],
@@ -39,11 +43,31 @@ pub fn create_drift_initialize_integration_instruction(
     let mut description_encoding: [u8; 32] = [0; 32];
     description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
 
-    let remaining_accounts = [AccountMeta {
-        pubkey: *mint,
-        is_signer: false,
-        is_writable: false,
-    }];
+    let user_stats = derive_user_stats_pda(&controller_authority);
+    let state = derive_state_pda();
+
+    let remaining_accounts = [
+        AccountMeta {
+            pubkey: user_stats,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: state,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: RENT_ID,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: DRIFT_PROGRAM_ID,
+            is_signer: false,
+            is_writable: false,
+        },
+    ];
 
     InitializeIntegrationBuilder::new()
         .integration_type(IntegrationType::Drift)

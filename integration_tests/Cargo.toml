@@ -7,7 +7,6 @@ edition = { workspace = true }
 arrayref = { workspace = true }
 borsh = { workspace = true }
 bytemuck = { workspace = true }
-drift-protocol-v2-client = { workspace = true }
 litesvm = { workspace = true }
 solana-program = { workspace = true }
 solana-sdk = { workspace = true }
