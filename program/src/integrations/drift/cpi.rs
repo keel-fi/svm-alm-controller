@@ -15,6 +15,35 @@ pub struct InitializeUserStats<'info> {
     pub rent: &'info AccountInfo,
     pub system_program: &'info AccountInfo,
 }
+
+impl<'info> InitializeUserStats<'info> {
+    pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("global", "initialize_user_stats");
+
+    pub fn invoke_signed(&self, signers_seeds: Signer) -> ProgramResult {
+        let account_infos = [
+            self.user_stats,
+            self.state,
+            self.authority,
+            self.payer,
+            self.rent,
+            self.system_program,
+        ];
+        let accounts = [
+            AccountMeta::new(self.user_stats.key(), true, false),
+            AccountMeta::new(self.state.key(), true, false),
+            AccountMeta::new(self.authority.key(), false, true),
+            AccountMeta::new(self.payer.key(), true, true),
+            AccountMeta::new(self.rent.key(), false, false),
+            AccountMeta::new(self.system_program.key(), false, false),
+        ];
+        let ix = Instruction {
+            program_id: &DRIFT_PROGRAM_ID,
+            accounts: &accounts,
+            data: &INIT_USER_STATS_DISC,
+        };
+        invoke_signed(&ix, &account_infos, &[signers_seeds])
+    }
+}
 const INIT_USER_STATS_DISC: [u8; 8] = anchor_discriminator("global", "initialize_user_stats");
 
 /// Initialize Drift UserStats account.

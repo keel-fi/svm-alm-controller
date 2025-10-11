@@ -43,22 +43,21 @@ pub fn process_initialize_drift(
         _padding: [0u8; 48],
     });
 
-    // TODO init UserStats if does not exist
-    initialize_user_stats(
-        InitializeUserStats {
-            user_stats: inner_ctx.drift_user_stats,
-            state: inner_ctx.drift_state,
-            authority: outer_ctx.controller_authority,
-            payer: outer_ctx.payer,
-            rent: inner_ctx.rent,
-            system_program: outer_ctx.system_program,
-        },
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump]),
-        ]),
-    )?;
+    // TODO check if UserStats exists to skip CPI
+    // Initialize UserStats
+    InitializeUserStats {
+        user_stats: inner_ctx.drift_user_stats,
+        state: inner_ctx.drift_state,
+        authority: outer_ctx.controller_authority,
+        payer: outer_ctx.payer,
+        rent: inner_ctx.rent,
+        system_program: outer_ctx.system_program,
+    }
+    .invoke_signed(Signer::from(&[
+        Seed::from(CONTROLLER_AUTHORITY_SEED),
+        Seed::from(outer_ctx.controller.key()),
+        Seed::from(&[controller.authority_bump]),
+    ]))?;
 
     // TODO init User if does not exist
 
