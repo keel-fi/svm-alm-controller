@@ -12,7 +12,7 @@ use crate::{
         },
     },
     integrations::drift::{
-        derive_state_pda, derive_user_pda, derive_user_stats_pda, DRIFT_PROGRAM_ID,
+        derive_spot_market_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda, DRIFT_PROGRAM_ID
     },
 };
 
@@ -52,6 +52,7 @@ pub fn create_drift_initialize_integration_instruction(
     let user_stats = derive_user_stats_pda(&controller_authority);
     let user = derive_user_pda(&controller_authority, sub_account_id);
     let state = derive_state_pda();
+    let spot_market = derive_spot_market_pda(spot_market_index);
 
     let remaining_accounts = [
         AccountMeta {
@@ -68,6 +69,11 @@ pub fn create_drift_initialize_integration_instruction(
             pubkey: state,
             is_signer: false,
             is_writable: true,
+        },
+        AccountMeta {
+            pubkey: spot_market,
+            is_signer: false,
+            is_writable: false,
         },
         AccountMeta {
             pubkey: RENT_ID,

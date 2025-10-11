@@ -7,24 +7,27 @@ mod tests {
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
-            drift::{setup_drift_state, User, UserStats},
+            drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::{fetch_integration_account, initialize_mint, initialize_reserve},
+        subs::fetch_integration_account,
     };
     use borsh::BorshDeserialize;
-    use solana_sdk::{clock::Clock, signer::Signer, transaction::Transaction};
+    use solana_sdk::{
+        clock::Clock,
+        instruction::InstructionError,
+        signer::Signer,
+        transaction::{Transaction, TransactionError},
+    };
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
         generated::types::{
             DriftConfig, IntegrationConfig, IntegrationStatus, IntegrationUpdateEvent,
-            ReserveStatus, SvmAlmControllerEvent,
+            SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
-
-    // TODO add test case checking if spot market index exists
 
     #[test]
     fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,36 +36,13 @@ mod tests {
             controller_pk,
             super_authority,
         } = setup_test_controller()?;
+        let spot_market_index = 0;
         setup_drift_state(&mut svm);
-
-        // Initialize a mint
-        let mint = initialize_mint(
-            &mut svm,
-            &super_authority,
-            &super_authority.pubkey(),
-            None,
-            6,
-            None,
-            &spl_token::ID,
-            None,
-        )?;
-
-        // Initialize a reserve for the token
-        let _reserve_keys = initialize_reserve(
-            &mut svm,
-            &controller_pk,
-            &mint,            // mint
-            &super_authority, // payer
-            &super_authority, // authority
-            ReserveStatus::Active,
-            1_000_000_000, // rate_limit_slope
-            1_000_000_000, // rate_limit_max_outflow
-            &spl_token::ID,
-        )?;
+        set_drift_spot_market(&mut svm, spot_market_index);
+        set_drift_spot_market(&mut svm, spot_market_index + 1);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
-        let spot_market_index = 0;
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
         let permit_liquidation = true;
@@ -175,6 +155,55 @@ mod tests {
         );
         let tx_result = svm.send_transaction(tx);
         assert!(tx_result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn initiailize_drift_invalid_spot_market_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+        setup_drift_state(&mut svm);
+
+        let spot_market_index = 0;
+        let spot_market_pubkey = set_drift_spot_market(&mut svm, 0);
+
+        // overwrite with incorrect market ID
+        let mut market = svm.get_account(&spot_market_pubkey).unwrap();
+        market.data[684..686].copy_from_slice(&9u16.to_le_bytes());
+        svm.set_account(spot_market_pubkey, market).unwrap();
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone());
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
 
         Ok(())
     }

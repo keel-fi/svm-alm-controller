@@ -1,8 +1,7 @@
 use bytemuck::{Pod, Zeroable};
-use litesvm::LiteSVM;
-use solana_sdk::{account::Account, pubkey::Pubkey};
-use svm_alm_controller::constants::anchor_discriminator;
-use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, DRIFT_PROGRAM_ID};
+use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+
+use crate::constants::anchor_discriminator;
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
@@ -247,35 +246,13 @@ pub struct SpotMarket {
 }
 impl SpotMarket {
     pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
-}
 
-/// Setup Drift SpotMarket state in LiteSvm giving full control over state.
-///
-/// If anything is not set correctly for a subsequent test, either:
-/// - IF applicable to all tests, mutate state with a set value here
-/// - ELSE IF requires variable values for testing, add a argument
-///     and mutate state set from the arg.
-pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16) -> Pubkey {
-    let mut spot_market = SpotMarket::default();
-    // -- Update state variables
-    spot_market.market_index = market_index;
+    /// Load SpotMarket account and check the discriminator
+    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
+        if data[..8] != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
 
-    let mut state_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
-    state_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
-    state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
-
-    let pubkey = derive_spot_market_pda(market_index);
-    svm.set_account(
-        pubkey,
-        Account {
-            lamports: u64::MAX,
-            rent_epoch: u64::MAX,
-            data: state_data,
-            owner: DRIFT_PROGRAM_ID,
-            executable: false,
-        },
-    )
-    .unwrap();
-
-    pubkey
+        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+    }
 }
