@@ -7,6 +7,7 @@
 
 use crate::generated::types::AtomicSwapState;
 use crate::generated::types::CctpBridgeState;
+use crate::generated::types::DriftState;
 use crate::generated::types::LzBridgeState;
 use crate::generated::types::SplTokenExternalState;
 use borsh::BorshDeserialize;
@@ -23,4 +24,5 @@ pub enum IntegrationState {
     CctpBridge(CctpBridgeState),
     LzBridge(LzBridgeState),
     AtomicSwap(AtomicSwapState),
+    Drift(DriftState),
 }

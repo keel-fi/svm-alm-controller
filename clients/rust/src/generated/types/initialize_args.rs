@@ -35,4 +35,5 @@ pub enum InitializeArgs {
         expiry_timestamp: i64,
         oracle_price_inverted: bool,
     },
+    Drift,
 }

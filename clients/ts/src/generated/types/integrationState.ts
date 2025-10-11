@@ -30,6 +30,8 @@ import {
   getAtomicSwapStateEncoder,
   getCctpBridgeStateDecoder,
   getCctpBridgeStateEncoder,
+  getDriftStateDecoder,
+  getDriftStateEncoder,
   getLzBridgeStateDecoder,
   getLzBridgeStateEncoder,
   getSplTokenExternalStateDecoder,
@@ -38,6 +40,8 @@ import {
   type AtomicSwapStateArgs,
   type CctpBridgeState,
   type CctpBridgeStateArgs,
+  type DriftState,
+  type DriftStateArgs,
   type LzBridgeState,
   type LzBridgeStateArgs,
   type SplTokenExternalState,
@@ -49,14 +53,16 @@ export type IntegrationState =
   | { __kind: 'SplTokenExternal'; fields: readonly [SplTokenExternalState] }
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeState] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeState] }
-  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] };
+  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] }
+  | { __kind: 'Drift'; fields: readonly [DriftState] };
 
 export type IntegrationStateArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
   | { __kind: 'SplTokenExternal'; fields: readonly [SplTokenExternalStateArgs] }
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeStateArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeStateArgs] }
-  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] };
+  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] }
+  | { __kind: 'Drift'; fields: readonly [DriftStateArgs] };
 
 export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateArgs> {
   return getDiscriminatedUnionEncoder([
@@ -87,6 +93,10 @@ export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateA
       getStructEncoder([
         ['fields', getTupleEncoder([getAtomicSwapStateEncoder()])],
       ]),
+    ],
+    [
+      'Drift',
+      getStructEncoder([['fields', getTupleEncoder([getDriftStateEncoder()])]]),
     ],
   ]) as FixedSizeEncoder<IntegrationStateArgs>;
 }
@@ -120,6 +130,10 @@ export function getIntegrationStateDecoder(): FixedSizeDecoder<IntegrationState>
       getStructDecoder([
         ['fields', getTupleDecoder([getAtomicSwapStateDecoder()])],
       ]),
+    ],
+    [
+      'Drift',
+      getStructDecoder([['fields', getTupleDecoder([getDriftStateDecoder()])]]),
     ],
   ]) as FixedSizeDecoder<IntegrationState>;
 }
@@ -179,6 +193,14 @@ export function integrationState(
     'AtomicSwap'
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'AtomicSwap'>;
+export function integrationState(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<
+    IntegrationStateArgs,
+    '__kind',
+    'Drift'
+  >['fields']
+): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'Drift'>;
 export function integrationState<
   K extends IntegrationStateArgs['__kind'],
   Data,

@@ -2007,6 +2007,40 @@
       }
     },
     {
+      "name": "DriftConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                224
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DriftState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                48
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "LzBridgeConfig",
       "type": {
         "kind": "struct",
@@ -2304,6 +2338,14 @@
                 "defined": "AtomicSwapConfig"
               }
             ]
+          },
+          {
+            "name": "Drift",
+            "fields": [
+              {
+                "defined": "DriftConfig"
+              }
+            ]
           }
         ]
       }
@@ -2358,6 +2400,14 @@
                 "defined": "AtomicSwapState"
               }
             ]
+          },
+          {
+            "name": "Drift",
+            "fields": [
+              {
+                "defined": "DriftState"
+              }
+            ]
           }
         ]
       }
@@ -2392,6 +2442,9 @@
           },
           {
             "name": "AtomicSwap"
+          },
+          {
+            "name": "Drift"
           }
         ]
       }
@@ -2574,6 +2627,9 @@
                 "type": "bool"
               }
             ]
+          },
+          {
+            "name": "Drift"
           }
         ]
       }

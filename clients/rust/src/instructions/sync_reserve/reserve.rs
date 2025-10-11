@@ -14,7 +14,8 @@ pub fn create_sync_reserve_instruction(
 ) -> Instruction {
     let reserve_pda = derive_reserve_pda(controller, mint);
     let controller_authority = derive_controller_authority_pda(controller);
-    let vault = get_associated_token_address_with_program_id(&controller_authority, mint, token_program);
+    let vault =
+        get_associated_token_address_with_program_id(&controller_authority, mint, token_program);
 
     SyncReserveBuilder::new()
         .controller(*controller)

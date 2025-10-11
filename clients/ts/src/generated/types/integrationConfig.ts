@@ -30,6 +30,8 @@ import {
   getAtomicSwapConfigEncoder,
   getCctpBridgeConfigDecoder,
   getCctpBridgeConfigEncoder,
+  getDriftConfigDecoder,
+  getDriftConfigEncoder,
   getLzBridgeConfigDecoder,
   getLzBridgeConfigEncoder,
   getSplTokenExternalConfigDecoder,
@@ -38,6 +40,8 @@ import {
   type AtomicSwapConfigArgs,
   type CctpBridgeConfig,
   type CctpBridgeConfigArgs,
+  type DriftConfig,
+  type DriftConfigArgs,
   type LzBridgeConfig,
   type LzBridgeConfigArgs,
   type SplTokenExternalConfig,
@@ -49,7 +53,8 @@ export type IntegrationConfig =
   | { __kind: 'SplTokenExternal'; fields: readonly [SplTokenExternalConfig] }
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeConfig] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeConfig] }
-  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfig] };
+  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfig] }
+  | { __kind: 'Drift'; fields: readonly [DriftConfig] };
 
 export type IntegrationConfigArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
@@ -59,7 +64,8 @@ export type IntegrationConfigArgs =
     }
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeConfigArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeConfigArgs] }
-  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfigArgs] };
+  | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfigArgs] }
+  | { __kind: 'Drift'; fields: readonly [DriftConfigArgs] };
 
 export function getIntegrationConfigEncoder(): FixedSizeEncoder<IntegrationConfigArgs> {
   return getDiscriminatedUnionEncoder([
@@ -89,6 +95,12 @@ export function getIntegrationConfigEncoder(): FixedSizeEncoder<IntegrationConfi
       'AtomicSwap',
       getStructEncoder([
         ['fields', getTupleEncoder([getAtomicSwapConfigEncoder()])],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructEncoder([
+        ['fields', getTupleEncoder([getDriftConfigEncoder()])],
       ]),
     ],
   ]) as FixedSizeEncoder<IntegrationConfigArgs>;
@@ -122,6 +134,12 @@ export function getIntegrationConfigDecoder(): FixedSizeDecoder<IntegrationConfi
       'AtomicSwap',
       getStructDecoder([
         ['fields', getTupleDecoder([getAtomicSwapConfigDecoder()])],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructDecoder([
+        ['fields', getTupleDecoder([getDriftConfigDecoder()])],
       ]),
     ],
   ]) as FixedSizeDecoder<IntegrationConfig>;
@@ -182,6 +200,14 @@ export function integrationConfig(
     'AtomicSwap'
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationConfigArgs, '__kind', 'AtomicSwap'>;
+export function integrationConfig(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<
+    IntegrationConfigArgs,
+    '__kind',
+    'Drift'
+  >['fields']
+): GetDiscriminatedUnionVariant<IntegrationConfigArgs, '__kind', 'Drift'>;
 export function integrationConfig<
   K extends IntegrationConfigArgs['__kind'],
   Data,

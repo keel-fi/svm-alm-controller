@@ -1,7 +1,4 @@
-use crate::{
-    derive_controller_authority_pda,
-    generated::instructions::SyncBuilder,
-};
+use crate::{derive_controller_authority_pda, generated::instructions::SyncBuilder};
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 
