@@ -64,7 +64,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
 
         // reserve.farm_debt can either be pubkey::default or owned by kamino_farms program
         if ctx.reserve_farm_debt.key().ne(&Pubkey::default())
-            && !ctx.reserve_farm_collateral.is_owned_by(&KAMINO_FARMS_PROGRAM_ID) 
+            && !ctx.reserve_farm_debt.is_owned_by(&KAMINO_FARMS_PROGRAM_ID) 
         {
             msg! {"reserve_farm_collateral: Invalid owner"}
             return Err(ProgramError::IllegalOwner)
