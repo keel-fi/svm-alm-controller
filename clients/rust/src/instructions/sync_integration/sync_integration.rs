@@ -1,10 +1,10 @@
-use crate::{derive_controller_authority_pda, generated::instructions::SyncBuilder, SVM_ALM_CONTROLLER_ID};
+use crate::{derive_controller_authority_pda, generated::instructions::SyncBuilder};
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 
 pub fn create_sync_integration_instruction(
     controller: &Pubkey,
-    authority: &Pubkey,
+    payer: &Pubkey,
     integration: &Pubkey,
     reserve: &Pubkey,
 ) -> Instruction {
@@ -13,9 +13,8 @@ pub fn create_sync_integration_instruction(
     SyncBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
-        .authority(*authority)
+        .payer(*payer)
         .integration(*integration)
         .reserve(*reserve)
-        .program_id(SVM_ALM_CONTROLLER_ID)
         .instruction()
 }

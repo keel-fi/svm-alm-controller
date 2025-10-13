@@ -1,9 +1,8 @@
 use borsh::maybestd::format;
 use pinocchio::{
-    account_info::AccountInfo, 
-    instruction::{Seed, Signer}, msg, 
-    program_error::ProgramError,
-    sysvars::{clock::Clock, Sysvar}
+    account_info::AccountInfo, instruction::{Seed, Signer}, 
+    msg, program_error::ProgramError, 
+    pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}
 };
 
 use crate::{
@@ -12,23 +11,22 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState}, 
     error::SvmAlmControllerErrors, 
     instructions::{InitializeArgs, InitializeIntegrationArgs}, 
-    integrations::utilization_market::{
-        config::UtilizationMarketConfig, kamino::{
-            config::KaminoConfig, 
-            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
-            cpi::{
-                derive_market_authority_address, 
-                derive_obligation_farm_address, 
-                derive_user_metadata_address, 
-                derive_vanilla_obligation_address, 
-                initialize_obligation_cpi, 
-                initialize_obligation_farm_for_reserve_cpi, 
-                initialize_user_lookup_table, 
-                initialize_user_metadata_cpi, 
-                OBLIGATION_FARM_COLLATERAL_MODE,
-            }, kamino_state::{KaminoReserve, Obligation}, state::KaminoState
+    integrations::kamino::{
+        config::KaminoConfig, 
+        constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
+        cpi::{
+            derive_market_authority_address, 
+            derive_obligation_farm_address, 
+            derive_user_metadata_address, 
+            derive_vanilla_obligation_address, 
+            initialize_obligation_cpi, 
+            initialize_obligation_farm_for_reserve_cpi, 
+            initialize_user_lookup_table, 
+            initialize_user_metadata_cpi, 
+            OBLIGATION_FARM_COLLATERAL_MODE,
         }, 
-        state::UtilizationMarketState, 
+        kamino_state::{KaminoReserve, Obligation}, 
+        state::KaminoState
     }, 
     processor::InitializeIntegrationAccounts, 
     state::Controller
@@ -41,10 +39,10 @@ define_account_struct! {
         user_metadata: mut;
         user_lookup_table: mut;
         referrer_metadata;
-        obligation_farm_collateral: mut;
-        obligation_farm_debt: mut;
+        obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
+        obligation_farm_debt: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
-        reserve_farm_collateral: mut;
+        reserve_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
         reserve_farm_debt: mut;
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
@@ -64,6 +62,14 @@ impl<'info> InitializeKaminoAccounts<'info> {
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
 
+        // reserve.farm_debt can either be pubkey::default or owned by kamino_farms program
+        if ctx.reserve_farm_debt.key().ne(&Pubkey::default())
+            && !ctx.reserve_farm_collateral.is_owned_by(&KAMINO_FARMS_PROGRAM_ID) 
+        {
+            msg! {"reserve_farm_collateral: Invalid owner"}
+            return Err(ProgramError::IllegalOwner)
+        }
+
         // verify obligation pubkey is valid
         let obligation_pda = derive_vanilla_obligation_address(
             obligation_id,
@@ -71,7 +77,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
             ctx.market.key(), 
             ctx.kamino_program.key()
         )?;
-        if &obligation_pda != ctx.obligation.key() {
+        if obligation_pda.ne(ctx.obligation.key()) {
             msg! {"kamino obligation: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
@@ -81,7 +87,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
             controller_authority.key(), 
             ctx.kamino_program.key()
         )?;
-        if &user_metadata_pda != ctx.user_metadata.key() {
+        if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
@@ -92,7 +98,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
             ctx.obligation.key(), 
             ctx.kamino_farms_program.key()
         )?;
-        if &obligation_farm_collateral_pda != ctx.obligation_farm_collateral.key() {
+        if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
             msg! {"Obligation farm collateral: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
@@ -104,7 +110,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
             ctx.obligation.key(), 
             ctx.kamino_farms_program.key()
         )?;
-        if &obligation_farm_debt_pda != ctx.obligation_farm_debt.key() {
+        if obligation_farm_debt_pda.ne(ctx.obligation_farm_debt.key()) {
             msg! {"Obligation farm collateral: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
@@ -114,7 +120,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
             ctx.market.key(), 
             ctx.kamino_program.key()
         )?;
-        if &market_authority_pda != ctx.market_authority.key() {
+        if market_authority_pda.ne(ctx.market_authority.key()) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
@@ -159,9 +165,9 @@ pub fn process_initialize_kamino(
     let kamino_reserve = KaminoReserve::try_from(
         inner_ctx.kamino_reserve.try_borrow_data()?.as_ref()
     )?;
-    kamino_reserve.check_from_account(&inner_ctx)?;
+    kamino_reserve.check_from_init_accounts(&inner_ctx)?;
 
-    // initialize LUT and metadata if owned by system program
+    // initialize an address lookup table and metadata if owned by system program
     if inner_ctx.user_metadata.is_owned_by(&pinocchio_system::ID) {
         msg! {"calling initialize_lut_and_metadata"}
         initialize_lut_and_metadata(
@@ -185,7 +191,7 @@ pub fn process_initialize_kamino(
         let obligation = Obligation::try_from(
             inner_ctx.obligation.try_borrow_data()?.as_ref()
         )?;
-        obligation.check_from_accounts(
+        obligation.check_data(
             outer_ctx.controller_authority.key(), 
             inner_ctx.market.key()
         )?;
@@ -212,21 +218,17 @@ pub fn process_initialize_kamino(
         reserve_liquidity_mint: *inner_ctx.reserve_liquidity_mint.key(),
         obligation: *inner_ctx.obligation.key(),
         obligation_id,
-        _padding: [0; 30]
+        _padding: [0; 31]
     };
-    let config = IntegrationConfig::UtilizationMarket(
-        UtilizationMarketConfig::KaminoConfig(kamino_config)
-    );
+    let config = IntegrationConfig::Kamino(kamino_config);
 
     // create the state
     let kamino_state = KaminoState {
         last_liquidity_value: 0,
         last_lp_amount: 0,
-        _padding: [0; 31]
+        _padding: [0; 32]
     };
-    let state = IntegrationState::UtilizationMarket(
-        UtilizationMarketState::KaminoState(kamino_state)
-    );
+    let state = IntegrationState::Kamino(kamino_state);
 
     Ok((config, state))
 }

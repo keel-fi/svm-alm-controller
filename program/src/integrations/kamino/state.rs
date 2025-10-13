@@ -9,5 +9,5 @@ pub struct KaminoState {
     /// the lp amount (minted with push and burned with pull, called collateral in KLEND program)
     pub last_lp_amount: u64,
     /// padding
-    pub _padding: [u8; 31],
+    pub _padding: [u8; 32],
 }

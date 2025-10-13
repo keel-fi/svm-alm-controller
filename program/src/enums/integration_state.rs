@@ -1,7 +1,7 @@
 use crate::integrations::{
     atomic_swap::state::AtomicSwapState, cctp_bridge::state::CctpBridgeState,
     lz_bridge::state::LzBridgeState, spl_token_external::state::SplTokenExternalState,
-    utilization_market::state::UtilizationMarketState,
+    kamino::state::KaminoState,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
@@ -14,5 +14,5 @@ pub enum IntegrationState {
     CctpBridge(CctpBridgeState),
     LzBridge(LzBridgeState),
     AtomicSwap(AtomicSwapState),
-    UtilizationMarket(UtilizationMarketState)
+    Kamino(KaminoState)
 }

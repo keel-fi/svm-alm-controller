@@ -47,7 +47,7 @@ export function getKaminoConfigEncoder(): FixedSizeEncoder<KaminoConfigArgs> {
     ['reserveLiquidityMint', getAddressEncoder()],
     ['obligation', getAddressEncoder()],
     ['obligationId', getU8Encoder()],
-    ['padding', fixEncoderSize(getBytesEncoder(), 30)],
+    ['padding', fixEncoderSize(getBytesEncoder(), 31)],
   ]);
 }
 
@@ -60,7 +60,7 @@ export function getKaminoConfigDecoder(): FixedSizeDecoder<KaminoConfig> {
     ['reserveLiquidityMint', getAddressDecoder()],
     ['obligation', getAddressDecoder()],
     ['obligationId', getU8Decoder()],
-    ['padding', fixDecoderSize(getBytesDecoder(), 30)],
+    ['padding', fixDecoderSize(getBytesDecoder(), 31)],
   ]);
 }
 

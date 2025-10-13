@@ -14,9 +14,9 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  type Codec,
-  type Decoder,
-  type Encoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
   type GetDiscriminatedUnionVariant,
   type GetDiscriminatedUnionVariantContent,
 } from '@solana/kit';
@@ -33,25 +33,25 @@ export type PushArgsArgs =
   | { __kind: 'LzBridge'; amount: number | bigint }
   | { __kind: 'Kamino'; amount: number | bigint };
 
-export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
+export function getPushArgsEncoder(): FixedSizeEncoder<PushArgsArgs> {
   return getDiscriminatedUnionEncoder([
     ['SplTokenExternal', getStructEncoder([['amount', getU64Encoder()]])],
     ['CctpBridge', getStructEncoder([['amount', getU64Encoder()]])],
     ['LzBridge', getStructEncoder([['amount', getU64Encoder()]])],
     ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
-  ]) as Encoder<PushArgsArgs>;
+  ]) as FixedSizeEncoder<PushArgsArgs>;
 }
 
-export function getPushArgsDecoder(): Decoder<PushArgs> {
+export function getPushArgsDecoder(): FixedSizeDecoder<PushArgs> {
   return getDiscriminatedUnionDecoder([
     ['SplTokenExternal', getStructDecoder([['amount', getU64Decoder()]])],
     ['CctpBridge', getStructDecoder([['amount', getU64Decoder()]])],
     ['LzBridge', getStructDecoder([['amount', getU64Decoder()]])],
     ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],
-  ]) as Decoder<PushArgs>;
+  ]) as FixedSizeDecoder<PushArgs>;
 }
 
-export function getPushArgsCodec(): Codec<PushArgsArgs, PushArgs> {
+export function getPushArgsCodec(): FixedSizeCodec<PushArgsArgs, PushArgs> {
   return combineCodec(getPushArgsEncoder(), getPushArgsDecoder());
 }
 

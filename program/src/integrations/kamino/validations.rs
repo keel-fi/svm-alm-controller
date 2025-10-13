@@ -2,18 +2,16 @@ use crate::{
     define_account_struct, 
     enums::IntegrationConfig, 
     error::SvmAlmControllerErrors, 
-    integrations::utilization_market::{
-        config::UtilizationMarketConfig, 
-        kamino::{
-            constants::{KAMINO_FARMS_PROGRAM_ID,KAMINO_LEND_PROGRAM_ID}, 
-            cpi::{
-                derive_market_authority_address, 
-                derive_reserve_collateral_mint, 
-                derive_reserve_collateral_supply, 
-                derive_reserve_liquidity_supply
-            }
+    integrations::kamino::{
+        constants::{KAMINO_FARMS_PROGRAM_ID,KAMINO_LEND_PROGRAM_ID}, 
+        cpi::{
+            derive_market_authority_address, 
+            derive_reserve_collateral_mint, 
+            derive_reserve_collateral_supply, 
+            derive_reserve_liquidity_supply
         }
-    }, state::Reserve
+    }, 
+    state::Reserve
 };
 use pinocchio::{
     account_info::AccountInfo, 
@@ -39,15 +37,15 @@ define_account_struct! {
         collateral_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         liquidity_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         instruction_sysvar_account: @pubkey(INSTRUCTIONS_ID);
-        obligation_farm_collateral: mut;
-        reserve_farm_collateral: mut;
+        obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
+        reserve_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
     }
 }
 
 impl<'info> PushPullKaminoAccounts<'info> {
-    /// Builds `PushPullKaminoAccounts` and validates identities:
+/// Builds `PushPullKaminoAccounts` and validates identities:
 /// - Config (Kamino): market, reserve, reserve_farm_collateral, reserve_liquidity_mint, obligation
 /// - KLend PDAs: reserve_{collateral_mint, collateral_supply, liquidity_supply}, market_authority
 /// - token_account: mint == reserve_liquidity_mint, owner == controller_authority, key == reserve.vault
@@ -61,34 +59,20 @@ impl<'info> PushPullKaminoAccounts<'info> {
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
         let config = match config {
-            IntegrationConfig::UtilizationMarket(c) => {
-                match c {
-                    UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-                }
-            },
+            IntegrationConfig::Kamino(kamino_config) => kamino_config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
 
-        if ctx.market.key().ne(&config.market) {
-            msg! {"market: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if ctx.kamino_reserve.key().ne(&config.reserve) {
-            msg! {"kamino_reserve: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if ctx.reserve_farm_collateral.key().ne(&config.reserve_farm_collateral) {
-            msg! {"reserve_farm_collateral: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if ctx.reserve_liquidity_mint.key().ne(&config.reserve_liquidity_mint) {
-            msg! {"reserve_liquidity_mint: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-
+        // check_accounts verifies that the following pubkeys
+        // match those stored in this integration config
+        config.check_accounts(
+            ctx.obligation.key(), 
+            ctx.kamino_reserve.key(), 
+            ctx.reserve_liquidity_mint.key(), 
+            Some(ctx.market.key()), 
+            Some(ctx.reserve_farm_collateral.key()), 
+        )?;
+ 
         let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
             &ctx.market.key(), 
             &ctx.reserve_liquidity_mint.key(), 
@@ -117,11 +101,6 @@ impl<'info> PushPullKaminoAccounts<'info> {
         if ctx.reserve_liquidity_supply.key().ne(&reserve_liquidity_supply_pda) {
             msg! {"reserve_liquidity_supply: does not match PDA"};
             return Err(SvmAlmControllerErrors::InvalidPda.into());
-        }
-
-        if ctx.obligation.key().ne(&config.obligation) {
-            msg! {"obligation: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
         }
 
         let market_authority_pda = derive_market_authority_address(

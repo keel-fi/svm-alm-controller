@@ -26,7 +26,7 @@ pub async fn create_send_ix(
     destination_address: &Pubkey,
     destination_eid: u32,
     amount: u64,
-) -> Result<(Instruction), Box<dyn Error>> {
+) -> Result<Instruction, Box<dyn Error>> {
     let payer_ata = get_associated_token_address_with_program_id(payer, mint, token_program_id);
     let oft302: Oft302 = Oft302::new(*oft_program_id, DEVNET_RPC.to_owned());
     let quote_accounts = Oft302Accounts {

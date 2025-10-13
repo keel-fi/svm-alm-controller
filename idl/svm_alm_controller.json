@@ -459,8 +459,8 @@
           "isSigner": false
         },
         {
-          "name": "authority",
-          "isMut": false,
+          "name": "payer",
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -471,11 +471,6 @@
         {
           "name": "reserve",
           "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "programId",
-          "isMut": false,
           "isSigner": false
         }
       ],
@@ -2022,6 +2017,152 @@
       }
     },
     {
+      "name": "KaminoConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserve",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveFarmCollateral",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveFarmDebt",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveLiquidityMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "obligation",
+            "type": "publicKey"
+          },
+          {
+            "name": "obligationId",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                31
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitObligationArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tag",
+            "type": "u8"
+          },
+          {
+            "name": "id",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitUserMetadataArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "userLookupTable",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitObligationFarmArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mode",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositLiquidityV2Args",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liquidityAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawObligationV2Args",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "collateralAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HarvestRewardArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rewardIndex",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "KaminoState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastLiquidityValue",
+            "type": "u64"
+          },
+          {
+            "name": "lastLpAmount",
+            "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "LzBridgeConfig",
       "type": {
         "kind": "struct",
@@ -2228,152 +2369,6 @@
       }
     },
     {
-      "name": "KaminoConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "market",
-            "type": "publicKey"
-          },
-          {
-            "name": "reserve",
-            "type": "publicKey"
-          },
-          {
-            "name": "reserveFarmCollateral",
-            "type": "publicKey"
-          },
-          {
-            "name": "reserveFarmDebt",
-            "type": "publicKey"
-          },
-          {
-            "name": "reserveLiquidityMint",
-            "type": "publicKey"
-          },
-          {
-            "name": "obligation",
-            "type": "publicKey"
-          },
-          {
-            "name": "obligationId",
-            "type": "u8"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                30
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitObligationArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "tag",
-            "type": "u8"
-          },
-          {
-            "name": "id",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitUserMetadataArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "userLookupTable",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitObligationFarmArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "mode",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "DepositLiquidityV2Args",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "liquidityAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "WithdrawObligationV2Args",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "collateralAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "HarvestRewardArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "rewardIndex",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "KaminoState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "lastLiquidityValue",
-            "type": "u64"
-          },
-          {
-            "name": "lastLpAmount",
-            "type": "u64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                31
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "Feed",
       "type": {
         "kind": "struct",
@@ -2467,10 +2462,10 @@
             ]
           },
           {
-            "name": "UtilizationMarket",
+            "name": "Kamino",
             "fields": [
               {
-                "defined": "UtilizationMarketConfig"
+                "defined": "KaminoConfig"
               }
             ]
           }
@@ -2529,10 +2524,10 @@
             ]
           },
           {
-            "name": "UtilizationMarket",
+            "name": "Kamino",
             "fields": [
               {
-                "defined": "UtilizationMarketState"
+                "defined": "KaminoState"
               }
             ]
           }
@@ -2571,12 +2566,7 @@
             "name": "AtomicSwap"
           },
           {
-            "name": "UtilizationMarket",
-            "fields": [
-              {
-                "defined": "UtilizationMarket"
-              }
-            ]
+            "name": "Kamino"
           }
         ]
       }
@@ -2836,49 +2826,6 @@
               {
                 "name": "amount",
                 "type": "u64"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "UtilizationMarket",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Kamino"
-          }
-        ]
-      }
-    },
-    {
-      "name": "UtilizationMarketConfig",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "KaminoConfig",
-            "fields": [
-              {
-                "defined": "KaminoConfig"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "UtilizationMarketState",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "KaminoState",
-            "fields": [
-              {
-                "defined": "KaminoState"
               }
             ]
           }

@@ -16,8 +16,7 @@ use crate::{
         derive_obligation_farm_address, derive_permission_pda, derive_reserve_collateral_mint,
         derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_reserve_pda,
     },
-    SVM_ALM_CONTROLLER_ID,
-    SPL_TOKEN_PROGRAM_ID
+    SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID,
 };
 
 /// Creates a `Push` instruction to deposit funds into a **Kamino Lend integration**
@@ -84,7 +83,7 @@ pub fn create_push_kamino_lend_ix(
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         &kamino_reserve_liquidity_mint,
-        &SPL_TOKEN_PROGRAM_ID
+        &SPL_TOKEN_PROGRAM_ID,
     );
 
     let remaining_accounts = &[

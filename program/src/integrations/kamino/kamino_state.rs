@@ -3,7 +3,7 @@ use core::ops::{Div, Mul};
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 use fixed::{FixedU128, types::extra::U60, traits::FromFixed};
 use crate::{
-    integrations::utilization_market::kamino::{
+    integrations::kamino::{
         constants::{
             FARM_STATE_DISCRIMINATOR, 
             OBLIGATION_DISCRIMINATOR, 
@@ -213,9 +213,10 @@ impl KaminoReserve {
 
     /// Verifies that:
     /// - the `Reserve` belongs to the market
-    /// - the `Reserve` `liquidity_mint` matches `token_mint`
-    /// - the `Reserve` `farm_collateral` matches `reserve_farm` 
-    pub fn check_from_account(
+    /// - the `Reserve` `liquidity_mint` matches `reserve_liquidity_mint`
+    /// - the `Reserve` `farm_collateral` matches `reserve_farm_collateral` 
+    /// - the `Reserve` `farm debt` matches `reserve_farm_debt`
+    pub fn check_from_init_accounts(
         &self, 
         inner_ctx: &InitializeKaminoAccounts
     ) -> Result<(), ProgramError> {
@@ -398,7 +399,7 @@ impl Obligation {
     /// Verifies that:
     /// - the `Obligation` `owner` field matches `controller_authority`
     /// - the `Obligation` `lending_market` matches `market`
-    pub fn check_from_accounts(
+    pub fn check_data(
         &self,
         owner: &Pubkey,
         market: &Pubkey,

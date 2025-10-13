@@ -167,4 +167,3 @@ pub fn derive_farm_vaults_authority(farm_state: &Pubkey) -> Pubkey {
 
     address
 }
-

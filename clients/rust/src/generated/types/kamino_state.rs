@@ -13,5 +13,5 @@ use borsh::BorshSerialize;
 pub struct KaminoState {
     pub last_liquidity_value: u64,
     pub last_lp_amount: u64,
-    pub padding: [u8; 31],
+    pub padding: [u8; 32],
 }

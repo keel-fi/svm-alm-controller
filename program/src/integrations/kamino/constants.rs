@@ -17,4 +17,3 @@ pub const INIT_OBLIGATION_FARM_DISCRIMINATOR: [u8; 8] = anchor_discriminator("gl
 pub const DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR: [u8; 8] = anchor_discriminator("global", "deposit_reserve_liquidity_and_obligation_collateral_v2");
 pub const WITHDRAW_OBLIGATION_V2_DISCRIMINATOR: [u8; 8] = anchor_discriminator("global", "withdraw_obligation_collateral_and_redeem_reserve_collateral_v2");
 pub const HARVEST_REWARD_DISCRIMINATOR: [u8; 8] = anchor_discriminator("global", "harvest_reward");
-

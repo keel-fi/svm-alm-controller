@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use pinocchio::pubkey::Pubkey;
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use shank::ShankType;
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
@@ -29,5 +29,51 @@ pub struct KaminoConfig {
     /// to derive the obligation PDA.
     pub obligation_id: u8,
     /// Padding
-    pub _padding: [u8; 30]
+    pub _padding: [u8; 31]
+}
+
+impl KaminoConfig {
+    /// Checks that the provided accounts match those stored in this `KaminoConfig`.
+    ///
+    /// Accounts passed as `Option` are not required by all instructions —
+    /// they are only checked when provided.
+    pub fn check_accounts(
+        &self,
+        obligation: &Pubkey,
+        kamino_reserve: &Pubkey,
+        reserve_liquidity_mint: &Pubkey,
+        market: Option<&Pubkey>,
+        reserve_farm_collateral: Option<&Pubkey>,
+    ) -> Result<(), ProgramError> {
+        if obligation.ne(&self.obligation) {
+            msg!("obligation: does not match config");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        if kamino_reserve.ne(&self.reserve) {
+            msg!("kamino_reserve: does not match config");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        if reserve_liquidity_mint.ne(&self.reserve_liquidity_mint) {
+            msg!("reserve_liquidity_mint: does not match config");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        if let Some(market_pk) = market {
+            if market_pk.ne(&self.market) {
+                msg!("market: does not match config");
+                return Err(ProgramError::InvalidAccountData);
+            }
+        }
+
+        if let Some(farm_collateral_pk) = reserve_farm_collateral {
+            if farm_collateral_pk.ne(&self.reserve_farm_collateral) {
+                msg!("reserve_farm_collateral: does not match config");
+                return Err(ProgramError::InvalidAccountData);
+            }
+        }
+
+        Ok(())
+    }
 }

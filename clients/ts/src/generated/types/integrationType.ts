@@ -8,119 +8,34 @@
 
 import {
   combineCodec,
-  getDiscriminatedUnionDecoder,
-  getDiscriminatedUnionEncoder,
-  getStructDecoder,
-  getStructEncoder,
-  getTupleDecoder,
-  getTupleEncoder,
-  getUnitDecoder,
-  getUnitEncoder,
-  type Codec,
-  type Decoder,
-  type Encoder,
-  type GetDiscriminatedUnionVariant,
-  type GetDiscriminatedUnionVariantContent,
+  getEnumDecoder,
+  getEnumEncoder,
+  type FixedSizeCodec,
+  type FixedSizeDecoder,
+  type FixedSizeEncoder,
 } from '@solana/kit';
-import {
-  getUtilizationMarketDecoder,
-  getUtilizationMarketEncoder,
-  type UtilizationMarket,
-  type UtilizationMarketArgs,
-} from '.';
 
-export type IntegrationType =
-  | { __kind: 'SplTokenExternal' }
-  | { __kind: 'CctpBridge' }
-  | { __kind: 'LzBridge' }
-  | { __kind: 'AtomicSwap' }
-  | { __kind: 'UtilizationMarket'; fields: readonly [UtilizationMarket] };
-
-export type IntegrationTypeArgs =
-  | { __kind: 'SplTokenExternal' }
-  | { __kind: 'CctpBridge' }
-  | { __kind: 'LzBridge' }
-  | { __kind: 'AtomicSwap' }
-  | { __kind: 'UtilizationMarket'; fields: readonly [UtilizationMarketArgs] };
-
-export function getIntegrationTypeEncoder(): Encoder<IntegrationTypeArgs> {
-  return getDiscriminatedUnionEncoder([
-    ['SplTokenExternal', getUnitEncoder()],
-    ['CctpBridge', getUnitEncoder()],
-    ['LzBridge', getUnitEncoder()],
-    ['AtomicSwap', getUnitEncoder()],
-    [
-      'UtilizationMarket',
-      getStructEncoder([
-        ['fields', getTupleEncoder([getUtilizationMarketEncoder()])],
-      ]),
-    ],
-  ]);
+export enum IntegrationType {
+  SplTokenExternal,
+  CctpBridge,
+  LzBridge,
+  AtomicSwap,
+  Kamino,
 }
 
-export function getIntegrationTypeDecoder(): Decoder<IntegrationType> {
-  return getDiscriminatedUnionDecoder([
-    ['SplTokenExternal', getUnitDecoder()],
-    ['CctpBridge', getUnitDecoder()],
-    ['LzBridge', getUnitDecoder()],
-    ['AtomicSwap', getUnitDecoder()],
-    [
-      'UtilizationMarket',
-      getStructDecoder([
-        ['fields', getTupleDecoder([getUtilizationMarketDecoder()])],
-      ]),
-    ],
-  ]);
+export type IntegrationTypeArgs = IntegrationType;
+
+export function getIntegrationTypeEncoder(): FixedSizeEncoder<IntegrationTypeArgs> {
+  return getEnumEncoder(IntegrationType);
 }
 
-export function getIntegrationTypeCodec(): Codec<
+export function getIntegrationTypeDecoder(): FixedSizeDecoder<IntegrationType> {
+  return getEnumDecoder(IntegrationType);
+}
+
+export function getIntegrationTypeCodec(): FixedSizeCodec<
   IntegrationTypeArgs,
   IntegrationType
 > {
   return combineCodec(getIntegrationTypeEncoder(), getIntegrationTypeDecoder());
-}
-
-// Data Enum Helpers.
-export function integrationType(
-  kind: 'SplTokenExternal'
-): GetDiscriminatedUnionVariant<
-  IntegrationTypeArgs,
-  '__kind',
-  'SplTokenExternal'
->;
-export function integrationType(
-  kind: 'CctpBridge'
-): GetDiscriminatedUnionVariant<IntegrationTypeArgs, '__kind', 'CctpBridge'>;
-export function integrationType(
-  kind: 'LzBridge'
-): GetDiscriminatedUnionVariant<IntegrationTypeArgs, '__kind', 'LzBridge'>;
-export function integrationType(
-  kind: 'AtomicSwap'
-): GetDiscriminatedUnionVariant<IntegrationTypeArgs, '__kind', 'AtomicSwap'>;
-export function integrationType(
-  kind: 'UtilizationMarket',
-  data: GetDiscriminatedUnionVariantContent<
-    IntegrationTypeArgs,
-    '__kind',
-    'UtilizationMarket'
-  >['fields']
-): GetDiscriminatedUnionVariant<
-  IntegrationTypeArgs,
-  '__kind',
-  'UtilizationMarket'
->;
-export function integrationType<K extends IntegrationTypeArgs['__kind'], Data>(
-  kind: K,
-  data?: Data
-) {
-  return Array.isArray(data)
-    ? { __kind: kind, fields: data }
-    : { __kind: kind, ...(data ?? {}) };
-}
-
-export function isIntegrationType<K extends IntegrationType['__kind']>(
-  kind: K,
-  value: IntegrationType
-): value is IntegrationType & { __kind: K } {
-  return value.__kind === kind;
 }

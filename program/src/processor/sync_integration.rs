@@ -1,8 +1,9 @@
-// This allow is left intentionally because this instruction contains boilerplate code.
-#![allow(unreachable_code)]
-
 use crate::{
-    define_account_struct, enums::IntegrationConfig, error::SvmAlmControllerErrors, integrations::utilization_market::{config::UtilizationMarketConfig, kamino::sync::process_sync_kamino}, state::{keel_account::KeelAccount, Controller, Integration, Reserve}
+    define_account_struct, 
+    enums::IntegrationConfig, 
+    error::SvmAlmControllerErrors, 
+    integrations::kamino::sync::process_sync_kamino, 
+    state::{keel_account::KeelAccount, Controller, Integration, Reserve}
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -17,10 +18,9 @@ define_account_struct! {
     pub struct SyncIntegrationAccounts<'info> {
         controller: @owner(crate::ID);
         controller_authority: mut, empty, @owner(pinocchio_system::ID);
-        authority: signer;
+        payer: mut, signer;
         integration: mut, @owner(crate::ID);
         reserve: mut, @owner(crate::ID);
-        program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
 }
@@ -52,20 +52,16 @@ pub fn process_sync_integration(
     // Depending on the integration, there may be an
     //  inner (integration-specific) sync logic to call
     match integration.config {
-        IntegrationConfig::UtilizationMarket(c) => {
-            match c {
-                UtilizationMarketConfig::KaminoConfig(_config) => {
-                    // Load in the reserve account (kamino only handles one reserve)
-                    let mut reserve 
-                        = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
+        IntegrationConfig::Kamino(_kamino_config) => {
+            // Load in the reserve account (kamino only handles one reserve)
+            let mut reserve 
+                = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
-                    process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?;
+            process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?;
 
-                    // TODO: reserve will be moved into sync_kamino inner_ctx
-                    // since it's the only integration that needs it for now.
-                    reserve.save(ctx.reserve)?;
-                }
-            }
+            // TODO: reserve will be moved into sync_kamino inner_ctx
+            // since it's the only integration that needs it for now.
+            reserve.save(ctx.reserve)?;
         }
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),

@@ -43,5 +43,5 @@ pub struct KaminoConfig {
     )]
     pub obligation: Pubkey,
     pub obligation_id: u8,
-    pub padding: [u8; 30],
+    pub padding: [u8; 31],
 }

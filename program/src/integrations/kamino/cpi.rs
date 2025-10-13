@@ -7,14 +7,17 @@ use pinocchio::{
     sysvars::clock::Slot,
 };
 
-use crate::{error::SvmAlmControllerErrors, integrations::utilization_market::kamino::constants::{
-    DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, 
-    HARVEST_REWARD_DISCRIMINATOR, 
-    INIT_METADATA_DISCRIMINATOR, 
-    INIT_OBLIGATION_DISCRIMINATOR, 
-    INIT_OBLIGATION_FARM_DISCRIMINATOR, 
-    WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
-}};
+use crate::{
+    error::SvmAlmControllerErrors, 
+    integrations::kamino::constants::{
+        DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, 
+        HARVEST_REWARD_DISCRIMINATOR, 
+        INIT_METADATA_DISCRIMINATOR, 
+        INIT_OBLIGATION_DISCRIMINATOR, 
+        INIT_OBLIGATION_FARM_DISCRIMINATOR, 
+        WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
+    }
+};
 
 // ------------ init obligation ------------
 
@@ -195,7 +198,7 @@ pub fn initialize_user_metadata_cpi(
                 AccountMeta::writable_signer(payer.key()),
                 // user metadata
                 AccountMeta::writable(user_metadata.key()),
-                // // referrer user metadata (OPTIONAL)
+                // referrer user metadata (OPTIONAL)
                 AccountMeta::readonly(referrer_user_metadata.key()),
                 // rent
                 AccountMeta::readonly(rent.key()),

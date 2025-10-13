@@ -38,7 +38,7 @@ export function getKaminoStateEncoder(): FixedSizeEncoder<KaminoStateArgs> {
   return getStructEncoder([
     ['lastLiquidityValue', getU64Encoder()],
     ['lastLpAmount', getU64Encoder()],
-    ['padding', fixEncoderSize(getBytesEncoder(), 31)],
+    ['padding', fixEncoderSize(getBytesEncoder(), 32)],
   ]);
 }
 
@@ -46,7 +46,7 @@ export function getKaminoStateDecoder(): FixedSizeDecoder<KaminoState> {
   return getStructDecoder([
     ['lastLiquidityValue', getU64Decoder()],
     ['lastLpAmount', getU64Decoder()],
-    ['padding', fixDecoderSize(getBytesDecoder(), 31)],
+    ['padding', fixDecoderSize(getBytesDecoder(), 32)],
   ]);
 }
 

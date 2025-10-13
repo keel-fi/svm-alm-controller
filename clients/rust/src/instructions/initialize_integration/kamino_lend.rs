@@ -7,13 +7,14 @@ use solana_sdk::{
 };
 
 use crate::{
-    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID}, derive_controller_authority_pda, derive_integration_pda, derive_lookup_table_address, derive_market_authority_address, derive_obligation_farm_address, derive_permission_pda, derive_user_metadata_address, generated::{
+    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID},
+    derive_controller_authority_pda, derive_integration_pda, derive_lookup_table_address,
+    derive_market_authority_address, derive_obligation_farm_address, derive_permission_pda,
+    derive_user_metadata_address,
+    generated::{
         instructions::InitializeIntegrationBuilder,
-        types::{
-            InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType,
-            UtilizationMarket, UtilizationMarketConfig,
-        },
-    }
+        types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType},
+    },
 };
 
 /// Creates an `InitializeIntegration` instruction for a **Kamino Lend integration** under the
@@ -82,9 +83,7 @@ pub fn create_initialize_kamino_lend_integration_ix(
     let integration_pda = derive_integration_pda(controller, &hash);
 
     let kamino_config = match config {
-        IntegrationConfig::UtilizationMarket(c) => match c {
-            UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-        },
+        IntegrationConfig::Kamino(kamino_config) => kamino_config,
         _ => panic!("config error"),
     };
 
@@ -190,9 +189,7 @@ pub fn create_initialize_kamino_lend_integration_ix(
     ];
 
     let instruction = InitializeIntegrationBuilder::new()
-        .integration_type(IntegrationType::UtilizationMarket(
-            UtilizationMarket::Kamino,
-        ))
+        .integration_type(IntegrationType::Kamino)
         .status(status)
         .description(description_encoding)
         .rate_limit_slope(rate_limit_slope)

@@ -49,7 +49,4 @@ export * from './reserveUpdateEvent';
 export * from './splTokenExternalConfig';
 export * from './splTokenExternalState';
 export * from './svmAlmControllerEvent';
-export * from './utilizationMarket';
-export * from './utilizationMarketConfig';
-export * from './utilizationMarketState';
 export * from './withdrawObligationV2Args';

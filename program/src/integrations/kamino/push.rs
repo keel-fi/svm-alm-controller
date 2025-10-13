@@ -11,14 +11,11 @@ use crate::{
     enums::IntegrationState, 
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PushArgs, 
-    integrations::utilization_market::{
-        kamino::{
-            cpi::deposit_reserve_liquidity_v2_cpi, 
-            kamino_state::{get_liquidity_and_lp_amount, Obligation}, 
-            shared_sync::sync_kamino_liquidity_value, 
-            validations::PushPullKaminoAccounts
-        }, 
-        state::UtilizationMarketState, 
+    integrations::kamino::{
+        cpi::deposit_reserve_liquidity_v2_cpi, 
+        kamino_state::{get_liquidity_and_lp_amount, Obligation}, 
+        shared_sync::sync_kamino_liquidity_value, 
+        validations::PushPullKaminoAccounts
     }, 
     processor::PushAccounts, 
     state::{Controller, Integration, Permission, Reserve}
@@ -135,54 +132,46 @@ pub fn process_push_kamino(
         inner_ctx.obligation
     )?;
     let liquidity_value_delta = liquidity_value_after.saturating_sub(liquidity_value_before);
+
+    // In order to reflect the actual value of the liquidity deposit,
+    // we use kamino's calculations (liquidity value delta)
+
+    // Emit accounting event for credit Integration
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            mint: *inner_ctx.reserve_liquidity_mint.key(),
+            reserve: None,
+            direction: AccountingDirection::Credit,
+            action: AccountingAction::Deposit,
+            delta: liquidity_value_delta
+        }),
+    )?;
+
+    // Emit accounting event for debit Reserve
+    // Note: this is to ensure there is double accounting
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: None,
+            mint: *inner_ctx.reserve_liquidity_mint.key(),
+            reserve: Some(*outer_ctx.reserve_a.key()),
+            direction: AccountingDirection::Debit,
+            action: AccountingAction::Deposit,
+            delta: liquidity_amount_delta
+        }),
+    )?;
     
-    
-    if liquidity_amount_delta > 0 && liquidity_value_delta > 0 {
-
-        // In order to reflect the actual value of the liquidity deposit,
-        // we use kamino's calculations (liquidity value delta)
-
-        // Emit accounting event for credit Integration
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: Some(*outer_ctx.integration.key()),
-                mint: *inner_ctx.reserve_liquidity_mint.key(),
-                reserve: None,
-                direction: AccountingDirection::Credit,
-                action: AccountingAction::Deposit,
-                delta: liquidity_value_delta
-            }),
-        )?;
-
-        // Emit accounting event for debit Reserve
-        // Note: this is to ensure there is double accounting
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: None,
-                mint: *inner_ctx.reserve_liquidity_mint.key(),
-                reserve: Some(*outer_ctx.reserve_a.key()),
-                direction: AccountingDirection::Debit,
-                action: AccountingAction::Deposit,
-                delta: liquidity_amount_delta
-            }),
-        )?;
-    }
-
     // update the state
     match &mut integration.state {
-        IntegrationState::UtilizationMarket(state) => {
-            match state {
-                UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.last_liquidity_value = liquidity_value_after;
-                    kamino_state.last_lp_amount = lp_amount_after;
-                }
-            }
+        IntegrationState::Kamino(kamino_state) => {
+            kamino_state.last_liquidity_value = liquidity_value_after;
+            kamino_state.last_lp_amount = lp_amount_after;
         },                   
         _ => return Err(ProgramError::InvalidAccountData),
     }

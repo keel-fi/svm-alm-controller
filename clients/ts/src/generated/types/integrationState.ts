@@ -30,22 +30,22 @@ import {
   getAtomicSwapStateEncoder,
   getCctpBridgeStateDecoder,
   getCctpBridgeStateEncoder,
+  getKaminoStateDecoder,
+  getKaminoStateEncoder,
   getLzBridgeStateDecoder,
   getLzBridgeStateEncoder,
   getSplTokenExternalStateDecoder,
   getSplTokenExternalStateEncoder,
-  getUtilizationMarketStateDecoder,
-  getUtilizationMarketStateEncoder,
   type AtomicSwapState,
   type AtomicSwapStateArgs,
   type CctpBridgeState,
   type CctpBridgeStateArgs,
+  type KaminoState,
+  type KaminoStateArgs,
   type LzBridgeState,
   type LzBridgeStateArgs,
   type SplTokenExternalState,
   type SplTokenExternalStateArgs,
-  type UtilizationMarketState,
-  type UtilizationMarketStateArgs,
 } from '.';
 
 export type IntegrationState =
@@ -54,7 +54,7 @@ export type IntegrationState =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeState] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeState] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] }
-  | { __kind: 'UtilizationMarket'; fields: readonly [UtilizationMarketState] };
+  | { __kind: 'Kamino'; fields: readonly [KaminoState] };
 
 export type IntegrationStateArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
@@ -62,10 +62,7 @@ export type IntegrationStateArgs =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeStateArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeStateArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] }
-  | {
-      __kind: 'UtilizationMarket';
-      fields: readonly [UtilizationMarketStateArgs];
-    };
+  | { __kind: 'Kamino'; fields: readonly [KaminoStateArgs] };
 
 export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateArgs> {
   return getDiscriminatedUnionEncoder([
@@ -98,9 +95,9 @@ export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateA
       ]),
     ],
     [
-      'UtilizationMarket',
+      'Kamino',
       getStructEncoder([
-        ['fields', getTupleEncoder([getUtilizationMarketStateEncoder()])],
+        ['fields', getTupleEncoder([getKaminoStateEncoder()])],
       ]),
     ],
   ]) as FixedSizeEncoder<IntegrationStateArgs>;
@@ -137,9 +134,9 @@ export function getIntegrationStateDecoder(): FixedSizeDecoder<IntegrationState>
       ]),
     ],
     [
-      'UtilizationMarket',
+      'Kamino',
       getStructDecoder([
-        ['fields', getTupleDecoder([getUtilizationMarketStateDecoder()])],
+        ['fields', getTupleDecoder([getKaminoStateDecoder()])],
       ]),
     ],
   ]) as FixedSizeDecoder<IntegrationState>;
@@ -201,17 +198,13 @@ export function integrationState(
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'AtomicSwap'>;
 export function integrationState(
-  kind: 'UtilizationMarket',
+  kind: 'Kamino',
   data: GetDiscriminatedUnionVariantContent<
     IntegrationStateArgs,
     '__kind',
-    'UtilizationMarket'
+    'Kamino'
   >['fields']
-): GetDiscriminatedUnionVariant<
-  IntegrationStateArgs,
-  '__kind',
-  'UtilizationMarket'
->;
+): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'Kamino'>;
 export function integrationState<
   K extends IntegrationStateArgs['__kind'],
   Data,

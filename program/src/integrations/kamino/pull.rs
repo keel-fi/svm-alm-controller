@@ -12,14 +12,11 @@ use crate::{
     enums::IntegrationState, 
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PullArgs, 
-    integrations::utilization_market::{
-        kamino::{
-            cpi::withdraw_obligation_collateral_v2_cpi, 
-            kamino_state::get_liquidity_and_lp_amount, 
-            shared_sync::sync_kamino_liquidity_value, 
-            validations::PushPullKaminoAccounts
-        }, 
-        state::UtilizationMarketState
+    integrations::kamino::{
+        cpi::withdraw_obligation_collateral_v2_cpi, 
+        kamino_state::get_liquidity_and_lp_amount, 
+        shared_sync::sync_kamino_liquidity_value, 
+        validations::PushPullKaminoAccounts
     }, 
     processor::PullAccounts, 
     state::{Controller, Integration, Permission, Reserve}
@@ -119,56 +116,45 @@ pub fn process_pull_kamino(
     )?;
     let liquidity_value_delta = liquidity_value_before.saturating_sub(liquidity_value_after);
     
-    if liquidity_amount_delta > 0 && liquidity_value_delta > 0 {
+    // Emit accounting event for debit integration
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            mint: *inner_ctx.reserve_liquidity_mint.key(),
+            reserve: None,
+            direction: AccountingDirection::Debit,
+            action: AccountingAction::Withdrawal,
+            delta: liquidity_value_delta,
+        }),
+    )?;
 
-        // Emit accounting event for debit integration
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: Some(*outer_ctx.integration.key()),
-                mint: *inner_ctx.reserve_liquidity_mint.key(),
-                reserve: None,
-                direction: AccountingDirection::Debit,
-                action: AccountingAction::Withdrawal,
-                delta: liquidity_value_delta,
-            }),
-        )?;
-
-        // Emit accounting event for credit Reserve
-        // Note: this is to ensure there is double accounting
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: None,
-                mint: *inner_ctx.reserve_liquidity_mint.key(),
-                reserve: Some(*outer_ctx.reserve_a.key()),
-                direction: AccountingDirection::Credit,
-                action: AccountingAction::Withdrawal,
-                delta: liquidity_amount_delta,
-            }),
-        )?;
-    }
-
+    // Emit accounting event for credit Reserve
+    // Note: this is to ensure there is double accounting
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: None,
+            mint: *inner_ctx.reserve_liquidity_mint.key(),
+            reserve: Some(*outer_ctx.reserve_a.key()),
+            direction: AccountingDirection::Credit,
+            action: AccountingAction::Withdrawal,
+            delta: liquidity_amount_delta,
+        }),
+    )?;
+    
     // update the state
     match &mut integration.state {
-        IntegrationState::UtilizationMarket(state) => {
-            match state {
-                UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.last_liquidity_value = liquidity_value_after;
-                    kamino_state.last_lp_amount = lp_amount_after;
-                }
-            }
+        IntegrationState::Kamino(kamino_state) => {
+            kamino_state.last_liquidity_value = liquidity_value_after;
+            kamino_state.last_lp_amount = lp_amount_after;
         },
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
-
-    let liquidity_amount_delta = liquidity_amount_after
-        .checked_sub(liquidity_amount_before)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
     
     // update the integration rate limit for inflow
     integration.update_rate_limit_for_inflow(clock, liquidity_amount_delta)?;

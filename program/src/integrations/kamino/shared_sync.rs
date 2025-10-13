@@ -6,10 +6,7 @@ use pinocchio::{
 use crate::{
     enums::IntegrationState, 
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
-    integrations::utilization_market::{
-        kamino::kamino_state::get_liquidity_and_lp_amount, 
-        state::UtilizationMarketState
-    }, 
+    integrations::kamino::kamino_state::get_liquidity_and_lp_amount, 
     state::{Controller, Integration}
 };
 
@@ -27,9 +24,7 @@ pub fn sync_kamino_liquidity_value(
     obligation: &AccountInfo
 ) -> Result<(u64, u64), ProgramError> {
     let last_liquidity_value = match &integration.state {
-        IntegrationState::UtilizationMarket(s) => match s {
-            UtilizationMarketState::KaminoState(state) => state.last_liquidity_value
-        },
+        IntegrationState::Kamino(kamino_state) => kamino_state.last_liquidity_value,
         _ => return Err(ProgramError::InvalidAccountData)
     };
 

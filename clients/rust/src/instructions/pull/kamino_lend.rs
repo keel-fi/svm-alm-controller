@@ -6,14 +6,17 @@ use solana_sdk::{
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
 use crate::{
-    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, generated::{
+    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
+    generated::{
         instructions::PullBuilder,
         types::{KaminoConfig, PullArgs},
-    }, pda::{
+    },
+    pda::{
         derive_controller_authority_pda, derive_market_authority_address,
         derive_obligation_farm_address, derive_permission_pda, derive_reserve_collateral_mint,
         derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_reserve_pda,
-    }, SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID
+    },
+    SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID,
 };
 
 /// Creates a `Pull` instruction to withdraw funds from a **Kamino Lend integration** under
@@ -40,7 +43,7 @@ use crate::{
 /// - **Reserve PDA**.
 /// - **Obligation Farm Collateral PDA**.
 /// - **Market Authority PDA**.
-/// - **Kamino Reserve PDAs**. 
+/// - **Kamino Reserve PDAs**.
 ///
 /// # Returns
 ///

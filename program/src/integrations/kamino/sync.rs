@@ -12,36 +12,32 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState}, 
     error::SvmAlmControllerErrors, 
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
-    integrations::utilization_market::{
-        config::UtilizationMarketConfig, 
-        kamino::{
-            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, cpi::{
-                derive_farm_vaults_authority, 
-                derive_obligation_farm_address, 
-                derive_rewards_treasury_vault, 
-                derive_rewards_vault, 
-                harvest_reward_cpi
-            }, kamino_state::{FarmState, KaminoReserve}, shared_sync::sync_kamino_liquidity_value 
-        }, 
-        state::UtilizationMarketState,
-    }, 
+    integrations::kamino::{
+        constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, cpi::{
+            derive_farm_vaults_authority, 
+            derive_obligation_farm_address, 
+            derive_rewards_treasury_vault, 
+            derive_rewards_vault, 
+            harvest_reward_cpi
+        }, kamino_state::{FarmState, KaminoReserve}, shared_sync::sync_kamino_liquidity_value 
+    },
     processor::SyncIntegrationAccounts, 
     state::{Controller, Integration, Reserve}
 };
 
 define_account_struct! {
     pub struct SyncKaminoAccounts<'info> {
-        vault;
+        vault: mut;
         kamino_reserve: @owner(KAMINO_LEND_PROGRAM_ID);
         obligation: @owner(KAMINO_LEND_PROGRAM_ID);
         obligation_farm: mut @owner(KAMINO_FARMS_PROGRAM_ID);
         reserve_farm: mut @owner(KAMINO_FARMS_PROGRAM_ID);
-        rewards_vault: mut;
-        rewards_treasury_vault: mut;
+        rewards_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        rewards_treasury_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         farm_vaults_authority;
         farms_global_config: @owner(KAMINO_FARMS_PROGRAM_ID);
-        rewards_ata: mut;
-        rewards_mint: @owner(pinocchio_token::ID);
+        rewards_ata: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID, pinocchio_system::ID);
+        rewards_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         scope_prices;
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
@@ -58,23 +54,17 @@ impl<'info> SyncKaminoAccounts<'info> {
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(accounts_infos)?;
         let config = match config {
-            IntegrationConfig::UtilizationMarket(c) => {
-                match c {
-                    UtilizationMarketConfig::KaminoConfig(kamino_config) => kamino_config,
-                }
-            },
+            IntegrationConfig::Kamino(kamino_config) => kamino_config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
 
-        if config.reserve.ne(ctx.kamino_reserve.key()) {
-            msg! {"kamino_reserve: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if config.obligation.ne(ctx.obligation.key()) {
-            msg! {"obligation: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
+        config.check_accounts(
+            ctx.obligation.key(), 
+            ctx.kamino_reserve.key(), 
+            &reserve.mint, 
+            None, 
+            None, 
+        )?;
 
         let obligation_farm_pda = derive_obligation_farm_address(
             ctx.reserve_farm.key(), 
@@ -119,16 +109,9 @@ impl<'info> SyncKaminoAccounts<'info> {
         }
 
         // Check consistency between the reserve
+        // the reserve.mint is being checked in config.check_accounts
         if ctx.vault.key().ne(&reserve.vault) {
             msg! {"vault: does not match config"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if !ctx.vault.is_writable() {
-            msg! {"vault: not mutable"};
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if config.reserve_liquidity_mint.ne(&reserve.mint) {
-            msg! {"mint: mismatch between integration configs"};
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -186,7 +169,7 @@ pub fn process_sync_kamino(
 
         // init ata if needed
         CreateIdempotent {
-            funding_account: outer_ctx.authority,
+            funding_account: outer_ctx.payer,
             account: inner_ctx.rewards_ata,
             wallet: outer_ctx.controller_authority,
             mint: inner_ctx.rewards_mint,
@@ -277,13 +260,9 @@ pub fn process_sync_kamino(
 
     // update the state
     match &mut integration.state {
-        IntegrationState::UtilizationMarket(s) => {
-            match s {
-                UtilizationMarketState::KaminoState(kamino_state) => {
-                    kamino_state.last_liquidity_value = new_liquidity_value;
-                    kamino_state.last_lp_amount = new_lp_amount;
-                },
-            }
+        IntegrationState::Kamino(kamino_state) => {
+            kamino_state.last_liquidity_value = new_liquidity_value;
+            kamino_state.last_lp_amount = new_lp_amount;
         },
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }

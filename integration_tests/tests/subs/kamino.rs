@@ -2,14 +2,20 @@ use std::error::Error;
 
 use litesvm::LiteSVM;
 use solana_sdk::{
-    account::Account, instruction::{AccountMeta, Instruction}, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
+    account::Account, 
+    pubkey::Pubkey, 
+    signature::Keypair, 
+    signer::Signer, 
+    transaction::Transaction
 };
-use svm_alm_controller_client::integrations::kamino::{derive_anchor_discriminator, KaminoReserve, Obligation, LIQUIDITY_AVAILABLE_AMOUNT_OFFSET};
+use svm_alm_controller_client::{
+    create_refresh_kamino_obligation_instruction, 
+    create_refresh_kamino_reserve_instruction, 
+    integrations::kamino::{KaminoReserve, Obligation, LIQUIDITY_AVAILABLE_AMOUNT_OFFSET}};
 
-use crate::helpers::constants::KAMINO_LEND_PROGRAM_ID;
 
 pub fn get_liquidity_and_lp_amount(
-    svm: &mut LiteSVM,
+    svm: &LiteSVM,
     kamino_reserve_pk: &Pubkey,
     obligation_pk: &Pubkey,
 ) -> Result<(u64, u64), Box<dyn std::error::Error>> {
@@ -45,7 +51,7 @@ pub fn get_liquidity_and_lp_amount(
 }
 
 pub fn fetch_kamino_reserve(
-    svm: &mut LiteSVM,
+    svm: &LiteSVM,
     kamino_reserve_pk: &Pubkey,
 ) -> Result<KaminoReserve, Box<dyn std::error::Error>> {
     let acc = svm.get_account(kamino_reserve_pk)
@@ -83,52 +89,11 @@ pub fn refresh_kamino_reserve(
     market: &Pubkey,
     scope_prices: &Pubkey,
 ) -> Result<(), Box<dyn Error>> {
-
-    let data = derive_anchor_discriminator(
-        "global", 
-        "refresh_reserve"
+    let instruction = create_refresh_kamino_reserve_instruction(
+        reserve, 
+        market, 
+        scope_prices
     );
-
-    let instruction = Instruction {
-        program_id: KAMINO_LEND_PROGRAM_ID,
-        accounts: vec![
-            AccountMeta {
-                pubkey: *reserve,
-                is_signer: false,
-                is_writable: true
-            },
-            AccountMeta {
-                pubkey: *market,
-                is_signer: false,
-                is_writable: false,
-            },
-            // pyth oracle
-            AccountMeta {
-                pubkey: KAMINO_LEND_PROGRAM_ID,
-                is_signer: false,
-                is_writable: false
-            },
-            // switchboard_price_oracle
-            AccountMeta {
-                pubkey: KAMINO_LEND_PROGRAM_ID,
-                is_signer: false,
-                is_writable: false
-            },
-            // switchboard_twap_oracle
-            AccountMeta {
-                pubkey: KAMINO_LEND_PROGRAM_ID,
-                is_signer: false,
-                is_writable: false
-            },
-            // scope_prices
-            AccountMeta {
-                pubkey: *scope_prices,
-                is_signer: false,
-                is_writable: false
-            }
-        ],
-        data: data.to_vec()
-    };
     
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
         &[instruction], 
@@ -161,44 +126,11 @@ pub fn refresh_kamino_obligation(
     obligation: &Pubkey,
     reserve: Option<&Pubkey>
 ) -> Result<(), Box<dyn Error>> {
-    let data = derive_anchor_discriminator(
-        "global", 
-        "refresh_obligation"
+    let instruction = create_refresh_kamino_obligation_instruction(
+        market, 
+        obligation, 
+        reserve
     );
-
-    let mut accounts = vec![
-        AccountMeta {
-            pubkey: *market,
-            is_signer: false,
-            is_writable: false
-        },
-        AccountMeta {
-            pubkey: *obligation,
-            is_signer: false,
-            is_writable: true
-        }
-    ];
-
-    match reserve {
-        Some(reserve) => {
-            accounts.push(
-                AccountMeta { 
-                    pubkey: *reserve, 
-                    is_signer: false, 
-                    is_writable: true
-                }
-            )
-        },
-        None => ()
-    }
-
-
-
-    let instruction = Instruction {
-        program_id: KAMINO_LEND_PROGRAM_ID,
-        accounts: accounts,
-        data: data.to_vec()
-    };
 
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
         &[instruction], 

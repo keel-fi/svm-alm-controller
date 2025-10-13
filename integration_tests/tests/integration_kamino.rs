@@ -11,8 +11,17 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address;
     use svm_alm_controller_client::{
         derive_reserve_collateral_supply, derive_reserve_liquidity_supply, generated::types::{
-            AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationUpdateEvent, KaminoConfig, ReserveStatus, SvmAlmControllerEvent, UtilizationMarketConfig, UtilizationMarketState
-        }, initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix, integrations::kamino::derive_vanilla_obligation_address, pull::kamino_lend::create_pull_kamino_lend_ix, push::create_push_kamino_lend_ix, sync_integration::create_sync_kamino_lend_ix
+            AccountingAction, AccountingDirection, 
+            AccountingEvent, IntegrationConfig, 
+            IntegrationState, IntegrationStatus, 
+            IntegrationUpdateEvent, KaminoConfig, 
+            ReserveStatus, SvmAlmControllerEvent, 
+        }, 
+        initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix, 
+        integrations::kamino::derive_vanilla_obligation_address, 
+        pull::kamino_lend::create_pull_kamino_lend_ix, 
+        push::create_push_kamino_lend_ix, 
+        sync_integration::create_sync_kamino_lend_ix
     };
     use borsh::BorshDeserialize;
     use crate::{
@@ -31,7 +40,20 @@ mod tests {
             spl::SPL_TOKEN_PROGRAM_ID, 
             TestContext
         }, subs::{
-            derive_controller_authority_pda, edit_ata_amount, fetch_integration_account, fetch_kamino_reserve, fetch_reserve_account, get_liquidity_and_lp_amount, get_token_balance_or_zero, initialize_ata, initialize_reserve, refresh_kamino_obligation, refresh_kamino_reserve, set_kamino_reserve_liquidity_available_amount, transfer_tokens, ReserveKeys
+            derive_controller_authority_pda, 
+            edit_ata_amount, 
+            fetch_integration_account, 
+            fetch_kamino_reserve, 
+            fetch_reserve_account, 
+            get_liquidity_and_lp_amount, 
+            get_token_balance_or_zero, 
+            initialize_ata, 
+            initialize_reserve, 
+            refresh_kamino_obligation, 
+            refresh_kamino_reserve, 
+            set_kamino_reserve_liquidity_available_amount, 
+            transfer_tokens, 
+            ReserveKeys
         }
     };
 
@@ -104,7 +126,7 @@ mod tests {
             rate_limit_slope,
             rate_limit_max_outflow,
             permit_liquidation,
-            &IntegrationConfig::UtilizationMarket(UtilizationMarketConfig::KaminoConfig(kamino_config.clone())),
+            &IntegrationConfig::Kamino(kamino_config.clone()),
             clock.slot,
             obligation_id,
             &KAMINO_LEND_PROGRAM_ID
@@ -216,7 +238,7 @@ mod tests {
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 30] 
+            padding: [0; 31] 
         };
 
         let description = "test";
@@ -270,15 +292,19 @@ mod tests {
         assert_eq!(integration.last_refresh_slot, clock.slot);
 
         match integration.clone().config {
-            IntegrationConfig::UtilizationMarket(c) => {
-                match c {
-                    UtilizationMarketConfig::KaminoConfig(config) => {
-                        assert_eq!(config, kamino_config)
-                    },
-                }
-            },
+            IntegrationConfig::Kamino(config) => {
+                assert_eq!(config, kamino_config)
+            }
             _ => panic!("invalid config"),
         }
+
+        // Assert state was properly set
+        let kamino_state = match integration.clone().state {
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
+        };
+        assert_eq!(kamino_state.last_liquidity_value, 0);
+        assert_eq!(kamino_state.last_lp_amount, 0);
 
         let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
             controller: controller_pk,
@@ -322,7 +348,7 @@ mod tests {
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 30] 
+            padding: [0; 31] 
         };
 
         let reserve_liquidity_destination = derive_reserve_liquidity_supply(
@@ -388,11 +414,12 @@ mod tests {
         let reserve_collateral_destination_balance_before = get_token_balance_or_zero(&svm, &reserve_collateral_destination);
 
         let (liquidity_value_before, lp_amount_before) = get_liquidity_and_lp_amount(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve, 
             &kamino_config.obligation
         )?;
 
+        let deposited_amount = 100_000_000;
         let push_ix = get_push_ix(
             &mut svm, 
             &controller_pk, 
@@ -400,7 +427,7 @@ mod tests {
             &integration_pk, 
             &obligation, 
             &kamino_config,
-            100_000_000
+            deposited_amount
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -416,6 +443,8 @@ mod tests {
         let reserve_liquidity_destination_balance_after = get_token_balance_or_zero(&svm, &reserve_liquidity_destination);
         let reserve_collateral_destination_balance_after = get_token_balance_or_zero(&svm, &reserve_collateral_destination);
 
+        let liquidity_amount_kamino_vault_delta 
+            = reserve_liquidity_destination_balance_after - reserve_liquidity_destination_balance_before;
         let balance_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
         // actual amount deposited in kamino
         let balance_delta = balance_before - balance_after;
@@ -429,7 +458,7 @@ mod tests {
             .unwrap();
 
         let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve, 
             &kamino_config.obligation
         )?;
@@ -449,7 +478,7 @@ mod tests {
         );
 
         // Assert Reserve vault was debited exact amount
-        assert_eq!(balance_after, balance_before - balance_delta);
+        assert_eq!(balance_after, balance_before - liquidity_amount_kamino_vault_delta);
 
         // Assert kamino's token account received the tokens
         assert_eq!(
@@ -459,20 +488,12 @@ mod tests {
 
         // assert integration state changed
         let state_before = match integration_before.clone().state {
-            IntegrationState::UtilizationMarket(s) => {
-                match s  {
-                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
-                }
-            }
-            _ => panic!("invalid config"),
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
         };
         let state_after = match integration_after.clone().state {
-            IntegrationState::UtilizationMarket(s) => {
-                match s  {
-                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
-                }
-            }
-            _ => panic!("invalid config"),
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
         };
         assert_eq!(
             state_after.last_liquidity_value,
@@ -580,7 +601,7 @@ mod tests {
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 30] 
+            padding: [0; 31] 
         };
 
         let reserve_liquidity_destination = derive_reserve_liquidity_supply(
@@ -668,7 +689,7 @@ mod tests {
         let reserve_collateral_destination_balance_before = get_token_balance_or_zero(&svm, &reserve_collateral_destination);
 
         let (liquidity_value_before, lp_amount_before) = get_liquidity_and_lp_amount(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve, 
             &kamino_config.obligation
         )?;
@@ -695,7 +716,7 @@ mod tests {
             .unwrap();
 
         let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve, 
             &kamino_config.obligation
         )?;
@@ -705,6 +726,9 @@ mod tests {
         let balance_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
         // actual withdrawal amount
         let balance_delta = balance_after - balance_before;
+
+        let liquidity_amount_kamino_vault_delta 
+            = reserve_liquidity_destination_balance_before - reserve_liquidity_destination_balance_after;
 
         let integration_after = fetch_integration_account(&svm, &integration_pk)
             .unwrap()
@@ -727,7 +751,7 @@ mod tests {
         );
 
         // Assert Reserve vault was credited exact amount
-        assert_eq!(balance_after, balance_before + balance_delta);
+        assert_eq!(balance_after, balance_before + liquidity_amount_kamino_vault_delta);
 
         // Assert kamino's token account balance decreased
         assert_eq!(
@@ -746,20 +770,12 @@ mod tests {
 
         // assert integration state changed
         let state_before = match integration_before.clone().state {
-            IntegrationState::UtilizationMarket(s) => {
-                match s  {
-                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
-                }
-            }
-            _ => panic!("invalid config"),
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
         };
         let state_after = match integration_after.clone().state {
-            IntegrationState::UtilizationMarket(s) => {
-                match s  {
-                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
-                }
-            }
-            _ => panic!("invalid config"),
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
         };
         assert_eq!(
             state_after.last_liquidity_value,
@@ -842,7 +858,7 @@ mod tests {
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 30] 
+            padding: [0; 31] 
         };
 
         let description = "test";
@@ -924,13 +940,13 @@ mod tests {
         // in order to trigger liquidity value change event
 
         let (liquidity_value_before, lp_amount_before) = get_liquidity_and_lp_amount(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve, 
             &kamino_config.obligation
         )?;
 
         let kamino_reserve = fetch_kamino_reserve(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve
         )?;
         let new_kamino_reserve_liq_available_amount = kamino_reserve.liquidity_available_amount + 100_000_000_000;
@@ -941,7 +957,7 @@ mod tests {
         )?;
 
         let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
-            &mut svm, 
+            &svm, 
             &kamino_config.reserve, 
             &kamino_config.obligation
         )?;
@@ -1024,20 +1040,12 @@ mod tests {
 
         // assert integration state changed
         let state_before = match integration_before.clone().state {
-            IntegrationState::UtilizationMarket(s) => {
-                match s  {
-                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
-                }
-            }
-            _ => panic!("invalid config"),
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
         };
         let state_after = match integration_after.clone().state {
-            IntegrationState::UtilizationMarket(s) => {
-                match s  {
-                    UtilizationMarketState::KaminoState(kamino_state) => kamino_state
-                }
-            }
-            _ => panic!("invalid config"),
+            IntegrationState::Kamino(kamino_state) => kamino_state,
+            _ => panic!("invalid state"),
         };
 
         assert_eq!(

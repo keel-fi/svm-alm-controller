@@ -1,15 +1,15 @@
+use core::ops::{Div, Mul};
+use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
 use solana_program::hash;
 use solana_program_error::ProgramError;
 use solana_pubkey::Pubkey;
 pub use uint_types::U256;
-use core::ops::{Div, Mul};
-use fixed::{FixedU128, types::extra::U60, traits::FromFixed};
 
 pub fn derive_vanilla_obligation_address(
     obligation_id: u8,
     authority: &Pubkey,
     market: &Pubkey,
-    kamino_program: &Pubkey
+    kamino_program: &Pubkey,
 ) -> Pubkey {
     let (obligation_pda, _) = Pubkey::find_program_address(
         &[
@@ -26,7 +26,7 @@ pub fn derive_vanilla_obligation_address(
             // seed 2, for lending obligation is the token
             Pubkey::default().as_ref(),
         ],
-        kamino_program
+        kamino_program,
     );
 
     obligation_pda
@@ -36,9 +36,7 @@ pub fn derive_anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
     let preimage = format!("{}:{}", namespace, name);
 
     let mut sighash = [0_u8; 8];
-    sighash.copy_from_slice(
-        &hash::hash(preimage.as_bytes()).to_bytes()[..8]
-    );
+    sighash.copy_from_slice(&hash::hash(preimage.as_bytes()).to_bytes()[..8]);
 
     sighash
 }
@@ -53,16 +51,14 @@ pub struct KaminoReserve {
     pub collateral_mint_total_supply: u64,
 }
 
-
 impl KaminoReserve {
-
     fn total_supply(&self) -> Fraction {
-        Fraction::from(self.liquidity_available_amount) 
+        Fraction::from(self.liquidity_available_amount)
             + Fraction::from_bits(self.liquidity_borrowed_amount_sf)
             - Fraction::from_bits(self.liquidity_accumulated_protocol_fees_sf)
             - Fraction::from_bits(self.liquidity_accumulated_referrer_fees_sf)
             - Fraction::from_bits(self.liquidity_pending_referrer_fees_sf)
-    } 
+    }
 
     fn collateral_exchange_rate(&self) -> (u128, Fraction) {
         let mut total_liquidity = self.total_supply();
@@ -81,8 +77,7 @@ impl KaminoReserve {
     fn fraction_collateral_to_liquidity(&self, collateral_amount: Fraction) -> Fraction {
         let (collateral_supply, liquidity) = self.collateral_exchange_rate();
 
-        (BigFraction::from(collateral_amount) * BigFraction::from(liquidity)
-            / collateral_supply)
+        (BigFraction::from(collateral_amount) * BigFraction::from(liquidity) / collateral_supply)
             .try_into()
             .expect("fraction_collateral_to_liquidity: liquidity_amount overflow")
     }
@@ -94,56 +89,56 @@ impl KaminoReserve {
 
     pub fn try_deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         if data.len() < 8 + RESERVE_SIZE {
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
-        if data[..8] !=  derive_anchor_discriminator("account", "Reserve") {
-            return Err(ProgramError::InvalidAccountData)
+        if data[..8] != derive_anchor_discriminator("account", "Reserve") {
+            return Err(ProgramError::InvalidAccountData);
         }
 
         let liquidity_available_amount = u64::from_le_bytes(
-            data[LIQUIDITY_AVAILABLE_AMOUNT_OFFSET .. LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8]
+            data[LIQUIDITY_AVAILABLE_AMOUNT_OFFSET..LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8]
                 .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
+                .map_err(|_| ProgramError::InvalidAccountData)?,
         );
 
         let liquidity_borrowed_amount_sf = u128::from_le_bytes(
-            data[LIQUIDITY_BORROWED_AMOUNT_OFFSET .. LIQUIDITY_BORROWED_AMOUNT_OFFSET + 16]
+            data[LIQUIDITY_BORROWED_AMOUNT_OFFSET..LIQUIDITY_BORROWED_AMOUNT_OFFSET + 16]
                 .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
+                .map_err(|_| ProgramError::InvalidAccountData)?,
         );
 
         let liquidity_accumulated_protocol_fees_sf = u128::from_le_bytes(
-            data[LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET .. LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET + 16]
+            data[LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET..LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET + 16]
                 .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
+                .map_err(|_| ProgramError::InvalidAccountData)?,
         );
 
         let liquidity_accumulated_referrer_fees_sf = u128::from_le_bytes(
-            data[LIQUIDITY_ACC_REFERRER_FEES_OFFSET .. LIQUIDITY_ACC_REFERRER_FEES_OFFSET + 16]
+            data[LIQUIDITY_ACC_REFERRER_FEES_OFFSET..LIQUIDITY_ACC_REFERRER_FEES_OFFSET + 16]
                 .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
+                .map_err(|_| ProgramError::InvalidAccountData)?,
         );
 
         let liquidity_pending_referrer_fees_sf = u128::from_le_bytes(
-            data[LIQUIDITY_PENDING_REFERRER_FEES .. LIQUIDITY_PENDING_REFERRER_FEES + 16]
+            data[LIQUIDITY_PENDING_REFERRER_FEES..LIQUIDITY_PENDING_REFERRER_FEES + 16]
                 .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
+                .map_err(|_| ProgramError::InvalidAccountData)?,
         );
 
         let collateral_mint_total_supply = u64::from_le_bytes(
-            data[COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET .. COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET + 8]
+            data[COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET..COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET + 8]
                 .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
+                .map_err(|_| ProgramError::InvalidAccountData)?,
         );
 
-        Ok(Self { 
-            liquidity_available_amount, 
-            liquidity_borrowed_amount_sf, 
-            liquidity_accumulated_protocol_fees_sf, 
-            liquidity_accumulated_referrer_fees_sf, 
-            liquidity_pending_referrer_fees_sf, 
-            collateral_mint_total_supply 
+        Ok(Self {
+            liquidity_available_amount,
+            liquidity_borrowed_amount_sf,
+            liquidity_accumulated_protocol_fees_sf,
+            liquidity_accumulated_referrer_fees_sf,
+            liquidity_pending_referrer_fees_sf,
+            collateral_mint_total_supply,
         })
     }
 }
@@ -165,66 +160,68 @@ pub const COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET: usize = COLLATERAL_MINT_OFFSET + 
 pub struct Obligation {
     pub lending_market: Pubkey,
     pub owner: Pubkey,
-    pub deposits: [ObligationCollateral; 8]
+    pub deposits: [ObligationCollateral; 8],
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct ObligationCollateral {
     pub reserve: Pubkey,
-    pub deposited_amount: u64
+    pub deposited_amount: u64,
 }
 
 impl Obligation {
     pub fn try_deserialize(data: &[u8]) -> Result<Self, ProgramError> {
         if data.len() < 8 + OBLIGATION_SIZE {
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         if data[..8] != derive_anchor_discriminator("account", "Obligation") {
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         let lending_market = Pubkey::try_from(
-            &data[OBLIGATION_LENDING_MARKET_OFFSET .. OBLIGATION_LENDING_MARKET_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
+            &data[OBLIGATION_LENDING_MARKET_OFFSET..OBLIGATION_LENDING_MARKET_OFFSET + 32],
+        )
+        .map_err(|_| ProgramError::InvalidAccountData)?;
 
-        let owner = Pubkey::try_from(
-            &data[OWNER_OFFSET .. OWNER_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
+        let owner = Pubkey::try_from(&data[OWNER_OFFSET..OWNER_OFFSET + 32])
+            .map_err(|_| ProgramError::InvalidAccountData)?;
 
         let mut deposits = [ObligationCollateral::default(); 8];
 
         let mut current_offset = DEPOSITS_OFFSET;
         for slot in &mut deposits {
-            let reserve = Pubkey::try_from(&data[current_offset .. current_offset + 32])
+            let reserve = Pubkey::try_from(&data[current_offset..current_offset + 32])
                 .map_err(|_| ProgramError::InvalidAccountData)?;
 
             let deposited_amount = u64::from_le_bytes(
-                data[current_offset + 32 .. current_offset + 32 + 8]
+                data[current_offset + 32..current_offset + 32 + 8]
                     .try_into()
-                    .map_err(|_| ProgramError::InvalidAccountData)?
+                    .map_err(|_| ProgramError::InvalidAccountData)?,
             );
 
             *slot = ObligationCollateral {
                 reserve,
-                deposited_amount
+                deposited_amount,
             };
 
             current_offset += OBLIGATION_COLLATERAL_LEN;
         }
 
-        Ok(Self { lending_market, owner, deposits })
+        Ok(Self {
+            lending_market,
+            owner,
+            deposits,
+        })
     }
 
     pub fn get_obligation_collateral_for_reserve(
-        &self, 
-        reserve: &Pubkey
+        &self,
+        reserve: &Pubkey,
     ) -> Option<&ObligationCollateral> {
         self.deposits
             .iter()
-            .find(|obligation_collateral| {
-                obligation_collateral.reserve.eq(reserve)
-            })
+            .find(|obligation_collateral| obligation_collateral.reserve.eq(reserve))
     }
 }
 
@@ -233,8 +230,6 @@ pub const OBLIGATION_LENDING_MARKET_OFFSET: usize = 8 + 8 + 16;
 pub const OWNER_OFFSET: usize = OBLIGATION_LENDING_MARKET_OFFSET + 32;
 pub const DEPOSITS_OFFSET: usize = OWNER_OFFSET + 32;
 pub const OBLIGATION_COLLATERAL_LEN: usize = 136;
-
-
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct BigFraction(pub U256);
@@ -289,7 +284,6 @@ type Fraction = FixedU128<U60>;
 pub trait FractionExtra {
     fn to_floor<Dst: FromFixed>(&self) -> Dst;
 }
-
 
 impl FractionExtra for Fraction {
     #[inline]
