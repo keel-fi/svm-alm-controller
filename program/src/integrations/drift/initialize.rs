@@ -67,11 +67,11 @@ pub fn process_initialize_drift(
             rent: inner_ctx.rent,
             system_program: outer_ctx.system_program,
         }
-        .invoke_signed(Signer::from(&[
+        .invoke_signed(&[Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),
             Seed::from(outer_ctx.controller.key()),
             Seed::from(&[controller.authority_bump]),
-        ]))?;
+        ])])?;
     }
 
     // Initialize Drift User when it does not exist
@@ -84,15 +84,14 @@ pub fn process_initialize_drift(
             payer: outer_ctx.payer,
             rent: inner_ctx.rent,
             system_program: outer_ctx.system_program,
-        }
-        .invoke_signed(
             sub_account_id,
-            Signer::from(&[
-                Seed::from(CONTROLLER_AUTHORITY_SEED),
-                Seed::from(outer_ctx.controller.key()),
-                Seed::from(&[controller.authority_bump]),
-            ]),
-        )?;
+            name: [0u8; 32],
+        }
+        .invoke_signed(&[Signer::from(&[
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(outer_ctx.controller.key()),
+            Seed::from(&[controller.authority_bump]),
+        ])])?;
     }
 
     let config = IntegrationConfig::Drift(DriftConfig {
