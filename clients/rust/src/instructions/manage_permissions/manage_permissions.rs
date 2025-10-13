@@ -3,8 +3,8 @@ use crate::{
     generated::{instructions::ManagePermissionBuilder, types::PermissionStatus},
 };
 use solana_instruction::Instruction;
-use solana_pubkey::Pubkey;
 use solana_program::system_program;
+use solana_pubkey::Pubkey;
 
 /// Instruction generation for managing a permission account
 

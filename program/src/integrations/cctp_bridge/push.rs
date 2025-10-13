@@ -6,7 +6,7 @@ use crate::{
     instructions::PushArgs,
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger},
-        cpi::deposit_for_burn_cpi,
+        cpi::DepositForBurn,
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -169,32 +169,33 @@ pub fn process_push_cctp_bridge(
     let post_sync_balance = reserve.last_balance;
 
     // Perform the CPI to deposit and burn
-    deposit_for_burn_cpi(
+    DepositForBurn {
+        controller_authority: outer_ctx.controller_authority,
+        event_rent_payer: outer_ctx.authority,
+        sender_authority_pda: inner_ctx.sender_authority_pda,
+        vault: inner_ctx.vault,
+        message_transmitter: inner_ctx.message_transmitter,
+        token_messenger: inner_ctx.token_messenger,
+        remote_token_messenger: inner_ctx.remote_token_messenger,
+        token_minter: inner_ctx.token_minter,
+        local_token: inner_ctx.local_token,
+        burn_token_mint: inner_ctx.mint,
+        message_sent_event_data: inner_ctx.message_sent_event_data,
+        message_transmitter_program: inner_ctx.cctp_message_transmitter,
+        token_messenger_minter_program: inner_ctx.cctp_token_messenger_minter,
+        token_program: inner_ctx.token_program,
+        system_program: inner_ctx.system_program,
+        event_authority: inner_ctx.event_authority,
+        cctp_program: inner_ctx.cctp_token_messenger_minter,
         amount,
         destination_domain,
-        destination_address,
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump]),
-        ]),
-        outer_ctx.controller_authority,
-        outer_ctx.authority,
-        inner_ctx.sender_authority_pda,
-        inner_ctx.vault,
-        inner_ctx.message_transmitter,
-        inner_ctx.token_messenger,
-        inner_ctx.remote_token_messenger,
-        inner_ctx.token_minter,
-        inner_ctx.local_token,
-        inner_ctx.mint,
-        inner_ctx.message_sent_event_data,
-        inner_ctx.cctp_message_transmitter,
-        inner_ctx.cctp_token_messenger_minter,
-        inner_ctx.event_authority,
-        inner_ctx.token_program,
-        inner_ctx.system_program,
-    )?;
+        mint_recipient: destination_address,
+    }
+    .invoke_signed(&[Signer::from(&[
+        Seed::from(CONTROLLER_AUTHORITY_SEED),
+        Seed::from(outer_ctx.controller.key()),
+        Seed::from(&[controller.authority_bump]),
+    ])])?;
 
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;

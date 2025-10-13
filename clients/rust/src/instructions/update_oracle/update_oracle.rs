@@ -1,9 +1,9 @@
 use crate::{
-    derive_controller_authority_pda, generated::{instructions::UpdateOracleBuilder, types::FeedArgs},
+    derive_controller_authority_pda,
+    generated::{instructions::UpdateOracleBuilder, types::FeedArgs},
 };
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
-
 
 pub fn create_update_oracle_instruction(
     controller: &Pubkey,

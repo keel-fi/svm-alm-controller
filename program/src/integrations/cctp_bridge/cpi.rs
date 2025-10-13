@@ -1,106 +1,49 @@
-use borsh::{maybestd::vec::Vec, BorshSerialize};
-use pinocchio::{
-    account_info::AccountInfo,
-    instruction::{AccountMeta, Instruction, Signer},
-    program::invoke_signed,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-};
+use crate::cpi_instruction;
 
-#[derive(BorshSerialize, Debug, PartialEq, Eq, Clone)]
-pub struct DepositForBurnArgs {
-    pub amount: u64,
-    pub destination_domain: u32,
-    pub mint_recipient: Pubkey,
-}
-
-impl DepositForBurnArgs {
-    pub const DISCRIMINATOR: [u8; 8] = [215, 60, 61, 46, 114, 55, 128, 176]; // d7 3c 3d 2e 72 37 80 b0
-
-    pub const LEN: usize = 44;
-
-    pub fn to_vec(&self) -> Result<Vec<u8>, ProgramError> {
-        let mut serialized: Vec<u8> = Vec::with_capacity(8 + Self::LEN);
-        serialized.extend_from_slice(&Self::DISCRIMINATOR);
-        BorshSerialize::serialize(self, &mut serialized)
-            .map_err(|_| ProgramError::InvalidInstructionData)?;
-        Ok(serialized)
+cpi_instruction! {
+    /// Deposit tokens for burn via CCTP (Cross-Chain Transfer Protocol).
+    /// This instruction burns tokens on Solana and initiates a cross-chain transfer.
+    pub struct DepositForBurn<'info> {
+        program: crate::constants::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+        discriminator: [215, 60, 61, 46, 114, 55, 128, 176],
+        
+        /// Controller authority that signs the transaction
+        controller_authority: Signer,
+        /// Payer for event rent
+        event_rent_payer: Writable<Signer>,
+        /// Sender authority PDA
+        sender_authority_pda: Readonly,
+        /// Vault token account to burn from
+        vault: Writable,
+        /// CCTP message transmitter state account
+        message_transmitter: Writable,
+        /// CCTP token messenger state account
+        token_messenger: Readonly,
+        /// Remote token messenger account
+        remote_token_messenger: Readonly,
+        /// Token minter account
+        token_minter: Readonly,
+        /// Local token account
+        local_token: Writable,
+        /// Mint of the token to burn
+        burn_token_mint: Writable,
+        /// Message sent event data account
+        message_sent_event_data: Writable<Signer>,
+        /// CCTP message transmitter program
+        message_transmitter_program: Readonly,
+        /// CCTP token messenger minter program
+        token_messenger_minter_program: Readonly,
+        /// Token program (Token or Token-2022)
+        token_program: Readonly,
+        /// System program
+        system_program: Readonly,
+        /// Event authority account
+        event_authority: Readonly,
+        /// CCTP program (duplicated for IDL compatibility)
+        cctp_program: Readonly;
+        
+        amount: u64,
+        destination_domain: u32,
+        mint_recipient: pinocchio::pubkey::Pubkey
     }
-}
-
-pub fn deposit_for_burn_cpi(
-    amount: u64,
-    destination_domain: u32,
-    mint_recipient: Pubkey,
-    signer: Signer,
-    controller_authority: &AccountInfo,
-    event_rent_payer: &AccountInfo,
-    sender_authority_pda: &AccountInfo,
-    vault: &AccountInfo,
-    message_transmitter: &AccountInfo,
-    token_messenger: &AccountInfo,
-    remote_token_messenger: &AccountInfo,
-    token_minter: &AccountInfo,
-    local_token: &AccountInfo,
-    burn_token_mint: &AccountInfo,
-    message_sent_event_data: &AccountInfo,
-    message_transmitter_program: &AccountInfo,
-    token_messenger_minter_program: &AccountInfo,
-    event_authority: &AccountInfo,
-    token_program: &AccountInfo,
-    system_program: &AccountInfo,
-) -> Result<(), ProgramError> {
-    let args_vec = DepositForBurnArgs {
-        amount: amount,
-        destination_domain: destination_domain,
-        mint_recipient: mint_recipient,
-    }
-    .to_vec()?;
-    let data = args_vec.as_slice();
-    invoke_signed(
-        &Instruction {
-            program_id: &*token_messenger_minter_program.key(),
-            data: &data,
-            accounts: &[
-                AccountMeta::readonly_signer(controller_authority.key()),
-                AccountMeta::writable_signer(event_rent_payer.key()),
-                AccountMeta::readonly(sender_authority_pda.key()),
-                AccountMeta::writable(vault.key()),
-                AccountMeta::writable(message_transmitter.key()),
-                AccountMeta::readonly(token_messenger.key()),
-                AccountMeta::readonly(remote_token_messenger.key()),
-                AccountMeta::readonly(token_minter.key()),
-                AccountMeta::writable(local_token.key()),
-                AccountMeta::writable(burn_token_mint.key()),
-                AccountMeta::writable_signer(message_sent_event_data.key()),
-                AccountMeta::readonly(message_transmitter_program.key()),
-                AccountMeta::readonly(token_messenger_minter_program.key()),
-                AccountMeta::readonly(token_program.key()),
-                AccountMeta::readonly(system_program.key()),
-                AccountMeta::readonly(event_authority.key()),
-                AccountMeta::readonly(token_messenger_minter_program.key()),
-            ],
-        },
-        &[
-            controller_authority, // owner
-            event_rent_payer,
-            sender_authority_pda,
-            vault, // burn_token_account,
-            message_transmitter,
-            token_messenger,
-            remote_token_messenger,
-            token_minter,
-            local_token,
-            burn_token_mint,
-            message_sent_event_data,
-            message_transmitter_program,
-            token_messenger_minter_program,
-            token_program,
-            system_program,
-            event_authority,
-            token_messenger_minter_program,
-        ],
-        &[signer],
-    )?;
-    Ok(())
 }

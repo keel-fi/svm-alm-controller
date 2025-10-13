@@ -48,7 +48,8 @@ export type InitializeArgs =
       maxStaleness: bigint;
       expiryTimestamp: bigint;
       oraclePriceInverted: boolean;
-    };
+    }
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number };
 
 export type InitializeArgsArgs =
   | { __kind: 'SplTokenExternal' }
@@ -64,7 +65,8 @@ export type InitializeArgsArgs =
       maxStaleness: number | bigint;
       expiryTimestamp: number | bigint;
       oraclePriceInverted: boolean;
-    };
+    }
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number };
 
 export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -90,6 +92,13 @@ export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
         ['maxStaleness', getU64Encoder()],
         ['expiryTimestamp', getI64Encoder()],
         ['oraclePriceInverted', getBooleanEncoder()],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructEncoder([
+        ['subAccountId', getU16Encoder()],
+        ['spotMarketIndex', getU16Encoder()],
       ]),
     ],
   ]);
@@ -119,6 +128,13 @@ export function getInitializeArgsDecoder(): Decoder<InitializeArgs> {
         ['maxStaleness', getU64Decoder()],
         ['expiryTimestamp', getI64Decoder()],
         ['oraclePriceInverted', getBooleanDecoder()],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructDecoder([
+        ['subAccountId', getU16Decoder()],
+        ['spotMarketIndex', getU16Decoder()],
       ]),
     ],
   ]);
@@ -163,6 +179,14 @@ export function initializeArgs(
     'AtomicSwap'
   >
 ): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'AtomicSwap'>;
+export function initializeArgs(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<
+    InitializeArgsArgs,
+    '__kind',
+    'Drift'
+  >
+): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'Drift'>;
 export function initializeArgs<K extends InitializeArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data

@@ -24,5 +24,6 @@ solana-instruction = { workspace = true }
 solana-program = { workspace = true }
 solana-program-error = { workspace = true }
 solana-pubkey = { workspace = true }
+solana-sysvar = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
 spl-token-2022 = { workspace = true }

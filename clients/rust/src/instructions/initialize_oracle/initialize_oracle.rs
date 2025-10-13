@@ -3,9 +3,8 @@ use crate::{
     generated::instructions::InitializeOracleBuilder,
 };
 use solana_instruction::Instruction;
-use solana_pubkey::Pubkey;
 use solana_program::system_program;
-
+use solana_pubkey::Pubkey;
 
 pub fn create_initialize_oracle_instruction(
     controller: &Pubkey,

@@ -26,7 +26,7 @@ import {
   getReserveEncoder,
   type Reserve,
   type ReserveArgs,
-} from '../accounts';
+} from '.';
 
 export type ReserveUpdateEvent = {
   authority: Address;

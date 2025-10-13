@@ -5,7 +5,6 @@ use crate::{
 use solana_instruction::Instruction;
 use solana_pubkey::Pubkey;
 
-
 pub fn create_manage_controller_instruction(
     controller: &Pubkey,
     authority: &Pubkey,
