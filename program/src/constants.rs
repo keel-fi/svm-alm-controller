@@ -34,6 +34,6 @@ pub const fn anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
 
     // return the first 8 bytes as the discriminator
     [
-        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
+        hash[..8]
     ]
 }
