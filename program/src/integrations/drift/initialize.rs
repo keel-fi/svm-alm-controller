@@ -85,6 +85,9 @@ pub fn process_initialize_drift(
             rent: inner_ctx.rent,
             system_program: outer_ctx.system_program,
             sub_account_id,
+            // Name not important since these accounts will
+            // not typically be read by a human. Instead, the
+            // subaccount ID will be the canonical identifier.
             name: [0u8; 32],
         }
         .invoke_signed(&[Signer::from(&[
