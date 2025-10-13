@@ -314,6 +314,9 @@ pub enum PushArgs {
     LzBridge {
         amount: u64,
     },
+    Drift {
+        amount: u64,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

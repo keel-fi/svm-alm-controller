@@ -39,3 +39,20 @@ cpi_instruction! {
         name: [u8; 32]
     }
 }
+
+cpi_instruction! {
+    pub struct PushDrift<'info> {
+        program: DRIFT_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "deposit"),
+        
+        user: Writable,
+        user_stats: Writable,
+        authority: Signer,
+        spot_market_vault: Writable,
+        user_token_account: Writable,
+        rent: Readonly,
+        system_program: Readonly;
+        
+        amount: u64
+    }
+}
