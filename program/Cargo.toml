@@ -28,10 +28,10 @@ borsh = "0.10.3"
 borsh-derive = "0.10.3"
 num-derive = { workspace = true }
 num-traits = { workspace = true}
+sha2-const-stable = { workspace = true }
+solana-keccak-hasher = { workspace = true }
 switchboard-on-demand = { workspace = true }
 bytemuck = { workspace = true }
-sha2-const-stable = "0.1.0"
-solana-keccak-hasher = { workspace = true }
 fixed = { workspace = true }
 uint = { workspace = true }
 

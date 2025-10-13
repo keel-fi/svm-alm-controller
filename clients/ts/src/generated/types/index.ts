@@ -17,6 +17,8 @@ export * from './cctpBridgeState';
 export * from './controllerStatus';
 export * from './controllerUpdateEvent';
 export * from './depositForBurnArgs';
+export * from './driftConfig';
+export * from './driftState';
 export * from './depositLiquidityV2Args';
 export * from './feed';
 export * from './feedArgs';

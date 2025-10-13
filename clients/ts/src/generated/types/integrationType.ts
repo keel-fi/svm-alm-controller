@@ -20,6 +20,7 @@ export enum IntegrationType {
   CctpBridge,
   LzBridge,
   AtomicSwap,
+  Drift,
   Kamino,
 }
 

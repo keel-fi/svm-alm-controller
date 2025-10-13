@@ -51,6 +51,7 @@ export type InitializeArgs =
       expiryTimestamp: bigint;
       oraclePriceInverted: boolean;
     }
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number }
   | { __kind: 'KaminoIntegration'; obligationId: number };
 
 export type InitializeArgsArgs =
@@ -68,6 +69,7 @@ export type InitializeArgsArgs =
       expiryTimestamp: number | bigint;
       oraclePriceInverted: boolean;
     }
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number }
   | { __kind: 'KaminoIntegration'; obligationId: number };
 
 export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
@@ -94,6 +96,13 @@ export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
         ['maxStaleness', getU64Encoder()],
         ['expiryTimestamp', getI64Encoder()],
         ['oraclePriceInverted', getBooleanEncoder()],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructEncoder([
+        ['subAccountId', getU16Encoder()],
+        ['spotMarketIndex', getU16Encoder()],
       ]),
     ],
     ['KaminoIntegration', getStructEncoder([['obligationId', getU8Encoder()]])],
@@ -124,6 +133,13 @@ export function getInitializeArgsDecoder(): Decoder<InitializeArgs> {
         ['maxStaleness', getU64Decoder()],
         ['expiryTimestamp', getI64Decoder()],
         ['oraclePriceInverted', getBooleanDecoder()],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructDecoder([
+        ['subAccountId', getU16Decoder()],
+        ['spotMarketIndex', getU16Decoder()],
       ]),
     ],
     ['KaminoIntegration', getStructDecoder([['obligationId', getU8Decoder()]])],
@@ -169,6 +185,14 @@ export function initializeArgs(
     'AtomicSwap'
   >
 ): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'AtomicSwap'>;
+export function initializeArgs(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<
+    InitializeArgsArgs,
+    '__kind',
+    'Drift'
+  >
+): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'Drift'>;
 export function initializeArgs(
   kind: 'KaminoIntegration',
   data: GetDiscriminatedUnionVariantContent<

@@ -7,6 +7,7 @@
 
 use crate::generated::types::AtomicSwapState;
 use crate::generated::types::CctpBridgeState;
+use crate::generated::types::DriftState;
 use crate::generated::types::KaminoState;
 use crate::generated::types::LzBridgeState;
 use crate::generated::types::SplTokenExternalState;
@@ -24,5 +25,6 @@ pub enum IntegrationState {
     CctpBridge(CctpBridgeState),
     LzBridge(LzBridgeState),
     AtomicSwap(AtomicSwapState),
+    Drift(DriftState),
     Kamino(KaminoState),
 }

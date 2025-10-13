@@ -7,6 +7,7 @@ use crate::{
     integrations::{
         atomic_swap::initialize::process_initialize_atomic_swap, 
         cctp_bridge::initialize::process_initialize_cctp_bridge, 
+        drift::initialize::process_initialize_drift,
         kamino::initialize::process_initialize_kamino, 
         lz_bridge::initialize::process_initialize_lz_bridge, 
         spl_token_external::initialize::process_initialize_spl_token_external,
@@ -65,6 +66,7 @@ pub fn process_initialize_integration(
         IntegrationType::CctpBridge => process_initialize_cctp_bridge(&ctx, &args)?,
         IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
         IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
+        IntegrationType::Drift => process_initialize_drift(&ctx, &args, &controller)?,
         IntegrationType::Kamino => process_initialize_kamino(&controller, &ctx, &args)?,
         // More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),

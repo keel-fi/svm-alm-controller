@@ -1,4 +1,3 @@
-
 mod helpers;
 mod subs;
 
@@ -16,11 +15,15 @@ use svm_alm_controller_client::{
 #[cfg(test)]
 mod tests {
 
+    use solana_program::hash;
     use solana_sdk::{instruction::InstructionError, pubkey::Pubkey};
     use svm_alm_controller_client::generated::instructions::ManageControllerBuilder;
     use test_case::test_case;
 
-    use crate::{helpers::lite_svm_with_programs, subs::{derive_controller_authority_pda, initialize_contoller}};
+    use crate::{
+        helpers::lite_svm_with_programs,
+        subs::{derive_controller_authority_pda, initialize_contoller},
+    };
 
     use super::*;
 
@@ -165,7 +168,8 @@ mod tests {
     }
 
     #[test]
-    fn test_manage_controller_with_invalid_controller_authority_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_controller_with_invalid_controller_authority_fails(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
         let payer_and_authority = Keypair::new();
         airdrop_lamports(&mut svm, &payer_and_authority.pubkey(), 10_000_000_000)?;
@@ -175,7 +179,7 @@ mod tests {
             &payer_and_authority,
             &payer_and_authority,
             ControllerStatus::Active,
-            0
+            0,
         )?;
 
         // Update the authority to have all permissions
@@ -216,7 +220,11 @@ mod tests {
             svm.latest_blockhash(),
         ));
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -232,7 +240,7 @@ mod tests {
             &payer_and_authority,
             &payer_and_authority,
             ControllerStatus::Active,
-            0
+            0,
         )?;
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
@@ -250,9 +258,8 @@ mod tests {
         // (index 3) permission: owner == crate::ID
         // (index 4) program_id: pubkey == crate::ID
 
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&payer_and_authority), 
-        ];
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> =
+            vec![Box::new(&payer_and_authority)];
         test_invalid_accounts!(
             svm.clone(),
             payer_and_authority.pubkey(),

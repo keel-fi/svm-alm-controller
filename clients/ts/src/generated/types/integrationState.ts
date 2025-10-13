@@ -30,6 +30,8 @@ import {
   getAtomicSwapStateEncoder,
   getCctpBridgeStateDecoder,
   getCctpBridgeStateEncoder,
+  getDriftStateDecoder,
+  getDriftStateEncoder,
   getKaminoStateDecoder,
   getKaminoStateEncoder,
   getLzBridgeStateDecoder,
@@ -40,6 +42,8 @@ import {
   type AtomicSwapStateArgs,
   type CctpBridgeState,
   type CctpBridgeStateArgs,
+  type DriftState,
+  type DriftStateArgs,
   type KaminoState,
   type KaminoStateArgs,
   type LzBridgeState,
@@ -54,6 +58,7 @@ export type IntegrationState =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeState] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeState] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] }
+  | { __kind: 'Drift'; fields: readonly [DriftState] }
   | { __kind: 'Kamino'; fields: readonly [KaminoState] };
 
 export type IntegrationStateArgs =
@@ -62,6 +67,7 @@ export type IntegrationStateArgs =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeStateArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeStateArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] }
+  | { __kind: 'Drift'; fields: readonly [DriftStateArgs] }
   | { __kind: 'Kamino'; fields: readonly [KaminoStateArgs] };
 
 export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateArgs> {
@@ -93,6 +99,10 @@ export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateA
       getStructEncoder([
         ['fields', getTupleEncoder([getAtomicSwapStateEncoder()])],
       ]),
+    ],
+    [
+      'Drift',
+      getStructEncoder([['fields', getTupleEncoder([getDriftStateEncoder()])]]),
     ],
     [
       'Kamino',
@@ -132,6 +142,10 @@ export function getIntegrationStateDecoder(): FixedSizeDecoder<IntegrationState>
       getStructDecoder([
         ['fields', getTupleDecoder([getAtomicSwapStateDecoder()])],
       ]),
+    ],
+    [
+      'Drift',
+      getStructDecoder([['fields', getTupleDecoder([getDriftStateDecoder()])]]),
     ],
     [
       'Kamino',
@@ -197,6 +211,14 @@ export function integrationState(
     'AtomicSwap'
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'AtomicSwap'>;
+export function integrationState(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<
+    IntegrationStateArgs,
+    '__kind',
+    'Drift'
+  >['fields']
+): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'Drift'>;
 export function integrationState(
   kind: 'Kamino',
   data: GetDiscriminatedUnionVariantContent<

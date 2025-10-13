@@ -9,5 +9,6 @@ pub enum IntegrationType {
     CctpBridge,
     LzBridge,
     AtomicSwap,
-    Kamino
+    Drift,
+    Kamino,
 }

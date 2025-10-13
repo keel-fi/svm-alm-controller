@@ -2017,6 +2017,48 @@
       }
     },
     {
+      "name": "DriftConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "subAccountId",
+            "type": "u16"
+          },
+          {
+            "name": "spotMarketIndex",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                220
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DriftState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                48
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "KaminoConfig",
       "type": {
         "kind": "struct",
@@ -2462,6 +2504,14 @@
             ]
           },
           {
+            "name": "Drift",
+            "fields": [
+              {
+                "defined": "DriftConfig"
+              }
+            ]
+          },
+          {
             "name": "Kamino",
             "fields": [
               {
@@ -2524,6 +2574,14 @@
             ]
           },
           {
+            "name": "Drift",
+            "fields": [
+              {
+                "defined": "DriftState"
+              }
+            ]
+          },
+          {
             "name": "Kamino",
             "fields": [
               {
@@ -2564,6 +2622,9 @@
           },
           {
             "name": "AtomicSwap"
+          },
+          {
+            "name": "Drift"
           },
           {
             "name": "Kamino"
@@ -2747,6 +2808,19 @@
               {
                 "name": "oracle_price_inverted",
                 "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "Drift",
+            "fields": [
+              {
+                "name": "sub_account_id",
+                "type": "u16"
+              },
+              {
+                "name": "spot_market_index",
+                "type": "u16"
               }
             ]
           },

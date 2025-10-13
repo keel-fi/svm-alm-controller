@@ -30,6 +30,8 @@ import {
   getAtomicSwapConfigEncoder,
   getCctpBridgeConfigDecoder,
   getCctpBridgeConfigEncoder,
+  getDriftConfigDecoder,
+  getDriftConfigEncoder,
   getKaminoConfigDecoder,
   getKaminoConfigEncoder,
   getLzBridgeConfigDecoder,
@@ -40,6 +42,8 @@ import {
   type AtomicSwapConfigArgs,
   type CctpBridgeConfig,
   type CctpBridgeConfigArgs,
+  type DriftConfig,
+  type DriftConfigArgs,
   type KaminoConfig,
   type KaminoConfigArgs,
   type LzBridgeConfig,
@@ -54,6 +58,7 @@ export type IntegrationConfig =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeConfig] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeConfig] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfig] }
+  | { __kind: 'Drift'; fields: readonly [DriftConfig] }
   | { __kind: 'Kamino'; fields: readonly [KaminoConfig] };
 
 export type IntegrationConfigArgs =
@@ -65,6 +70,7 @@ export type IntegrationConfigArgs =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeConfigArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeConfigArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfigArgs] }
+  | { __kind: 'Drift'; fields: readonly [DriftConfigArgs] }
   | { __kind: 'Kamino'; fields: readonly [KaminoConfigArgs] };
 
 export function getIntegrationConfigEncoder(): FixedSizeEncoder<IntegrationConfigArgs> {
@@ -95,6 +101,12 @@ export function getIntegrationConfigEncoder(): FixedSizeEncoder<IntegrationConfi
       'AtomicSwap',
       getStructEncoder([
         ['fields', getTupleEncoder([getAtomicSwapConfigEncoder()])],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructEncoder([
+        ['fields', getTupleEncoder([getDriftConfigEncoder()])],
       ]),
     ],
     [
@@ -134,6 +146,12 @@ export function getIntegrationConfigDecoder(): FixedSizeDecoder<IntegrationConfi
       'AtomicSwap',
       getStructDecoder([
         ['fields', getTupleDecoder([getAtomicSwapConfigDecoder()])],
+      ]),
+    ],
+    [
+      'Drift',
+      getStructDecoder([
+        ['fields', getTupleDecoder([getDriftConfigDecoder()])],
       ]),
     ],
     [
@@ -200,6 +218,14 @@ export function integrationConfig(
     'AtomicSwap'
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationConfigArgs, '__kind', 'AtomicSwap'>;
+export function integrationConfig(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<
+    IntegrationConfigArgs,
+    '__kind',
+    'Drift'
+  >['fields']
+): GetDiscriminatedUnionVariant<IntegrationConfigArgs, '__kind', 'Drift'>;
 export function integrationConfig(
   kind: 'Kamino',
   data: GetDiscriminatedUnionVariantContent<

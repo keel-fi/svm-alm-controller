@@ -7,6 +7,7 @@
 
 use crate::generated::types::AtomicSwapConfig;
 use crate::generated::types::CctpBridgeConfig;
+use crate::generated::types::DriftConfig;
 use crate::generated::types::KaminoConfig;
 use crate::generated::types::LzBridgeConfig;
 use crate::generated::types::SplTokenExternalConfig;
@@ -24,5 +25,6 @@ pub enum IntegrationConfig {
     CctpBridge(CctpBridgeConfig),
     LzBridge(LzBridgeConfig),
     AtomicSwap(AtomicSwapConfig),
+    Drift(DriftConfig),
     Kamino(KaminoConfig),
 }

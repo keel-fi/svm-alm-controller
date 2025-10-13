@@ -2,13 +2,13 @@ use constants::{
     CCTP_LOCAL_TOKEN, CCTP_MESSAGE_TRANSMITTER, CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID,
     CCTP_REMOTE_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
     CCTP_TOKEN_MINTER, LZ_USDS_OFT_PROGRAM_ID, LZ_USDS_OFT_STORE_PUBKEY,
-    LZ_USDS_PEER_CONFIG_PUBKEY, USDC_TOKEN_MINT_PUBKEY,
-    USDS_TOKEN_MINT_PUBKEY,
+    LZ_USDS_PEER_CONFIG_PUBKEY, USDC_TOKEN_MINT_PUBKEY, USDS_TOKEN_MINT_PUBKEY,
 };
 use litesvm::LiteSVM;
 pub mod assert;
 pub mod cctp;
 pub mod constants;
+pub mod drift;
 pub mod invalid_account_testing;
 pub mod lite_svm;
 pub mod lz_oft;
@@ -21,6 +21,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionStatus};
+use svm_alm_controller_client::integrations::drift::DRIFT_PROGRAM_ID;
 
 use crate::helpers::constants::{
     LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID,
@@ -102,6 +103,11 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(LZ_R2_PROGRAM_ID, lz_r2_program);
     let lz_executor_program = include_bytes!("../../fixtures/lz_executor.so");
     svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
+
+
+    // Add Drift program
+    let drift_program = include_bytes!("../../fixtures/drift.so");
+    svm.add_program(DRIFT_PROGRAM_ID, drift_program);
 
 
     // Kamino Lend

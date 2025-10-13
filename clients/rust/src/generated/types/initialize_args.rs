@@ -35,6 +35,10 @@ pub enum InitializeArgs {
         expiry_timestamp: i64,
         oracle_price_inverted: bool,
     },
+    Drift {
+        sub_account_id: u16,
+        spot_market_index: u16,
+    },
     KaminoIntegration {
         obligation_id: u8,
     },
