@@ -19,7 +19,9 @@ use crate::{
             derive_rewards_treasury_vault, 
             derive_rewards_vault, 
             harvest_reward_cpi
-        }, kamino_state::{FarmState, KaminoReserve}, shared_sync::sync_kamino_liquidity_value 
+        }, 
+        kamino_state::{FarmState, KaminoReserve, UserFarmState}, 
+        shared_sync::sync_kamino_liquidity_value 
     },
     processor::SyncIntegrationAccounts, 
     state::{Controller, Integration, Reserve}
@@ -209,6 +211,28 @@ pub fn process_sync_kamino(
                 };
 
                 let check_delta = post_transfer_balance.saturating_sub(post_sync_reserve_balance);
+
+                let user_rewards = {
+                    let user_farm_state = UserFarmState::try_from(
+                        inner_ctx.obligation_farm.try_borrow_data()?.as_ref()
+                    )?;
+                    user_farm_state.get_rewards(inner_ctx.farms_global_config, reward_index as usize)?
+                };
+
+                // Emit sync accounting event for credit (inflow) integration
+                controller.emit_event(
+                    outer_ctx.controller_authority,
+                    outer_ctx.controller.key(), 
+                    SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+                        controller: *outer_ctx.controller.key(), 
+                        integration: Some(*outer_ctx.integration.key()),
+                        reserve: None,
+                        direction: AccountingDirection::Credit,
+                        mint: *inner_ctx.rewards_mint.key(), 
+                        action: AccountingAction::Sync, 
+                        delta: user_rewards,
+                    })
+                )?;
                 
                 // Emit accounting event for debit (outflow) integration
                 controller.emit_event(
@@ -221,11 +245,11 @@ pub fn process_sync_kamino(
                         direction: AccountingDirection::Debit,
                         mint: *inner_ctx.rewards_mint.key(), 
                         action: AccountingAction::Withdrawal, 
-                        delta: check_delta
+                        delta: user_rewards
                     })
                 )?;
 
-                // Emit accounting event for credit  (inflow) reserve
+                // Emit accounting event for credit (inflow) reserve
                 controller.emit_event(
                     outer_ctx.controller_authority, 
                     outer_ctx.controller.key(), 
