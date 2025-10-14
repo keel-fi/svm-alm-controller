@@ -42,8 +42,12 @@ pub fn process_push_drift(
 ) -> ProgramResult {
     msg!("process_push_drift");
 
-    let amount = match outer_args {
-        PushArgs::Drift { amount } => *amount,
+    let (market_index, amount, reduce_only) = match outer_args {
+        PushArgs::Drift {
+            market_index,
+            amount,
+            reduce_only,
+        } => (*market_index, *amount, *reduce_only),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -77,7 +81,9 @@ pub fn process_push_drift(
         user_token_account: inner_ctx.user_token_account,
         rent: inner_ctx.rent,
         system_program: inner_ctx.system_program,
+        market_index,
         amount,
+        reduce_only,
     }
     .invoke()?;
 

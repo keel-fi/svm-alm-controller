@@ -53,6 +53,8 @@ cpi_instruction! {
         rent: Readonly,
         system_program: Readonly;
         
-        amount: u64
+        market_index: u16,
+        amount: u64,
+        reduce_only: bool
     }
 }

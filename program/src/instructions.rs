@@ -315,7 +315,9 @@ pub enum PushArgs {
         amount: u64,
     },
     Drift {
+        market_index: u16,
         amount: u64,
+        reduce_only: bool,
     }
 }
 
