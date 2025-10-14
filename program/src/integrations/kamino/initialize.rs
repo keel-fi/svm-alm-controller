@@ -108,7 +108,6 @@ impl<'info> InitializeKaminoAccounts<'info> {
         }
 
         // verify obligation farm debt is valid
-        // NOTE: This is not required for depositing (klend-sdk doesnt use it), but maybe in the future for borrowing?)
         let obligation_farm_debt_pda = derive_obligation_farm_address(
             ctx.reserve_farm_debt.key(), 
             ctx.obligation.key(), 
