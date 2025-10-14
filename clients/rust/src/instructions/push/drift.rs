@@ -18,6 +18,7 @@ pub fn create_drift_push_instruction(
     integration: &Pubkey,
     reserve: &Pubkey,
     reserve_vault: &Pubkey,
+    user_token_account: &Pubkey,
     token_program: &Pubkey,
     spot_market_index: u16,
     sub_account_id: u16,
@@ -58,19 +59,9 @@ pub fn create_drift_push_instruction(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: *reserve_vault, // user_token_account - using reserve vault as the source
+            pubkey: *user_token_account, // user_token_account - controller authority's ATA
             is_signer: false,
             is_writable: true,
-        },
-        AccountMeta {
-            pubkey: *reserve_vault, // reserve vault for balance sync
-            is_signer: false,
-            is_writable: false,
-        },
-        AccountMeta {
-            pubkey: RENT_ID,
-            is_signer: false,
-            is_writable: false,
         },
         AccountMeta {
             pubkey: *token_program,
@@ -78,7 +69,7 @@ pub fn create_drift_push_instruction(
             is_writable: false,
         },
         AccountMeta {
-            pubkey: system_program::ID,
+            pubkey: *reserve_vault, // reserve vault for balance sync
             is_signer: false,
             is_writable: false,
         },

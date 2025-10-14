@@ -18,10 +18,8 @@ define_account_struct! {
         authority: signer;
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_vault;
-        rent;
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
-        system_program;
+        reserve_vault;
     }
 }
 

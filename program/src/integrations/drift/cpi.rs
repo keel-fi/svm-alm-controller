@@ -1,5 +1,6 @@
 use crate::cpi_instruction;
 use crate::{constants::anchor_discriminator, integrations::drift::constants::DRIFT_PROGRAM_ID};
+use pinocchio_log::log;
 
 cpi_instruction! {
     /// Initialize Drift UserStats account.
@@ -41,6 +42,9 @@ cpi_instruction! {
 }
 
 cpi_instruction! {
+    /// Push funds to Drift spot market vault.
+    /// This instruction deposits tokens from the user's token account
+    /// into the Drift spot market vault.
     pub struct PushDrift<'info> {
         program: DRIFT_PROGRAM_ID,
         discriminator: anchor_discriminator("global", "deposit"),

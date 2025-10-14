@@ -291,19 +291,10 @@ macro_rules! define_account_struct {
 #[macro_export]
 macro_rules! cpi_instruction {
     // ========================================================================
-    // MAIN MACRO RULE
+    // MAIN MACRO RULE: WITH ARGUMENTS
     // ========================================================================
-    // This rule matches the macro invocation and generates the struct + impl
-    //
+    // This rule matches the macro invocation with arguments and generates the struct + impl
     (
-        // Pattern matching components:
-        // - $(#[$meta:meta])*: Capture doc comments and attributes like #[derive(...)]
-        // - $vis:vis: Capture visibility (pub, pub(crate), etc.)
-        // - $name:ident<$lifetime:lifetime>: Capture struct name and lifetime
-        // - program: $program_id:expr: The target program's ID
-        // - discriminator: $discriminator:expr: 8-byte instruction discriminator
-        // - Account declarations with optional doc comments
-        // - Optional args section after semicolon
         $(#[$meta:meta])*
         $vis:vis struct $name:ident<$lifetime:lifetime> {
             program: $program_id:expr,
@@ -312,83 +303,57 @@ macro_rules! cpi_instruction {
             $(
                 $(#[doc = $doc:expr])*
                 $account_name:ident: $account_type:ident $(<$($modifier:ident),+>)?
-            ),* $(,)?
+            ),* $(,)?;
             
-            $(; // Optional args separator - if present, args follow
             $(
                 $arg_name:ident: $arg_type:ty
             ),* $(,)?
-            )?
         }
     ) => {
         // ====================================================================
         // STRUCT GENERATION
         // ====================================================================
-        // Generate the public struct with account references and optional args
-        
-        $(#[$meta])*  // Apply all captured attributes/docs to the struct
+        $(#[$meta])*
         $vis struct $name<$lifetime> {
             $(
-                $(#[doc = $doc])*  // Apply doc comments to each account field
+                $(#[doc = $doc])*
                 pub $account_name: &$lifetime pinocchio::account_info::AccountInfo,
             )*
-            $($(
-                // If args were provided, add them as fields
+            $(
                 pub $arg_name: $arg_type,
-            )*)?
+            )*
         }
 
         // ====================================================================
         // IMPL BLOCK GENERATION
         // ====================================================================
-        // Generate the implementation with DISCRIMINATOR and invoke methods
-        
         impl<$lifetime> $name<$lifetime> {
-            // The 8-byte instruction discriminator
             pub const DISCRIMINATOR: [u8; 8] = $discriminator;
 
-            // Invoke the CPI without any signers
-            // Use this when no PDA signing is required.
             #[inline(always)]
             pub fn invoke(&self) -> pinocchio::ProgramResult {
                 self.invoke_signed(&[])
             }
 
-            // Invoke the CPI with PDA signers
-            // 
-            // Arguments:
-            //   signers - Slice of signer seeds for PDAs that need to sign
-            // 
-            // Example:
-            //   let seeds = &[b"authority", &[bump]];
-            //   instruction.invoke_signed(&[seeds])?;
             pub fn invoke_signed(&self, signers: &[pinocchio::instruction::Signer]) -> pinocchio::ProgramResult {
-                // Build the accounts array by converting each account type to AccountMeta
-                // The @meta matcher handles the conversion based on account type
                 let accounts = [
                     $(
                         cpi_instruction!(@meta $account_name: $account_type $(<$($modifier),+>)?, self),
                     )*
                 ];
 
-                // Build the account infos array - just references to the AccountInfo structs
                 let account_infos = [
                     $(self.$account_name,)*
                 ];
 
-                // Serialize the instruction data
-                // If no args: just the discriminator
-                // If args: discriminator followed by Borsh-serialized args
-                let data = cpi_instruction!(@data self, $discriminator $(, $($arg_name),*)?);
+                let data = cpi_instruction!(@data self, $discriminator, $($arg_name),*);
 
-                // Create the instruction
                 let ix = pinocchio::instruction::Instruction {
                     program_id: &$program_id,
                     accounts: &accounts,
                     data: &data,
                 };
 
-                // Invoke the CPI with the provided signers
                 pinocchio::program::invoke_signed(&ix, &account_infos, signers)
             }
         }
@@ -468,4 +433,67 @@ macro_rules! cpi_instruction {
         )+
         data
     }};
+
+    // ========================================================================
+    // MAIN MACRO RULE: NO ARGUMENTS
+    // ========================================================================
+    // This rule handles CPI instructions that have no arguments (no semicolon)
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident<$lifetime:lifetime> {
+            program: $program_id:expr,
+            discriminator: $discriminator:expr,
+            
+            $(
+                $(#[doc = $doc:expr])*
+                $account_name:ident: $account_type:ident $(<$($modifier:ident),+>)?
+            ),* $(,)?
+        }
+    ) => {
+        // ====================================================================
+        // STRUCT GENERATION
+        // ====================================================================
+        $(#[$meta])*
+        $vis struct $name<$lifetime> {
+            $(
+                $(#[doc = $doc])*
+                pub $account_name: &$lifetime pinocchio::account_info::AccountInfo,
+            )*
+        }
+
+        // ====================================================================
+        // IMPL BLOCK GENERATION
+        // ====================================================================
+        impl<$lifetime> $name<$lifetime> {
+            pub const DISCRIMINATOR: [u8; 8] = $discriminator;
+
+            #[inline(always)]
+            pub fn invoke(&self) -> pinocchio::ProgramResult {
+                self.invoke_signed(&[])
+            }
+
+            pub fn invoke_signed(&self, signers: &[pinocchio::instruction::Signer]) -> pinocchio::ProgramResult {
+                let accounts = [
+                    $(
+                        cpi_instruction!(@meta $account_name: $account_type $(<$($modifier),+>)?, self),
+                    )*
+                ];
+
+                let account_infos = [
+                    $(self.$account_name,)*
+                ];
+
+                let data = cpi_instruction!(@data self, $discriminator);
+
+                let ix = pinocchio::instruction::Instruction {
+                    program_id: &$program_id,
+                    accounts: &accounts,
+                    data: &data,
+                };
+
+                pinocchio::program::invoke_signed(&ix, &account_infos, signers)
+            }
+        }
+    };
+
 }

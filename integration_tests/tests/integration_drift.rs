@@ -317,6 +317,7 @@ mod tests {
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
+            &ata_pubkey, // controller authority's ATA
             &spl_token::ID,
             spot_market_index,
             sub_account_id,
