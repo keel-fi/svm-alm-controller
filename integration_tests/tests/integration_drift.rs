@@ -10,7 +10,7 @@ mod tests {
             drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::fetch_integration_account,
+        subs::{fetch_integration_account, initialize_reserve, transfer_tokens, ReserveKeys},
     };
     use borsh::BorshDeserialize;
     use solana_sdk::{
@@ -22,11 +22,12 @@ mod tests {
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
         generated::types::{
-            DriftConfig, IntegrationConfig, IntegrationStatus, IntegrationUpdateEvent,
-            SvmAlmControllerEvent,
+            AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig, IntegrationStatus, IntegrationUpdateEvent,
+            SvmAlmControllerEvent, ReserveStatus,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
+        instructions::create_drift_push_instruction,
     };
 
     #[test]
@@ -207,4 +208,138 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn drift_push_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+        
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+        set_drift_spot_market(&mut svm, spot_market_index);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Create a token mint for testing
+        let token_mint = solana_sdk::pubkey::Pubkey::new_unique();
+        let token_program = spl_token::ID;
+        
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &token_program,
+        )?;
+
+        // Transfer funds into the reserve vault
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let vault_start_amount = 1_000_000_000;
+        transfer_tokens(
+            &mut svm,
+            &super_authority,
+            &super_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Create the push instruction
+        let push_amount = 100_000_000;
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+        );
+
+        // Execute the push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Verify the integration was updated
+        let integration_after = fetch_integration_account(&svm, &integration_pubkey)
+            .expect("integration should exist")
+            .unwrap();
+        
+        // Verify the reserve was updated
+        let reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
+            .expect("reserve should exist")
+            .unwrap();
+
+        // Verify accounting events were emitted
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey),
+                mint: token_mint,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Deposit,
+                delta: 100, // TODO: calculate actual liquidity_value_delta
+            })
+        );
+
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: None,
+                mint: token_mint,
+                reserve: Some(reserve_keys.pubkey),
+                direction: AccountingDirection::Debit,
+                action: AccountingAction::Deposit,
+                delta: push_amount, // liquidity_amount_delta
+            })
+        );
+
+        Ok(())
+    }
+
+
 }
