@@ -7,7 +7,7 @@ use crate::{
     derive_controller_authority_pda, derive_permission_pda,
     generated::{instructions::PushBuilder, types::PushArgs},
     integrations::drift::{
-        derive_spot_market_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda
+        derive_spot_market_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda,
     },
 };
 
@@ -70,7 +70,7 @@ pub fn create_drift_push_instruction(
             is_writable: false,
         },
     ];
-    
+
     PushBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
