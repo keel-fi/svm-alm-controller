@@ -35,7 +35,6 @@ define_account_struct! {
         obligation: mut;
         reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_metadata: mut;
-        user_lookup_table: mut;
         referrer_metadata;
         obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
         obligation_farm_debt: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
@@ -140,8 +139,8 @@ impl<'info> InitializeKaminoAccounts<'info> {
 /// - An `obligation` : The `obligation` is derived from the `obligation_id`, 
 ///     the `market` and the `controller_authority`. An `obligation` can be shared accross many `KaminoIntegration`s,
 ///     but up to 8 can be active (see field ObligationCollateral).
-/// - An `obligation_farm`: derived from the `reserve.collateral_farm` and `obligation`, 
-///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm.
+/// - An `obligation_farm`: derived from the `reserve.collateral_farm`/`reserve.collateral_debt` and `obligation`, 
+///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm/collateral_debt.
 /// 
 /// **Important**: This instruction initializes by default a "Vanilla" kamino Obligation, since that's
 /// what's used in the `klend-sdk` examples. Also, `obligation_farm_debt` is not supported at the moment.
@@ -201,12 +200,19 @@ pub fn process_initialize_kamino(
 
     // initialize obligation farm for the reserve we are targeting,
     // only if the reserve has a collateral_farm
-    if kamino_reserve.has_collateral_farm() {
+    // and the account is owned by system program
+    if kamino_reserve.has_collateral_farm()
+        && inner_ctx.obligation_farm_collateral.is_owned_by(&pinocchio_system::ID)
+    {
         initialize_obligation_farm(OBLIGATION_FARM_COLLATERAL_MODE, outer_ctx, &inner_ctx)?;
     }
 
     // initialize a debt farm, only if reserve has farm_debt
-    if kamino_reserve.has_debt_farm() {
+    // only if the reserve has a debt_farm
+    // and the account is owned by system program
+    if kamino_reserve.has_debt_farm() 
+        && inner_ctx.obligation_farm_debt.is_owned_by(&pinocchio_system::ID)
+    {
         initialize_obligation_farm(OBLIGATION_FARM_DEBT_MODE, outer_ctx, &inner_ctx)?;
     }
     
@@ -246,7 +252,6 @@ fn initialize_user_metadata(
         outer_ctx.controller_authority, 
         outer_ctx.payer, 
         inner_ctx.user_metadata, 
-        inner_ctx.user_lookup_table, 
         inner_ctx.referrer_metadata,
         inner_ctx.kamino_program.key(), 
         inner_ctx.rent, 

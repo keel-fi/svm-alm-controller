@@ -173,7 +173,6 @@ pub fn initialize_user_metadata_cpi(
     user: &AccountInfo,
     payer: &AccountInfo,
     user_metadata: &AccountInfo,
-    user_lookup_table: &AccountInfo,
     referrer_user_metadata: &AccountInfo,
     kamino_program: &Pubkey,
     rent: &AccountInfo,
@@ -181,7 +180,7 @@ pub fn initialize_user_metadata_cpi(
 ) -> Result<(), ProgramError> {
 
     let args_vec = InitUserMetadataArgs {
-        user_lookup_table: user_lookup_table.key()
+        user_lookup_table: &Pubkey::default()
     }.to_vec()?;
 
     let data = args_vec.as_slice();

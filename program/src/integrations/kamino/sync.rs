@@ -191,6 +191,15 @@ pub fn process_sync_kamino(
 
         // only harvest rewards if rewards_available > 0
         if rewards_available > 0 {
+
+            // get available rewards in obligation farm before harvesting rewards
+            let user_rewards = {
+                let user_farm_state = UserFarmState::try_from(
+                    inner_ctx.obligation_farm.try_borrow_data()?.as_ref()
+                )?;
+                user_farm_state.get_rewards(inner_ctx.farms_global_config, reward_index as usize)?
+            };
+
             // claim farms rewards
             harvest_reward(
                 reward_index, 
@@ -211,13 +220,6 @@ pub fn process_sync_kamino(
                 };
 
                 let check_delta = post_transfer_balance.saturating_sub(post_sync_reserve_balance);
-
-                let user_rewards = {
-                    let user_farm_state = UserFarmState::try_from(
-                        inner_ctx.obligation_farm.try_borrow_data()?.as_ref()
-                    )?;
-                    user_farm_state.get_rewards(inner_ctx.farms_global_config, reward_index as usize)?
-                };
 
                 // Emit sync accounting event for credit (inflow) integration
                 controller.emit_event(
