@@ -45,13 +45,13 @@ cpi_instruction! {
         program: DRIFT_PROGRAM_ID,
         discriminator: anchor_discriminator("global", "deposit"),
         
+        state: Readonly,
         user: Writable,
         user_stats: Writable,
         authority: Signer,
         spot_market_vault: Writable,
         user_token_account: Writable,
-        rent: Readonly,
-        system_program: Readonly;
+        token_program: Readonly;
         
         market_index: u16,
         amount: u64,

@@ -1,21 +1,13 @@
 use pinocchio::{
-    account_info::AccountInfo,
-    msg,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    sysvars::{clock::Clock, Sysvar},
-    ProgramResult,
+    instruction::{Seed, Signer}, msg, program_error::ProgramError, sysvars::{clock::Clock, Sysvar}, ProgramResult
 };
 use pinocchio_token_interface::TokenAccount;
 
 use crate::{
-    define_account_struct,
-    enums::IntegrationConfig,
-    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
-    instructions::PushArgs,
-    integrations::drift::cpi::PushDrift,
-    processor::PushAccounts,
-    state::{Controller, Integration, Permission, Reserve},
+    constants::CONTROLLER_AUTHORITY_SEED, define_account_struct, events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, instructions::PushArgs, integrations::drift::{
+        cpi::PushDrift,
+        protocol_state::{User, UserStats},
+    }, processor::PushAccounts, state::{Controller, Integration, Permission, Reserve}
 };
 
 define_account_struct! {
@@ -24,8 +16,9 @@ define_account_struct! {
         user: mut;
         user_stats: mut;
         authority: signer;
-        spot_market_vault: mut;
-        user_token_account: mut;
+        spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_vault;
         rent;
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         system_program;
@@ -63,8 +56,43 @@ pub fn process_push_drift(
 
     let inner_ctx = PushDriftAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
+    // Validate Drift CPI constraints before making the call
+
+    // 1. Validate that the controller authority can sign for the user (can_sign_for_user constraint)
+    let user_data = inner_ctx.user.try_borrow_data()?;
+    let user = User::try_from(&user_data)?;
+    if user.authority != *outer_ctx.controller_authority.key() {
+        msg!("authority: controller authority cannot sign for user");
+        return Err(ProgramError::IncorrectAuthority);
+    }
+    drop(user);
+    drop(user_data);
+
+    // 2. Validate that the user_stats belongs to the controller authority (is_stats_for_user constraint)
+    let user_stats_data = inner_ctx.user_stats.try_borrow_data()?;
+    let user_stats = UserStats::try_from(&user_stats_data)?;
+    if user_stats.authority != *outer_ctx.controller_authority.key() {
+        msg!("user_stats: does not belong to controller authority");
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    drop(user_stats);
+    drop(user_stats_data);
+
+    // 3. Verify that the spot_market_vault mint matches the user_token_account mint
+    let spot_market_vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
+    let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
+    if spot_market_vault.mint() != user_token_account.mint() {
+        msg!("mint mismatch: spot_market_vault mint != user_token_account mint");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    drop(spot_market_vault);
+    drop(user_token_account);
+
+    // Sync the reserve balance before doing anything else
     reserve.sync_balance(
-        inner_ctx.spot_market_vault,
+        inner_ctx.reserve_vault,
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         controller,
@@ -73,19 +101,25 @@ pub fn process_push_drift(
     let vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
     let liquidity_amount_before = vault.amount();
 
+    drop(vault);
+
     PushDrift {
+        state: inner_ctx.state,
         user: inner_ctx.user,
         user_stats: inner_ctx.user_stats,
         authority: inner_ctx.authority,
         spot_market_vault: inner_ctx.spot_market_vault,
         user_token_account: inner_ctx.user_token_account,
-        rent: inner_ctx.rent,
-        system_program: inner_ctx.system_program,
+        token_program: inner_ctx.token_program,
         market_index,
         amount,
         reduce_only,
     }
-    .invoke()?;
+    .invoke_signed(&[Signer::from(&[
+        Seed::from(CONTROLLER_AUTHORITY_SEED),
+        Seed::from(outer_ctx.controller.key()),
+        Seed::from(&[controller.authority_bump]),
+    ])])?;
 
     let vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
     let liquidity_amount_after = vault.amount();

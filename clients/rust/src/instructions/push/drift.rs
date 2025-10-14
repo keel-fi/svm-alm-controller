@@ -7,7 +7,7 @@ use crate::{
     derive_controller_authority_pda, derive_permission_pda,
     generated::{instructions::PushBuilder, types::PushArgs},
     integrations::drift::{
-        derive_spot_market_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda,
+        derive_spot_market_vault_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda,
     },
 };
 
@@ -17,16 +17,19 @@ pub fn create_drift_push_instruction(
     authority: &Pubkey,
     integration: &Pubkey,
     reserve: &Pubkey,
+    reserve_vault: &Pubkey,
+    token_program: &Pubkey,
     spot_market_index: u16,
     sub_account_id: u16,
     amount: u64,
+    reduce_only: bool,
 ) -> Instruction {
     let controller_authority = derive_controller_authority_pda(controller);
     let permission_pda = derive_permission_pda(controller, authority);
     let drift_state_pda = derive_state_pda();
     let drift_user_stats_pda = derive_user_stats_pda(&controller_authority);
     let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
-    let drift_spot_market_pda = derive_spot_market_pda(spot_market_index);
+    let drift_spot_market_vault_pda = derive_spot_market_vault_pda(spot_market_index);
 
     let remaining_accounts = [
         AccountMeta {
@@ -45,22 +48,32 @@ pub fn create_drift_push_instruction(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: controller_authority,
+            pubkey: *authority,
             is_signer: true,
             is_writable: false,
         },
         AccountMeta {
-            pubkey: drift_spot_market_pda,
+            pubkey: drift_spot_market_vault_pda,
             is_signer: false,
             is_writable: true,
         },
         AccountMeta {
-            pubkey: *authority, // user_token_account - for now using authority as placeholder
+            pubkey: *reserve_vault, // user_token_account - using reserve vault as the source
             is_signer: false,
             is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *reserve_vault, // reserve vault for balance sync
+            is_signer: false,
+            is_writable: false,
         },
         AccountMeta {
             pubkey: RENT_ID,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: *token_program,
             is_signer: false,
             is_writable: false,
         },
@@ -80,7 +93,11 @@ pub fn create_drift_push_instruction(
         .reserve_a(*reserve)
         .reserve_b(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
-        .push_args(PushArgs::Drift { amount })
+        .push_args(PushArgs::Drift {
+            market_index: spot_market_index,
+            amount,
+            reduce_only,
+        })
         .add_remaining_accounts(&remaining_accounts)
         .instruction()
 }

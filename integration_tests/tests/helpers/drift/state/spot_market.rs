@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use litesvm::LiteSVM;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 use svm_alm_controller::constants::anchor_discriminator;
-use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, DRIFT_PROGRAM_ID};
+use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, derive_spot_market_vault_pda, DRIFT_PROGRAM_ID};
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
@@ -255,11 +255,14 @@ impl SpotMarket {
 /// - IF applicable to all tests, mutate state with a set value here
 /// - ELSE IF requires variable values for testing, add a argument
 ///     and mutate state set from the arg.
-pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16) -> Pubkey {
+pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<Pubkey>) -> Pubkey {
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
     spot_market.market_index = market_index;
-
+    if let Some(mint) = mint {
+        spot_market.mint = mint;
+    }
+    
     let mut state_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
     state_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
     state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
@@ -278,4 +281,30 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16) -> Pubkey {
     .unwrap();
 
     pubkey
+}
+
+/// Setup Drift SpotMarket Vault token account in LiteSvm.
+/// This creates the actual token account that holds the market's deposits.
+pub fn setup_drift_spot_market_vault(
+    svm: &mut LiteSVM, 
+    market_index: u16, 
+    mint: &Pubkey,
+    token_program: &Pubkey
+) -> Pubkey {
+    let vault_pubkey = svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
+    
+    // Import the setup_token_account function
+    use crate::helpers::spl::setup_token_account;
+    
+    setup_token_account(
+        svm,
+        &vault_pubkey,
+        mint,
+        &vault_pubkey, // The vault PDA is the owner of its own token account
+        0, // Start with 0 tokens
+        token_program,
+        None,
+    );
+    
+    vault_pubkey
 }

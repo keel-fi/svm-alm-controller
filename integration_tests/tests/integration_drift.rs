@@ -10,26 +10,29 @@ mod tests {
             drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::{fetch_integration_account, initialize_reserve, initialize_mint, initialize_ata, mint_tokens},
+        subs::{
+            fetch_integration_account, initialize_ata, initialize_mint, initialize_reserve,
+            mint_tokens,
+        },
     };
     use borsh::BorshDeserialize;
+    use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
         clock::Clock,
         instruction::InstructionError,
         signer::Signer,
         transaction::{Transaction, TransactionError},
     };
-    use solana_sdk::signer::keypair::Keypair;
-    use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
+    use spl_token;
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
         generated::types::{
-            AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig, IntegrationStatus, IntegrationUpdateEvent,
-            SvmAlmControllerEvent, ReserveStatus,
+            AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig,
+            IntegrationStatus, IntegrationUpdateEvent, ReserveStatus, SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
-        integrations::drift::{derive_user_pda, derive_user_stats_pda},
         instructions::create_drift_push_instruction,
+        integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
 
     #[test]
@@ -41,8 +44,8 @@ mod tests {
         } = setup_test_controller()?;
         let spot_market_index = 0;
         setup_drift_state(&mut svm);
-        set_drift_spot_market(&mut svm, spot_market_index);
-        set_drift_spot_market(&mut svm, spot_market_index + 1);
+        set_drift_spot_market(&mut svm, spot_market_index, None);
+        set_drift_spot_market(&mut svm, spot_market_index + 1, None);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -172,7 +175,7 @@ mod tests {
         setup_drift_state(&mut svm);
 
         let spot_market_index = 0;
-        let spot_market_pubkey = set_drift_spot_market(&mut svm, 0);
+        let spot_market_pubkey = set_drift_spot_market(&mut svm, 0, None);
 
         // overwrite with incorrect market ID
         let mut market = svm.get_account(&spot_market_pubkey).unwrap();
@@ -218,10 +221,31 @@ mod tests {
             controller_pk,
             super_authority,
         } = setup_test_controller()?;
-        
+
         let spot_market_index = 0;
         setup_drift_state(&mut svm);
-        set_drift_spot_market(&mut svm, spot_market_index);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint));
+        
+        // Setup the spot market vault token account
+        use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -250,22 +274,6 @@ mod tests {
         svm.send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
 
-        // Initialize Token Mint
-        let token_mint_kp = Keypair::new();
-        let token_mint = token_mint_kp.pubkey();
-        let mint_authority = Keypair::new();
-        
-        initialize_mint(
-            &mut svm,
-            &super_authority,
-            &mint_authority.pubkey(),
-            None,
-            6,
-            Some(token_mint_kp),
-            &TOKEN_2022_PROGRAM_ID,
-            None,
-        )?;
-
         // Initialize a reserve for the token
         let reserve_keys = initialize_reserve(
             &mut svm,
@@ -276,21 +284,21 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000,
             1_000_000_000_000,
-            &TOKEN_2022_PROGRAM_ID,
+            &spl_token::ID,
         )?;
 
         // Create associated token account for controller authority and mint tokens
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let vault_start_amount = 1_000_000_000;
-        
+
         // Initialize ATA for controller authority
-        initialize_ata(
+        let ata_pubkey = initialize_ata(
             &mut svm,
             &super_authority,
             &controller_authority,
             &token_mint,
         )?;
-        
+
         // Mint tokens to controller authority
         mint_tokens(
             &mut svm,
@@ -305,12 +313,15 @@ mod tests {
         let push_amount = 100_000_000;
         let push_ix = create_drift_push_instruction(
             &controller_pk,
-            &super_authority.pubkey(),
+            &super_authority.pubkey(), // Use super_authority as the authority for permission check
             &integration_pubkey,
             &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
             spot_market_index,
             sub_account_id,
             push_amount,
+            false,
         );
 
         // Execute the push instruction
@@ -320,14 +331,15 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone())
-            .map_err(|e| e.err.to_string())?;
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
+
+        dbg!(&tx_result);
 
         // Verify the integration was updated
         let _integration_after = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
-        
+
         // Verify the reserve was updated
         let _reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
             .expect("reserve should exist")
@@ -364,6 +376,4 @@ mod tests {
 
         Ok(())
     }
-
-
 }
