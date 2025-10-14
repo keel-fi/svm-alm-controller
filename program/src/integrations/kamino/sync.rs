@@ -20,7 +20,7 @@ use crate::{
             derive_rewards_vault, 
             harvest_reward_cpi
         }, 
-        kamino_state::{FarmState, KaminoReserve, UserFarmState}, 
+        protocol_state::{FarmState, KaminoReserve, UserState}, 
         shared_sync::sync_kamino_liquidity_value 
     },
     processor::SyncIntegrationAccounts, 
@@ -178,10 +178,8 @@ pub fn process_sync_kamino(
         }.invoke()?;
 
         // find the reward index in the FarmState of this kamino_reserve
-        let reserve_farm_state = {
-            let reserve_farm_data = inner_ctx.reserve_farm.try_borrow_data()?;
-            FarmState::try_from(reserve_farm_data.as_ref())?
-        };
+        let reserve_farm_data = inner_ctx.reserve_farm.try_borrow_data()?;
+        let reserve_farm_state = FarmState::load_checked(&reserve_farm_data)?;
         let (reward_index, rewards_available) = reserve_farm_state
             .find_reward_index_and_rewards_available(
                 inner_ctx.rewards_mint.key(), 
@@ -194,10 +192,11 @@ pub fn process_sync_kamino(
 
             // get available rewards in obligation farm before harvesting rewards
             let user_rewards = {
-                let user_farm_state = UserFarmState::try_from(
-                    inner_ctx.obligation_farm.try_borrow_data()?.as_ref()
-                )?;
-                user_farm_state.get_rewards(inner_ctx.farms_global_config, reward_index as usize)?
+                UserState::get_rewards(
+                    inner_ctx.obligation_farm, 
+                    inner_ctx.farms_global_config, 
+                    reward_index as usize
+                )?
             };
 
             // claim farms rewards

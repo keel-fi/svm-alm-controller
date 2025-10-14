@@ -23,7 +23,7 @@ use crate::{
             initialize_user_metadata_cpi, 
             OBLIGATION_FARM_COLLATERAL_MODE, OBLIGATION_FARM_DEBT_MODE,
         }, 
-        kamino_state::{KaminoReserve, Obligation}, 
+        protocol_state::{KaminoReserve, Obligation}, 
         state::KaminoState
     }, 
     processor::InitializeIntegrationAccounts, 
@@ -188,9 +188,9 @@ pub fn process_initialize_kamino(
         )?;
     } else {
         // validate obligation is OK
-        let obligation = Obligation::try_from(
-            inner_ctx.obligation.try_borrow_data()?.as_ref()
-        )?;
+        let obligation_data = inner_ctx.obligation.try_borrow_data()?;
+        let obligation = Obligation::load_checked(&obligation_data)?;
+        
         obligation.check_data(
             outer_ctx.controller_authority.key(), 
             inner_ctx.market.key()

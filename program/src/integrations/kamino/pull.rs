@@ -14,7 +14,7 @@ use crate::{
     instructions::PullArgs, 
     integrations::kamino::{
         cpi::withdraw_obligation_collateral_v2_cpi, 
-        kamino_state::get_liquidity_and_lp_amount, 
+        protocol_state::get_liquidity_and_lp_amount, 
         shared_sync::sync_kamino_liquidity_value, 
         validations::PushPullKaminoAccounts
     }, 
