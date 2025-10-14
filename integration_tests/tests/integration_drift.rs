@@ -10,7 +10,7 @@ mod tests {
             drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::{fetch_integration_account, initialize_reserve, transfer_tokens, ReserveKeys},
+        subs::{fetch_integration_account, initialize_reserve, initialize_mint, initialize_ata, mint_tokens},
     };
     use borsh::BorshDeserialize;
     use solana_sdk::{
@@ -19,6 +19,8 @@ mod tests {
         signer::Signer,
         transaction::{Transaction, TransactionError},
     };
+    use solana_sdk::signer::keypair::Keypair;
+    use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
         generated::types::{
@@ -248,10 +250,22 @@ mod tests {
         svm.send_transaction(tx.clone())
             .map_err(|e| e.err.to_string())?;
 
-        // Create a token mint for testing
-        let token_mint = solana_sdk::pubkey::Pubkey::new_unique();
-        let token_program = spl_token::ID;
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
         
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &TOKEN_2022_PROGRAM_ID,
+            None,
+        )?;
+
         // Initialize a reserve for the token
         let reserve_keys = initialize_reserve(
             &mut svm,
@@ -262,16 +276,26 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000,
             1_000_000_000_000,
-            &token_program,
+            &TOKEN_2022_PROGRAM_ID,
         )?;
 
-        // Transfer funds into the reserve vault
+        // Create associated token account for controller authority and mint tokens
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let vault_start_amount = 1_000_000_000;
-        transfer_tokens(
+        
+        // Initialize ATA for controller authority
+        initialize_ata(
             &mut svm,
             &super_authority,
+            &controller_authority,
+            &token_mint,
+        )?;
+        
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
             &super_authority,
+            &mint_authority,
             &token_mint,
             &controller_authority,
             vault_start_amount,
@@ -300,12 +324,12 @@ mod tests {
             .map_err(|e| e.err.to_string())?;
 
         // Verify the integration was updated
-        let integration_after = fetch_integration_account(&svm, &integration_pubkey)
+        let _integration_after = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
         
         // Verify the reserve was updated
-        let reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
+        let _reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
             .expect("reserve should exist")
             .unwrap();
 
