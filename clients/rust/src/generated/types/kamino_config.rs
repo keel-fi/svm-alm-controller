@@ -26,16 +26,6 @@ pub struct KaminoConfig {
         feature = "serde",
         serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
     )]
-    pub reserve_farm_collateral: Pubkey,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
-    pub reserve_farm_debt: Pubkey,
-    #[cfg_attr(
-        feature = "serde",
-        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
-    )]
     pub reserve_liquidity_mint: Pubkey,
     #[cfg_attr(
         feature = "serde",
@@ -43,5 +33,6 @@ pub struct KaminoConfig {
     )]
     pub obligation: Pubkey,
     pub obligation_id: u8,
-    pub padding: [u8; 31],
+    #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::Bytes>"))]
+    pub padding: [u8; 95],
 }

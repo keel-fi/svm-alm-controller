@@ -8,12 +8,6 @@ pub struct KaminoConfig {
     pub market: Pubkey,
     /// The Kamino `Reserve`, linked to `reserve_liquidity_mint`.
     pub reserve: Pubkey,
-    /// The `Reserve` farm collateral.
-    /// This `Pubkey` can be derived, but some `Reserves` may not have a farm_collateral (in that case it defaults to `Pubkey::default()`).
-    pub reserve_farm_collateral: Pubkey,
-    /// The `Reserve` farm debt.
-    /// This `Pubkey` can be derived, but some `Reserves` may not have a farm_debt (in that case it defaults to `Pubkey::default()`).
-    pub reserve_farm_debt: Pubkey,
     /// The reserve liquidity mint. This is the mint that is deposited (lent) into the Kamino `Reserve`.
     pub reserve_liquidity_mint: Pubkey,
     /// The obligation, different kamino integrations can share a single obligation.
@@ -29,7 +23,7 @@ pub struct KaminoConfig {
     /// to derive the obligation PDA.
     pub obligation_id: u8,
     /// Padding
-    pub _padding: [u8; 31]
+    pub _padding: [u8; 95]
 }
 
 impl KaminoConfig {
@@ -43,7 +37,6 @@ impl KaminoConfig {
         kamino_reserve: &Pubkey,
         reserve_liquidity_mint: &Pubkey,
         market: Option<&Pubkey>,
-        reserve_farm_collateral: Option<&Pubkey>,
     ) -> Result<(), ProgramError> {
         if obligation.ne(&self.obligation) {
             msg!("obligation: does not match config");
@@ -63,13 +56,6 @@ impl KaminoConfig {
         if let Some(market_pk) = market {
             if market_pk.ne(&self.market) {
                 msg!("market: does not match config");
-                return Err(ProgramError::InvalidAccountData);
-            }
-        }
-
-        if let Some(farm_collateral_pk) = reserve_farm_collateral {
-            if farm_collateral_pk.ne(&self.reserve_farm_collateral) {
-                msg!("reserve_farm_collateral: does not match config");
                 return Err(ProgramError::InvalidAccountData);
             }
         }

@@ -2,9 +2,8 @@
 use borsh::{maybestd::vec::Vec, BorshSerialize};
 use pinocchio::{
     account_info::AccountInfo, cpi::{invoke, invoke_signed}, 
-    instruction::{AccountMeta, Instruction, Signer}, msg, 
+    instruction::{AccountMeta, Instruction, Signer}, 
     program_error::ProgramError, pubkey::{try_find_program_address, Pubkey}, 
-    sysvars::clock::Slot,
 };
 
 use crate::{
@@ -217,84 +216,6 @@ pub fn initialize_user_metadata_cpi(
         &[signer]
     )?;
 
-    Ok(())
-}
-
-// ------------ init user lookup table ------------
-
-pub fn derive_lookup_table_address(
-    authority_address: &Pubkey,
-    recent_block_slot: Slot,
-    lookup_table_program: &Pubkey
-) -> Result<(Pubkey, u8), ProgramError> {
-    let result = try_find_program_address(
-        &[
-            authority_address.as_ref(),
-            &recent_block_slot.to_le_bytes()
-        ], 
-        lookup_table_program
-    ).ok_or(ProgramError::InvalidSeeds)?;
-
-    Ok(result)
-}
-
-const CREATE_VARIANT_INDEX: u32 = 0;
-
-/// Manual encoder: `[u32 variant | u64 recent_slot | u8 bump]`
-pub fn encode_create_lookup_table(recent_slot: Slot, bump_seed: u8) -> [u8; 13] {
-    let mut buf = [0u8; 13];
-    buf[..4].copy_from_slice(&CREATE_VARIANT_INDEX.to_le_bytes());
-    buf[4..12].copy_from_slice(&recent_slot.to_le_bytes());
-    buf[12] = bump_seed;
-    buf
-}
-
-pub fn initialize_user_lookup_table(
-    signer: Signer,
-    authority: &AccountInfo,
-    payer: &AccountInfo,
-    lookup_table: &AccountInfo,
-    lookup_table_program: &Pubkey,
-    system_program: &AccountInfo,
-    recent_slot: Slot,
-) -> Result<(), ProgramError> {
-    let (lookup_table_address, bump_seed) = derive_lookup_table_address(
-        authority.key(), 
-        recent_slot, 
-        lookup_table_program
-    )?;
-
-    if &lookup_table_address != lookup_table.key() {
-        msg! {"Lookup table: Invalid lookup table"}
-        return Err(SvmAlmControllerErrors::InvalidPda.into())
-    }
-
-    let data = encode_create_lookup_table(recent_slot, bump_seed);
-
-    invoke_signed(
-        &Instruction { 
-            program_id: lookup_table_program, 
-            data: data.as_slice(), 
-            accounts: &[
-                // lut address
-                AccountMeta::writable(lookup_table.key()),
-                // lut authority
-                AccountMeta::readonly_signer(authority.key()),
-                // payer
-                AccountMeta::writable_signer(payer.key()),
-                // system program
-                AccountMeta::readonly(system_program.key())
-            ] 
-        }, 
-        &[
-            lookup_table,
-            authority,
-            payer,
-            system_program
-        ], 
-        &[signer]
-    )?;
-    
     Ok(())
 }
 

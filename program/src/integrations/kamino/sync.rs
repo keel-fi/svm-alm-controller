@@ -63,7 +63,6 @@ impl<'info> SyncKaminoAccounts<'info> {
             ctx.kamino_reserve.key(), 
             &reserve.mint, 
             None, 
-            None, 
         )?;
 
         let obligation_farm_pda = derive_obligation_farm_address(
@@ -160,8 +159,7 @@ pub fn process_sync_kamino(
     if kamino_reserve_state.has_collateral_farm() 
         && inner_ctx.rewards_ata.key().ne(&Pubkey::default())
     {
-        msg!("kamino reserve has collateral_farm, processing");
-        // validate that the reserve farm_collateraal matches the reserve farm
+        // validate that the reserve farm_collateral matches the reserve farm
         if kamino_reserve_state.farm_collateral.ne(inner_ctx.reserve_farm.key()) {
             msg! {"reserve_farm: Invalid address"}
             return Err(ProgramError::InvalidAccountData)
@@ -205,7 +203,6 @@ pub fn process_sync_kamino(
 
             // if there is a match between the reward_mint and the integration mint, emit event
             if inner_ctx.rewards_mint.key().eq(&reserve.mint) {
-                msg!("reward mint and integration mint match, emitting accounting event");
                 let post_transfer_balance = {
                     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
                     vault.amount()

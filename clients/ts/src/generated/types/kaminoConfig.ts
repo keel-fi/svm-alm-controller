@@ -28,8 +28,6 @@ import {
 export type KaminoConfig = {
   market: Address;
   reserve: Address;
-  reserveFarmCollateral: Address;
-  reserveFarmDebt: Address;
   reserveLiquidityMint: Address;
   obligation: Address;
   obligationId: number;
@@ -42,12 +40,10 @@ export function getKaminoConfigEncoder(): FixedSizeEncoder<KaminoConfigArgs> {
   return getStructEncoder([
     ['market', getAddressEncoder()],
     ['reserve', getAddressEncoder()],
-    ['reserveFarmCollateral', getAddressEncoder()],
-    ['reserveFarmDebt', getAddressEncoder()],
     ['reserveLiquidityMint', getAddressEncoder()],
     ['obligation', getAddressEncoder()],
     ['obligationId', getU8Encoder()],
-    ['padding', fixEncoderSize(getBytesEncoder(), 31)],
+    ['padding', fixEncoderSize(getBytesEncoder(), 95)],
   ]);
 }
 
@@ -55,12 +51,10 @@ export function getKaminoConfigDecoder(): FixedSizeDecoder<KaminoConfig> {
   return getStructDecoder([
     ['market', getAddressDecoder()],
     ['reserve', getAddressDecoder()],
-    ['reserveFarmCollateral', getAddressDecoder()],
-    ['reserveFarmDebt', getAddressDecoder()],
     ['reserveLiquidityMint', getAddressDecoder()],
     ['obligation', getAddressDecoder()],
     ['obligationId', getU8Decoder()],
-    ['padding', fixDecoderSize(getBytesDecoder(), 31)],
+    ['padding', fixDecoderSize(getBytesDecoder(), 95)],
   ]);
 }
 

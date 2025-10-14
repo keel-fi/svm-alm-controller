@@ -54,12 +54,12 @@ pub fn create_pull_kamino_lend_ix(
     integration: &Pubkey,
     authority: &Pubkey,
     kamino_config: &KaminoConfig,
+    reserve_farm_collateral: &Pubkey,
     amount: u64,
 ) -> Instruction {
     let calling_permission_pda = derive_permission_pda(controller, authority);
     let controller_authority = derive_controller_authority_pda(controller);
     let obligation = kamino_config.obligation;
-    let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
     let kamino_reserve = kamino_config.reserve;
     let kamino_market = kamino_config.market;
     let kamino_reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
@@ -147,7 +147,7 @@ pub fn create_pull_kamino_lend_ix(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: reserve_farm_collateral,
+            pubkey: *reserve_farm_collateral,
             is_signer: false,
             is_writable: true,
         },

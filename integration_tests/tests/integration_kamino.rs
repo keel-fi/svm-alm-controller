@@ -10,30 +10,19 @@ mod tests {
     };
     use spl_associated_token_account_client::address::get_associated_token_address;
     use svm_alm_controller_client::{
-        derive_reserve_collateral_supply, derive_reserve_liquidity_supply, generated::types::{
+        derive_obligation_farm_address, derive_reserve_collateral_supply, derive_reserve_liquidity_supply, generated::types::{
             AccountingAction, AccountingDirection, 
             AccountingEvent, IntegrationConfig, 
             IntegrationState, IntegrationStatus, 
             IntegrationUpdateEvent, KaminoConfig, 
             ReserveStatus, SvmAlmControllerEvent, 
-        }, 
-        initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix, 
-        integrations::kamino::derive_vanilla_obligation_address, 
-        pull::kamino_lend::create_pull_kamino_lend_ix, 
-        push::create_push_kamino_lend_ix, 
-        sync_integration::create_sync_kamino_lend_ix
+        }, initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix, integrations::kamino::derive_vanilla_obligation_address, pull::kamino_lend::create_pull_kamino_lend_ix, push::create_push_kamino_lend_ix, sync_integration::create_sync_kamino_lend_ix
     };
     use borsh::BorshDeserialize;
     use crate::{
         assert_contains_controller_cpi_event, helpers::{ 
             constants::{
-                BONK_MINT, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, 
-                KAMINO_MAIN_MARKET, KAMINO_REFERRER_METADATA, 
-                KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_BONK_TREASURY_VAULT, 
-                KAMINO_USDC_RESERVE_BONK_VAULT, KAMINO_USDC_RESERVE_COLLATERAL_MINT, 
-                KAMINO_USDC_RESERVE_COLLATERAL_SUPPLY, KAMINO_USDC_RESERVE_FARM_COLLATERAL, 
-                KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, KAMINO_USDC_RESERVE_LIQUIDITY_SUPPLY, 
-                KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY
+                BONK_MINT, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, KAMINO_MAIN_MARKET, KAMINO_OTHER_MARKET, KAMINO_OTHER_MARKET_FARM_COLLATERAL, KAMINO_OTHER_MARKET_FARM_DEBT, KAMINO_OTHER_MARKET_RESERVE, KAMINO_OTHER_MARKET_RESERVE_COLLATERAL_MINT, KAMINO_OTHER_MARKET_RESERVE_COLLATERAL_SUPPLY, KAMINO_OTHER_MARKET_RESERVE_LIQ_SUPPLY, KAMINO_REFERRER_METADATA, KAMINO_USDC_RESERVE, KAMINO_USDC_RESERVE_BONK_TREASURY_VAULT, KAMINO_USDC_RESERVE_BONK_VAULT, KAMINO_USDC_RESERVE_COLLATERAL_MINT, KAMINO_USDC_RESERVE_COLLATERAL_SUPPLY, KAMINO_USDC_RESERVE_FARM_COLLATERAL, KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, KAMINO_USDC_RESERVE_LIQUIDITY_SUPPLY, KAMINO_USDC_RESERVE_SCOPE_CONFIG_PRICE_FEED, USDC_TOKEN_MINT_PUBKEY
             }, 
             lite_svm::get_account_data_from_json, 
             setup_test_controller, 
@@ -67,6 +56,8 @@ mod tests {
         rate_limit_max_outflow: u64,
         permit_liquidation: bool,
         kamino_config: &KaminoConfig,
+        reserve_farm_collateral: &Pubkey,
+        reserve_farm_debt: &Pubkey,
         mint: &Pubkey,
         obligation_id: u8
     ) -> Result<(Instruction, Pubkey, ReserveKeys), Box<dyn std::error::Error>> {
@@ -112,8 +103,6 @@ mod tests {
             1_000_000_000,
         )?;
 
-        let clock = svm.get_sysvar::<solana_sdk::sysvar::clock::Clock>();
-
         let (
             kamino_init_ix, 
             kamino_integration_pk
@@ -127,7 +116,8 @@ mod tests {
             rate_limit_max_outflow,
             permit_liquidation,
             &IntegrationConfig::Kamino(kamino_config.clone()),
-            clock.slot,
+            reserve_farm_collateral,
+            reserve_farm_debt,
             obligation_id,
             &KAMINO_LEND_PROGRAM_ID
         );
@@ -168,6 +158,7 @@ mod tests {
             integration_pk, 
             &super_authority.pubkey(), 
             &kamino_config, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
             amount
         );
 
@@ -206,6 +197,7 @@ mod tests {
             &integration_pk, 
             &super_authority.pubkey(), 
             &kamino_config, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
             amount
         );
 
@@ -233,12 +225,10 @@ mod tests {
         let kamino_config = KaminoConfig { 
             market: KAMINO_MAIN_MARKET, 
             reserve: KAMINO_USDC_RESERVE, 
-            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
-            reserve_farm_debt: Pubkey::default(),
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 31] 
+            padding: [0; 95] 
         };
 
         let description = "test";
@@ -257,6 +247,8 @@ mod tests {
             rate_limit_max_outflow,
             permit_liquidation,
             &kamino_config, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            &Pubkey::default(),
             &USDC_TOKEN_MINT_PUBKEY, 
             obligation_id
         ).unwrap();
@@ -319,6 +311,85 @@ mod tests {
             expected_event
         );
 
+        // assert obligation farm collateral
+        let obligation_farm_collateral_pk = derive_obligation_farm_address(&KAMINO_USDC_RESERVE_FARM_COLLATERAL, &obligation);
+
+        let obligation_farm_collateral = svm.get_account(&obligation_farm_collateral_pk)
+            .unwrap();
+        assert!(obligation_farm_collateral.owner.eq(&KAMINO_FARMS_PROGRAM_ID));
+        assert!(obligation_farm_collateral.data.len() == 920);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_kamino_farm_debt_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let obligation_id = 0;
+
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id, 
+            &controller_authority, 
+            &KAMINO_OTHER_MARKET, 
+            &KAMINO_LEND_PROGRAM_ID
+        );
+        
+        let kamino_config = KaminoConfig { 
+            market: KAMINO_OTHER_MARKET, 
+            reserve: KAMINO_OTHER_MARKET_RESERVE, 
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
+            obligation, 
+            obligation_id, 
+            padding: [0; 95] 
+        };
+
+        let description = "test";
+        let status = IntegrationStatus::Active;
+        let rate_limit_slope = 100_000_000_000;
+        let rate_limit_max_outflow = 100_000_000_000;
+        let permit_liquidation = true;
+
+        let (kamino_init_ix, _, _) = setup_env_and_get_init_ix(
+            &mut svm, 
+            &controller_pk, 
+            &super_authority, 
+            description,
+            status,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &kamino_config, 
+            &KAMINO_OTHER_MARKET_FARM_COLLATERAL,
+            &KAMINO_OTHER_MARKET_FARM_DEBT,
+            &USDC_TOKEN_MINT_PUBKEY, 
+            obligation_id
+        ).unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let _tx_result = svm
+            .send_transaction(tx.clone())
+            .unwrap();
+
+        // assert obligation farm debt
+        let obligation_farm_debt_pk = derive_obligation_farm_address(&KAMINO_OTHER_MARKET_FARM_DEBT, &obligation);
+
+        let obligation_farm_debt = svm.get_account(&obligation_farm_debt_pk)
+            .unwrap();
+        assert!(obligation_farm_debt.owner.eq(&KAMINO_FARMS_PROGRAM_ID));
+        assert!(obligation_farm_debt.data.len() == 920);
+
         Ok(())
     }
 
@@ -343,12 +414,10 @@ mod tests {
         let kamino_config = KaminoConfig { 
             market: KAMINO_MAIN_MARKET, 
             reserve: KAMINO_USDC_RESERVE, 
-            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
-            reserve_farm_debt: Pubkey::default(),
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 31] 
+            padding: [0; 95] 
         };
 
         let reserve_liquidity_destination = derive_reserve_liquidity_supply(
@@ -380,6 +449,8 @@ mod tests {
             rate_limit_max_outflow,
             permit_liquidation,
             &kamino_config, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            &Pubkey::default(),
             &USDC_TOKEN_MINT_PUBKEY, 
             obligation_id
         ).unwrap();
@@ -477,6 +548,8 @@ mod tests {
             reserve_before.rate_limit_outflow_amount_available - balance_delta
         );
 
+        // NOTE: This wont hold true with TransferFees enables,
+        // so the assertion needs to be improved when adding Token2022 tests
         // Assert Reserve vault was debited exact amount
         assert_eq!(balance_after, balance_before - liquidity_amount_kamino_vault_delta);
 
@@ -596,12 +669,10 @@ mod tests {
         let kamino_config = KaminoConfig { 
             market: KAMINO_MAIN_MARKET, 
             reserve: KAMINO_USDC_RESERVE, 
-            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
-            reserve_farm_debt: Pubkey::default(),
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 31] 
+            padding: [0; 95] 
         };
 
         let reserve_liquidity_destination = derive_reserve_liquidity_supply(
@@ -633,6 +704,8 @@ mod tests {
             rate_limit_max_outflow,
             permit_liquidation,
             &kamino_config, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            &Pubkey::default(),
             &USDC_TOKEN_MINT_PUBKEY, 
             obligation_id
         ).unwrap();
@@ -853,12 +926,10 @@ mod tests {
         let kamino_config = KaminoConfig { 
             market: KAMINO_MAIN_MARKET, 
             reserve: KAMINO_USDC_RESERVE, 
-            reserve_farm_collateral: KAMINO_USDC_RESERVE_FARM_COLLATERAL,
-            reserve_farm_debt: Pubkey::default(),
             reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
             obligation, 
             obligation_id, 
-            padding: [0; 31] 
+            padding: [0; 95] 
         };
 
         let description = "test";
@@ -881,6 +952,8 @@ mod tests {
             rate_limit_max_outflow,
             permit_liquidation,
             &kamino_config, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
+            &Pubkey::default(),
             &USDC_TOKEN_MINT_PUBKEY, 
             obligation_id
         ).unwrap();
@@ -973,6 +1046,7 @@ mod tests {
             &kamino_config, 
             &BONK_MINT, 
             &KAMINO_USDC_RESERVE_FARM_GLOBAL_CONFIG, 
+            &KAMINO_USDC_RESERVE_FARM_COLLATERAL,
             &rewards_ata, 
             &KAMINO_FARMS_PROGRAM_ID, 
             &SPL_TOKEN_PROGRAM_ID
@@ -1015,8 +1089,9 @@ mod tests {
             expected_reserve_event 
         );
 
+        // TODO: create a reserve with rewards available
         // current reward mint has no rewards_available and doesnt match reserve mint
-        // no event will be emited. TODO: create a reserve with rewards available
+        // no event will be emited.
 
         // assert lp amount didnt change
         assert_eq!(lp_amount_after, lp_amount_before);
@@ -1100,5 +1175,39 @@ mod tests {
         let bonk_treasury_vaut = get_account_data_from_json("./fixtures/usdc_reserve_bonk_treasury_vault.json");
         svm.set_account(KAMINO_USDC_RESERVE_BONK_TREASURY_VAULT, bonk_treasury_vaut)
             .unwrap();
+
+        // for testing farm debt and reward harvest
+        // market 
+        let kamino_other_market_account = get_account_data_from_json("./fixtures/kamino_other_market.json");
+        svm.set_account(KAMINO_OTHER_MARKET, kamino_other_market_account)
+            .unwrap();
+
+        // reserve
+        let kamino_other_market_reserve = get_account_data_from_json("./fixtures/kamino_other_market_reserve.json");
+        svm.set_account(KAMINO_OTHER_MARKET_RESERVE, kamino_other_market_reserve)
+            .unwrap();
+        // reserve farm collateral
+        let kamino_other_market_reserve_farm_collateral = get_account_data_from_json("./fixtures/kamino_other_market_collateral.json");
+        svm.set_account(KAMINO_OTHER_MARKET_FARM_COLLATERAL, kamino_other_market_reserve_farm_collateral)
+            .unwrap();
+        // reserve farm debt
+        let kamino_other_market_reserve_farm_debt = get_account_data_from_json("./fixtures/kamino_other_market_debt.json");
+        svm.set_account(KAMINO_OTHER_MARKET_FARM_DEBT, kamino_other_market_reserve_farm_debt)
+            .unwrap();
+
+        let kamino_other_market_reserve_liq_supply = get_account_data_from_json("./fixtures/kamino_other_market_reserve_liq_supply.json");
+        svm.set_account(KAMINO_OTHER_MARKET_RESERVE_LIQ_SUPPLY, kamino_other_market_reserve_liq_supply)
+            .unwrap();
+
+        let kamino_other_market_reserve_collateral_mint = get_account_data_from_json("./fixtures/kamino_other_market_reserve_collateral_mint.json");
+        svm.set_account(KAMINO_OTHER_MARKET_RESERVE_COLLATERAL_MINT, kamino_other_market_reserve_collateral_mint)
+            .unwrap();
+
+        let kamino_other_market_reserve_collateral_supply = get_account_data_from_json("./fixtures/kamino_other_market_reserve_collateral_supply.json");
+        svm.set_account(KAMINO_OTHER_MARKET_RESERVE_COLLATERAL_SUPPLY, kamino_other_market_reserve_collateral_supply)
+            .unwrap();
+        
+
+
     }
 }

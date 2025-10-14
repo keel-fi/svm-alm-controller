@@ -1,6 +1,6 @@
 use solana_pubkey::Pubkey;
 
-use crate::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID};
+use crate::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID};
 
 /// Derive PDA for Integration account
 pub fn derive_integration_pda(controller_pda: &Pubkey, hash: &[u8; 32]) -> Pubkey {
@@ -121,15 +121,6 @@ pub fn derive_obligation_farm_address(reserve_farm: &Pubkey, obligation: &Pubkey
 pub fn derive_user_metadata_address(user: &Pubkey) -> Pubkey {
     let (address, _) =
         Pubkey::find_program_address(&[b"user_meta", &user.as_ref()], &KAMINO_LEND_PROGRAM_ID);
-
-    address
-}
-
-pub fn derive_lookup_table_address(authority_address: &Pubkey, recent_block_slot: u64) -> Pubkey {
-    let (address, _) = Pubkey::find_program_address(
-        &[authority_address.as_ref(), &recent_block_slot.to_le_bytes()],
-        &LUT_PROGRAM_ID,
-    );
 
     address
 }

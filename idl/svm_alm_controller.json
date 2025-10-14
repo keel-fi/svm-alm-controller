@@ -1980,26 +1980,6 @@
       }
     },
     {
-      "name": "DepositForBurnArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "destinationDomain",
-            "type": "u32"
-          },
-          {
-            "name": "mintRecipient",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
       "name": "CctpBridgeState",
       "type": {
         "kind": "struct",
@@ -2072,14 +2052,6 @@
             "type": "publicKey"
           },
           {
-            "name": "reserveFarmCollateral",
-            "type": "publicKey"
-          },
-          {
-            "name": "reserveFarmDebt",
-            "type": "publicKey"
-          },
-          {
             "name": "reserveLiquidityMint",
             "type": "publicKey"
           },
@@ -2096,7 +2068,7 @@
             "type": {
               "array": [
                 "u8",
-                31
+                95
               ]
             }
           }

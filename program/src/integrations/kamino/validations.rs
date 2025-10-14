@@ -5,10 +5,7 @@ use crate::{
     integrations::kamino::{
         constants::{KAMINO_FARMS_PROGRAM_ID,KAMINO_LEND_PROGRAM_ID}, 
         cpi::{
-            derive_market_authority_address, 
-            derive_reserve_collateral_mint, 
-            derive_reserve_collateral_supply, 
-            derive_reserve_liquidity_supply
+            derive_market_authority_address, derive_obligation_farm_address, derive_reserve_collateral_mint, derive_reserve_collateral_supply, derive_reserve_liquidity_supply
         }
     }, 
     state::Reserve
@@ -46,10 +43,11 @@ define_account_struct! {
 
 impl<'info> PushPullKaminoAccounts<'info> {
 /// Builds `PushPullKaminoAccounts` and validates identities:
-/// - Config (Kamino): market, reserve, reserve_farm_collateral, reserve_liquidity_mint, obligation
+/// - Config (Kamino): market, kamino_reserve, reserve_liquidity_mint, obligation
 /// - KLend PDAs: reserve_{collateral_mint, collateral_supply, liquidity_supply}, market_authority
 /// - token_account: mint == reserve_liquidity_mint, owner == controller_authority, key == reserve.vault
 /// - reserve.mint == reserve_liquidity_mint
+/// - obligation_farm_collateral: matches PDA derived from reserve_farm_collateral and obligation
 /// Returns ctx or `InvalidAccountData`/`InvalidPda`. Use for both push and pull.
     pub fn checked_from_accounts(
         controller_authority: &Pubkey,
@@ -70,7 +68,6 @@ impl<'info> PushPullKaminoAccounts<'info> {
             ctx.kamino_reserve.key(), 
             ctx.reserve_liquidity_mint.key(), 
             Some(ctx.market.key()), 
-            Some(ctx.reserve_farm_collateral.key()), 
         )?;
  
         let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
@@ -131,6 +128,17 @@ impl<'info> PushPullKaminoAccounts<'info> {
         if ctx.reserve_liquidity_mint.key().ne(&reserve.mint) {
             msg! {"reserve_liquidity_mint: mismatch with reserve"};
             return Err(ProgramError::InvalidAccountData)
+        }
+
+        // verify obligation farm collateral is valid 
+        let obligation_farm_collateral_pda = derive_obligation_farm_address(
+            ctx.reserve_farm_collateral.key(), 
+            ctx.obligation.key(), 
+            ctx.kamino_farms_program.key()
+        )?;
+        if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
+            msg! {"Obligation farm collateral: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
         Ok(ctx)

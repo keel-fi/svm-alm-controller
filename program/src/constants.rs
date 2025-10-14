@@ -9,9 +9,6 @@ pub const RESERVE_SEED: &[u8] = b"reserve";
 pub const INTEGRATION_SEED: &[u8] = b"integration";
 pub const ORACLE_SEED: &[u8] = b"oracle";
 
-pub const ADDRESS_LOOKUP_TABLE_PROGRAM_ID: Pubkey =
-    pubkey!("AddressLookupTab1e1111111111111111111111111");
-
 pub const SECONDS_PER_DAY: u64 = 86_400;
 pub const BPS_DENOMINATOR: u16 = 10_000;
 

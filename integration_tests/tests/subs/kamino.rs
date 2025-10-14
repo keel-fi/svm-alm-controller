@@ -11,7 +11,7 @@ use solana_sdk::{
 use svm_alm_controller_client::{
     create_refresh_kamino_obligation_instruction, 
     create_refresh_kamino_reserve_instruction, 
-    integrations::kamino::{KaminoReserve, Obligation, LIQUIDITY_AVAILABLE_AMOUNT_OFFSET}};
+    integrations::kamino::{KaminoReserve, Obligation, FARM_DEBT_OFFSET, LIQUIDITY_AVAILABLE_AMOUNT_OFFSET}};
 
 
 pub fn get_liquidity_and_lp_amount(

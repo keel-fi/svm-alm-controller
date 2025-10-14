@@ -1,12 +1,11 @@
-use borsh::maybestd::format;
 use pinocchio::{
     account_info::AccountInfo, instruction::{Seed, Signer}, 
     msg, program_error::ProgramError, 
-    pubkey::Pubkey, sysvars::{clock::Clock, Sysvar}
+    pubkey::Pubkey,
 };
 
 use crate::{
-    constants::{ADDRESS_LOOKUP_TABLE_PROGRAM_ID, CONTROLLER_AUTHORITY_SEED}, 
+    constants::CONTROLLER_AUTHORITY_SEED, 
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
     error::SvmAlmControllerErrors, 
@@ -21,9 +20,8 @@ use crate::{
             derive_vanilla_obligation_address, 
             initialize_obligation_cpi, 
             initialize_obligation_farm_for_reserve_cpi, 
-            initialize_user_lookup_table, 
             initialize_user_metadata_cpi, 
-            OBLIGATION_FARM_COLLATERAL_MODE,
+            OBLIGATION_FARM_COLLATERAL_MODE, OBLIGATION_FARM_DEBT_MODE,
         }, 
         kamino_state::{KaminoReserve, Obligation}, 
         state::KaminoState
@@ -42,11 +40,10 @@ define_account_struct! {
         obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
         obligation_farm_debt: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
-        reserve_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
+        reserve_farm_collateral: mut;
         reserve_farm_debt: mut;
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
-        lookup_table_program: @pubkey(ADDRESS_LOOKUP_TABLE_PROGRAM_ID);
         kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
@@ -62,9 +59,17 @@ impl<'info> InitializeKaminoAccounts<'info> {
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
 
-        // reserve.farm_debt can either be pubkey::default or owned by kamino_farms program
+        // reserve.farm_debt can either be pubkey::default or be owned by kamino_farms program
         if ctx.reserve_farm_debt.key().ne(&Pubkey::default())
             && !ctx.reserve_farm_debt.is_owned_by(&KAMINO_FARMS_PROGRAM_ID) 
+        {
+            msg! {"reserve_farm_debt: Invalid owner"}
+            return Err(ProgramError::IllegalOwner)
+        }
+
+        // reserve.farm_collateral can either be pubkey::default or be owned by kamino_farms program
+        if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
+            && !ctx.reserve_farm_collateral.is_owned_by(&KAMINO_FARMS_PROGRAM_ID) 
         {
             msg! {"reserve_farm_collateral: Invalid owner"}
             return Err(ProgramError::IllegalOwner)
@@ -131,7 +136,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
 
 /// This function initializes a `KaminoIntegration`.
 /// In order to do so it initializes (if needed):
-/// - A `LUT` and `user_metadata_account` (initialized only once at the `controller` level).
+/// - A `user_metadata_account` (initialized only once at the `controller` level).
 /// - An `obligation` : The `obligation` is derived from the `obligation_id`, 
 ///     the `market` and the `controller_authority`. An `obligation` can be shared accross many `KaminoIntegration`s,
 ///     but up to 8 can be active (see field ObligationCollateral).
@@ -147,7 +152,6 @@ pub fn process_initialize_kamino(
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_kamino");
 
-    msg!(&format!("inner_args: {:?}", outer_args.inner_args));
     let obligation_id = match outer_args.inner_args {
         InitializeArgs::KaminoIntegration { 
             obligation_id 
@@ -167,10 +171,9 @@ pub fn process_initialize_kamino(
     )?;
     kamino_reserve.check_from_init_accounts(&inner_ctx)?;
 
-    // initialize an address lookup table and metadata if owned by system program
+    // initialize user metadata if owned by system program
     if inner_ctx.user_metadata.is_owned_by(&pinocchio_system::ID) {
-        msg! {"calling initialize_lut_and_metadata"}
-        initialize_lut_and_metadata(
+        initialize_user_metadata(
             outer_ctx, 
             &inner_ctx, 
             controller
@@ -179,7 +182,6 @@ pub fn process_initialize_kamino(
     
     // initialize obligation if owned by system program
     if inner_ctx.obligation.is_owned_by(&pinocchio_system::ID) {
-        msg! {"calling initialize_vanilla_obligation"}
         initialize_vanilla_obligation(
             obligation_id, 
             outer_ctx, 
@@ -203,22 +205,19 @@ pub fn process_initialize_kamino(
         initialize_obligation_farm(OBLIGATION_FARM_COLLATERAL_MODE, outer_ctx, &inner_ctx)?;
     }
 
-    // NOTE: removed this until it is required / better understood
-    // initialize an obligation farm, only if reserve has farm_debt
-    // if reserve.has_debt_farm() {
-    //     initialize_obligation_farm(OBLIGATION_FARM_DEBT_MODE, outer_ctx, &inner_ctx)?;
-    // }
+    // initialize a debt farm, only if reserve has farm_debt
+    if kamino_reserve.has_debt_farm() {
+        initialize_obligation_farm(OBLIGATION_FARM_DEBT_MODE, outer_ctx, &inner_ctx)?;
+    }
     
     // create the config
     let kamino_config = KaminoConfig {
         market: *inner_ctx.market.key(),
         reserve: *inner_ctx.kamino_reserve.key(),
-        reserve_farm_collateral: *inner_ctx.reserve_farm_collateral.key(),
-        reserve_farm_debt: *inner_ctx.reserve_farm_debt.key(),
         reserve_liquidity_mint: *inner_ctx.reserve_liquidity_mint.key(),
         obligation: *inner_ctx.obligation.key(),
         obligation_id,
-        _padding: [0; 31]
+        _padding: [0; 95]
     };
     let config = IntegrationConfig::Kamino(kamino_config);
 
@@ -233,26 +232,11 @@ pub fn process_initialize_kamino(
     Ok((config, state))
 }
 
-fn initialize_lut_and_metadata(
+fn initialize_user_metadata(
     outer_ctx: &InitializeIntegrationAccounts,
     inner_ctx: &InitializeKaminoAccounts,
     controller: &Controller
 ) -> Result<(), ProgramError> {
-    
-    initialize_user_lookup_table(
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump])
-        ]), 
-        outer_ctx.controller_authority, 
-        outer_ctx.payer, 
-        inner_ctx.user_lookup_table, 
-        inner_ctx.lookup_table_program.key(), 
-        inner_ctx.system_program, 
-        Clock::get()?.slot
-    )?;
-
     initialize_user_metadata_cpi(
         Signer::from(&[
             Seed::from(CONTROLLER_AUTHORITY_SEED),

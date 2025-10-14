@@ -36,4 +36,4 @@ fixed = { workspace = true }
 uint = { workspace = true }
 
 [dev-dependencies]
-base64 = "0.22"
+base64 = { workspace = true }

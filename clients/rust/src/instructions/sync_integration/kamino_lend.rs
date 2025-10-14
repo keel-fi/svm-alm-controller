@@ -55,6 +55,7 @@ pub fn create_sync_kamino_lend_ix(
     kamino_config: &KaminoConfig,
     rewards_mint: &Pubkey,
     global_config: &Pubkey,
+    reserve_farm_collateral: &Pubkey,
     rewards_ata: &Pubkey,
     scope_prices: &Pubkey,
     rewards_token_program: &Pubkey,
@@ -70,11 +71,10 @@ pub fn create_sync_kamino_lend_ix(
     let kamino_reserve = kamino_config.reserve;
     let kamino_reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
     let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
-    let reserve_farm = &kamino_config.reserve_farm_collateral;
+    let reserve_farm = reserve_farm_collateral;
     let obligation_farm_pda = derive_obligation_farm_address(reserve_farm, &obligation);
     let rewards_vault_pda = derive_rewards_vault(reserve_farm, &rewards_mint);
     let rewards_treasury_vault_pda = derive_rewards_treasury_vault(&global_config, &rewards_mint);
-
     let farms_vault_authority_pda = derive_farm_vaults_authority(reserve_farm);
 
     let remaining_accounts = &[

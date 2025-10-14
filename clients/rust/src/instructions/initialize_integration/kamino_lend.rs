@@ -7,10 +7,9 @@ use solana_sdk::{
 };
 
 use crate::{
-    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, LUT_PROGRAM_ID},
-    derive_controller_authority_pda, derive_integration_pda, derive_lookup_table_address,
-    derive_market_authority_address, derive_obligation_farm_address, derive_permission_pda,
-    derive_user_metadata_address,
+    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
+    derive_controller_authority_pda, derive_integration_pda, derive_market_authority_address,
+    derive_obligation_farm_address, derive_permission_pda, derive_user_metadata_address,
     generated::{
         instructions::InitializeIntegrationBuilder,
         types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType},
@@ -70,7 +69,8 @@ pub fn create_initialize_kamino_lend_integration_ix(
     rate_limit_max_outflow: u64,
     permit_liquidation: bool,
     config: &IntegrationConfig,
-    slot: u64,
+    reserve_farm_collateral: &Pubkey,
+    reserve_farm_debt: &Pubkey,
     obligation_id: u8,
     referrer: &Pubkey,
 ) -> (Instruction, Pubkey) {
@@ -91,10 +91,8 @@ pub fn create_initialize_kamino_lend_integration_ix(
     let market = kamino_config.market;
     let reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
     let reserve = kamino_config.reserve;
-    let reserve_farm_collateral = kamino_config.reserve_farm_collateral;
-    let reserve_farm_debt = kamino_config.reserve_farm_debt;
     let user_metadata = derive_user_metadata_address(&controller_authority);
-    let user_lookup_table = derive_lookup_table_address(&controller_authority, slot);
+    let user_lookup_table = Pubkey::default();
     let obligation_farm_collateral =
         derive_obligation_farm_address(&reserve_farm_collateral, &obligation);
     let obligation_farm_debt = derive_obligation_farm_address(&reserve_farm_debt, &obligation);
@@ -142,12 +140,12 @@ pub fn create_initialize_kamino_lend_integration_ix(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: reserve_farm_collateral,
+            pubkey: *reserve_farm_collateral,
             is_signer: false,
             is_writable: true,
         },
         AccountMeta {
-            pubkey: reserve_farm_debt,
+            pubkey: *reserve_farm_debt,
             is_signer: false,
             is_writable: true,
         },
@@ -158,11 +156,6 @@ pub fn create_initialize_kamino_lend_integration_ix(
         },
         AccountMeta {
             pubkey: market,
-            is_signer: false,
-            is_writable: false,
-        },
-        AccountMeta {
-            pubkey: LUT_PROGRAM_ID,
             is_signer: false,
             is_writable: false,
         },

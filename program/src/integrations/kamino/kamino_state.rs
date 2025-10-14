@@ -401,11 +401,11 @@ impl Obligation {
     /// - the `Obligation` `lending_market` matches `market`
     pub fn check_data(
         &self,
-        owner: &Pubkey,
+        controller_authority: &Pubkey,
         market: &Pubkey,
     ) -> Result<(), ProgramError> {
 
-        if &self.owner != owner {
+        if &self.owner != controller_authority {
             msg! {"obligation: invalid obligation, owner is not controller_authority"}
             return Err(ProgramError::InvalidAccountData)
         }
