@@ -9,3 +9,4 @@ pub use cctp_bridge::*;
 pub use drift::*;
 pub use lz_bridge::*;
 pub use spl_token_external::*;
+pub mod kamino_lend;

@@ -1,7 +1,6 @@
-// These allows are left intentionally because this instruction contains boilerplate code.
-#![allow(unused_variables)]
+// This allow is left intentionally because this instruction contains boilerplate code.
 #![allow(unused_mut)]
-#![allow(unreachable_code)]
+
 
 use crate::{
     define_account_struct,
@@ -9,6 +8,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
+    integrations::kamino::pull::process_pull_kamino
 };
 use borsh::BorshDeserialize;
 use pinocchio::{
@@ -23,7 +23,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct PullAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority: empty, @owner(pinocchio_system::ID);
+        controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
@@ -88,6 +88,16 @@ pub fn process_pull(
     };
 
     match args {
+        PullArgs::Kamino { .. } => {
+            process_pull_kamino(
+                &controller,
+                &permission,
+                &mut integration,
+                &mut reserve_a,
+                &ctx,
+                &args,
+            )?;
+        }
         _ => return Err(ProgramError::InvalidArgument),
     }
 

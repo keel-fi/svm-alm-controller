@@ -4,8 +4,10 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
     integrations::{
-        cctp_bridge::push::process_push_cctp_bridge, lz_bridge::push::process_push_lz_bridge,
-        spl_token_external::push::process_push_spl_token_external,
+        cctp_bridge::push::process_push_cctp_bridge, 
+        kamino::push::process_push_kamino, 
+        lz_bridge::push::process_push_lz_bridge, 
+        spl_token_external::push::process_push_spl_token_external
     },
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
@@ -22,7 +24,9 @@ use pinocchio::{
 define_account_struct! {
     pub struct PushAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority: empty, @owner(pinocchio_system::ID);
+        // Needs to be mutable since Kamino requires the `owner`
+        // to be `mut` for depositing
+        controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
@@ -115,6 +119,16 @@ pub fn process_push(
                 &mut reserve_a,
                 &ctx,
                 &args,
+            )?;
+        }
+        PushArgs::Kamino { .. } => {
+            process_push_kamino(
+                &controller, 
+                &permission, 
+                &mut integration, 
+                &mut reserve_a,
+                &ctx, 
+                &args
             )?;
         }
         _ => return Err(ProgramError::InvalidArgument),

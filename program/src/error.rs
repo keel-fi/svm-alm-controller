@@ -61,6 +61,8 @@ pub enum SvmAlmControllerErrors {
     InvalidIntegrationArgs,
     // 28
     InvalidOracleForMints,
+    // 29
+    SerializationFailed,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

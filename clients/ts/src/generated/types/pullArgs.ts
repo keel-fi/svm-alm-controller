@@ -8,29 +8,81 @@
 
 import {
   combineCodec,
-  getEnumDecoder,
-  getEnumEncoder,
-  type FixedSizeCodec,
-  type FixedSizeDecoder,
-  type FixedSizeEncoder,
+  getDiscriminatedUnionDecoder,
+  getDiscriminatedUnionEncoder,
+  getStructDecoder,
+  getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
+  getUnitDecoder,
+  getUnitEncoder,
+  type Codec,
+  type Decoder,
+  type Encoder,
+  type GetDiscriminatedUnionVariant,
+  type GetDiscriminatedUnionVariantContent,
 } from '@solana/kit';
 
-export enum PullArgs {
-  SplTokenExternal,
-  CctpBridge,
-  LzBridge,
+export type PullArgs =
+  | { __kind: 'SplTokenExternal' }
+  | { __kind: 'CctpBridge' }
+  | { __kind: 'LzBridge' }
+  | { __kind: 'Kamino'; amount: bigint };
+
+export type PullArgsArgs =
+  | { __kind: 'SplTokenExternal' }
+  | { __kind: 'CctpBridge' }
+  | { __kind: 'LzBridge' }
+  | { __kind: 'Kamino'; amount: number | bigint };
+
+export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
+  return getDiscriminatedUnionEncoder([
+    ['SplTokenExternal', getUnitEncoder()],
+    ['CctpBridge', getUnitEncoder()],
+    ['LzBridge', getUnitEncoder()],
+    ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
+  ]);
 }
 
-export type PullArgsArgs = PullArgs;
-
-export function getPullArgsEncoder(): FixedSizeEncoder<PullArgsArgs> {
-  return getEnumEncoder(PullArgs);
+export function getPullArgsDecoder(): Decoder<PullArgs> {
+  return getDiscriminatedUnionDecoder([
+    ['SplTokenExternal', getUnitDecoder()],
+    ['CctpBridge', getUnitDecoder()],
+    ['LzBridge', getUnitDecoder()],
+    ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],
+  ]);
 }
 
-export function getPullArgsDecoder(): FixedSizeDecoder<PullArgs> {
-  return getEnumDecoder(PullArgs);
-}
-
-export function getPullArgsCodec(): FixedSizeCodec<PullArgsArgs, PullArgs> {
+export function getPullArgsCodec(): Codec<PullArgsArgs, PullArgs> {
   return combineCodec(getPullArgsEncoder(), getPullArgsDecoder());
+}
+
+// Data Enum Helpers.
+export function pullArgs(
+  kind: 'SplTokenExternal'
+): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'SplTokenExternal'>;
+export function pullArgs(
+  kind: 'CctpBridge'
+): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'CctpBridge'>;
+export function pullArgs(
+  kind: 'LzBridge'
+): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'LzBridge'>;
+export function pullArgs(
+  kind: 'Kamino',
+  data: GetDiscriminatedUnionVariantContent<PullArgsArgs, '__kind', 'Kamino'>
+): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'Kamino'>;
+export function pullArgs<K extends PullArgsArgs['__kind'], Data>(
+  kind: K,
+  data?: Data
+) {
+  return Array.isArray(data)
+    ? { __kind: kind, fields: data }
+    : { __kind: kind, ...(data ?? {}) };
+}
+
+export function isPullArgs<K extends PullArgs['__kind']>(
+  kind: K,
+  value: PullArgs
+): value is PullArgs & { __kind: K } {
+  return value.__kind === kind;
 }

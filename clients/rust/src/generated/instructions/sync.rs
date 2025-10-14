@@ -17,7 +17,11 @@ pub struct Sync {
 
     pub controller_authority: solana_pubkey::Pubkey,
 
+    pub payer: solana_pubkey::Pubkey,
+
     pub integration: solana_pubkey::Pubkey,
+
+    pub reserve: solana_pubkey::Pubkey,
 }
 
 impl Sync {
@@ -30,19 +34,21 @@ impl Sync {
         &self,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(3 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.controller,
             false,
         ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new(
             self.controller_authority,
             false,
         ));
+        accounts.push(solana_instruction::AccountMeta::new(self.payer, true));
         accounts.push(solana_instruction::AccountMeta::new(
             self.integration,
             false,
         ));
+        accounts.push(solana_instruction::AccountMeta::new(self.reserve, false));
         accounts.extend_from_slice(remaining_accounts);
         let data = borsh::to_vec(&SyncInstructionData::new()).unwrap();
 
@@ -77,13 +83,17 @@ impl Default for SyncInstructionData {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[]` controller_authority
-///   2. `[writable]` integration
+///   1. `[writable]` controller_authority
+///   2. `[writable, signer]` payer
+///   3. `[writable]` integration
+///   4. `[writable]` reserve
 #[derive(Clone, Debug, Default)]
 pub struct SyncBuilder {
     controller: Option<solana_pubkey::Pubkey>,
     controller_authority: Option<solana_pubkey::Pubkey>,
+    payer: Option<solana_pubkey::Pubkey>,
     integration: Option<solana_pubkey::Pubkey>,
+    reserve: Option<solana_pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -105,8 +115,18 @@ impl SyncBuilder {
         self
     }
     #[inline(always)]
+    pub fn payer(&mut self, payer: solana_pubkey::Pubkey) -> &mut Self {
+        self.payer = Some(payer);
+        self
+    }
+    #[inline(always)]
     pub fn integration(&mut self, integration: solana_pubkey::Pubkey) -> &mut Self {
         self.integration = Some(integration);
+        self
+    }
+    #[inline(always)]
+    pub fn reserve(&mut self, reserve: solana_pubkey::Pubkey) -> &mut Self {
+        self.reserve = Some(reserve);
         self
     }
     /// Add an additional account to the instruction.
@@ -131,7 +151,9 @@ impl SyncBuilder {
             controller_authority: self
                 .controller_authority
                 .expect("controller_authority is not set"),
+            payer: self.payer.expect("payer is not set"),
             integration: self.integration.expect("integration is not set"),
+            reserve: self.reserve.expect("reserve is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
@@ -144,7 +166,11 @@ pub struct SyncCpiAccounts<'a, 'b> {
 
     pub controller_authority: &'b solana_account_info::AccountInfo<'a>,
 
+    pub payer: &'b solana_account_info::AccountInfo<'a>,
+
     pub integration: &'b solana_account_info::AccountInfo<'a>,
+
+    pub reserve: &'b solana_account_info::AccountInfo<'a>,
 }
 
 /// `sync` CPI instruction.
@@ -156,7 +182,11 @@ pub struct SyncCpi<'a, 'b> {
 
     pub controller_authority: &'b solana_account_info::AccountInfo<'a>,
 
+    pub payer: &'b solana_account_info::AccountInfo<'a>,
+
     pub integration: &'b solana_account_info::AccountInfo<'a>,
+
+    pub reserve: &'b solana_account_info::AccountInfo<'a>,
 }
 
 impl<'a, 'b> SyncCpi<'a, 'b> {
@@ -168,7 +198,9 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             __program: program,
             controller: accounts.controller,
             controller_authority: accounts.controller_authority,
+            payer: accounts.payer,
             integration: accounts.integration,
+            reserve: accounts.reserve,
         }
     }
     #[inline(always)]
@@ -194,17 +226,22 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(3 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(5 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
         ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.controller_authority.key,
             false,
         ));
+        accounts.push(solana_instruction::AccountMeta::new(*self.payer.key, true));
         accounts.push(solana_instruction::AccountMeta::new(
             *self.integration.key,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new(
+            *self.reserve.key,
             false,
         ));
         remaining_accounts.iter().for_each(|remaining_account| {
@@ -221,11 +258,13 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(4 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
+        account_infos.push(self.payer.clone());
         account_infos.push(self.integration.clone());
+        account_infos.push(self.reserve.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -243,8 +282,10 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
 /// ### Accounts:
 ///
 ///   0. `[]` controller
-///   1. `[]` controller_authority
-///   2. `[writable]` integration
+///   1. `[writable]` controller_authority
+///   2. `[writable, signer]` payer
+///   3. `[writable]` integration
+///   4. `[writable]` reserve
 #[derive(Clone, Debug)]
 pub struct SyncCpiBuilder<'a, 'b> {
     instruction: Box<SyncCpiBuilderInstruction<'a, 'b>>,
@@ -256,7 +297,9 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
             __program: program,
             controller: None,
             controller_authority: None,
+            payer: None,
             integration: None,
+            reserve: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -278,11 +321,21 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
+    pub fn payer(&mut self, payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.payer = Some(payer);
+        self
+    }
+    #[inline(always)]
     pub fn integration(
         &mut self,
         integration: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.integration = Some(integration);
+        self
+    }
+    #[inline(always)]
+    pub fn reserve(&mut self, reserve: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+        self.instruction.reserve = Some(reserve);
         self
     }
     /// Add an additional account to the instruction.
@@ -329,10 +382,14 @@ impl<'a, 'b> SyncCpiBuilder<'a, 'b> {
                 .controller_authority
                 .expect("controller_authority is not set"),
 
+            payer: self.instruction.payer.expect("payer is not set"),
+
             integration: self
                 .instruction
                 .integration
                 .expect("integration is not set"),
+
+            reserve: self.instruction.reserve.expect("reserve is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -346,7 +403,9 @@ struct SyncCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_account_info::AccountInfo<'a>,
     controller: Option<&'b solana_account_info::AccountInfo<'a>>,
     controller_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+    payer: Option<&'b solana_account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_account_info::AccountInfo<'a>>,
+    reserve: Option<&'b solana_account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

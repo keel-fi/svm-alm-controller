@@ -12,7 +12,8 @@ use crate::{
         },
     },
     integrations::drift::{
-        derive_spot_market_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda, DRIFT_PROGRAM_ID
+        derive_spot_market_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda,
+        DRIFT_PROGRAM_ID,
     },
 };
 

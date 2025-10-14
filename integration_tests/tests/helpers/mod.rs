@@ -24,7 +24,7 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 use svm_alm_controller_client::integrations::drift::DRIFT_PROGRAM_ID;
 
 use crate::helpers::constants::{
-    LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302,
+    LZ_ENDPOINT_PROGRAM_ID, LZ_EXECUTOR_PROGRAM_ID, LZ_R1_PROGRAM_ID, LZ_R2_PROGRAM_ID, LZ_ULN302, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID,
 };
 use crate::helpers::lite_svm::get_account_data_from_json;
 use crate::subs::{airdrop_lamports, initialize_contoller, manage_permission};
@@ -104,9 +104,17 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     let lz_executor_program = include_bytes!("../../fixtures/lz_executor.so");
     svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
 
+
     // Add Drift program
     let drift_program = include_bytes!("../../fixtures/drift.so");
     svm.add_program(DRIFT_PROGRAM_ID, drift_program);
+
+
+    // Kamino Lend
+    let kamino_lend_program = include_bytes!("../../fixtures/kamino_lend.so");
+    svm.add_program(KAMINO_LEND_PROGRAM_ID, kamino_lend_program);
+    let kamino_farms_program = include_bytes!("../../fixtures/kamino_farms.so");
+    svm.add_program(KAMINO_FARMS_PROGRAM_ID, kamino_farms_program);
 
     svm
 }

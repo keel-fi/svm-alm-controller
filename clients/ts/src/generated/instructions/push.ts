@@ -64,7 +64,7 @@ export type PushInstruction<
         ? ReadonlyAccount<TAccountController>
         : TAccountController,
       TAccountControllerAuthority extends string
-        ? ReadonlyAccount<TAccountControllerAuthority>
+        ? WritableAccount<TAccountControllerAuthority>
         : TAccountControllerAuthority,
       TAccountAuthority extends string
         ? ReadonlySignerAccount<TAccountAuthority> &
@@ -183,7 +183,7 @@ export function getPushInstruction<
     controller: { value: input.controller ?? null, isWritable: false },
     controllerAuthority: {
       value: input.controllerAuthority ?? null,
-      isWritable: false,
+      isWritable: true,
     },
     authority: { value: input.authority ?? null, isWritable: false },
     permission: { value: input.permission ?? null, isWritable: false },

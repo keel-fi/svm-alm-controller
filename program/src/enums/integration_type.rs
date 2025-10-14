@@ -10,4 +10,5 @@ pub enum IntegrationType {
     LzBridge,
     AtomicSwap,
     Drift,
+    Kamino,
 }

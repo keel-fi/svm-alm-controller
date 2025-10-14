@@ -24,18 +24,21 @@ import {
 export type PushArgs =
   | { __kind: 'SplTokenExternal'; amount: bigint }
   | { __kind: 'CctpBridge'; amount: bigint }
-  | { __kind: 'LzBridge'; amount: bigint };
+  | { __kind: 'LzBridge'; amount: bigint }
+  | { __kind: 'Kamino'; amount: bigint };
 
 export type PushArgsArgs =
   | { __kind: 'SplTokenExternal'; amount: number | bigint }
   | { __kind: 'CctpBridge'; amount: number | bigint }
-  | { __kind: 'LzBridge'; amount: number | bigint };
+  | { __kind: 'LzBridge'; amount: number | bigint }
+  | { __kind: 'Kamino'; amount: number | bigint };
 
 export function getPushArgsEncoder(): FixedSizeEncoder<PushArgsArgs> {
   return getDiscriminatedUnionEncoder([
     ['SplTokenExternal', getStructEncoder([['amount', getU64Encoder()]])],
     ['CctpBridge', getStructEncoder([['amount', getU64Encoder()]])],
     ['LzBridge', getStructEncoder([['amount', getU64Encoder()]])],
+    ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
   ]) as FixedSizeEncoder<PushArgsArgs>;
 }
 
@@ -44,6 +47,7 @@ export function getPushArgsDecoder(): FixedSizeDecoder<PushArgs> {
     ['SplTokenExternal', getStructDecoder([['amount', getU64Decoder()]])],
     ['CctpBridge', getStructDecoder([['amount', getU64Decoder()]])],
     ['LzBridge', getStructDecoder([['amount', getU64Decoder()]])],
+    ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],
   ]) as FixedSizeDecoder<PushArgs>;
 }
 
@@ -72,6 +76,10 @@ export function pushArgs(
   kind: 'LzBridge',
   data: GetDiscriminatedUnionVariantContent<PushArgsArgs, '__kind', 'LzBridge'>
 ): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'LzBridge'>;
+export function pushArgs(
+  kind: 'Kamino',
+  data: GetDiscriminatedUnionVariantContent<PushArgsArgs, '__kind', 'Kamino'>
+): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'Kamino'>;
 export function pushArgs<K extends PushArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data
