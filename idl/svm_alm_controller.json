@@ -521,11 +521,6 @@
           "isSigner": false
         },
         {
-          "name": "reserveB",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "programId",
           "isMut": false,
           "isSigner": false
@@ -574,11 +569,6 @@
         },
         {
           "name": "reserveA",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveB",
           "isMut": true,
           "isSigner": false
         },
@@ -2071,82 +2061,6 @@
                 95
               ]
             }
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitObligationArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "tag",
-            "type": "u8"
-          },
-          {
-            "name": "id",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitUserMetadataArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "userLookupTable",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitObligationFarmArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "mode",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "DepositLiquidityV2Args",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "liquidityAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "WithdrawObligationV2Args",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "collateralAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "HarvestRewardArgs",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "rewardIndex",
-            "type": "u64"
           }
         ]
       }

@@ -53,7 +53,6 @@ use crate::{
 ///
 /// - The **vault ATA must exist** and hold at least `amount`.
 /// - `amount` uses the **decimals of `kamino_reserve_liquidity_mint`**.
-/// - Both `.reserve_a` and `.reserve_b` are set to the same reserve PDA (single-reserve flow).
 ///
 pub fn create_push_kamino_lend_ix(
     controller: &Pubkey,
@@ -177,7 +176,6 @@ pub fn create_push_kamino_lend_ix(
         .permission(calling_permission_pda)
         .integration(*integration)
         .reserve_a(reserve_pda)
-        .reserve_b(reserve_pda)
         .program_id(SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(remaining_accounts)
         .instruction()

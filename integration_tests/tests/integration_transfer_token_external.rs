@@ -1,8 +1,8 @@
 mod helpers;
 mod subs;
 use crate::subs::{
-    controller::manage_controller, derive_controller_authority_pda, initialize_ata, initialize_mint, initialize_reserve,
-    manage_permission, manage_reserve, mint_tokens,
+    controller::manage_controller, derive_controller_authority_pda, initialize_ata,
+    initialize_mint, initialize_reserve, manage_permission, manage_reserve, mint_tokens,
 };
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
@@ -13,6 +13,7 @@ use svm_alm_controller_client::generated::types::{
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
         subs::{
@@ -21,14 +22,20 @@ mod tests {
         },
     };
     use borsh::BorshDeserialize;
-    use svm_alm_controller::error::SvmAlmControllerErrors;
-    use super::*;
     use solana_sdk::{
-        account::Account, clock::Clock, instruction::InstructionError, transaction::{Transaction, TransactionError}
+        account::Account,
+        clock::Clock,
+        instruction::InstructionError,
+        transaction::{Transaction, TransactionError},
     };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
         create_spl_token_external_initialize_integration_instruction,
-        create_spl_token_external_push_instruction, generated::types::{AccountingAction, AccountingDirection, AccountingEvent, IntegrationUpdateEvent, SvmAlmControllerEvent},
+        create_spl_token_external_push_instruction,
+        generated::types::{
+            AccountingAction, AccountingDirection, AccountingEvent, IntegrationUpdateEvent,
+            SvmAlmControllerEvent,
+        },
     };
     use test_case::test_case;
 
@@ -108,8 +115,9 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone())
-        .map_err(|e| e.err.to_string())?;
+        let tx_result = svm
+            .send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         let clock = svm.get_sysvar::<Clock>();
 
@@ -149,8 +157,8 @@ mod tests {
             new_state: Some(integration),
         });
         assert_contains_controller_cpi_event!(
-            tx_result, 
-            tx.message.account_keys.as_slice(), 
+            tx_result,
+            tx.message.account_keys.as_slice(),
             expected_event
         );
 
@@ -317,20 +325,20 @@ mod tests {
         let check_delta = vault_balance_before
             .checked_sub(vault_balance_after)
             .unwrap();
-        // Assert accounting events 
-        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
-            controller: controller_pk, 
-            integration: None, 
+        // Assert accounting events
+        let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: None,
             reserve: Some(reserve_keys.pubkey),
-            mint: mint, 
-            action: AccountingAction::ExternalTransfer, 
-            delta: check_delta, 
-            direction: AccountingDirection::Debit, 
-        }); 
+            mint: mint,
+            action: AccountingAction::ExternalTransfer,
+            delta: check_delta,
+            direction: AccountingDirection::Debit,
+        });
         assert_contains_controller_cpi_event!(
-            tx_result, 
-            tx.message.account_keys.as_slice(), 
-            expected_debit_event 
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            expected_debit_event
         );
 
         let expected_credit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
@@ -343,9 +351,9 @@ mod tests {
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(
-            tx_result, 
-            tx.message.account_keys.as_slice(), 
-            expected_credit_event 
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            expected_credit_event
         );
 
         Ok(())
@@ -584,11 +592,7 @@ mod tests {
         );
         let tx_res = svm.send_transaction(tx);
 
-        assert_custom_error(
-            &tx_res,
-            0,
-            SvmAlmControllerErrors::ControllerFrozen,
-        );
+        assert_custom_error(&tx_res, 0, SvmAlmControllerErrors::ControllerFrozen);
 
         Ok(())
     }
@@ -705,7 +709,8 @@ mod tests {
     }
 
     #[test]
-    fn spl_token_external_push_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn spl_token_external_push_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -827,14 +832,18 @@ mod tests {
         );
         let tx_result = svm.send_transaction(tx);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
-        
     }
 
     #[test]
-    fn spl_token_external_init_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn spl_token_external_init_inner_ctx_invalid_accounts_fails(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -914,14 +923,15 @@ mod tests {
         // checks the case where the account is initialized but not owned by spl token or token2022
         let token_account_pk = init_ix.accounts[10].pubkey;
         svm.set_account(
-            token_account_pk, 
+            token_account_pk,
             Account {
-            lamports: 10000000,
-            data: [1; 165].to_vec(),
-            owner: Pubkey::new_unique(),
-            executable: false,
-            rent_epoch: 0
-        })
+                lamports: 10000000,
+                data: [1; 165].to_vec(),
+                owner: Pubkey::new_unique(),
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
         .expect("Failed to set account");
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_ix.clone()],
@@ -934,21 +944,19 @@ mod tests {
             TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
         );
         svm.set_account(
-            token_account_pk, 
+            token_account_pk,
             Account {
-            lamports: 0,
-            data: [].to_vec(),
-            owner: Pubkey::default(),
-            executable: false,
-            rent_epoch: 0
-        })
+                lamports: 0,
+                data: [].to_vec(),
+                owner: Pubkey::default(),
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
         .expect("Failed to set account");
         svm.expire_blockhash();
 
-
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&super_authority), 
-        ];
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
@@ -965,12 +973,12 @@ mod tests {
             }
         );
 
-
         Ok(())
     }
 
     #[test]
-    fn spl_token_external_push_inner_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn spl_token_external_push_inner_ctx_invalid_accounts_fails(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -1082,28 +1090,26 @@ mod tests {
         );
 
         // Checks for inner_ctx accounts:
-        // (index 8) mint
+        // (index 7) mint
         //      pubkey == config.mint
         //      owner == config.program
         //      pubkey == reserve.mint
-        // (index 9) vault
+        // (index 8) vault
         //      mut,
         //      pubkey == reserve.vault
-        // (index 10) recipient
+        // (index 9) recipient
         //      pubkey == config.recipient
-        // (index 11) recipient_token_account
+        // (index 10) recipient_token_account
         //      pubkey == config.token_account
         //      owner == ctx.token_program or system program
-        // (index 12) token_program 
+        // (index 11) token_program
         //      pubkey == config.program
-        // (index 13) AT program
+        // (index 12) AT program
         //      pubkey == AT program id
-        // (index 14) system program
+        // (index 13) system program
         //      pubkey == system program id
 
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&super_authority), 
-        ];
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
@@ -1111,23 +1117,23 @@ mod tests {
             push_ix.clone(),
             {
                 // change mint owner
-                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
                 // change mint pubkey
-                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
+                7 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
                 // change vault pubkey
-                9 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
                 // change recipient pubkey
-                10 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient: invalid pubkey"),
+                9 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient: invalid pubkey"),
                 // change recipient token account pubkey
-                11 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient token account: invalid pubkey"),
+                10 => invalid_program_id(InstructionError::InvalidAccountData, "Recipient token account: invalid pubkey"),
                 // change recipient token account owner
-                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient token account: invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Recipient token account: invalid owner"),
                 // modify token program id
-                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
+                11 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
                 // modify at program id
-                13 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: Invalid program id"),
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: Invalid program id"),
                 // modify system program id
-                14 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
             }
         );
         Ok(())
