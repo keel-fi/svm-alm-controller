@@ -6,17 +6,14 @@ use solana_sdk::{
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
 use crate::{
-    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
-    generated::{
+    constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, generated::{
         instructions::PushBuilder,
         types::{KaminoConfig, PushArgs},
-    },
-    pda::{
-        derive_controller_authority_pda, derive_market_authority_address,
-        derive_obligation_farm_address, derive_permission_pda, derive_reserve_collateral_mint,
-        derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_reserve_pda,
-    },
-    SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID,
+    }, integrations::kamino::{derive_market_authority_address, derive_obligation_farm_address, derive_reserve_collateral_mint, derive_reserve_collateral_supply, derive_reserve_liquidity_supply}, pda::{
+        derive_controller_authority_pda,
+        derive_permission_pda,
+        derive_reserve_pda,
+    }, SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID
 };
 
 /// Creates a `Push` instruction to deposit funds into a **Kamino Lend integration**
@@ -76,7 +73,7 @@ pub fn create_push_kamino_lend_ix(
         derive_reserve_collateral_mint(&kamino_market, &kamino_reserve_liquidity_mint);
     let kamino_reserve_collateral_supply =
         derive_reserve_collateral_supply(&kamino_market, &kamino_reserve_liquidity_mint);
-    let market_authority = derive_market_authority_address(&kamino_market);
+    let (market_authority, _) = derive_market_authority_address(&kamino_market);
     let obligation_farm_collateral =
         derive_obligation_farm_address(reserve_farm_collateral, &obligation);
     let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
