@@ -1,5 +1,4 @@
 use pinocchio::{
-    account_info::AccountInfo, 
     instruction::{Seed, Signer}, 
     msg, 
     program_error::ProgramError, 
@@ -13,7 +12,7 @@ use crate::{
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
     instructions::PullArgs, 
     integrations::kamino::{
-        cpi::withdraw_obligation_collateral_v2_cpi, 
+        cpi::WithdrawObligationCollateralV2, 
         protocol_state::get_liquidity_and_lp_amount, 
         shared_sync::sync_kamino_liquidity_value, 
         validations::PushPullKaminoAccounts
@@ -68,7 +67,7 @@ pub fn process_pull_kamino(
         controller
     )?;
 
-    // accounting event for changes in liquidity value BEFORE withdraw
+    // Accounting event for changes in liquidity value BEFORE withdraw
     sync_kamino_liquidity_value(
         controller, 
         integration, 
@@ -91,18 +90,34 @@ pub fn process_pull_kamino(
         inner_ctx.obligation
     )?;
 
-    withdraw_obligation_collateral_v2(
-        amount, 
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump]),
-        ]), 
-        outer_ctx.controller_authority, 
-        &inner_ctx
-    )?;
+    WithdrawObligationCollateralV2 {
+        owner: outer_ctx.controller_authority,
+        obligation: inner_ctx.obligation,
+        lending_market: inner_ctx.market,
+        market_authority: inner_ctx.market_authority,
+        kamino_reserve: inner_ctx.kamino_reserve,
+        reserve_liquidity_mint: inner_ctx.reserve_liquidity_mint,
+        reserve_collateral_supply: inner_ctx.reserve_collateral_supply,
+        reserve_collateral_mint: inner_ctx.reserve_collateral_mint,
+        reserve_liquidity_supply: inner_ctx.reserve_liquidity_supply,
+        user_liquidity_destination: inner_ctx.token_account,
+        // placeholder AccountInfo
+        placeholder_user_destination_collateral: inner_ctx.kamino_program,
+        collateral_token_program: inner_ctx.collateral_token_program,
+        liquidity_token_program: inner_ctx.liquidity_token_program,
+        instruction_sysvar: inner_ctx.instruction_sysvar_account,
+        obligation_farm_user_state: inner_ctx.obligation_farm_collateral,
+        reserve_farm_state: inner_ctx.reserve_farm_collateral,
+        farms_program: inner_ctx.kamino_farms_program,
+        collateral_amount: amount
+    }
+    .invoke_signed(&[Signer::from(&[
+        Seed::from(CONTROLLER_AUTHORITY_SEED),
+        Seed::from(outer_ctx.controller.key()),
+        Seed::from(&[controller.authority_bump]),
+    ])])?;
 
-    // for liquidity and collateral amount calculation
+    // For liquidity and collateral amount calculation
     let liquidity_amount_after = {
         let vault
             = TokenAccount::from_account_info(inner_ctx.token_account)?;
@@ -147,7 +162,7 @@ pub fn process_pull_kamino(
         }),
     )?;
     
-    // update the state
+    // Update the state
     match &mut integration.state {
         IntegrationState::Kamino(kamino_state) => {
             kamino_state.last_liquidity_value = liquidity_value_after;
@@ -156,42 +171,11 @@ pub fn process_pull_kamino(
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
     
-    // update the integration rate limit for inflow
+    // Update the integration rate limit for inflow
     integration.update_rate_limit_for_inflow(clock, liquidity_amount_delta)?;
 
-    // update the reserves for the flows
+    // Update the reserves for the flows
     reserve.update_for_inflow(clock, liquidity_amount_delta)?;
     
-    Ok(())
-}
-
-fn withdraw_obligation_collateral_v2(
-    amount: u64,
-    signer: Signer,
-    owner: &AccountInfo,
-    inner_ctx: &PushPullKaminoAccounts
-) -> Result<(), ProgramError> {
-    withdraw_obligation_collateral_v2_cpi(
-        amount, 
-        signer, 
-        owner, 
-        inner_ctx.obligation, 
-        inner_ctx.market, 
-        inner_ctx.market_authority, 
-        inner_ctx.kamino_reserve, 
-        inner_ctx.reserve_liquidity_mint, 
-        inner_ctx.reserve_liquidity_supply, 
-        inner_ctx.reserve_collateral_mint, 
-        inner_ctx.reserve_collateral_supply, 
-        inner_ctx.token_account, 
-        inner_ctx.collateral_token_program, 
-        inner_ctx.liquidity_token_program, 
-        inner_ctx.instruction_sysvar_account, 
-        inner_ctx.obligation_farm_collateral, 
-        inner_ctx.reserve_farm_collateral, 
-        inner_ctx.kamino_farms_program, 
-        inner_ctx.kamino_program
-    )?;
-
     Ok(())
 }

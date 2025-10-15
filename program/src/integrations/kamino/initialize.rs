@@ -11,17 +11,23 @@ use crate::{
     error::SvmAlmControllerErrors, 
     instructions::{InitializeArgs, InitializeIntegrationArgs}, 
     integrations::kamino::{
-        config::KaminoConfig, 
-        constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
+        config::KaminoConfig, constants::{
+            KAMINO_FARMS_PROGRAM_ID, 
+            KAMINO_LEND_PROGRAM_ID, 
+            OBLIGATION_FARM_COLLATERAL_MODE, 
+            OBLIGATION_FARM_DEBT_MODE, 
+            VANILLA_OBLIGATION_TAG
+        }, 
         cpi::{
+            InitializeObligation, 
+            InitializeObligationFarmForReserve, 
+            InitializeUserMetadata
+        }, 
+        pdas::{
             derive_market_authority_address, 
             derive_obligation_farm_address, 
             derive_user_metadata_address, 
-            derive_vanilla_obligation_address, 
-            initialize_obligation_cpi, 
-            initialize_obligation_farm_for_reserve_cpi, 
-            initialize_user_metadata_cpi, 
-            OBLIGATION_FARM_COLLATERAL_MODE, OBLIGATION_FARM_DEBT_MODE,
+            derive_vanilla_obligation_address
         }, 
         protocol_state::{KaminoReserve, Obligation}, 
         state::KaminoState
@@ -137,12 +143,11 @@ impl<'info> InitializeKaminoAccounts<'info> {
 /// - A `user_metadata_account` (initialized only once at the `controller` level).
 /// - An `obligation` : The `obligation` is derived from the `obligation_id`, 
 ///     the `market` and the `controller_authority`. An `obligation` can be shared accross many `KaminoIntegration`s,
-///     but up to 8 can be active (see field ObligationCollateral).
+///     but up to 8 can be active (see field `ObligationCollateral`).
 /// - An `obligation_farm`: derived from the `reserve.collateral_farm`/`reserve.collateral_debt` and `obligation`, 
 ///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm/collateral_debt.
 /// 
-/// **Important**: This instruction initializes by default a "Vanilla" kamino Obligation, since that's
-/// what's used in the `klend-sdk` examples. Also, `obligation_farm_debt` is not supported at the moment.
+/// **Important**: This instruction initializes by default a "Vanilla" kamino Obligation.
 pub fn process_initialize_kamino(
     controller: &Controller,
     outer_ctx: &InitializeIntegrationAccounts,
@@ -177,25 +182,49 @@ pub fn process_initialize_kamino(
         ) 
     };
 
-    // initialize user metadata if owned by system program
+    // Initialize user metadata if owned by system program
     if inner_ctx.user_metadata.is_owned_by(&pinocchio_system::ID) {
-        initialize_user_metadata(
-            outer_ctx, 
-            &inner_ctx, 
-            controller
-        )?;
+        InitializeUserMetadata {
+            owner: outer_ctx.controller_authority,
+            payer: outer_ctx.payer,
+            user_metadata: inner_ctx.user_metadata,
+            referrer_user_metadata: inner_ctx.referrer_metadata,
+            rent: inner_ctx.rent,
+            system_program: inner_ctx.system_program,
+            user_lookup_table: Pubkey::default()
+        }
+        .invoke_signed(&[Signer::from(&[
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(outer_ctx.controller.key()),
+            Seed::from(&[controller.authority_bump])
+        ])])?;
     }
     
-    // initialize obligation if owned by system program
+    // Initialize obligation if owned by system program
     if inner_ctx.obligation.is_owned_by(&pinocchio_system::ID) {
-        initialize_vanilla_obligation(
-            obligation_id, 
-            outer_ctx, 
-            &inner_ctx, 
-            controller
-        )?;
+        InitializeObligation {
+            obligation_owner: outer_ctx.controller_authority,
+            payer: outer_ctx.payer,
+            obligation: inner_ctx.obligation,
+            lending_market: inner_ctx.market,
+            // System program AccountInfo is used since 
+            // seed 1 and seed 2 are default values
+            // for VanillaObligations
+            seed_1: inner_ctx.system_program,
+            seed_2: inner_ctx.system_program,
+            owner_user_metadata: inner_ctx.user_metadata,
+            rent: inner_ctx.rent,
+            system_program: inner_ctx.system_program,
+            tag: VANILLA_OBLIGATION_TAG,
+            id: obligation_id
+        }
+        .invoke_signed(&[Signer::from(&[
+            Seed::from(CONTROLLER_AUTHORITY_SEED),
+            Seed::from(outer_ctx.controller.key()),
+            Seed::from(&[controller.authority_bump])
+        ])])?;
     } else {
-        // validate obligation is OK
+        // Validate obligation is OK
         let obligation_data = inner_ctx.obligation.try_borrow_data()?;
         let obligation = Obligation::load_checked(&obligation_data)?;
         
@@ -205,25 +234,53 @@ pub fn process_initialize_kamino(
         )?;
     }
 
-    // initialize obligation farm for the reserve we are targeting,
+    // Initialize obligation farm for the reserve we are targeting,
     // only if the reserve has a collateral_farm
     // and the account is owned by system program
     if kamino_reserve_has_collateral_farm
         && inner_ctx.obligation_farm_collateral.is_owned_by(&pinocchio_system::ID)
     {
-        initialize_obligation_farm(OBLIGATION_FARM_COLLATERAL_MODE, outer_ctx, &inner_ctx)?;
+        InitializeObligationFarmForReserve {
+            payer: outer_ctx.payer,
+            owner: outer_ctx.controller_authority,
+            obligation: inner_ctx.obligation,
+            market_authority: inner_ctx.market_authority,
+            kamino_reserve: inner_ctx.kamino_reserve,
+            reserve_farm_state: inner_ctx.reserve_farm_collateral,
+            obligation_farm: inner_ctx.obligation_farm_collateral,
+            lending_market: inner_ctx.market,
+            farms_program: inner_ctx.kamino_farms_program,
+            rent: inner_ctx.rent,
+            system_program: inner_ctx.system_program,
+            mode: OBLIGATION_FARM_COLLATERAL_MODE
+        }
+        .invoke()?;
     }
 
-    // initialize a debt farm, only if reserve has farm_debt
+    // Initialize a debt farm, only if reserve has farm_debt
     // only if the reserve has a debt_farm
     // and the account is owned by system program
     if kamino_reserve_has_debt_farm 
         && inner_ctx.obligation_farm_debt.is_owned_by(&pinocchio_system::ID)
     {
-        initialize_obligation_farm(OBLIGATION_FARM_DEBT_MODE, outer_ctx, &inner_ctx)?;
+        InitializeObligationFarmForReserve {
+            payer: outer_ctx.payer,
+            owner: outer_ctx.controller_authority,
+            obligation: inner_ctx.obligation,
+            market_authority: inner_ctx.market_authority,
+            kamino_reserve: inner_ctx.kamino_reserve,
+            reserve_farm_state: inner_ctx.reserve_farm_debt,
+            obligation_farm: inner_ctx.obligation_farm_debt,
+            lending_market: inner_ctx.market,
+            farms_program: inner_ctx.kamino_farms_program,
+            rent: inner_ctx.rent,
+            system_program: inner_ctx.system_program,
+            mode: OBLIGATION_FARM_DEBT_MODE
+        }
+        .invoke()?;
     }
     
-    // create the config
+    // Create the config
     let kamino_config = KaminoConfig {
         market: *inner_ctx.market.key(),
         reserve: *inner_ctx.kamino_reserve.key(),
@@ -234,7 +291,7 @@ pub fn process_initialize_kamino(
     };
     let config = IntegrationConfig::Kamino(kamino_config);
 
-    // create the state
+    // Create the state
     let kamino_state = KaminoState {
         last_liquidity_value: 0,
         last_lp_amount: 0,
@@ -243,88 +300,4 @@ pub fn process_initialize_kamino(
     let state = IntegrationState::Kamino(kamino_state);
 
     Ok((config, state))
-}
-
-fn initialize_user_metadata(
-    outer_ctx: &InitializeIntegrationAccounts,
-    inner_ctx: &InitializeKaminoAccounts,
-    controller: &Controller
-) -> Result<(), ProgramError> {
-    initialize_user_metadata_cpi(
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump])
-        ]), 
-        outer_ctx.controller_authority, 
-        outer_ctx.payer, 
-        inner_ctx.user_metadata, 
-        inner_ctx.referrer_metadata,
-        inner_ctx.kamino_program.key(), 
-        inner_ctx.rent, 
-        inner_ctx.system_program
-    )?;
-
-    Ok(())
-}
-
-fn initialize_vanilla_obligation(
-    id: u8,
-    outer_ctx: &InitializeIntegrationAccounts,
-    inner_ctx: &InitializeKaminoAccounts,
-    controller: &Controller
-) -> Result<(), ProgramError> {
-    initialize_obligation_cpi(
-        id, 
-        Signer::from(&[
-            Seed::from(CONTROLLER_AUTHORITY_SEED),
-            Seed::from(outer_ctx.controller.key()),
-            Seed::from(&[controller.authority_bump])
-        ]), 
-        inner_ctx.obligation, 
-        outer_ctx.controller_authority, 
-        outer_ctx.payer, 
-        inner_ctx.market, 
-        inner_ctx.user_metadata, 
-        inner_ctx.kamino_program.key(), 
-        inner_ctx.rent, 
-        inner_ctx.system_program
-    )?;
-
-    Ok(())
-}
-
-fn initialize_obligation_farm(
-    mode: u8,
-    outer_ctx: &InitializeIntegrationAccounts,
-    inner_ctx: &InitializeKaminoAccounts,
-) -> Result<(), ProgramError> {
-
-    let (reserve_farm, obligation_farm) = match mode {
-        0 => {
-            (inner_ctx.reserve_farm_collateral, inner_ctx.obligation_farm_collateral)
-        },
-        1 => {
-            (inner_ctx.reserve_farm_debt, inner_ctx.obligation_farm_debt)
-        },
-        _ => return Err(ProgramError::InvalidArgument)
-    };
-
-    initialize_obligation_farm_for_reserve_cpi(
-        mode,
-        outer_ctx.payer, 
-        outer_ctx.controller_authority, 
-        inner_ctx.obligation, 
-        inner_ctx.market_authority, 
-        inner_ctx.kamino_reserve, 
-        reserve_farm, 
-        obligation_farm, 
-        inner_ctx.market, 
-        inner_ctx.kamino_farms_program, 
-        inner_ctx.rent, 
-        inner_ctx.system_program, 
-        inner_ctx.kamino_program.key()
-    )?;
-
-    Ok(())
 }

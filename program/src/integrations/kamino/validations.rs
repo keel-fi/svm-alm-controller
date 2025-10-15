@@ -4,8 +4,12 @@ use crate::{
     error::SvmAlmControllerErrors, 
     integrations::kamino::{
         constants::{KAMINO_FARMS_PROGRAM_ID,KAMINO_LEND_PROGRAM_ID}, 
-        cpi::{
-            derive_market_authority_address, derive_obligation_farm_address, derive_reserve_collateral_mint, derive_reserve_collateral_supply, derive_reserve_liquidity_supply
+        pdas::{
+            derive_market_authority_address, 
+            derive_obligation_farm_address, 
+            derive_reserve_collateral_mint, 
+            derive_reserve_collateral_supply, 
+            derive_reserve_liquidity_supply
         }
     }, 
     state::Reserve
@@ -130,7 +134,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
             return Err(ProgramError::InvalidAccountData)
         }
 
-        // verify obligation farm collateral is valid 
+        // Verify obligation farm collateral is valid 
         let obligation_farm_collateral_pda = derive_obligation_farm_address(
             ctx.reserve_farm_collateral.key(), 
             ctx.obligation.key(), 
