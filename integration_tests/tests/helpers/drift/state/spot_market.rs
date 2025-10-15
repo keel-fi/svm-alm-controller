@@ -256,18 +256,28 @@ impl SpotMarket {
 /// - ELSE IF requires variable values for testing, add a argument
 ///     and mutate state set from the arg.
 pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<Pubkey>) -> Pubkey {
+    let pubkey = derive_spot_market_pda(market_index);
+    
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
+    spot_market.pubkey = pubkey; // Set the pubkey field to the actual PDA
     spot_market.market_index = market_index;
     if let Some(mint) = mint {
         spot_market.mint = mint;
     }
     
+    // Set up oracle account (mock oracle for testing)
+    let oracle_pubkey = Pubkey::new_unique();
+    spot_market.oracle = oracle_pubkey;
+    
+    // Set up insurance fund vault (mock insurance fund for testing)
+    let insurance_fund_vault = Pubkey::new_unique();
+    spot_market.insurance_fund.vault = insurance_fund_vault;
+    
     let mut state_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
     state_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
     state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
 
-    let pubkey = derive_spot_market_pda(market_index);
     svm.set_account(
         pubkey,
         Account {
@@ -307,4 +317,44 @@ pub fn setup_drift_spot_market_vault(
     );
     
     vault_pubkey
+}
+
+/// Setup mock oracle account for testing
+pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey) {
+    use solana_sdk::account::Account;
+    
+    // Create a minimal mock oracle account
+    let oracle_data = vec![0u8; 32]; // Minimal oracle data
+    
+    svm.set_account(
+        *oracle_pubkey,
+        Account {
+            lamports: u64::MAX,
+            rent_epoch: u64::MAX,
+            data: oracle_data,
+            owner: Pubkey::new_unique(), // Mock oracle program
+            executable: false,
+        },
+    )
+    .unwrap();
+}
+
+/// Setup mock insurance fund account for testing
+pub fn setup_mock_insurance_fund_account(svm: &mut LiteSVM, insurance_fund_pubkey: &Pubkey) {
+    use solana_sdk::account::Account;
+    
+    // Create a minimal mock insurance fund account
+    let insurance_fund_data = vec![0u8; 64]; // Minimal insurance fund data
+    
+    svm.set_account(
+        *insurance_fund_pubkey,
+        Account {
+            lamports: u64::MAX,
+            rent_epoch: u64::MAX,
+            data: insurance_fund_data,
+            owner: DRIFT_PROGRAM_ID, // Owned by Drift program
+            executable: false,
+        },
+    )
+    .unwrap();
 }
