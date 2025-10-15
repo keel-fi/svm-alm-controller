@@ -23,7 +23,7 @@ use crate::{
             initialize_user_metadata_cpi, 
             OBLIGATION_FARM_COLLATERAL_MODE, OBLIGATION_FARM_DEBT_MODE,
         }, 
-        kamino_state::{KaminoReserve, Obligation}, 
+        protocol_state::{KaminoReserve, Obligation}, 
         state::KaminoState
     }, 
     processor::InitializeIntegrationAccounts, 
@@ -164,10 +164,18 @@ pub fn process_initialize_kamino(
             obligation_id
         )?;
 
-    let kamino_reserve = KaminoReserve::try_from(
-        inner_ctx.kamino_reserve.try_borrow_data()?.as_ref()
-    )?;
-    kamino_reserve.check_from_init_accounts(&inner_ctx)?;
+    let (
+        kamino_reserve_has_collateral_farm,
+        kamino_reserve_has_debt_farm
+    ) = {
+        let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
+        let kamino_reserve = KaminoReserve::load_checked(&kamino_reserve_data)?;
+        kamino_reserve.check_from_init_accounts(&inner_ctx)?;
+        (
+            kamino_reserve.has_collateral_farm(),
+            kamino_reserve.has_debt_farm()
+        ) 
+    };
 
     // initialize user metadata if owned by system program
     if inner_ctx.user_metadata.is_owned_by(&pinocchio_system::ID) {
@@ -188,9 +196,9 @@ pub fn process_initialize_kamino(
         )?;
     } else {
         // validate obligation is OK
-        let obligation = Obligation::try_from(
-            inner_ctx.obligation.try_borrow_data()?.as_ref()
-        )?;
+        let obligation_data = inner_ctx.obligation.try_borrow_data()?;
+        let obligation = Obligation::load_checked(&obligation_data)?;
+        
         obligation.check_data(
             outer_ctx.controller_authority.key(), 
             inner_ctx.market.key()
@@ -200,7 +208,7 @@ pub fn process_initialize_kamino(
     // initialize obligation farm for the reserve we are targeting,
     // only if the reserve has a collateral_farm
     // and the account is owned by system program
-    if kamino_reserve.has_collateral_farm()
+    if kamino_reserve_has_collateral_farm
         && inner_ctx.obligation_farm_collateral.is_owned_by(&pinocchio_system::ID)
     {
         initialize_obligation_farm(OBLIGATION_FARM_COLLATERAL_MODE, outer_ctx, &inner_ctx)?;
@@ -209,7 +217,7 @@ pub fn process_initialize_kamino(
     // initialize a debt farm, only if reserve has farm_debt
     // only if the reserve has a debt_farm
     // and the account is owned by system program
-    if kamino_reserve.has_debt_farm() 
+    if kamino_reserve_has_debt_farm 
         && inner_ctx.obligation_farm_debt.is_owned_by(&pinocchio_system::ID)
     {
         initialize_obligation_farm(OBLIGATION_FARM_DEBT_MODE, outer_ctx, &inner_ctx)?;

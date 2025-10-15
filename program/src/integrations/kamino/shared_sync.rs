@@ -6,7 +6,7 @@ use pinocchio::{
 use crate::{
     enums::IntegrationState, 
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
-    integrations::kamino::kamino_state::get_liquidity_and_lp_amount, 
+    integrations::kamino::protocol_state::get_liquidity_and_lp_amount, 
     state::{Controller, Integration}
 };
 

@@ -13,7 +13,7 @@ use crate::{
     instructions::PushArgs, 
     integrations::kamino::{
         cpi::deposit_reserve_liquidity_v2_cpi, 
-        kamino_state::{get_liquidity_and_lp_amount, Obligation}, 
+        protocol_state::{get_liquidity_and_lp_amount, Obligation}, 
         shared_sync::sync_kamino_liquidity_value, 
         validations::PushPullKaminoAccounts
     }, 
@@ -64,16 +64,18 @@ pub fn process_push_kamino(
 
     // Push fails if the obligation is full and the current obligation collateral
     // is not included in one of the 8 slots.
-    let obligation = Obligation::try_from(
-        inner_ctx.obligation.try_borrow_data()?.as_ref()
-    )?;
-    if obligation.is_deposits_full() 
-        && obligation.get_obligation_collateral_for_reserve(inner_ctx.kamino_reserve.key()).is_none() 
+    // Use of an inner scrop to avoid borrowing issues.
     {
-        msg! {"Obligation: invalid obligation, collateral deposit slots are full"}
-        return Err(ProgramError::InvalidAccountData)
+        let obligation_data = inner_ctx.obligation.try_borrow_data()?;
+        let obligation = Obligation::load_checked(&obligation_data)?;
+        if obligation.is_deposits_full() 
+            && obligation.get_obligation_collateral_for_reserve(inner_ctx.kamino_reserve.key()).is_none() 
+        {
+            msg! {"Obligation: invalid obligation, collateral deposit slots are full"}
+            return Err(ProgramError::InvalidAccountData)
+        }
     }
-    drop(obligation);
+
 
     reserve.sync_balance(
         inner_ctx.token_account,
