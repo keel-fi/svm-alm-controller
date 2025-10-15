@@ -11,16 +11,21 @@ use crate::{
     define_account_struct, 
     enums::{IntegrationConfig, IntegrationState}, 
     error::SvmAlmControllerErrors, 
-    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
+    events::{
+        AccountingAction, 
+        AccountingDirection, 
+        AccountingEvent, 
+        SvmAlmControllerEvent
+    }, 
     integrations::kamino::{
-        constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, cpi::{
+        constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
+        cpi::HarvestReward, 
+        pdas::{
             derive_farm_vaults_authority, 
             derive_obligation_farm_address, 
             derive_rewards_treasury_vault, 
-            derive_rewards_vault, 
-            harvest_reward_cpi
-        }, 
-        protocol_state::{FarmState, KaminoReserve, UserState}, 
+            derive_rewards_vault
+        }, protocol_state::{FarmState, KaminoReserve, UserState}, 
         shared_sync::sync_kamino_liquidity_value 
     },
     processor::SyncIntegrationAccounts, 
@@ -77,7 +82,7 @@ impl<'info> SyncKaminoAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
-        // validate rewards vault
+        // Validate rewards vault
         let rewards_vault_pda = derive_rewards_vault(
             ctx.reserve_farm.key(), 
             ctx.rewards_mint.key(), 
@@ -88,7 +93,7 @@ impl<'info> SyncKaminoAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
-        // validate rewards treasury vault
+        // Validate rewards treasury vault
         let rewards_treasury_vault_pda = derive_rewards_treasury_vault(
             ctx.farms_global_config.key(), 
             ctx.rewards_mint.key(), 
@@ -99,7 +104,7 @@ impl<'info> SyncKaminoAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into())
         }
 
-        // validate farm vaults authority
+        // Validate farm vaults authority
         let farm_vaults_authority_pda = derive_farm_vaults_authority(
             ctx.reserve_farm.key(), 
             ctx.kamino_farms_program.key()
@@ -122,7 +127,7 @@ impl<'info> SyncKaminoAccounts<'info> {
 
 /// This function syncs a `KaminoIntegration`. This can be divided into two actions:
 /// - If the kamino reserve associated with this integration has a `farm_collateral`, 
-///     it harvests the rewards (through the `reward_ata` account, created if needed). 
+///     it harvests the rewards (through the `rewards_ata` account, created if needed). 
 ///     If the `reward_mint` matches this integration mint, the corresponding accounting
 ///     event is emitted. If a Pubkey::default() `reward_ata` is passed, this action
 ///     is skipped.
@@ -150,22 +155,22 @@ pub fn process_sync_kamino(
     )?;
     let post_sync_reserve_balance = reserve.last_balance;
 
-    // get the kamino reserve state
+    // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
     let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
 
-    // claim farm rewards only if the reserve has a farm collateral
+    // Claim farm rewards only if the reserve has a farm collateral
     // and rewards_available > 0
     if kamino_reserve_state.has_collateral_farm() 
         && inner_ctx.rewards_ata.key().ne(&Pubkey::default())
     {
-        // validate that the reserve farm_collateral matches the reserve farm
+        // Validate that the reserve farm_collateral matches the reserve farm
         if kamino_reserve_state.farm_collateral.ne(inner_ctx.reserve_farm.key()) {
             msg! {"reserve_farm: Invalid address"}
             return Err(ProgramError::InvalidAccountData)
         }
 
-        // init ata if needed
+        // Initialize ATA if needed
         CreateIdempotent {
             funding_account: outer_ctx.payer,
             account: inner_ctx.rewards_ata,
@@ -175,7 +180,7 @@ pub fn process_sync_kamino(
             token_program: inner_ctx.token_program
         }.invoke()?;
 
-        // find the reward index in the FarmState of this kamino_reserve
+        // Find the reward index in the FarmState of this kamino_reserve
         let reserve_farm_data = inner_ctx.reserve_farm.try_borrow_data()?;
         let reserve_farm_state = FarmState::load_checked(&reserve_farm_data)?;
         let (reward_index, rewards_available) = reserve_farm_state
@@ -185,10 +190,10 @@ pub fn process_sync_kamino(
             )
             .ok_or(ProgramError::InvalidAccountData)?;
 
-        // only harvest rewards if rewards_available > 0
+        // Only harvest rewards if rewards_available > 0
         if rewards_available > 0 {
 
-            // get available rewards in obligation farm before harvesting rewards
+            // Get available rewards in obligation farm before harvesting rewards
             let user_rewards = {
                 UserState::get_rewards(
                     inner_ctx.obligation_farm, 
@@ -197,19 +202,28 @@ pub fn process_sync_kamino(
                 )?
             };
 
-            // claim farms rewards
-            harvest_reward(
-                reward_index, 
-                Signer::from(&[
-                    Seed::from(CONTROLLER_AUTHORITY_SEED),
-                    Seed::from(outer_ctx.controller.key()),
-                    Seed::from(&[controller.authority_bump])
-                ]), 
-                outer_ctx.controller_authority, 
-                &inner_ctx
-            )?;
+            // Claim farms rewards
+            HarvestReward {
+                owner: outer_ctx.controller_authority,
+                user_state: inner_ctx.obligation_farm,
+                farm_state: inner_ctx.reserve_farm,
+                global_config: inner_ctx.farms_global_config,
+                reward_mint: inner_ctx.rewards_mint,
+                user_reward_ata: inner_ctx.rewards_ata,
+                rewards_vault: inner_ctx.rewards_vault,
+                rewards_treasure_vault: inner_ctx.rewards_treasury_vault,
+                farm_vaults_authority: inner_ctx.farm_vaults_authority,
+                scope_prices: inner_ctx.scope_prices,
+                token_program: inner_ctx.token_program,
+                reward_index
+            }
+            .invoke_signed(&[Signer::from(&[
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
+            ])])?;
 
-            // if there is a match between the reward_mint and the integration mint, emit event
+            // If there is a match between the reward_mint and the integration mint, emit event
             if inner_ctx.rewards_mint.key().eq(&reserve.mint) {
                 let post_transfer_balance = {
                     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
@@ -266,7 +280,7 @@ pub fn process_sync_kamino(
         }
     }
 
-    // sync liquidity value and update state
+    // Sync liquidity value and update state
     let (new_liquidity_value, new_lp_amount) = sync_kamino_liquidity_value(
         controller, 
         integration, 
@@ -278,7 +292,7 @@ pub fn process_sync_kamino(
         inner_ctx.obligation
     )?;
 
-    // update the state
+    // Update the state
     match &mut integration.state {
         IntegrationState::Kamino(kamino_state) => {
             kamino_state.last_liquidity_value = new_liquidity_value;
@@ -286,32 +300,6 @@ pub fn process_sync_kamino(
         },
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
-
-    Ok(())
-}
-
-fn harvest_reward(
-    reward_index: u64,
-    signer: Signer,
-    owner: &AccountInfo,
-    inner_ctx: &SyncKaminoAccounts
-) -> Result<(), ProgramError> {
-    harvest_reward_cpi(
-        reward_index, 
-        signer, 
-        owner, 
-        inner_ctx.obligation_farm, 
-        inner_ctx.reserve_farm, 
-        inner_ctx.farms_global_config, 
-        inner_ctx.rewards_mint, 
-        inner_ctx.rewards_ata,
-        inner_ctx.rewards_vault, 
-        inner_ctx.rewards_treasury_vault, 
-        inner_ctx.farm_vaults_authority, 
-        inner_ctx.scope_prices, 
-        inner_ctx.token_program, 
-        inner_ctx.kamino_farms_program
-    )?;
 
     Ok(())
 }
