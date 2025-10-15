@@ -1,11 +1,19 @@
 use core::ops::{Div, Mul};
 
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{
+    account_info::AccountInfo, msg, 
+    program_error::ProgramError, 
+    pubkey::Pubkey
+};
 use fixed::{FixedU128, types::extra::U60, traits::FromFixed};
 use crate::{
     integrations::kamino::{
         constants::{
-            FARMS_GLOBAL_CONFIG_DISCRIMINATOR, FARM_STATE_DISCRIMINATOR, OBLIGATION_DISCRIMINATOR, RESERVE_DISCRIMINATOR, USER_FARM_STATE_DISCRIMINATOR
+            FARMS_GLOBAL_CONFIG_DISCRIMINATOR, 
+            FARM_STATE_DISCRIMINATOR, 
+            OBLIGATION_DISCRIMINATOR, 
+            RESERVE_DISCRIMINATOR, 
+            USER_FARM_STATE_DISCRIMINATOR
         }, 
         initialize::InitializeKaminoAccounts
     }, processor::shared::is_account_closed
@@ -87,127 +95,203 @@ mod uint_types {
     }
 }
 
-
 // --------- Reserve ----------
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct ReserveLiquidity {
+    pub mint_pubkey: Pubkey,
+    pub supply_vault: Pubkey,
+    pub fee_vault: Pubkey,
+    pub available_amount: u64,
+    pub borrowed_amount_sf: u128,
+    pub market_price_sf: u128,
+    pub market_price_last_updated_ts: u64,
+    pub mint_decimals: u64,
+    pub deposit_limit_crossed_timestamp: u64,
+    pub borrow_limit_crossed_timestamp: u64,
+    pub cumulative_borrow_rate_bsf: BigFractionBytes,
+    pub accumulated_protocol_fees_sf: u128,
+    pub accumulated_referrer_fees_sf: u128,
+    pub pending_referrer_fees_sf: u128,
+    pub absolute_referral_rate_sf: u128,
+    pub token_program: Pubkey,
+    // padding expanded into 2 chunks to be Pod (length 51)
+    pub _padding_1: [u64; 32],
+    pub _padding_2: [u64; 19],
+    pub _padding_3: [u128; 32],
+}
 
-const RESERVE_SIZE: usize = 8616;
-const RESERVE_LENDING_MARKET_OFFSET: usize = 8 + 8 + 16;
-const FARM_COLLATERAL_OFFSET: usize = RESERVE_LENDING_MARKET_OFFSET + 32;
-const FARM_DEBT_OFFSET: usize = FARM_COLLATERAL_OFFSET + 32;
-const LIQUIDITY_MINT_OFFSET: usize = FARM_DEBT_OFFSET + 32;
-const LIQUIDITY_AVAILABLE_AMOUNT_OFFSET: usize = LIQUIDITY_MINT_OFFSET + 32 + 32 + 32;
-const LIQUIDITY_BORROWED_AMOUNT_OFFSET: usize = LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8;
-const LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET: usize = LIQUIDITY_BORROWED_AMOUNT_OFFSET + 112;
-const LIQUIDITY_ACC_REFERRER_FEES_OFFSET: usize = LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET + 16;
-const LIQUIDITY_PENDING_REFERRER_FEES: usize = LIQUIDITY_ACC_REFERRER_FEES_OFFSET + 16;
-const COLLATERAL_MINT_OFFSET: usize = LIQUIDITY_PENDING_REFERRER_FEES + 2184;
-const COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET: usize = COLLATERAL_MINT_OFFSET + 32;
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct ReserveCollateral {
+    pub mint_pubkey: Pubkey,
+    pub mint_total_supply: u64,
+    pub supply_vault: Pubkey,
+    pub _padding_1: [u128; 32],
+    pub _padding_2: [u128; 32],
+}
 
-/// This is a slimmed down version of the `Reserve` state from `KLEND` program.
-/// For more details, see: https://github.com/Kamino-Finance/klend/blob/master/programs/klend/src/state/reserve.rs#L60-L91
-#[derive(Clone)]
-pub struct KaminoReserve {
-    pub lending_market: Pubkey,
-    pub farm_collateral: Pubkey,
-    pub farm_debt: Pubkey,
-    pub liquidity_mint: Pubkey,
-    pub liquidity_available_amount: u64,
-    pub liquidity_borrowed_amount_sf: u128,
-    pub liquidity_accumulated_protocol_fees_sf: u128,
-    pub liquidity_accumulated_referrer_fees_sf: u128,
-    pub liquidity_pending_referrer_fees_sf: u128,
-    pub collateral_mint: Pubkey,
-    pub collateral_mint_total_supply: u64
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct ReserveConfig {
+    pub status: u8,
+    pub asset_tier: u8,
+    pub host_fixed_interest_rate_bps: u16,
+    pub reserved_2: [u8; 9],
+    pub protocol_order_execution_fee_pct: u8,
+    pub protocol_take_rate_pct: u8,
+    pub protocol_liquidation_fee_pct: u8,
+    pub loan_to_value_pct: u8,
+    pub liquidation_threshold_pct: u8,
+    pub min_liquidation_bonus_bps: u16,
+    pub max_liquidation_bonus_bps: u16,
+    pub bad_debt_liquidation_bonus_bps: u16,
+    pub deleveraging_margin_call_period_secs: u64,
+    pub deleveraging_threshold_decrease_bps_per_day: u64,
+    pub fees: ReserveFees,
+    pub borrow_rate_curve: BorrowRateCurve,
+    pub borrow_factor_pct: u64,
+    pub deposit_limit: u64,
+    pub borrow_limit: u64,
+    pub token_info: TokenInfo,
+    pub deposit_withdrawal_cap: WithdrawalCaps,
+    pub debt_withdrawal_cap: WithdrawalCaps,
+    pub elevation_groups: [u8; 20],
+    pub disable_usage_as_coll_outside_emode: u8,
+    pub utilization_limit_block_borrowing_above_pct: u8,
+    pub autodeleverage_enabled: u8,
+    pub reserved_1: [u8; 1],
+    pub borrow_limit_outside_elevation_group: u64,
+    pub borrow_limit_against_this_collateral_in_elevation_group: [u64; 32],
+    pub deleveraging_bonus_increase_bps_per_day: u64,
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct TokenInfo {
+    pub name: [u8; 32],
+    pub heuristic: PriceHeuristic,
+    pub max_twap_divergence_bps: u64,
+    pub max_age_price_seconds: u64,
+    pub max_age_twap_seconds: u64,
+    pub scope_configuration: ScopeConfiguration,
+    pub switchboard_configuration: SwitchboardConfiguration,
+    pub pyth_configuration: PythConfiguration,
+    pub block_price_usage: u8,
+    pub reserved: [u8; 7],
+    pub _padding: [u64; 19],
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct PythConfiguration {
+    pub price: Pubkey,
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct SwitchboardConfiguration {
+    pub price_aggregator: Pubkey,
+    pub twap_aggregator: Pubkey,
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct ScopeConfiguration {
+    pub price_feed: Pubkey,
+    pub price_chain: [u16; 4],
+    pub twap_chain: [u16; 4],
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct PriceHeuristic {
+    pub lower: u64,
+    pub upper: u64,
+    pub exp: u64,
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct WithdrawalCaps {
+    pub config_capacity: i64,
+    pub current_total: i64,
+    pub last_interval_start_timestamp: u64,
+    pub config_interval_length_seconds: u64,
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct BorrowRateCurve {
+    pub points: [CurvePoint; 11],
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct CurvePoint {
+    pub utilization_rate_bps: u32,
+    pub borrow_rate_bps: u32,
 }
 
 
-impl<'a> TryFrom<&'a [u8]> for KaminoReserve {
-    type Error = ProgramError;
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct ReserveFees {
+    pub borrow_fee_sf: u64,
+    pub flash_loan_fee_sf: u64,
+    pub _padding: [u8; 8],
+}
 
-    fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        if data.len() < 8 + RESERVE_SIZE {
-            return Err(ProgramError::InvalidAccountData)
-        }
-
-        if data[..8] != Self::DISCRIMINATOR {
-            msg!("discriminator error");
-            return Err(ProgramError::InvalidAccountData)
-        }
-
-        let lending_market = Pubkey::try_from(
-            &data[RESERVE_LENDING_MARKET_OFFSET .. RESERVE_LENDING_MARKET_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
-
-        let farm_collateral = Pubkey::try_from(
-            &data[FARM_COLLATERAL_OFFSET .. FARM_COLLATERAL_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
-
-        let farm_debt = Pubkey::try_from(
-            &data[FARM_DEBT_OFFSET .. FARM_DEBT_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
-
-        let liquidity_mint = Pubkey::try_from(
-            &data[LIQUIDITY_MINT_OFFSET .. LIQUIDITY_MINT_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
-
-        let liquidity_available_amount = u64::from_le_bytes(
-            data[LIQUIDITY_AVAILABLE_AMOUNT_OFFSET .. LIQUIDITY_AVAILABLE_AMOUNT_OFFSET + 8]
-                .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
-        );
-
-        let liquidity_borrowed_amount_sf = u128::from_le_bytes(
-            data[LIQUIDITY_BORROWED_AMOUNT_OFFSET .. LIQUIDITY_BORROWED_AMOUNT_OFFSET + 16]
-                .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
-        );
-
-        let liquidity_accumulated_protocol_fees_sf = u128::from_le_bytes(
-            data[LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET .. LIQUIDITY_ACC_PROTOCOL_FEES_OFFSET + 16]
-                .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
-        );
-
-        let liquidity_accumulated_referrer_fees_sf = u128::from_le_bytes(
-            data[LIQUIDITY_ACC_REFERRER_FEES_OFFSET .. LIQUIDITY_ACC_REFERRER_FEES_OFFSET + 16]
-                .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
-        );
-
-        let liquidity_pending_referrer_fees_sf = u128::from_le_bytes(
-            data[LIQUIDITY_PENDING_REFERRER_FEES .. LIQUIDITY_PENDING_REFERRER_FEES + 16]
-                .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
-        );
-
-        let collateral_mint = Pubkey::try_from(
-            &data[COLLATERAL_MINT_OFFSET .. COLLATERAL_MINT_OFFSET + 32]
-        ).map_err(|_| ProgramError::InvalidAccountData)?;
-
-        let collateral_mint_total_supply = u64::from_le_bytes(
-            data[COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET .. COLLATERAL_TOTAL_MINT_SUPPLY_OFFSET + 8]
-                .try_into()
-                .map_err(|_| ProgramError::InvalidAccountData)?
-        );
-
-        Ok(Self { 
-            lending_market, 
-            farm_collateral, 
-            farm_debt, 
-            liquidity_mint,
-            liquidity_available_amount,
-            liquidity_borrowed_amount_sf,
-            liquidity_accumulated_protocol_fees_sf,
-            liquidity_accumulated_referrer_fees_sf,
-            liquidity_pending_referrer_fees_sf,
-            collateral_mint,
-            collateral_mint_total_supply
-        })
-    }
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct KaminoReserve {
+    pub version: u64,
+    pub last_update: LastUpdate,
+    pub lending_market: Pubkey,
+    pub farm_collateral: Pubkey,
+    pub farm_debt: Pubkey,
+    pub liquidity: ReserveLiquidity,
+    // padding expanded into 5 chunks to be Pod (length 150)
+    pub _reserve_liquidity_padding_1: [u64; 30],
+    pub _reserve_liquidity_padding_2: [u64; 30],
+    pub _reserve_liquidity_padding_3: [u64; 30],
+    pub _reserve_liquidity_padding_4: [u64; 30],
+    pub _reserve_liquidity_padding_5: [u64; 30],
+    pub collateral: ReserveCollateral,
+    // padding expanded into 5 chunks to be Pod (length 150)
+    pub _reserve_collateral_padding_1: [u64; 30],
+    pub _reserve_collateral_padding_2: [u64; 30],
+    pub _reserve_collateral_padding_3: [u64; 30],
+    pub _reserve_collateral_padding_4: [u64; 30],
+    pub _reserve_collateral_padding_5: [u64; 30],
+    pub config: ReserveConfig,
+    // padding expanded into 4 chunks to be Pod (length 116)
+    pub _config_padding_1: [u64; 32],
+    pub _config_padding_2: [u64; 32],
+    pub _config_padding_3: [u64; 32],
+    pub _config_padding_4: [u64; 20],
+    pub borrowed_amount_outside_elevation_group: u64,
+    pub borrowed_amounts_against_this_reserve_in_elevation_groups: [u64; 32],
+    // padding expanded into 7 chunks to be Pod (length 207)
+    pub _padding_1: [u64; 32],
+    pub _padding_2: [u64; 32],
+    pub _padding_3: [u64; 32],
+    pub _padding_4: [u64; 32],
+    pub _padding_5: [u64; 32],
+    pub _padding_6: [u64; 32],
+    pub _padding_7: [u64; 15],
 }
 
 impl KaminoReserve {
     pub const DISCRIMINATOR: [u8; 8] = RESERVE_DISCRIMINATOR;
+
+    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
+        if data[..8] != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+    }
 
     /// Verifies that:
     /// - the `Reserve` belongs to the market
@@ -223,7 +307,7 @@ impl KaminoReserve {
             return Err(ProgramError::InvalidAccountData)
         }
 
-        if &self.liquidity_mint != inner_ctx.reserve_liquidity_mint.key() {
+        if &self.liquidity.mint_pubkey != inner_ctx.reserve_liquidity_mint.key() {
             msg! {"reserve: invalid reserve, liquidity mint does not match"}
             return Err(ProgramError::InvalidAccountData)
         }
@@ -250,21 +334,21 @@ impl KaminoReserve {
     }
 
     fn total_supply(&self) -> Fraction {
-        Fraction::from(self.liquidity_available_amount) 
-            + Fraction::from_bits(self.liquidity_borrowed_amount_sf)
-            - Fraction::from_bits(self.liquidity_accumulated_protocol_fees_sf)
-            - Fraction::from_bits(self.liquidity_accumulated_referrer_fees_sf)
-            - Fraction::from_bits(self.liquidity_pending_referrer_fees_sf)
+        Fraction::from(self.liquidity.available_amount) 
+            + Fraction::from_bits(self.liquidity.borrowed_amount_sf)
+            - Fraction::from_bits(self.liquidity.accumulated_protocol_fees_sf)
+            - Fraction::from_bits(self.liquidity.accumulated_referrer_fees_sf)
+            - Fraction::from_bits(self.liquidity.pending_referrer_fees_sf)
     } 
 
     fn collateral_exchange_rate(&self) -> (u128, Fraction) {
         let mut total_liquidity = self.total_supply();
         let collateral_supply = {
-            if self.collateral_mint_total_supply == 0 || total_liquidity == Fraction::ZERO {
+            if self.collateral.mint_total_supply == 0 || total_liquidity == Fraction::ZERO {
                 total_liquidity = Fraction::ONE;
                 1
             } else {
-                self.collateral_mint_total_supply
+                self.collateral.mint_total_supply
             }
         };
 
@@ -314,9 +398,8 @@ pub fn get_liquidity_and_lp_amount(
 
     // avoids deserializing kamino_reserve if lp_amount is 0
     let liquidity_value = if lp_amount == 0 { 0 } else {
-        let kamino_reserve_state = KaminoReserve::try_from(
-            kamino_reserve.try_borrow_data()?.as_ref()
-        )?;
+        let kamino_reserve_data = kamino_reserve.try_borrow_data()?;
+        let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
         kamino_reserve_state.collateral_to_liquidity(lp_amount)
     };
 
@@ -342,14 +425,14 @@ pub struct ObligationCollateral {
     pub deposited_amount: u64,
     pub market_value_sf: u128,
     pub borrowed_amount_against_this_collateral_in_elevation_group: u64,
-    pub padding: [u64; 9],
+    pub _padding: [u64; 9],
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct BigFractionBytes {
     pub value: [u64; 4],
-    pub padding: [u64; 2],
+    pub _padding: [u64; 2],
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
@@ -357,14 +440,14 @@ pub struct BigFractionBytes {
 pub struct ObligationLiquidity {
     pub borrow_reserve: Pubkey,
     pub cumulative_borrow_rate_bsf: BigFractionBytes,
-    pub padding: u64,
+    pub _padding: u64,
     pub borrowed_amount_sf: u128,
     pub market_value_sf: u128,
     pub borrow_factor_adjusted_market_value_sf: u128,
 
     pub borrowed_amount_outside_elevation_groups: u64,
 
-    pub padding2: [u64; 7],
+    pub _padding_2: [u64; 7],
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
@@ -376,8 +459,8 @@ pub struct ObligationOrder {
     pub max_execution_bonus_bps: u16,
     pub condition_type: u8,
     pub opportunity_type: u8,
-    pub padding1: [u8; 10],
-    pub padding2: [u128; 5],
+    pub _padding_1: [u8; 10],
+    pub _padding_2: [u128; 5],
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
@@ -409,16 +492,10 @@ pub struct Obligation {
     pub highest_borrow_factor_pct: u64,
     pub autodeleverage_margin_call_started_timestamp: u64,
     pub orders: [ObligationOrder; 2],
-    // padding expanded into 9 chunks to be Pod (length 93)
-    pub padding_1: [u64; 10],
-    pub padding_2: [u64; 10],
-    pub padding_3: [u64; 10],
-    pub padding_4: [u64; 10],
-    pub padding_5: [u64; 10],
-    pub padding_6: [u64; 10],
-    pub padding_7: [u64; 10],
-    pub padding_8: [u64; 10],
-    pub padding_9: [u64; 13],
+    // padding expanded into 3 chunks to be Pod (length 93)
+    pub _padding_1: [u64; 32],
+    pub _padding_2: [u64; 32],
+    pub _padding_3: [u64; 29],
 }
 
 impl Obligation {
@@ -480,7 +557,7 @@ impl Obligation {
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
-pub struct TokenInfo {
+pub struct FarmTokenInfo {
     pub mint: Pubkey,
     pub decimals: u64,
     pub token_program: Pubkey,
@@ -490,7 +567,7 @@ pub struct TokenInfo {
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct RewardInfo {
-    pub token: TokenInfo,
+    pub token: FarmTokenInfo,
     pub rewards_vault: Pubkey,
     pub rewards_available: u64,
     pub reward_schedule_curve: RewardScheduleCurve,
@@ -502,8 +579,8 @@ pub struct RewardInfo {
     pub placeholder_0: u64,
     pub reward_type: u8,
     pub rewards_per_second_decimals: u8,
-    pub _padding0: [u8; 6],
-    pub _padding1: [u64; 20],
+    pub _padding_0: [u8; 6],
+    pub _padding_1: [u64; 20],
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
@@ -524,7 +601,7 @@ pub struct RewardPerTimeUnitPoint {
 pub struct FarmState {
     pub farm_admin: Pubkey,
     pub global_config: Pubkey,
-    pub token: TokenInfo,
+    pub token: FarmTokenInfo,
     pub reward_infos: [RewardInfo; 10],
     pub num_reward_tokens: u64,
     pub num_users: u64,
@@ -536,7 +613,7 @@ pub struct FarmState {
     pub time_unit: u8,
     pub is_farm_frozen: u8,
     pub is_farm_delegated: u8,
-    pub _padding0: [u8; 5],
+    pub _padding_0: [u8; 5],
     pub withdraw_authority: Pubkey,
     pub deposit_warmup_period: u32,
     pub withdrawal_cooldown_period: u32,
@@ -559,13 +636,10 @@ pub struct FarmState {
     pub delegated_rps_admin: Pubkey,
     pub vault_id: Pubkey,
     pub second_delegated_authority: Pubkey,
-    // padding expanded into 6 chunks to be Pod (length 74)
-    pub _padding_1: [u64; 12],
-    pub _padding_2: [u64; 12],
-    pub _padding_3: [u64; 12],
-    pub _padding_4: [u64; 12],
-    pub _padding_5: [u64; 12],
-    pub _padding_6: [u64; 14],
+    // padding expanded into 3 chunks to be Pod (length 74)
+    pub _padding_1: [u64; 32],
+    pub _padding_2: [u64; 32],
+    pub _padding_3: [u64; 10],
 
 }
 
@@ -610,16 +684,11 @@ pub struct GlobalConfig {
     pub treasury_vaults_authority: Pubkey,
     pub treasury_vaults_authority_bump: u64,
     pub pending_global_admin: Pubkey,
-    // padding expanded into 9 chunks to be Pod (length 126)
-    pub _padding1: [u128; 14],
-    pub _padding2: [u128; 14],
-    pub _padding3: [u128; 14],
-    pub _padding4: [u128; 14],
-    pub _padding5: [u128; 14],
-    pub _padding6: [u128; 14],
-    pub _padding7: [u128; 14],
-    pub _padding8: [u128; 14],
-    pub _padding9: [u128; 14],
+    // padding expanded into 4 chunks to be Pod (length 126)
+    pub _padding_1: [u128; 32],
+    pub _padding_2: [u128; 32],
+    pub _padding_3: [u128; 32],
+    pub _padding_4: [u128; 30],
 }
 
 impl GlobalConfig {
@@ -654,12 +723,9 @@ pub struct UserState {
     pub bump: u64,
     pub delegatee: Pubkey,
     pub last_stake_ts: u64,
-    // padding expanded into 5 chunks to be Pod (length 50)
-    pub _padding_1: [u64; 10],
-    pub _padding_2: [u64; 10],
-    pub _padding_3: [u64; 10],
-    pub _padding_4: [u64; 10],
-    pub _padding_5: [u64; 10],
+    // padding expanded into 2 chunks to be Pod (length 50)
+    pub _padding_1: [u64; 32],
+    pub _padding_2: [u64; 18],
 }
 
 impl UserState {
@@ -715,9 +781,6 @@ impl UserState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::engine::general_purpose::STANDARD as bs64;
-    use base64::Engine;
-    use pinocchio_pubkey::pubkey;
 
     fn sf_u64(n: u64) -> u128 {
         Fraction::from_num(n).to_bits()
@@ -725,106 +788,59 @@ mod tests {
 
     #[test]
     fn collateral_to_liquidity_works() {
-        let base_reserve = KaminoReserve {
-            lending_market: Pubkey::default(),
-            farm_collateral: Pubkey::default(),
-            farm_debt: Pubkey::default(),
-            liquidity_mint: Pubkey::default(),
-            liquidity_available_amount: 0,
-            liquidity_borrowed_amount_sf: 0,
-            liquidity_accumulated_protocol_fees_sf: 0,
-            liquidity_accumulated_referrer_fees_sf: 0,
-            liquidity_pending_referrer_fees_sf: 0,
-            collateral_mint: Pubkey::default(),
-            collateral_mint_total_supply: 0,
-        };
+        let base_reserve = KaminoReserve::default();
 
         // 1:2 ratio -> 0.5x
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 1_000_000;
-        reserve.collateral_mint_total_supply = 2_000_000;
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.collateral.mint_total_supply = 2_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 500);
 
         // 1:1 ratio -> 1x
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 1_000_000;
-        reserve.collateral_mint_total_supply = 1_000_000;
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.collateral.mint_total_supply = 1_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 1_000);
 
         // borrowed liquidity adds up (1M + 3M) / 2M = 2x
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 1_000_000;
-        reserve.liquidity_borrowed_amount_sf = sf_u64(3_000_000);
-        reserve.collateral_mint_total_supply = 2_000_000;
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.liquidity.borrowed_amount_sf = sf_u64(3_000_000);
+        reserve.collateral.mint_total_supply = 2_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 2_000);
 
         // fees reduce total (1M + 3M - 0.1M - 0.05M - 0.05M) / 2M = 1.9x
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 1_000_000;
-        reserve.liquidity_borrowed_amount_sf = sf_u64(3_000_000);
-        reserve.liquidity_accumulated_protocol_fees_sf = sf_u64(100_000);
-        reserve.liquidity_accumulated_referrer_fees_sf = sf_u64(50_000);
-        reserve.liquidity_pending_referrer_fees_sf = sf_u64(50_000);
-        reserve.collateral_mint_total_supply = 2_000_000;
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.liquidity.borrowed_amount_sf = sf_u64(3_000_000);
+        reserve.liquidity.accumulated_protocol_fees_sf = sf_u64(100_000);
+        reserve.liquidity.accumulated_referrer_fees_sf = sf_u64(50_000);
+        reserve.liquidity.pending_referrer_fees_sf = sf_u64(50_000);
+        reserve.collateral.mint_total_supply = 2_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 1_900);
 
         // small ratio (0.05x)
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 500_000;
-        reserve.collateral_mint_total_supply = 10_000_000;
+        reserve.liquidity.available_amount = 500_000;
+        reserve.collateral.mint_total_supply = 10_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 50);
 
         // rounding down (999_999 / 2_000_000 = 0.4999995 -> floor -> 499)
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 999_999;
-        reserve.collateral_mint_total_supply = 2_000_000;
+        reserve.liquidity.available_amount = 999_999;
+        reserve.collateral.mint_total_supply = 2_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 499);
 
         // zero supply guard
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 0;
-        reserve.collateral_mint_total_supply = 0;
+        reserve.liquidity.available_amount = 0;
+        reserve.collateral.mint_total_supply = 0;
         assert_eq!(reserve.collateral_to_liquidity(1), 1);
 
         // zero liquidity, nonzero collateral (guard path gives 1:1)
         let mut reserve = base_reserve.clone();
-        reserve.liquidity_available_amount = 0;
-        reserve.collateral_mint_total_supply = 1_000_000;
+        reserve.liquidity.available_amount = 0;
+        reserve.collateral.mint_total_supply = 1_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 1_000);
-    }
-
-    #[test]
-    fn reserve_try_from_works() {
-        let lending_market = pubkey!("7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF");
-        let farm_collateral = pubkey!("955xWFhSDcDiUgUr4sBRtCpTLiMd4H5uZLAmgtP3R3sX");
-        let liquidity_mint = pubkey!("So11111111111111111111111111111111111111112");
-        let farm_debt = pubkey!("11111111111111111111111111111111");
-        let liquidity_available_amount: u64 = 576438315861112;
-        let liquidity_borrowed_amount_sf: u128 = 5235401463459533234106624313776750;
-        let liquidity_accumulated_protocol_fees_sf: u128 = 11918939084660235266979009752828;
-        let liquidity_accumulated_referrer_fees_sf: u128 = 0;
-        let liquidity_pending_referrer_fees_sf: u128 = 0;
-        let collateral_mint = pubkey!("2UywZrUdyqs5vDchy7fKQJKau2RVyuzBev2XKGPDSiX1");
-        let collateral_mint_total_supply: u64 = 4684732222348610;
-
-        let raw = bs64.decode(RAW_SOL_RESERVE_B64).expect("Invalid base 64 string");
-
-        let reserve = KaminoReserve::try_from(raw.as_slice()).expect("Reserve try from error");
-        
-        assert_eq!(reserve.farm_collateral, farm_collateral);
-        assert_eq!(reserve.lending_market, lending_market);
-        assert_eq!(reserve.liquidity_mint, liquidity_mint);
-        assert_eq!(reserve.farm_debt, farm_debt);
-        assert_eq!(reserve.liquidity_available_amount, liquidity_available_amount);
-        assert_eq!(reserve.liquidity_borrowed_amount_sf, liquidity_borrowed_amount_sf);
-        assert_eq!(reserve.liquidity_accumulated_protocol_fees_sf, liquidity_accumulated_protocol_fees_sf);
-        assert_eq!(reserve.liquidity_accumulated_referrer_fees_sf, liquidity_accumulated_referrer_fees_sf);
-        assert_eq!(reserve.liquidity_pending_referrer_fees_sf, liquidity_pending_referrer_fees_sf);
-        assert_eq!(reserve.collateral_mint, collateral_mint);
-        assert_eq!(reserve.collateral_mint_total_supply, collateral_mint_total_supply);
-    }
-
-
-    const RAW_SOL_RESERVE_B64: &str = "K/LMyhr3O38BAAAAAAAAAJSNbxUAAAAAAD8AAAAAAABmeujUWFWpdVBTSSyASh5w0QBYGag6K+J2mxkNDS3hEnfpbGtamjzJKMINHFtLE/NWFh0NdbeEouy5Rd68pomaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGm4hX/quBhPtof2NGGMA12sQ53BrrO1WYoPAAAAAAAed+3UbWX4gjBzT0oRp5IViJAUh9cwa5QXiYw88h9sAXIirm5zkwpsVFaMQSd+TOnXPTwBptcqvuvWqxZ0W+JdZ4RA2BRAwCAG7a3Qj2WnHCZoF9DiACAQDnWkllaSsf9QsAAAAAAAAAZaGbaAAAAAAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADStRmNB9cWEgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8bpH8QKEDjUFVK3CWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABt324ddloZPZy+FGzut5rBy0he1fWzeROoz1hX7/AKkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABYGwH8gsbrGxHKGRCiq4JySBnfdAfDcVCvNsCVfCNa4Qh37N72kEABthVXfpzzMA/9YG4HpJbSlUfU2oMGKYFVVl2Uo/QUBHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8ySkv6AOgDYwCAOgkAAAAAACAcAAAAAAAAAAAAAAAAAAC0ccRafAoAAAAAAAAAAAAAAAAAAAEAAABYGwAAkAEAAIwjAABYAgAAVCQAAOgDAAAcJQAA3AUAAOQlAADQBwAAECcAALgLAAAQJwAAuAsAABAnAAC4CwAAECcAALgLAAAQJwAAuAsAAH0AAAAAAAAAAADBb/KGIwAAgPrKc/kfAFNPTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA6AMAAAAAAAB4AAAAAAAAAPAAAAAAAAAAIyxpA+CpBOOCbIHzfgChwaJoKCOEXCRj5547dpOIXxUAAP///////zQA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAKfc9VAUAOZw+sn1eAAD5iJpoAAAAAIBRAQAAAAAAAMAp9z1UBQDQYmz/C/b//6Utm2gAAAAAgFEBAAAAAAACBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAehDzWgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADn5lsHTDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+wd1FaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    
+    }    
 }

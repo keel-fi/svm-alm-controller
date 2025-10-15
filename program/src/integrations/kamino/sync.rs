@@ -150,11 +150,9 @@ pub fn process_sync_kamino(
     )?;
     let post_sync_reserve_balance = reserve.last_balance;
 
-    // get the kamino reserve data
-    let kamino_reserve_state = {
-        let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
-        KaminoReserve::try_from(kamino_reserve_data.as_ref())?
-    };
+    // get the kamino reserve state
+    let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
+    let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
 
     // claim farm rewards only if the reserve has a farm collateral
     // and rewards_available > 0
