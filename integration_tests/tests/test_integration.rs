@@ -656,8 +656,8 @@ mod tests {
                 4 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
                 // Change reserve (index 5) owner:
                 5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve: Invalid owner"),
-                // Change program_id (index 7) owner:
-                7 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
+                // Change program_id (index 6) owner:
+                6 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
             }
         );
 

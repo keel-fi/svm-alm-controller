@@ -71,7 +71,6 @@ pub fn create_spl_token_external_push_instruction(
         .permission(permission_pda)
         .integration(*integration)
         .reserve_a(*reserve)
-        .reserve_b(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(&remaining_accounts)
         .instruction()

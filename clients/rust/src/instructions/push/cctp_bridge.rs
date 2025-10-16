@@ -125,7 +125,6 @@ pub fn create_cctp_bridge_push_instruction(
         .permission(permission_pda)
         .integration(*integration)
         .reserve_a(*reserve)
-        .reserve_b(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(&remaining_accounts)
         .instruction()
