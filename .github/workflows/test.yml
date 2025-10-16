@@ -22,7 +22,7 @@ jobs:
           sudo apt-get install -y libssl-dev
 
       - name: Install Solana
-        uses: exo-tech-xyz/setup-solana@anza-installation
+        uses: exo-tech-xyz/setup-solana@main
         with:
           solana-cli-version: "2.2.20"
 
