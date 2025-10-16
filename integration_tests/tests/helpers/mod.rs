@@ -107,7 +107,7 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(LZ_EXECUTOR_PROGRAM_ID, lz_executor_program);
 
     // Add Drift program
-    let drift_program = include_bytes!("../../fixtures/drift_modified.so");
+    let drift_program = include_bytes!("../../fixtures/drift.so");
     svm.add_program(DRIFT_PROGRAM_ID, drift_program);
 
     svm

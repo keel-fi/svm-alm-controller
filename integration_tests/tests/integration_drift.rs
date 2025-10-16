@@ -4,31 +4,30 @@ mod subs;
 #[cfg(test)]
 mod tests {
 
-    use crate::helpers::drift::state::{
-        spot_market::{setup_drift_spot_market_vault, setup_mock_insurance_fund_account},
-    };
-    use crate::helpers::pyth::oracle::{setup_mock_oracle_account};
+    use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
+    use crate::helpers::pyth::oracle::setup_mock_oracle_account;
+    use crate::subs::{fetch_reserve_account, get_token_balance_or_zero};
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
             drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::{
-            fetch_integration_account, initialize_ata, initialize_mint, initialize_reserve,
-            mint_tokens,
-        },
+        subs::{fetch_integration_account, initialize_mint, initialize_reserve, mint_tokens},
     };
     use borsh::BorshDeserialize;
     use bytemuck;
-    use solana_sdk::signer::keypair::Keypair;
+    use litesvm::LiteSVM;
+    use solana_sdk::instruction::AccountMeta;
     use solana_sdk::{
         clock::Clock,
         instruction::InstructionError,
         signer::Signer,
         transaction::{Transaction, TransactionError},
     };
+    use solana_sdk::{pubkey::Pubkey, signer::keypair::Keypair};
     use spl_token;
+    use svm_alm_controller_client::integrations::drift::SpotMarket;
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
         generated::types::{
@@ -39,6 +38,27 @@ mod tests {
         instructions::create_drift_push_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
+
+    fn fetch_inner_remaining_accounts(
+        svm: &LiteSVM,
+        spot_market_pubkey: &Pubkey,
+    ) -> Vec<AccountMeta> {
+        let spot_market_account = svm.get_account(spot_market_pubkey).unwrap();
+        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
+        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
+        vec![
+            AccountMeta {
+                pubkey: spot_market.oracle,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: spot_market.pubkey,
+                is_signer: false,
+                is_writable: true,
+            },
+        ]
+    }
 
     #[test]
     fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
@@ -249,23 +269,12 @@ mod tests {
         let spot_market_pubkey =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint));
 
-        // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<
-            crate::helpers::drift::state::spot_market::SpotMarket,
-        >(spot_market_data)
-        .unwrap();
-
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
         // Set up mock oracle and insurance fund accounts
         let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
         let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<
-            crate::helpers::drift::state::spot_market::SpotMarket,
-        >(spot_market_data)
-        .unwrap();
+        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle);
 
@@ -313,14 +322,6 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let vault_start_amount = 1_000_000_000;
 
-        // Initialize ATA for controller authority
-        let ata_pubkey = initialize_ata(
-            &mut svm,
-            &super_authority,
-            &controller_authority,
-            &token_mint,
-        )?;
-
         // Mint tokens to controller authority
         mint_tokens(
             &mut svm,
@@ -334,32 +335,36 @@ mod tests {
         // Create the push instruction
         let push_amount = 100_000_000;
 
-        // Use the spot market account we already have
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-
         let integration_before = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
 
-        let reserve_before = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
+        let reserve_before = fetch_reserve_account(&svm, &reserve_keys.pubkey)
             .expect("reserve should exist")
             .unwrap();
 
+        // Get initial token account balances
+        let reserve_vault_before = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+        let spot_market_vault_before = get_token_balance_or_zero(&svm, &spot_market.vault);
+
+        // The user_token_account is the controller authority's ATA (same as reserve vault)
+        let user_token_account_before = reserve_vault_before;
+
+        let inner_remaining_accounts = fetch_inner_remaining_accounts(&svm, &spot_market_pubkey);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &ata_pubkey, // controller authority's ATA
+            &reserve_keys.vault,
             &spl_token::ID,
             spot_market_index,
             sub_account_id,
             push_amount,
             false,
-            &spot_market_account.data, // Pass the spot market account data
-        )
-        .unwrap();
+            &inner_remaining_accounts,
+        )?;
 
         // Execute the push instruction
         let tx = Transaction::new_signed_with_payer(
@@ -374,9 +379,16 @@ mod tests {
             .expect("integration should exist")
             .unwrap();
 
-        let reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
+        let reserve_after = fetch_reserve_account(&svm, &reserve_keys.pubkey)
             .expect("reserve should exist")
             .unwrap();
+
+        // Get final token account balances
+        let reserve_vault_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+        let spot_market_vault_after = get_token_balance_or_zero(&svm, &spot_market.vault);
+
+        // The user_token_account is the controller authority's ATA (same as reserve vault)
+        let user_token_account_after = reserve_vault_after;
 
         assert_eq!(
             integration_after.rate_limit_outflow_amount_available,
@@ -386,6 +398,27 @@ mod tests {
         assert_eq!(
             reserve_after.rate_limit_outflow_amount_available,
             reserve_before.rate_limit_outflow_amount_available - push_amount
+        );
+
+        // Assert reserve vault balance decreased by push amount
+        assert_eq!(
+            reserve_vault_after,
+            reserve_vault_before - push_amount,
+            "Reserve vault should have decreased by push amount"
+        );
+
+        // Assert spot market vault balance increased by push amount
+        assert_eq!(
+            spot_market_vault_after,
+            spot_market_vault_before + push_amount,
+            "Drift spot market vault should have increased by push amount"
+        );
+
+        // Assert user token account balance decreased by push amount (intermediate step)
+        assert_eq!(
+            user_token_account_after,
+            user_token_account_before - push_amount,
+            "User token account should have decreased by push amount"
         );
 
         assert_contains_controller_cpi_event!(

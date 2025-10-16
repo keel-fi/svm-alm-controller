@@ -28,3 +28,4 @@ solana-pubkey = { workspace = true }
 solana-sysvar = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
 spl-token-2022 = { workspace = true }
+svm-alm-controller = { path = "../../program" }
