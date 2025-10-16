@@ -128,6 +128,15 @@ pub fn derive_farm_vaults_authority(farm_state: &Pubkey) -> Pubkey {
     address
 }
 
+pub fn derive_kfarms_treasury_vault_authority(global_config: &Pubkey) -> (Pubkey, u8) {
+    let (address, bump) = Pubkey::find_program_address(
+        &[b"authority", global_config.as_ref()],
+        &KAMINO_FARMS_PROGRAM_ID,
+    );
+
+    (address, bump)
+}
+
 
 pub fn derive_anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
     let preimage = format!("{}:{}", namespace, name);

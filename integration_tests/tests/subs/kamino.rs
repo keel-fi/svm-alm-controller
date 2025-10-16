@@ -9,13 +9,13 @@ use spl_token::state::{Mint, Account as TokenAccount};
 use svm_alm_controller_client::{
     create_refresh_kamino_obligation_instruction, 
     create_refresh_kamino_reserve_instruction, integrations::kamino::{
-        derive_market_authority_address, derive_reserve_collateral_mint, derive_reserve_collateral_supply, derive_reserve_liquidity_supply
+        derive_farm_vaults_authority, derive_kfarms_treasury_vault_authority, derive_market_authority_address, derive_reserve_collateral_mint, derive_reserve_collateral_supply, derive_reserve_liquidity_supply, derive_rewards_treasury_vault, derive_rewards_vault
     }, 
 };
 
 use crate::helpers::{
     constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
-    kamino::state::{kfarms::{FarmState, GlobalConfig}, klend::{KaminoReserve, LendingMarket, Obligation}}
+    kamino::{math_utils::Fraction, state::{kfarms::{FarmState, GlobalConfig, RewardInfo}, klend::{KaminoReserve, LendingMarket, Obligation}}}
 };
 
 pub fn get_liquidity_and_lp_amount(
@@ -155,7 +155,7 @@ pub fn refresh_kamino_obligation(
 }
 
 pub struct KaminoFarmsContext {
-    pub global_config: Pubkey
+    pub global_config: Pubkey,
 }
 
 pub struct KaminoReserveContext {
@@ -172,11 +172,16 @@ pub struct KaminoTestContext {
     pub farms_context: KaminoFarmsContext
 }
 
+/// sets all account required by kamino integration
+/// mint decimals are set to 6 for simplicity
 pub fn setup_kamino_state(
     svm: &mut LiteSVM,
     liquidity_mint: &Pubkey,
+    reward_mint: &Pubkey,
 ) -> KaminoTestContext {
-    // setup lending market
+
+    // setup lending market (klend)
+
     let lending_market_pk = Pubkey::new_unique();
     let mut market = LendingMarket::default();
     let (
@@ -185,7 +190,7 @@ pub fn setup_kamino_state(
     ) = derive_market_authority_address(&lending_market_pk);
     // the bump seed is checked during user initialization, and the default is 0
     market.bump_seed = market_auth_bump as u64;
-
+    market.price_refresh_trigger_to_max_age_pct = 1;
     svm.set_account(
         lending_market_pk, 
         Account { 
@@ -201,8 +206,30 @@ pub fn setup_kamino_state(
     )
     .unwrap();
 
+
+    // setup global config (kfarms)
+
     let global_config_pk = Pubkey::new_unique();
-    let global_config = GlobalConfig::default();
+    let mut global_config = GlobalConfig::default();
+    // get the treasury vault (fees) and store it in config
+    let treasury_vault = derive_rewards_treasury_vault(
+        &global_config_pk, 
+        reward_mint
+    );
+    let (
+        treasury_vault_authority, 
+        treasury_vault_authority_bump
+    ) = derive_kfarms_treasury_vault_authority(&global_config_pk);
+    // create the treasury vault
+    set_token_account(
+        svm, 
+        &treasury_vault, 
+        &treasury_vault_authority, 
+        reward_mint, 
+        0
+    );
+    global_config.treasury_vaults_authority = treasury_vault_authority;
+    global_config.treasury_vaults_authority_bump = treasury_vault_authority_bump as u64;
     svm.set_account(
         global_config_pk, 
         Account { 
@@ -218,12 +245,41 @@ pub fn setup_kamino_state(
     )
     .unwrap();
 
+
+    // setup reserve_farm_collateral (kfarms)
+
     let reserve_farm_collateral = Pubkey::new_unique();
     let mut farm_collateral = FarmState::default();
     farm_collateral.global_config = global_config_pk;
     // we make the farm delegated, must be the lending market authority
     // the PDA signing the CPI into KFARMS
     farm_collateral.delegate_authority = lending_market_authority;
+    farm_collateral.scope_oracle_price_id = u64::MAX;
+    farm_collateral.num_reward_tokens = u64::MAX;
+    farm_collateral.num_reward_tokens = 1;
+    // set reward info for harvesting rewards
+    // create the farm vault
+    let reward_vault = derive_rewards_vault(
+        &reserve_farm_collateral, 
+        &reward_mint
+    );
+    let farm_vault_authority = derive_farm_vaults_authority(
+        &reserve_farm_collateral
+    );
+    set_token_account(
+        svm, 
+        &reward_vault, 
+        &farm_vault_authority, 
+        reward_mint, 
+        u64::MAX
+    );
+
+    let mut reward_info = RewardInfo::default();
+    reward_info.token.decimals = 6;
+    reward_info.token.mint = *reward_mint;
+    reward_info.token.token_program= spl_token::ID;
+
+    farm_collateral.reward_infos[0] = reward_info;
     svm.set_account(
         reserve_farm_collateral, 
         Account { 
@@ -239,10 +295,14 @@ pub fn setup_kamino_state(
     )
     .unwrap();
 
+
+    // set reserve_farm_debt (use TBD) (kfarms)
+
     let reserve_farm_debt = Pubkey::new_unique();
     let mut farm_debt = FarmState::default();
     farm_debt.global_config = global_config_pk;
     farm_debt.delegate_authority = lending_market_authority;
+    farm_debt.scope_oracle_price_id = u64::MAX;
     svm.set_account(
         reserve_farm_debt, 
         Account { 
@@ -259,14 +319,23 @@ pub fn setup_kamino_state(
     .unwrap();
 
 
-    // setup reserve
+
+    // setup reserve (klend)
+
     let kamino_reserve_pk = Pubkey::new_unique();
     let mut kamino_reserve = KaminoReserve::default();
     kamino_reserve.lending_market = lending_market_pk;
     kamino_reserve.liquidity.mint_pubkey = *liquidity_mint;
+    kamino_reserve.liquidity.mint_decimals = 6;
+    kamino_reserve.liquidity.market_price_sf = Fraction::ONE.to_bits();
     kamino_reserve.farm_collateral = reserve_farm_collateral;
     kamino_reserve.farm_debt = reserve_farm_debt;
     kamino_reserve.version = 1;
+    // make the reserve max_age_price_seconds
+    // high so that we dont need an oracle to update price
+    kamino_reserve.config.token_info.max_age_price_seconds = u64::MAX;
+    // increase deposit limit
+    kamino_reserve.config.deposit_limit = u64::MAX;
 
     let liquidity_supply_vault = derive_reserve_liquidity_supply(
         &lending_market_pk, 
@@ -321,6 +390,7 @@ pub fn setup_kamino_state(
     )
     .unwrap();
 
+
     let reserve_context = KaminoReserveContext {
         kamino_reserve_pk,
         liquidity_supply_vault,
@@ -339,10 +409,9 @@ pub fn setup_kamino_state(
         reserve_context,
         farms_context
     }
-
 }
 
-pub fn set_mint(
+fn set_mint(
     svm: &mut LiteSVM,
     mint_pk: &Pubkey,
     mint_authority: &Pubkey,
@@ -368,7 +437,7 @@ pub fn set_mint(
     }).expect("failed to set mint");
 }
 
-pub fn set_token_account(
+fn set_token_account(
     svm: &mut LiteSVM,
     token_account_pk: &Pubkey,
     owner: &Pubkey,
