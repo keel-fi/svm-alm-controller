@@ -10,8 +10,6 @@ on:
 
 jobs:
   test:
-    env:
-      OPENSSL_DIR: /usr/lib/ssl
     runs-on: ubuntu-latest
 
     steps:
