@@ -8,12 +8,12 @@ use solana_sdk::{
 
 use crate::{
     constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
-    derive_controller_authority_pda, derive_integration_pda, derive_market_authority_address,
-    derive_obligation_farm_address, derive_permission_pda, derive_user_metadata_address,
+    derive_controller_authority_pda, derive_integration_pda,
+    derive_permission_pda,
     generated::{
         instructions::InitializeIntegrationBuilder,
         types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType},
-    },
+    }, integrations::kamino::{derive_market_authority_address, derive_obligation_farm_address, derive_user_metadata_address},
 };
 
 /// Creates an `InitializeIntegration` instruction for a **Kamino Lend integration** under the
@@ -95,7 +95,7 @@ pub fn create_initialize_kamino_lend_integration_ix(
     let obligation_farm_collateral =
         derive_obligation_farm_address(&reserve_farm_collateral, &obligation);
     let obligation_farm_debt = derive_obligation_farm_address(&reserve_farm_debt, &obligation);
-    let market_authority = derive_market_authority_address(&market);
+    let (market_authority, _) = derive_market_authority_address(&market);
 
     let remaining_accounts = &[
         AccountMeta {

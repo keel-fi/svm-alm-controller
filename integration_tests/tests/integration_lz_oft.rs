@@ -1048,23 +1048,23 @@ mod tests {
         .await?;
 
         // Checks for inner_ctx accounts:
-        // (index 8) mint
+        // (index 7) mint
         //      pubkey == config.mint
         //      pubkey == reserve_a.mint
-        // (index 9) vault
+        // (index 8) vault
         //      pubkey == reserve_a.vault
-        // (index 11) token program
+        // (index 10) token program
         //      pubkey == spl token or token2022
-        // (index 12) associated token program
+        // (index 11) associated token program
         //      pubkey == AT program
-        // (index 13) system program
+        // (index 12) system program
         //      pubkey == system program id
-        // (index 14) sysvar instruction
+        // (index 13) sysvar instruction
         //      pubkey == sysvar instructions id
 
         // modify vault pubkey so it doesnt match integration config
-        let vault_pk_before = push_ix.accounts[9].pubkey;
-        push_ix.accounts[9].pubkey = Pubkey::new_unique();
+        let vault_pk_before = push_ix.accounts[8].pubkey;
+        push_ix.accounts[8].pubkey = Pubkey::new_unique();
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[push_ix.clone(), send_ix.clone(), reset_ix.clone()],
             Some(&authority.pubkey()),
@@ -1075,7 +1075,7 @@ mod tests {
             tx_result.err().unwrap().err,
             TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
         );
-        push_ix.accounts[9].pubkey = vault_pk_before;
+        push_ix.accounts[8].pubkey = vault_pk_before;
         svm.expire_blockhash();
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&authority)];
@@ -1086,15 +1086,15 @@ mod tests {
             push_ix.clone(),
             {
                 // modify mint pubkey (wont match config)
-                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid pubkey"),
+                7 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid pubkey"),
                 // modify token program pubkey
-                11 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
+                10 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
                 // modify associated token program pubkey
-                12 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: Invalid program id"),
+                11 => invalid_program_id(InstructionError::IncorrectProgramId, "AT program: Invalid program id"),
                 // modify system program pubkey
-                13 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
                 // modify instructions sysvars pubkey
-                14 => invalid_program_id(InstructionError::IncorrectProgramId, "Instructions sysvar: Invalid instructions sysvar"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Instructions sysvar: Invalid instructions sysvar"),
             }
         );
 

@@ -1049,18 +1049,18 @@ mod tests {
         );
 
         // Checks for inner_ctx accounts:
-        // (index 8) mint: owned by SplToken / Token2022, pubkey == config.mint, pubkey == reserve.mint
-        // (index 9) vault: pubkey == reserve.vault
-        // (index 13) remote_token_messenger: owned by config.cctp_token_messenger_minter, (deserialized).domain == destination_domain
-        // (index 15) local_token: owned by config.cctp_token_messenger_minter, (deserialized).mint == inner_ctx.mint
-        // (index 17) cctp_message_transmitter: pubkey == config.cctp_message_transmitter
-        // (index 18) cctp_token_messenger_minter: pubkey == config.cctp_token_messenger_minter
-        // (index 20) token_program: pubkey == SplToken / Token2022
-        // (index 21) system_program: pubkey == systen_program_id
+        // (index 7) mint: owned by SplToken / Token2022, pubkey == config.mint, pubkey == reserve.mint
+        // (index 8) vault: pubkey == reserve.vault
+        // (index 12) remote_token_messenger: owned by config.cctp_token_messenger_minter, (deserialized).domain == destination_domain
+        // (index 14) local_token: owned by config.cctp_token_messenger_minter, (deserialized).mint == inner_ctx.mint
+        // (index 16) cctp_message_transmitter: pubkey == config.cctp_message_transmitter
+        // (index 17) cctp_token_messenger_minter: pubkey == config.cctp_token_messenger_minter
+        // (index 19) token_program: pubkey == SplToken / Token2022
+        // (index 20) system_program: pubkey == systen_program_id
 
 
         // change remote_token_messenger data
-        let remote_token_messenger_pk = push_ix.accounts[13].pubkey;
+        let remote_token_messenger_pk = push_ix.accounts[12].pubkey;
         let remote_token_messenger_acc_before = svm
             .get_account(&remote_token_messenger_pk)
             .expect("failed to get account");
@@ -1087,7 +1087,7 @@ mod tests {
 
 
         // change local_token data
-        let local_token_pk = push_ix.accounts[15].pubkey;
+        let local_token_pk = push_ix.accounts[14].pubkey;
         let local_token_acc_before = svm
             .get_account(&local_token_pk)
             .expect("failed to get account");
@@ -1124,23 +1124,23 @@ mod tests {
             push_ix.clone(),
             {
                 // Change mint owner:
-                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: Invalid owner"),
                 // Change mint pubkey:
-                8 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
+                7 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: invalid pubkey"),
                 // Change vault pubkey:
-                9 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
+                8 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
                 // Change remote_token_messenger owner
-                13 => invalid_owner(InstructionError::IllegalOwner, "Remote Token Messenger: Illegal owner"),
+                12 => invalid_owner(InstructionError::IllegalOwner, "Remote Token Messenger: Illegal owner"),
                 // Change local_token owner
-                15 => invalid_owner(InstructionError::IllegalOwner, "Local Token: Illegal owner"),
+                14 => invalid_owner(InstructionError::IllegalOwner, "Local Token: Illegal owner"),
                 // Change cctp_message_transmitter pubkey
-                17 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Message Transmitter: invalid program id"),
+                16 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Message Transmitter: invalid program id"),
                 // Change cctp_token_messenger_minter pubkey
-                18 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Token Messenger Minter: invalid program id"),
+                17 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Token Messenger Minter: invalid program id"),
                 // Change token program id:
-                20 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid id"),
+                19 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid id"),
                 // Change system program id:
-                21 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid id"),
+                20 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid id"),
             }
         );
 

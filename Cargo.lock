@@ -6790,7 +6790,6 @@ name = "svm-alm-controller-client"
 version = "0.1.0"
 dependencies = [
  "borsh 1.5.5",
- "fixed",
  "num-derive",
  "num-traits",
  "solana-account-info",
@@ -6803,7 +6802,6 @@ dependencies = [
  "solana-sysvar",
  "spl-associated-token-account-client",
  "spl-token-2022 7.0.0",
- "uint",
 ]
 
 [[package]]
@@ -6815,6 +6813,7 @@ dependencies = [
  "borsh 1.5.5",
  "bytemuck",
  "endpoint-client",
+ "fixed",
  "hex",
  "litesvm",
  "oft-client",
@@ -6838,6 +6837,7 @@ dependencies = [
  "test-case",
  "test-log",
  "tokio",
+ "uint",
  "uln-client",
 ]
 

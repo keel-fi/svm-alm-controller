@@ -6,14 +6,10 @@ use solana_sdk::{
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
 use crate::{
-    constants::{ASSOCIATED_TOKEN_PROGRAM_ID, KAMINO_FARMS_PROGRAM_ID},
-    generated::{instructions::SyncBuilder, types::KaminoConfig},
-    pda::{
-        derive_controller_authority_pda, derive_farm_vaults_authority,
-        derive_obligation_farm_address, derive_reserve_pda, derive_rewards_treasury_vault,
-        derive_rewards_vault,
-    },
-    SPL_TOKEN_PROGRAM_ID,
+    constants::{ASSOCIATED_TOKEN_PROGRAM_ID, KAMINO_FARMS_PROGRAM_ID}, generated::{instructions::SyncBuilder, types::KaminoConfig}, integrations::kamino::{derive_farm_vaults_authority, derive_obligation_farm_address, derive_rewards_treasury_vault, derive_rewards_vault}, pda::{
+        derive_controller_authority_pda,
+        derive_reserve_pda,
+    }, SPL_TOKEN_PROGRAM_ID
 };
 
 /// Creates a `Sync` instruction for a **Kamino Lend integration** under the

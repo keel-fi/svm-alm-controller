@@ -28,5 +28,3 @@ solana-sysvar = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
 spl-token-2022 = { workspace = true }
 solana-sdk = { workspace = true }
-fixed = { workspace = true }
-uint = { workspace = true }
