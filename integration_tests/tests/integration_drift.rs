@@ -4,6 +4,10 @@ mod subs;
 #[cfg(test)]
 mod tests {
 
+    use crate::helpers::drift::state::{
+        oracle::setup_mock_oracle_account,
+        spot_market::{setup_drift_spot_market_vault, setup_mock_insurance_fund_account},
+    };
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
@@ -253,11 +257,6 @@ mod tests {
         >(spot_market_data)
         .unwrap();
 
-        // Setup the spot market vault token account
-        use crate::helpers::drift::state::spot_market::{
-            setup_drift_spot_market_vault, setup_mock_insurance_fund_account,
-            setup_mock_oracle_account,
-        };
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
         // Set up mock oracle and insurance fund accounts
