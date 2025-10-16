@@ -5,7 +5,7 @@ use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED, define_account_struct, events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, instructions::PushArgs, integrations::drift::{
-        constants::DRIFT_PROGRAM_ID, cpi::PushDrift, protocol_state::{User, UserStats}
+        constants::DRIFT_PROGRAM_ID, cpi::Deposit, protocol_state::{User, UserStats}
     }, processor::PushAccounts, state::{Controller, Integration, Permission, Reserve}
 };
 
@@ -104,7 +104,7 @@ pub fn process_push_drift(
     let user_token_balance_before = user_token_account.amount();
     drop(user_token_account);
 
-    PushDrift {
+    Deposit {
         state: inner_ctx.state,
         user: inner_ctx.user,
         user_stats: inner_ctx.user_stats,

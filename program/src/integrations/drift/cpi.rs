@@ -49,7 +49,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 /// Manual implementation of PushDrift CPI instruction
-pub struct PushDrift<'info> {
+pub struct Deposit<'info> {
     pub state: &'info AccountInfo,
     pub user: &'info AccountInfo,
     pub user_stats: &'info AccountInfo,
@@ -63,7 +63,7 @@ pub struct PushDrift<'info> {
     pub reduce_only: bool,
 }
 
-impl<'info> PushDrift<'info> {
+impl<'info> Deposit<'info> {
     pub fn invoke(&self) -> ProgramResult {
         self.invoke_signed(&[])
     }

@@ -5,9 +5,9 @@ mod subs;
 mod tests {
 
     use crate::helpers::drift::state::{
-        oracle::setup_mock_oracle_account,
         spot_market::{setup_drift_spot_market_vault, setup_mock_insurance_fund_account},
     };
+    use crate::helpers::pyth::oracle::{setup_mock_oracle_account};
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
