@@ -952,12 +952,6 @@ mod tests {
         svm.send_transaction(tx.clone()).unwrap();
 
         // Deposit some amount into kamino so that there is a change in balance when moving slots forward
-        
-        // advance time to avoid math overflow in kamino refresh calls
-        // let mut initial_clock = svm.get_sysvar::<Clock>();
-        // initial_clock.unix_timestamp = 1754682844;
-        // initial_clock.slot = 358754275;
-        // svm.set_sysvar::<Clock>(&initial_clock);
 
         let push_ix = get_push_ix(
             &mut svm, 

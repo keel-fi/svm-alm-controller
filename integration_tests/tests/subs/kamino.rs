@@ -1,11 +1,11 @@
 #![allow(dead_code)]
+#![allow(deprecated)]
 use std::{error::Error, u64};
 
 use litesvm::LiteSVM;
 use solana_sdk::{
-    account::Account, program_pack::Pack, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
+    account::Account, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction
 };
-use spl_token::state::{Mint, Account as TokenAccount};
 use svm_alm_controller_client::{
     create_refresh_kamino_obligation_instruction, 
     create_refresh_kamino_reserve_instruction, integrations::kamino::{
@@ -15,7 +15,7 @@ use svm_alm_controller_client::{
 
 use crate::helpers::{
     constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
-    kamino::{math_utils::Fraction, state::{kfarms::{FarmState, GlobalConfig, RewardInfo}, klend::{KaminoReserve, LendingMarket, Obligation}}}
+    kamino::{math_utils::Fraction, state::{kfarms::{FarmState, GlobalConfig, RewardInfo}, klend::{KaminoReserve, LendingMarket, Obligation}}}, spl::{setup_token_account, setup_token_mint}
 };
 
 pub fn get_liquidity_and_lp_amount(
@@ -221,13 +221,17 @@ pub fn setup_kamino_state(
         treasury_vault_authority_bump
     ) = derive_kfarms_treasury_vault_authority(&global_config_pk);
     // create the treasury vault
-    set_token_account(
+
+    setup_token_account(
         svm, 
         &treasury_vault, 
-        &treasury_vault_authority, 
         reward_mint, 
-        0
+        &treasury_vault_authority, 
+        0, 
+        &spl_token::ID, 
+        None
     );
+
     global_config.treasury_vaults_authority = treasury_vault_authority;
     global_config.treasury_vaults_authority_bump = treasury_vault_authority_bump as u64;
     svm.set_account(
@@ -255,7 +259,6 @@ pub fn setup_kamino_state(
     // the PDA signing the CPI into KFARMS
     farm_collateral.delegate_authority = lending_market_authority;
     farm_collateral.scope_oracle_price_id = u64::MAX;
-    farm_collateral.num_reward_tokens = u64::MAX;
     farm_collateral.num_reward_tokens = 1;
     // set reward info for harvesting rewards
     // create the farm vault
@@ -266,12 +269,15 @@ pub fn setup_kamino_state(
     let farm_vault_authority = derive_farm_vaults_authority(
         &reserve_farm_collateral
     );
-    set_token_account(
+
+    setup_token_account(
         svm, 
         &reward_vault, 
-        &farm_vault_authority, 
         reward_mint, 
-        u64::MAX
+        &farm_vault_authority, 
+        u64::MAX, 
+        &spl_token::ID, 
+        None
     );
 
     let mut reward_info = RewardInfo::default();
@@ -341,36 +347,45 @@ pub fn setup_kamino_state(
         &lending_market_pk, 
         &liquidity_mint
     );
-    set_token_account(
+
+    setup_token_account(
         svm, 
         &liquidity_supply_vault, 
-        &lending_market_authority, 
         liquidity_mint, 
-        0
+        &lending_market_authority, 
+        0, 
+        &spl_token::ID, 
+        None
     );
 
     let reserve_collateral_mint = derive_reserve_collateral_mint(
         &lending_market_pk, 
         &liquidity_mint
     );
-    set_mint(
+
+    setup_token_mint(
         svm, 
         &reserve_collateral_mint, 
+        6, 
         &lending_market_authority, 
-        0
+        &spl_token::ID
     );
 
     let reserve_collateral_supply = derive_reserve_collateral_supply(
         &lending_market_pk, 
         &liquidity_mint
     );
-    set_token_account(
+
+    setup_token_account(
         svm, 
         &reserve_collateral_supply, 
-        &lending_market_authority, 
         &reserve_collateral_mint, 
-        0
+        &lending_market_authority, 
+        0, 
+        &spl_token::ID, 
+        None
     );
+
 
     kamino_reserve.liquidity.supply_vault = liquidity_supply_vault;
     kamino_reserve.collateral.mint_pubkey = reserve_collateral_mint;
@@ -409,64 +424,4 @@ pub fn setup_kamino_state(
         reserve_context,
         farms_context
     }
-}
-
-fn set_mint(
-    svm: &mut LiteSVM,
-    mint_pk: &Pubkey,
-    mint_authority: &Pubkey,
-    supply: u64,
-) {
-    let mint_state = Mint {
-        mint_authority: Some(*mint_authority).into(),
-        supply,
-        decimals: 6,
-        is_initialized: true,
-        freeze_authority: None.into(),
-    };
-
-    let mut data = vec![0u8; Mint::LEN];
-    Mint::pack(mint_state, &mut data).expect("failed to pack Mint");
-
-    svm.set_account(*mint_pk, Account {
-        lamports: u64::MAX,
-        data: data,
-        owner: spl_token::id(),
-        executable: false,
-        rent_epoch: u64::MAX,
-    }).expect("failed to set mint");
-}
-
-fn set_token_account(
-    svm: &mut LiteSVM,
-    token_account_pk: &Pubkey,
-    owner: &Pubkey,
-    mint_pk: &Pubkey,
-    amount: u64,
-) {
-    let token_account = TokenAccount {
-        mint: *mint_pk,
-        owner: *owner,
-        amount,
-        delegate: None.into(),
-        state: spl_token::state::AccountState::Initialized,
-        is_native: None.into(),
-        delegated_amount: 0,
-        close_authority: None.into(),
-    };
-
-    let mut data = vec![0u8; TokenAccount::LEN];
-    TokenAccount::pack(token_account, &mut data).expect("failed to pack token account");
-
-    svm.set_account(
-        *token_account_pk,
-        Account {
-            lamports: u64::MAX,
-            data,
-            owner: spl_token::id(),
-            executable: false,
-            rent_epoch: u64::MAX,
-        },
-    )
-    .expect("failed to set token account");
 }
