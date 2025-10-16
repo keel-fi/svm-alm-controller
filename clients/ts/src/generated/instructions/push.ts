@@ -51,7 +51,6 @@ export type PushInstruction<
   TAccountPermission extends string | AccountMeta<string> = string,
   TAccountIntegration extends string | AccountMeta<string> = string,
   TAccountReserveA extends string | AccountMeta<string> = string,
-  TAccountReserveB extends string | AccountMeta<string> = string,
   TAccountProgramId extends
     | string
     | AccountMeta<string> = 'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9',
@@ -79,9 +78,6 @@ export type PushInstruction<
       TAccountReserveA extends string
         ? WritableAccount<TAccountReserveA>
         : TAccountReserveA,
-      TAccountReserveB extends string
-        ? WritableAccount<TAccountReserveB>
-        : TAccountReserveB,
       TAccountProgramId extends string
         ? ReadonlyAccount<TAccountProgramId>
         : TAccountProgramId,
@@ -127,7 +123,6 @@ export type PushInput<
   TAccountPermission extends string = string,
   TAccountIntegration extends string = string,
   TAccountReserveA extends string = string,
-  TAccountReserveB extends string = string,
   TAccountProgramId extends string = string,
 > = {
   controller: Address<TAccountController>;
@@ -136,7 +131,6 @@ export type PushInput<
   permission: Address<TAccountPermission>;
   integration: Address<TAccountIntegration>;
   reserveA: Address<TAccountReserveA>;
-  reserveB: Address<TAccountReserveB>;
   programId?: Address<TAccountProgramId>;
   pushArgs: PushInstructionDataArgs['pushArgs'];
 };
@@ -148,7 +142,6 @@ export function getPushInstruction<
   TAccountPermission extends string,
   TAccountIntegration extends string,
   TAccountReserveA extends string,
-  TAccountReserveB extends string,
   TAccountProgramId extends string,
   TProgramAddress extends Address = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
 >(
@@ -159,7 +152,6 @@ export function getPushInstruction<
     TAccountPermission,
     TAccountIntegration,
     TAccountReserveA,
-    TAccountReserveB,
     TAccountProgramId
   >,
   config?: { programAddress?: TProgramAddress }
@@ -171,7 +163,6 @@ export function getPushInstruction<
   TAccountPermission,
   TAccountIntegration,
   TAccountReserveA,
-  TAccountReserveB,
   TAccountProgramId
 > {
   // Program address.
@@ -189,7 +180,6 @@ export function getPushInstruction<
     permission: { value: input.permission ?? null, isWritable: false },
     integration: { value: input.integration ?? null, isWritable: true },
     reserveA: { value: input.reserveA ?? null, isWritable: true },
-    reserveB: { value: input.reserveB ?? null, isWritable: true },
     programId: { value: input.programId ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -215,7 +205,6 @@ export function getPushInstruction<
       getAccountMeta(accounts.permission),
       getAccountMeta(accounts.integration),
       getAccountMeta(accounts.reserveA),
-      getAccountMeta(accounts.reserveB),
       getAccountMeta(accounts.programId),
     ],
     data: getPushInstructionDataEncoder().encode(
@@ -230,7 +219,6 @@ export function getPushInstruction<
     TAccountPermission,
     TAccountIntegration,
     TAccountReserveA,
-    TAccountReserveB,
     TAccountProgramId
   >);
 }
@@ -247,8 +235,7 @@ export type ParsedPushInstruction<
     permission: TAccountMetas[3];
     integration: TAccountMetas[4];
     reserveA: TAccountMetas[5];
-    reserveB: TAccountMetas[6];
-    programId: TAccountMetas[7];
+    programId: TAccountMetas[6];
   };
   data: PushInstructionData;
 };
@@ -261,7 +248,7 @@ export function parsePushInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedPushInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -280,7 +267,6 @@ export function parsePushInstruction<
       permission: getNextAccount(),
       integration: getNextAccount(),
       reserveA: getNextAccount(),
-      reserveB: getNextAccount(),
       programId: getNextAccount(),
     },
     data: getPushInstructionDataDecoder().decode(instruction.data),

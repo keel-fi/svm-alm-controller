@@ -111,8 +111,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
-    #[account(6, writable, name = "reserve_b")]
-    #[account(7, name = "program_id")]
+    #[account(6, name = "program_id")]
     Push(PushArgs),
 
     /// Pull
@@ -122,8 +121,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
-    #[account(6, writable, name = "reserve_b")]
-    #[account(7, name = "program_id")]
+    #[account(6, name = "program_id")]
     Pull(PullArgs),
 
     /// InitializeOracle
@@ -298,8 +296,8 @@ pub enum InitializeArgs {
         spot_market_index: u16,
     },
     KaminoIntegration {
-        obligation_id: u8
-    }
+        obligation_id: u8,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -310,18 +308,10 @@ pub struct SyncIntegrationArgs {}
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum PushArgs {
-    SplTokenExternal {
-        amount: u64,
-    },
-    CctpBridge {
-        amount: u64,
-    },
-    LzBridge {
-        amount: u64,
-    },
-    Kamino { 
-        amount: u64 
-    },
+    SplTokenExternal { amount: u64 },
+    CctpBridge { amount: u64 },
+    LzBridge { amount: u64 },
+    Kamino { amount: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -329,7 +319,7 @@ pub enum PullArgs {
     SplTokenExternal,
     CctpBridge,
     LzBridge,
-    Kamino { amount: u64 }
+    Kamino { amount: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

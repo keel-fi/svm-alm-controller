@@ -168,7 +168,6 @@ pub fn create_pull_kamino_lend_ix(
         .permission(calling_permission_pda)
         .integration(*integration)
         .reserve_a(reserve_pda)
-        .reserve_b(reserve_pda)
         .program_id(SVM_ALM_CONTROLLER_ID)
         .add_remaining_accounts(remaining_accounts)
         .instruction()

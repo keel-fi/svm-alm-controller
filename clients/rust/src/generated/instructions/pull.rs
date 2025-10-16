@@ -26,8 +26,6 @@ pub struct Pull {
 
     pub reserve_a: solana_pubkey::Pubkey,
 
-    pub reserve_b: solana_pubkey::Pubkey,
-
     pub program_id: solana_pubkey::Pubkey,
 }
 
@@ -42,7 +40,7 @@ impl Pull {
         args: PullInstructionArgs,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.controller,
             false,
@@ -64,7 +62,6 @@ impl Pull {
             false,
         ));
         accounts.push(solana_instruction::AccountMeta::new(self.reserve_a, false));
-        accounts.push(solana_instruction::AccountMeta::new(self.reserve_b, false));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.program_id,
             false,
@@ -116,8 +113,7 @@ pub struct PullInstructionArgs {
 ///   3. `[]` permission
 ///   4. `[writable]` integration
 ///   5. `[writable]` reserve_a
-///   6. `[writable]` reserve_b
-///   7. `[]` program_id
+///   6. `[]` program_id
 #[derive(Clone, Debug, Default)]
 pub struct PullBuilder {
     controller: Option<solana_pubkey::Pubkey>,
@@ -126,7 +122,6 @@ pub struct PullBuilder {
     permission: Option<solana_pubkey::Pubkey>,
     integration: Option<solana_pubkey::Pubkey>,
     reserve_a: Option<solana_pubkey::Pubkey>,
-    reserve_b: Option<solana_pubkey::Pubkey>,
     program_id: Option<solana_pubkey::Pubkey>,
     pull_args: Option<PullArgs>,
     __remaining_accounts: Vec<solana_instruction::AccountMeta>,
@@ -170,11 +165,6 @@ impl PullBuilder {
         self
     }
     #[inline(always)]
-    pub fn reserve_b(&mut self, reserve_b: solana_pubkey::Pubkey) -> &mut Self {
-        self.reserve_b = Some(reserve_b);
-        self
-    }
-    #[inline(always)]
     pub fn program_id(&mut self, program_id: solana_pubkey::Pubkey) -> &mut Self {
         self.program_id = Some(program_id);
         self
@@ -210,7 +200,6 @@ impl PullBuilder {
             permission: self.permission.expect("permission is not set"),
             integration: self.integration.expect("integration is not set"),
             reserve_a: self.reserve_a.expect("reserve_a is not set"),
-            reserve_b: self.reserve_b.expect("reserve_b is not set"),
             program_id: self.program_id.expect("program_id is not set"),
         };
         let args = PullInstructionArgs {
@@ -235,8 +224,6 @@ pub struct PullCpiAccounts<'a, 'b> {
 
     pub reserve_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub reserve_b: &'b solana_account_info::AccountInfo<'a>,
-
     pub program_id: &'b solana_account_info::AccountInfo<'a>,
 }
 
@@ -257,8 +244,6 @@ pub struct PullCpi<'a, 'b> {
 
     pub reserve_a: &'b solana_account_info::AccountInfo<'a>,
 
-    pub reserve_b: &'b solana_account_info::AccountInfo<'a>,
-
     pub program_id: &'b solana_account_info::AccountInfo<'a>,
     /// The arguments for the instruction.
     pub __args: PullInstructionArgs,
@@ -278,7 +263,6 @@ impl<'a, 'b> PullCpi<'a, 'b> {
             permission: accounts.permission,
             integration: accounts.integration,
             reserve_a: accounts.reserve_a,
-            reserve_b: accounts.reserve_b,
             program_id: accounts.program_id,
             __args: args,
         }
@@ -306,7 +290,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.controller.key,
             false,
@@ -331,10 +315,6 @@ impl<'a, 'b> PullCpi<'a, 'b> {
             *self.reserve_a.key,
             false,
         ));
-        accounts.push(solana_instruction::AccountMeta::new(
-            *self.reserve_b.key,
-            false,
-        ));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.program_id.key,
             false,
@@ -355,7 +335,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.controller.clone());
         account_infos.push(self.controller_authority.clone());
@@ -363,7 +343,6 @@ impl<'a, 'b> PullCpi<'a, 'b> {
         account_infos.push(self.permission.clone());
         account_infos.push(self.integration.clone());
         account_infos.push(self.reserve_a.clone());
-        account_infos.push(self.reserve_b.clone());
         account_infos.push(self.program_id.clone());
         remaining_accounts
             .iter()
@@ -387,8 +366,7 @@ impl<'a, 'b> PullCpi<'a, 'b> {
 ///   3. `[]` permission
 ///   4. `[writable]` integration
 ///   5. `[writable]` reserve_a
-///   6. `[writable]` reserve_b
-///   7. `[]` program_id
+///   6. `[]` program_id
 #[derive(Clone, Debug)]
 pub struct PullCpiBuilder<'a, 'b> {
     instruction: Box<PullCpiBuilderInstruction<'a, 'b>>,
@@ -404,7 +382,6 @@ impl<'a, 'b> PullCpiBuilder<'a, 'b> {
             permission: None,
             integration: None,
             reserve_a: None,
-            reserve_b: None,
             program_id: None,
             pull_args: None,
             __remaining_accounts: Vec::new(),
@@ -451,11 +428,6 @@ impl<'a, 'b> PullCpiBuilder<'a, 'b> {
     #[inline(always)]
     pub fn reserve_a(&mut self, reserve_a: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.reserve_a = Some(reserve_a);
-        self
-    }
-    #[inline(always)]
-    pub fn reserve_b(&mut self, reserve_b: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.reserve_b = Some(reserve_b);
         self
     }
     #[inline(always)]
@@ -533,8 +505,6 @@ impl<'a, 'b> PullCpiBuilder<'a, 'b> {
 
             reserve_a: self.instruction.reserve_a.expect("reserve_a is not set"),
 
-            reserve_b: self.instruction.reserve_b.expect("reserve_b is not set"),
-
             program_id: self.instruction.program_id.expect("program_id is not set"),
             __args: args,
         };
@@ -554,7 +524,6 @@ struct PullCpiBuilderInstruction<'a, 'b> {
     permission: Option<&'b solana_account_info::AccountInfo<'a>>,
     integration: Option<&'b solana_account_info::AccountInfo<'a>>,
     reserve_a: Option<&'b solana_account_info::AccountInfo<'a>>,
-    reserve_b: Option<&'b solana_account_info::AccountInfo<'a>>,
     program_id: Option<&'b solana_account_info::AccountInfo<'a>>,
     pull_args: Option<PullArgs>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
