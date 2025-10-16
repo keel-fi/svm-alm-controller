@@ -16,6 +16,8 @@ pub mod macros;
 pub mod raydium;
 pub mod spl;
 pub mod utils;
+pub mod kamino;
+
 pub use macros::*;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
