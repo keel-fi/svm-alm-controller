@@ -77,8 +77,6 @@ pub fn process_push_drift(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    drop(user);
-    drop(user_stats);
     drop(user_stats_data);
     drop(user_data);
 
@@ -124,8 +122,6 @@ pub fn process_push_drift(
         Seed::from(outer_ctx.controller.key()),
         Seed::from(&[controller.authority_bump]),
     ])])?;
-
-    msg!("drift push successful");
 
     // Reload the user token account to check its balance
     let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
