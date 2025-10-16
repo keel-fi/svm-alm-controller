@@ -3,7 +3,7 @@ name: Run Tests & Clippy
 on:
   push:
     branches:
-      - test-formatting
+      - main
   pull_request:
     branches:
       - main
