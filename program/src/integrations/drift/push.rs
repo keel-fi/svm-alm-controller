@@ -5,8 +5,7 @@ use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED, define_account_struct, events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, instructions::PushArgs, integrations::drift::{
-        cpi::PushDrift,
-        protocol_state::{User, UserStats},
+        constants::DRIFT_PROGRAM_ID, cpi::PushDrift, protocol_state::{User, UserStats}
     }, processor::PushAccounts, state::{Controller, Integration, Permission, Reserve}
 };
 
@@ -19,6 +18,7 @@ define_account_struct! {
         user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         reserve_vault;
+        drift_program: @pubkey(DRIFT_PROGRAM_ID);
         @remaining_accounts as remaining_accounts;
     }
 }

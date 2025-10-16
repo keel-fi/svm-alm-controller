@@ -70,19 +70,19 @@ impl<'info> PushDrift<'info> {
 
     pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
         let base_accounts = [
-            AccountMeta::new(self.state.key(), false, false), // Readonly
-            AccountMeta::new(self.user.key(), true, false),   // Writable
-            AccountMeta::new(self.user_stats.key(), true, false), // Writable
-            AccountMeta::new(self.authority.key(), false, true), // Signer
-            AccountMeta::new(self.spot_market_vault.key(), true, false), // Writable
-            AccountMeta::new(self.user_token_account.key(), true, false), // Writable
-            AccountMeta::new(self.token_program.key(), false, false), // Readonly
+            self.state.into(),
+            self.user.into(),
+            self.user_stats.into(),
+            AccountMeta::new(self.authority.key(), false, true), // authority must be a signer and for some reason .is_signer() returns false
+            self.spot_market_vault.into(),
+            self.user_token_account.into(),
+            self.token_program.into(),
         ];
 
         // Create accounts vector with base accounts + remaining accounts
         let mut accounts = Vec::from(base_accounts);
         for account in self.remaining_accounts {
-            accounts.push(AccountMeta::new(account.key(), false, false));
+            accounts.push(account.into());
         }
 
         let mut data = anchor_discriminator("global", "deposit").to_vec();
@@ -98,7 +98,7 @@ impl<'info> PushDrift<'info> {
 
         // For now, only use the base accounts since we can't handle variable remaining accounts
         // with the current pinocchio invoke_signed signature
-        let accounts_array= [
+        let accounts_array = [
             self.state,
             self.user,
             self.user_stats,

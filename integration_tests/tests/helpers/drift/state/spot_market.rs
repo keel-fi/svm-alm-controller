@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use litesvm::LiteSVM;
-use solana_sdk::{account::Account, pubkey::Pubkey};
+use solana_sdk::{account::Account, pubkey::{self, Pubkey}};
 use svm_alm_controller::constants::anchor_discriminator;
 use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, derive_spot_market_vault_pda, DRIFT_PROGRAM_ID};
 
@@ -266,6 +266,10 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<
         spot_market.mint = mint;
     }
     
+    // Set up vault account (the spot market vault PDA)
+    let vault_pubkey = svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
+    spot_market.vault = vault_pubkey;
+    
     // Set up oracle account (mock oracle for testing)
     let oracle_pubkey = Pubkey::new_unique();
     spot_market.oracle = oracle_pubkey;
@@ -273,6 +277,16 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<
     // Set up insurance fund vault (mock insurance fund for testing)
     let insurance_fund_vault = Pubkey::new_unique();
     spot_market.insurance_fund.vault = insurance_fund_vault;
+    
+    // Set important fields for the Drift program to recognize this as a valid spot market
+    spot_market.status = 1; // Active status
+    spot_market.orders_enabled = 1; // Enable orders
+    spot_market.asset_tier = 1; // Set asset tier
+    spot_market.decimals = 6; // Set decimals (matching our token mint)
+    
+    // Set market_index in PoolBalance structs - this is critical for Drift validation
+    spot_market.revenue_pool.market_index = market_index;
+    spot_market.spot_fee_pool.market_index = market_index;
     
     let mut state_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
     state_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
@@ -319,12 +333,104 @@ pub fn setup_drift_spot_market_vault(
     vault_pubkey
 }
 
+// solana public key
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct AccKey
+{
+  pub val: [u8;32]
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct PriceInfo
+{
+  pub price      : i64,        // product price
+  pub conf       : u64,        // confidence interval of product price
+  pub status     : u8,// status of price (Trading is valid)
+  pub corp_act   : u8, // notification of any corporate action
+  pub pub_slot   : u64
+}
+
+// latest component price and price used in aggregate snapshot
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct PriceComp
+{
+  pub publisher  : AccKey,     // key of contributing quoter
+  pub agg        : PriceInfo,  // contributing price to last aggregate
+  pub latest     : PriceInfo   // latest contributing price (not in agg.)
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C)]
+pub struct Ema
+{
+  pub val        : i64,        // current value of ema
+  numer          : i64,        // numerator state for next update
+  denom          : i64         // denominator state for next update
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct Price
+{
+  pub magic      : u32,        // pyth magic number
+  pub ver        : u32,        // program version
+  pub atype      : u32,        // account type
+  pub size       : u32,        // price account size
+  pub ptype      : u8,  // price or calculation type
+  pub expo       : i32,        // price exponent
+  pub num        : u32,        // number of component prices
+  pub num_qt     : u32,        // number of quoters that make up aggregate
+  pub last_slot  : u64,        // slot of last valid (not unknown) aggregate price
+  pub valid_slot : u64,        // valid slot-time of agg. price
+  pub twap       : Ema,        // time-weighted average price
+  pub twac       : Ema,        // time-weighted average confidence interval
+  pub drv1       : i64,        // space for future derived values
+  pub drv2       : i64,        // space for future derived values
+  pub prod       : AccKey,     // product account key
+  pub next       : AccKey,     // next Price account in linked list
+  pub prev_slot  : u64,        // valid slot of previous update
+  pub prev_price : i64,        // aggregate price of previous update
+  pub prev_conf  : u64,        // confidence interval of previous update
+  pub drv3       : i64,        // space for future derived values
+  pub agg        : PriceInfo,  // aggregate price info
+  pub comp       : [PriceComp;32] // price components one per quoter
+}
+
 /// Setup mock oracle account for testing
 pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey) {
     use solana_sdk::account::Account;
     
     // Create a minimal mock oracle account
-    let oracle_data = vec![0u8; 32]; // Minimal oracle data
+    let price_update = Price {
+        magic: 0,
+        ver: 0,
+        atype: 0,
+        size: 0,
+        ptype: 0,
+        expo: 0,
+        num: 0,
+        num_qt: 0,
+        last_slot: 0,
+        valid_slot: 0,
+        twap: Ema::default(),
+        twac: Ema::default(),
+        drv1: 0,
+        drv2: 0,
+        prod: AccKey::default(),
+        next: AccKey::default(),
+        prev_slot: 0,
+        prev_price: 0,
+        prev_conf: 0,
+        drv3: 0,
+        agg: PriceInfo::default(),
+        comp: [PriceComp::default(); 32],
+    };
+    let mut oracle_data = Vec::with_capacity(std::mem::size_of::<Price>() + 8);
+    oracle_data.extend_from_slice(&anchor_discriminator("account", "Price"));
+    oracle_data.extend_from_slice(&bytemuck::bytes_of(&price_update));
     
     svm.set_account(
         *oracle_pubkey,
@@ -332,7 +438,7 @@ pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey) {
             lamports: u64::MAX,
             rent_epoch: u64::MAX,
             data: oracle_data,
-            owner: Pubkey::new_unique(), // Mock oracle program
+            owner: solana_sdk::pubkey!("FsJ3A3u2vn5cTVofAjvy6y5kwABJAqYWpe4975bi2epH"), // pyth program id
             executable: false,
         },
     )
