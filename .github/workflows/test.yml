@@ -26,6 +26,9 @@ jobs:
         with:
           solana-cli-version: "2.2.20"
 
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Build
         run: cargo build-sbf
 
