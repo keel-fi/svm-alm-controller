@@ -101,10 +101,10 @@ pub fn process_push_drift(
         controller,
     )?;
 
-    let vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let liquidity_amount_before = vault.amount();
-
-    drop(vault);
+    // Track the user token account balance before the transfer
+    let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
+    let user_token_balance_before = user_token_account.amount();
+    drop(user_token_account);
 
     PushDrift {
         state: inner_ctx.state,
@@ -127,48 +127,37 @@ pub fn process_push_drift(
 
     msg!("drift push successful");
 
-    let vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let liquidity_amount_after = vault.amount();
-    let liquidity_amount_delta = liquidity_amount_after.saturating_sub(liquidity_amount_before);
+    // Reload the user token account to check its balance
+    let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
+    let user_token_balance_after = user_token_account.amount();
+    let check_delta = user_token_balance_before
+        .checked_sub(user_token_balance_after)
+        .unwrap();
+    if check_delta != amount {
+        msg! {"check_delta: transfer did not match the user token account balance change"};
+        return Err(ProgramError::InvalidArgument);
+    }
 
-    // TODO: calculate liquidity_value_delta
-    let liquidity_value_delta = 100;
+    // Emit accounting event for debit Reserve
+    // Note: this is to ensure there is double accounting
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: None,
+            mint: *inner_ctx.spot_market_vault.key(),
+            reserve: Some(*outer_ctx.reserve_a.key()),
+            direction: AccountingDirection::Debit,
+            action: AccountingAction::Deposit,
+            delta: check_delta,
+        }),
+    )?;
 
-    // Emit accounting event for credit Integration
-    // controller.emit_event(
-    //     outer_ctx.controller_authority,
-    //     outer_ctx.controller.key(),
-    //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-    //         controller: *outer_ctx.controller.key(),
-    //         integration: Some(*outer_ctx.integration.key()),
-    //         mint: *inner_ctx.spot_market_vault.key(),
-    //         reserve: None,
-    //         direction: AccountingDirection::Credit,
-    //         action: AccountingAction::Deposit,
-    //         delta: liquidity_value_delta,
-    //     }),
-    // )?;
+    let clock = Clock::get()?;
 
-    // // Emit accounting event for debit Reserve
-    // // Note: this is to ensure there is double accounting
-    // controller.emit_event(
-    //     outer_ctx.controller_authority,
-    //     outer_ctx.controller.key(),
-    //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-    //         controller: *outer_ctx.controller.key(),
-    //         integration: None,
-    //         mint: *inner_ctx.spot_market_vault.key(),
-    //         reserve: Some(*outer_ctx.reserve_a.key()),
-    //         direction: AccountingDirection::Debit,
-    //         action: AccountingAction::Deposit,
-    //         delta: liquidity_amount_delta,
-    //     }),
-    // )?;
-
-    //let clock = Clock::get()?;
-
-    //integration.update_rate_limit_for_outflow(clock, liquidity_amount_delta)?;
-    //reserve.update_for_outflow(clock, liquidity_amount_delta, false)?;
+    integration.update_rate_limit_for_outflow(clock, check_delta)?;
+    reserve.update_for_outflow(clock, check_delta, false)?;
 
     Ok(())
 }

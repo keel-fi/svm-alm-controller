@@ -242,21 +242,31 @@ mod tests {
             None,
         )?;
 
-        let spot_market_pubkey = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint));
-        
+        let spot_market_pubkey =
+            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint));
+
         // Set up mock oracle and insurance fund accounts
         let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
         let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<crate::helpers::drift::state::spot_market::SpotMarket>(spot_market_data).unwrap();
+        let spot_market = bytemuck::try_from_bytes::<
+            crate::helpers::drift::state::spot_market::SpotMarket,
+        >(spot_market_data)
+        .unwrap();
 
         // Setup the spot market vault token account
-        use crate::helpers::drift::state::spot_market::{setup_drift_spot_market_vault, setup_mock_oracle_account, setup_mock_insurance_fund_account};
+        use crate::helpers::drift::state::spot_market::{
+            setup_drift_spot_market_vault, setup_mock_insurance_fund_account,
+            setup_mock_oracle_account,
+        };
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
-        
+
         // Set up mock oracle and insurance fund accounts
         let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
         let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<crate::helpers::drift::state::spot_market::SpotMarket>(spot_market_data).unwrap();
+        let spot_market = bytemuck::try_from_bytes::<
+            crate::helpers::drift::state::spot_market::SpotMarket,
+        >(spot_market_data)
+        .unwrap();
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle);
 
@@ -324,9 +334,18 @@ mod tests {
 
         // Create the push instruction
         let push_amount = 100_000_000;
-        
+
         // Use the spot market account we already have
         let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
+
+        let integration_before = fetch_integration_account(&svm, &integration_pubkey)
+            .expect("integration should exist")
+            .unwrap();
+
+        let reserve_before = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
+            .expect("reserve should exist")
+            .unwrap();
+
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -340,7 +359,8 @@ mod tests {
             push_amount,
             false,
             &spot_market_account.data, // Pass the spot market account data
-        ).unwrap();
+        )
+        .unwrap();
 
         // Execute the push instruction
         let tx = Transaction::new_signed_with_payer(
@@ -349,55 +369,39 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone());
-        
-        match tx_result {
-            Ok(_) => {}
-            Err(e) => {
-                panic!("{}", e.meta.pretty_logs());
-            }
-        }
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
 
-        dbg!(&tx_result);
-
-        // Verify the integration was updated
-        let _integration_after = fetch_integration_account(&svm, &integration_pubkey)
+        let integration_after = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
 
-        // Verify the reserve was updated
-        let _reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
+        let reserve_after = crate::subs::fetch_reserve_account(&svm, &reserve_keys.pubkey)
             .expect("reserve should exist")
             .unwrap();
 
-        // Verify accounting events were emitted
-        // assert_contains_controller_cpi_event!(
-        //     tx_result,
-        //     tx.message.account_keys.as_slice(),
-        //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-        //         controller: controller_pk,
-        //         integration: Some(integration_pubkey),
-        //         mint: token_mint,
-        //         reserve: None,
-        //         direction: AccountingDirection::Credit,
-        //         action: AccountingAction::Deposit,
-        //         delta: 100, // TODO: calculate actual liquidity_value_delta
-        //     })
-        // );
+        assert_eq!(
+            integration_after.rate_limit_outflow_amount_available,
+            integration_before.rate_limit_outflow_amount_available - push_amount
+        );
 
-        // assert_contains_controller_cpi_event!(
-        //     tx_result,
-        //     tx.message.account_keys.as_slice(),
-        //     SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-        //         controller: controller_pk,
-        //         integration: None,
-        //         mint: token_mint,
-        //         reserve: Some(reserve_keys.pubkey),
-        //         direction: AccountingDirection::Debit,
-        //         action: AccountingAction::Deposit,
-        //         delta: push_amount, // liquidity_amount_delta
-        //     })
-        // );
+        assert_eq!(
+            reserve_after.rate_limit_outflow_amount_available,
+            reserve_before.rate_limit_outflow_amount_available - push_amount
+        );
+
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: None,
+                mint: spot_market.vault,
+                reserve: Some(reserve_keys.pubkey),
+                direction: AccountingDirection::Debit,
+                action: AccountingAction::Deposit,
+                delta: push_amount,
+            })
+        );
 
         Ok(())
     }

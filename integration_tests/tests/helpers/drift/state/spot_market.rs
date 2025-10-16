@@ -1,8 +1,14 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
 use litesvm::LiteSVM;
-use solana_sdk::{account::Account, pubkey::{self, Pubkey}};
+use solana_sdk::{
+    account::Account,
+    pubkey::{self, Pubkey},
+};
 use svm_alm_controller::constants::anchor_discriminator;
-use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, derive_spot_market_vault_pda, DRIFT_PROGRAM_ID};
+use svm_alm_controller_client::integrations::drift::{
+    derive_spot_market_pda, derive_spot_market_vault_pda, DRIFT_PROGRAM_ID,
+};
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
@@ -257,7 +263,7 @@ impl SpotMarket {
 ///     and mutate state set from the arg.
 pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<Pubkey>) -> Pubkey {
     let pubkey = derive_spot_market_pda(market_index);
-    
+
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
     spot_market.pubkey = pubkey; // Set the pubkey field to the actual PDA
@@ -265,29 +271,33 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<
     if let Some(mint) = mint {
         spot_market.mint = mint;
     }
-    
+
     // Set up vault account (the spot market vault PDA)
-    let vault_pubkey = svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
+    let vault_pubkey =
+        svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
     spot_market.vault = vault_pubkey;
-    
+
     // Set up oracle account (mock oracle for testing)
     let oracle_pubkey = Pubkey::new_unique();
     spot_market.oracle = oracle_pubkey;
-    
+
     // Set up insurance fund vault (mock insurance fund for testing)
     let insurance_fund_vault = Pubkey::new_unique();
     spot_market.insurance_fund.vault = insurance_fund_vault;
-    
+
     // Set important fields for the Drift program to recognize this as a valid spot market
     spot_market.status = 1; // Active status
     spot_market.orders_enabled = 1; // Enable orders
     spot_market.asset_tier = 1; // Set asset tier
     spot_market.decimals = 6; // Set decimals (matching our token mint)
-    
+    spot_market.oracle_source = 7; // Set oracle source to pyth pull
+    spot_market.cumulative_deposit_interest = 1000000000000000000; // Set cumulative deposit interest to 1
+    spot_market.cumulative_borrow_interest = 1000000000000000000; // Set cumulative borrow interest to 1
+
     // Set market_index in PoolBalance structs - this is critical for Drift validation
     spot_market.revenue_pool.market_index = market_index;
     spot_market.spot_fee_pool.market_index = market_index;
-    
+
     let mut state_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
     state_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
     state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
@@ -310,128 +320,99 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<
 /// Setup Drift SpotMarket Vault token account in LiteSvm.
 /// This creates the actual token account that holds the market's deposits.
 pub fn setup_drift_spot_market_vault(
-    svm: &mut LiteSVM, 
-    market_index: u16, 
+    svm: &mut LiteSVM,
+    market_index: u16,
     mint: &Pubkey,
-    token_program: &Pubkey
+    token_program: &Pubkey,
 ) -> Pubkey {
-    let vault_pubkey = svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
-    
+    let vault_pubkey =
+        svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
+
     // Import the setup_token_account function
     use crate::helpers::spl::setup_token_account;
-    
+
     setup_token_account(
         svm,
         &vault_pubkey,
         mint,
         &vault_pubkey, // The vault PDA is the owner of its own token account
-        0, // Start with 0 tokens
+        0,             // Start with 0 tokens
         token_program,
         None,
     );
-    
+
     vault_pubkey
 }
 
-// solana public key
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C, packed)]
-pub struct AccKey
-{
-  pub val: [u8;32]
+#[derive(BorshSerialize, BorshDeserialize, Copy, Clone, PartialEq, Debug)]
+pub enum VerificationLevel {
+    Partial { num_signatures: u8 },
+    Full,
 }
 
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C, packed)]
-pub struct PriceInfo
-{
-  pub price      : i64,        // product price
-  pub conf       : u64,        // confidence interval of product price
-  pub status     : u8,// status of price (Trading is valid)
-  pub corp_act   : u8, // notification of any corporate action
-  pub pub_slot   : u64
+/// Id of a feed producing the message. One feed produces one or more messages.
+#[derive(Copy, Clone, Debug, Default, BorshSerialize, BorshDeserialize)]
+pub struct FeedId {
+    pub id: [u8; 32],
 }
 
-// latest component price and price used in aggregate snapshot
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C, packed)]
-pub struct PriceComp
-{
-  pub publisher  : AccKey,     // key of contributing quoter
-  pub agg        : PriceInfo,  // contributing price to last aggregate
-  pub latest     : PriceInfo   // latest contributing price (not in agg.)
+#[derive(Copy, Clone, Debug, Default, BorshSerialize, BorshDeserialize)]
+pub struct PriceFeedMessage {
+    pub feed_id: FeedId,
+    pub price: i64,
+    pub conf: u64,
+    pub exponent: i32,
+    /// The timestamp of this price update in seconds
+    pub publish_time: i64,
+    /// The timestamp of the previous price update. This field is intended to allow users to
+    /// identify the single unique price update for any moment in time:
+    /// for any time t, the unique update is the one such that prev_publish_time < t <= publish_time.
+    ///
+    /// Note that there may not be such an update while we are migrating to the new message-sending logic,
+    /// as some price updates on pythnet may not be sent to other chains (because the message-sending
+    /// logic may not have triggered). We can solve this problem by making the message-sending mandatory
+    /// (which we can do once publishers have migrated over).
+    ///
+    /// Additionally, this field may be equal to publish_time if the message is sent on a slot where
+    /// where the aggregation was unsuccesful. This problem will go away once all publishers have
+    /// migrated over to a recent version of pyth-agent.
+    pub prev_publish_time: i64,
+    pub ema_price: i64,
+    pub ema_conf: u64,
 }
 
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C)]
-pub struct Ema
-{
-  pub val        : i64,        // current value of ema
-  numer          : i64,        // numerator state for next update
-  denom          : i64         // denominator state for next update
-}
-
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C, packed)]
-pub struct Price
-{
-  pub magic      : u32,        // pyth magic number
-  pub ver        : u32,        // program version
-  pub atype      : u32,        // account type
-  pub size       : u32,        // price account size
-  pub ptype      : u8,  // price or calculation type
-  pub expo       : i32,        // price exponent
-  pub num        : u32,        // number of component prices
-  pub num_qt     : u32,        // number of quoters that make up aggregate
-  pub last_slot  : u64,        // slot of last valid (not unknown) aggregate price
-  pub valid_slot : u64,        // valid slot-time of agg. price
-  pub twap       : Ema,        // time-weighted average price
-  pub twac       : Ema,        // time-weighted average confidence interval
-  pub drv1       : i64,        // space for future derived values
-  pub drv2       : i64,        // space for future derived values
-  pub prod       : AccKey,     // product account key
-  pub next       : AccKey,     // next Price account in linked list
-  pub prev_slot  : u64,        // valid slot of previous update
-  pub prev_price : i64,        // aggregate price of previous update
-  pub prev_conf  : u64,        // confidence interval of previous update
-  pub drv3       : i64,        // space for future derived values
-  pub agg        : PriceInfo,  // aggregate price info
-  pub comp       : [PriceComp;32] // price components one per quoter
+#[derive(Copy, Clone, Debug, BorshSerialize, BorshDeserialize)]
+pub struct PriceUpdateV2 {
+    pub write_authority: Pubkey,
+    pub verification_level: VerificationLevel,
+    pub price_message: PriceFeedMessage,
+    pub posted_slot: u64,
 }
 
 /// Setup mock oracle account for testing
 pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey) {
     use solana_sdk::account::Account;
-    
+
     // Create a minimal mock oracle account
-    let price_update = Price {
-        magic: 0,
-        ver: 0,
-        atype: 0,
-        size: 0,
-        ptype: 0,
-        expo: 0,
-        num: 0,
-        num_qt: 0,
-        last_slot: 0,
-        valid_slot: 0,
-        twap: Ema::default(),
-        twac: Ema::default(),
-        drv1: 0,
-        drv2: 0,
-        prod: AccKey::default(),
-        next: AccKey::default(),
-        prev_slot: 0,
-        prev_price: 0,
-        prev_conf: 0,
-        drv3: 0,
-        agg: PriceInfo::default(),
-        comp: [PriceComp::default(); 32],
+    let price_update = PriceUpdateV2 {
+        write_authority: *oracle_pubkey,
+        verification_level: VerificationLevel::Full,
+        price_message: PriceFeedMessage {
+            feed_id: FeedId { id: [0; 32] },
+            price: 0,
+            conf: 0,
+            exponent: 6,
+            publish_time: 0,
+            prev_publish_time: 0,
+            ema_price: 0,
+            ema_conf: 0,
+        },
+        posted_slot: 0,
     };
-    let mut oracle_data = Vec::with_capacity(std::mem::size_of::<Price>() + 8);
-    oracle_data.extend_from_slice(&anchor_discriminator("account", "Price"));
-    oracle_data.extend_from_slice(&bytemuck::bytes_of(&price_update));
-    
+    let mut oracle_data = Vec::with_capacity(std::mem::size_of::<PriceUpdateV2>() + 8);
+    oracle_data.extend_from_slice(&anchor_discriminator("account", "PriceUpdateV2"));
+    oracle_data.extend_from_slice(borsh::to_vec(&price_update).unwrap().as_slice());
+
     svm.set_account(
         *oracle_pubkey,
         Account {
@@ -448,10 +429,10 @@ pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey) {
 /// Setup mock insurance fund account for testing
 pub fn setup_mock_insurance_fund_account(svm: &mut LiteSVM, insurance_fund_pubkey: &Pubkey) {
     use solana_sdk::account::Account;
-    
+
     // Create a minimal mock insurance fund account
     let insurance_fund_data = vec![0u8; 64]; // Minimal insurance fund data
-    
+
     svm.set_account(
         *insurance_fund_pubkey,
         Account {
