@@ -1,19 +1,32 @@
 use pinocchio::{
-    instruction::{Seed, Signer}, msg, program_error::ProgramError, sysvars::{clock::Clock, Sysvar}, ProgramResult
+    instruction::{Seed, Signer},
+    msg,
+    program_error::ProgramError,
+    sysvars::{clock::Clock, Sysvar},
+    ProgramResult,
 };
 use pinocchio_token_interface::TokenAccount;
 
 use crate::{
-    constants::CONTROLLER_AUTHORITY_SEED, define_account_struct, events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, instructions::PushArgs, integrations::drift::{
-        constants::DRIFT_PROGRAM_ID, cpi::Deposit, protocol_state::{User, UserStats}
-    }, processor::PushAccounts, state::{Controller, Integration, Permission, Reserve}
+    constants::CONTROLLER_AUTHORITY_SEED,
+    define_account_struct,
+    enums::IntegrationConfig,
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
+    instructions::PushArgs,
+    integrations::drift::{
+        constants::DRIFT_PROGRAM_ID,
+        cpi::Deposit,
+        protocol_state::{User, UserStats},
+    },
+    processor::PushAccounts,
+    state::{Controller, Integration, Permission, Reserve},
 };
 
 define_account_struct! {
     pub struct PushDriftAccounts<'info> {
-        state;
-        user: mut;
-        user_stats: mut;
+        state: @owner(DRIFT_PROGRAM_ID);
+        user: mut @owner(DRIFT_PROGRAM_ID);
+        user_stats: mut @owner(DRIFT_PROGRAM_ID);
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -54,42 +67,18 @@ pub fn process_push_drift(
 
     let inner_ctx = PushDriftAccounts::from_accounts(outer_ctx.remaining_accounts)?;
 
-    // Validate Drift CPI constraints before making the call
-
-    // 1. Validate that the controller authority can sign for the user (can_sign_for_user constraint)
-    let user_data = inner_ctx.user.try_borrow_data()?;
-    let user = User::try_from(&user_data)?;
-    if user.authority != *outer_ctx.controller_authority.key() {
-        msg!("authority: controller authority cannot sign for user");
-        return Err(ProgramError::IncorrectAuthority);
+    match integration.config {
+        IntegrationConfig::Drift(config) => {
+            if config.spot_market_index != market_index {
+                msg!("spot_market_index mismatch");
+                return Err(ProgramError::InvalidArgument);
+            }
+        }
+        _ => {
+            msg!("config: not a Drift config");
+            return Err(ProgramError::InvalidAccountData);
+        }
     }
-
-    // 2. Validate that the user_stats belongs to the controller authority (is_stats_for_user constraint)
-    let user_stats_data = inner_ctx.user_stats.try_borrow_data()?;
-    let user_stats = UserStats::try_from(&user_stats_data)?;
-    if user_stats.authority != *outer_ctx.controller_authority.key() {
-        msg!("user_stats: does not belong to controller authority");
-        return Err(ProgramError::InvalidAccountData);
-    }
-
-    if user_stats.authority != user.authority {
-        msg!("user_stats authority does not match user authority");
-        return Err(ProgramError::InvalidAccountData);
-    }
-
-    drop(user_stats_data);
-    drop(user_data);
-
-    // 3. Verify that the spot_market_vault mint matches the user_token_account mint
-    let spot_market_vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
-    if spot_market_vault.mint() != user_token_account.mint() {
-        msg!("mint mismatch: spot_market_vault mint != user_token_account mint");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    drop(spot_market_vault);
-    drop(user_token_account);
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
@@ -103,6 +92,10 @@ pub fn process_push_drift(
     let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
     let user_token_balance_before = user_token_account.amount();
     drop(user_token_account);
+
+    let liquidity_value_account = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
+    let liquidity_value_balance_before = liquidity_value_account.amount();
+    drop(liquidity_value_account);
 
     Deposit {
         state: inner_ctx.state,
@@ -133,6 +126,31 @@ pub fn process_push_drift(
         msg! {"check_delta: transfer did not match the user token account balance change"};
         return Err(ProgramError::InvalidArgument);
     }
+
+    let liquidity_value_account = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
+    let liquidity_value_balance_after = liquidity_value_account.amount();
+    let liquidity_value_delta = liquidity_value_balance_after
+        .checked_sub(liquidity_value_balance_before)
+        .unwrap();
+    if liquidity_value_delta != amount {
+        msg! {"liquidity_value_delta: transfer did not match the liquidity value account balance change"};
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Emit accounting event for credit Integration
+    controller.emit_event(
+        outer_ctx.controller_authority,
+        outer_ctx.controller.key(),
+        SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: *outer_ctx.controller.key(),
+            integration: Some(*outer_ctx.integration.key()),
+            mint: *inner_ctx.spot_market_vault.key(),
+            reserve: None,
+            direction: AccountingDirection::Credit,
+            action: AccountingAction::Deposit,
+            delta: liquidity_value_delta,
+        }),
+    )?;
 
     // Emit accounting event for debit Reserve
     // Note: this is to ensure there is double accounting

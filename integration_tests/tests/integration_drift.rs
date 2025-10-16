@@ -426,6 +426,20 @@ mod tests {
             tx.message.account_keys.as_slice(),
             SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
                 controller: controller_pk,
+                integration: Some(integration_pubkey),
+                mint: spot_market.vault,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Deposit,
+                delta: push_amount,
+            })
+        );
+
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
                 integration: None,
                 mint: spot_market.vault,
                 reserve: Some(reserve_keys.pubkey),

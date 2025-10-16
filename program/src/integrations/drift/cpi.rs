@@ -79,8 +79,9 @@ impl<'info> Deposit<'info> {
             self.token_program.into(),
         ];
 
-        // Create accounts vector with base accounts + remaining accounts
-        let mut accounts = Vec::from(base_accounts);
+        // Create accounts vector with pre-allocated capacity for optimal memory usage
+        let mut accounts = Vec::with_capacity(base_accounts.len() + self.remaining_accounts.len());
+        accounts.extend_from_slice(&base_accounts);
         for account in self.remaining_accounts {
             accounts.push(account.into());
         }
@@ -96,8 +97,6 @@ impl<'info> Deposit<'info> {
             data: &data,
         };
 
-        // For now, only use the base accounts since we can't handle variable remaining accounts
-        // with the current pinocchio invoke_signed signature
         let accounts_array = [
             self.state,
             self.user,
@@ -107,7 +106,8 @@ impl<'info> Deposit<'info> {
             self.user_token_account,
             self.token_program,
         ];
-        let mut accounts_info = Vec::from(accounts_array);
+        let mut accounts_info = Vec::with_capacity(accounts_array.len() + self.remaining_accounts.len());
+        accounts_info.extend_from_slice(&accounts_array);
         for account in self.remaining_accounts {
             accounts_info.push(account);
         }
