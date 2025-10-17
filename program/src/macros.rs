@@ -168,13 +168,16 @@ macro_rules! define_account_struct {
 ///     pub struct StructName<'info> {
 ///         program: PROGRAM_ID,                    // Target program ID
 ///         discriminator: [u8; 8],                 // Instruction discriminator
-///         
-///         account_name: AccountType,              // Account declarations
-///         other_account: AccountType,
-///         ...;                                     // Semicolon separates accounts from args
-///         
-///         arg_name: Type,                         // Optional instruction arguments
-///         ...
+///         accounts: {                             // Account declarations
+///             account_name: AccountType,
+///             other_account: AccountType,
+///             ...
+///         },
+///         remaining_accounts: remaining_accounts_name,  // Optional remaining accounts
+///         args: {                                 // Optional instruction arguments
+///             arg_name: Type,
+///             ...
+///         }
 ///     }
 /// }
 /// ```
@@ -198,10 +201,11 @@ macro_rules! define_account_struct {
 ///     pub struct Transfer<'info> {
 ///         program: spl_token::ID,
 ///         discriminator: [3, 0, 0, 0, 0, 0, 0, 0],
-///         
-///         from: Writable,           // Source token account
-///         to: Writable,             // Destination token account
-///         authority: Signer         // Transfer authority
+///         accounts: {
+///             from: Writable,           // Source token account
+///             to: Writable,             // Destination token account
+///             authority: Signer         // Transfer authority
+///         }
 ///     }
 /// }
 /// 
@@ -226,18 +230,47 @@ macro_rules! define_account_struct {
 ///     pub struct InitializeUser<'info> {
 ///         program: DRIFT_PROGRAM_ID,
 ///         discriminator: anchor_discriminator("global", "initialize_user"),
-///         
-///         user: Writable<Signer>,
-///         user_stats: Writable,
-///         state: Writable,
-///         authority: Signer,
-///         payer: Writable<Signer>,
-///         system_program: Readonly;  // Semicolon separates accounts from args
-///         
-///         sub_account_id: u16,       // Arguments must implement BorshSerialize
-///         name: [u8; 32]
+///         accounts: {
+///             user: Writable<Signer>,
+///             user_stats: Writable,
+///             state: Writable,
+///             authority: Signer,
+///             payer: Writable<Signer>,
+///             system_program: Readonly
+///         },
+///         args: {
+///             sub_account_id: u16,       // Arguments must implement BorshSerialize
+///             name: [u8; 32]
+///         }
 ///     }
 /// }
+///
+/// # Example with Remaining Accounts
+///
+/// ```ignore
+/// cpi_instruction! {
+///     /// Deposit tokens into a Drift spot market
+///     pub struct Deposit<'info> {
+///         program: DRIFT_PROGRAM_ID,
+///         discriminator: anchor_discriminator("global", "deposit"),
+///         accounts: {
+///             state: Readonly,
+///             user: Writable,
+///             user_stats: Writable,
+///             authority: Signer,
+///             spot_market_vault: Writable,
+///             user_token_account: Writable,
+///             token_program: Readonly
+///         },
+///         remaining_accounts: remaining_accounts,  // Additional accounts for complex instructions
+///         args: {
+///             market_index: u16,
+///             amount: u64,
+///             reduce_only: bool
+///         }
+///     }
+/// }
+/// ```
 ///
 /// # Instruction Data Serialization
 ///
@@ -267,12 +300,13 @@ macro_rules! define_account_struct {
 ///     pub struct Example<'info> {
 ///         program: PROGRAM_ID,
 ///         discriminator: [1, 2, 3, 4, 5, 6, 7, 8],
-///         
-///         /// The source account for funds
-///         source: Writable,
-///         
-///         /// The destination account
-///         destination: Writable
+///         accounts: {
+///             /// The source account for funds
+///             source: Writable,
+///             
+///             /// The destination account
+///             destination: Writable
+///         }
 ///     }
 /// }
 /// ```
@@ -291,23 +325,26 @@ macro_rules! define_account_struct {
 #[macro_export]
 macro_rules! cpi_instruction {
     // ========================================================================
-    // MAIN MACRO RULE: WITH ARGUMENTS
+    // UNIFIED MACRO RULE: HANDLES ALL COMBINATIONS
     // ========================================================================
-    // This rule matches the macro invocation with arguments and generates the struct + impl
+    // This rule handles all combinations: with/without args, with/without remaining_accounts
     (
         $(#[$meta:meta])*
         $vis:vis struct $name:ident<$lifetime:lifetime> {
             program: $program_id:expr,
             discriminator: $discriminator:expr,
-            
-            $(
-                $(#[doc = $doc:expr])*
-                $account_name:ident: $account_type:ident $(<$($modifier:ident),+>)?
-            ),* $(,)?;
-            
-            $(
-                $arg_name:ident: $arg_type:ty
-            ),* $(,)?
+            accounts: {
+                $(
+                    $(#[doc = $doc:expr])*
+                    $account_name:ident: $account_type:ident $(<$($modifier:ident),+>)?
+                ),* $(,)?
+            }
+            $(, remaining_accounts: $remaining_accounts_name:ident)?
+            $(, args: {
+                $(
+                    $arg_name:ident: $arg_type:ty
+                ),* $(,)?
+            })?
         }
     ) => {
         // ====================================================================
@@ -320,8 +357,11 @@ macro_rules! cpi_instruction {
                 pub $account_name: &$lifetime pinocchio::account_info::AccountInfo,
             )*
             $(
+                pub $remaining_accounts_name: &$lifetime [pinocchio::account_info::AccountInfo],
+            )?
+            $($(
                 pub $arg_name: $arg_type,
-            )*
+            )*)?
         }
 
         // ====================================================================
@@ -336,17 +376,36 @@ macro_rules! cpi_instruction {
             }
 
             pub fn invoke_signed(&self, signers: &[pinocchio::instruction::Signer]) -> pinocchio::ProgramResult {
-                let accounts = [
+                extern crate alloc;
+                use alloc::vec::Vec;
+                
+                let base_accounts = [
                     $(
                         cpi_instruction!(@meta $account_name: $account_type $(<$($modifier),+>)?, self),
                     )*
                 ];
 
-                let account_infos = [
+                // Handle remaining accounts if present
+                let mut accounts = Vec::with_capacity(base_accounts.len() + $(self.$remaining_accounts_name.len() +)? 0);
+                accounts.extend_from_slice(&base_accounts);
+                $(
+                    for account in self.$remaining_accounts_name {
+                        accounts.push(pinocchio::instruction::AccountMeta::new(account.key(), account.is_writable(), account.is_signer()));
+                    }
+                )?
+
+                let base_account_infos = [
                     $(self.$account_name,)*
                 ];
+                let mut account_infos = Vec::with_capacity(base_account_infos.len() + $(self.$remaining_accounts_name.len() +)? 0);
+                account_infos.extend_from_slice(&base_account_infos);
+                $(
+                    for account in self.$remaining_accounts_name {
+                        account_infos.push(account);
+                    }
+                )?
 
-                let data = cpi_instruction!(@data self, $discriminator, $($arg_name),*);
+                let data = cpi_instruction!(@data self, $discriminator $(, $($arg_name),*)?);
 
                 let ix = pinocchio::instruction::Instruction {
                     program_id: &$program_id,
@@ -354,7 +413,7 @@ macro_rules! cpi_instruction {
                     data: &data,
                 };
 
-                pinocchio::program::invoke_signed(&ix, &account_infos, signers)
+                pinocchio::program::slice_invoke_signed(&ix, &account_infos, signers)
             }
         }
     };
@@ -412,6 +471,11 @@ macro_rules! cpi_instruction {
         $discriminator
     };
     
+    // Empty arguments case: when $($arg_name),* is empty
+    (@data $self:ident, $discriminator:expr, ) => {
+        $discriminator
+    };
+    
     // With arguments: discriminator followed by Borsh-serialized args
     // Each argument is serialized in order and appended to the data vector.
     // 
@@ -434,66 +498,5 @@ macro_rules! cpi_instruction {
         data
     }};
 
-    // ========================================================================
-    // MAIN MACRO RULE: NO ARGUMENTS
-    // ========================================================================
-    // This rule handles CPI instructions that have no arguments (no semicolon)
-    (
-        $(#[$meta:meta])*
-        $vis:vis struct $name:ident<$lifetime:lifetime> {
-            program: $program_id:expr,
-            discriminator: $discriminator:expr,
-            
-            $(
-                $(#[doc = $doc:expr])*
-                $account_name:ident: $account_type:ident $(<$($modifier:ident),+>)?
-            ),* $(,)?
-        }
-    ) => {
-        // ====================================================================
-        // STRUCT GENERATION
-        // ====================================================================
-        $(#[$meta])*
-        $vis struct $name<$lifetime> {
-            $(
-                $(#[doc = $doc])*
-                pub $account_name: &$lifetime pinocchio::account_info::AccountInfo,
-            )*
-        }
-
-        // ====================================================================
-        // IMPL BLOCK GENERATION
-        // ====================================================================
-        impl<$lifetime> $name<$lifetime> {
-            pub const DISCRIMINATOR: [u8; 8] = $discriminator;
-
-            #[inline(always)]
-            pub fn invoke(&self) -> pinocchio::ProgramResult {
-                self.invoke_signed(&[])
-            }
-
-            pub fn invoke_signed(&self, signers: &[pinocchio::instruction::Signer]) -> pinocchio::ProgramResult {
-                let accounts = [
-                    $(
-                        cpi_instruction!(@meta $account_name: $account_type $(<$($modifier),+>)?, self),
-                    )*
-                ];
-
-                let account_infos = [
-                    $(self.$account_name,)*
-                ];
-
-                let data = cpi_instruction!(@data self, $discriminator);
-
-                let ix = pinocchio::instruction::Instruction {
-                    program_id: &$program_id,
-                    accounts: &accounts,
-                    data: &data,
-                };
-
-                pinocchio::program::invoke_signed(&ix, &account_infos, signers)
-            }
-        }
-    };
 
 }

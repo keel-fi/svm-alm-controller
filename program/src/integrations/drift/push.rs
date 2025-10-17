@@ -13,10 +13,7 @@ use crate::{
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::drift::{
-        constants::DRIFT_PROGRAM_ID,
-        cpi::Deposit,
-    },
+    integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit},
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
@@ -97,17 +94,17 @@ pub fn process_push_drift(
     drop(liquidity_value_account);
 
     Deposit {
-        state: inner_ctx.state,
-        user: inner_ctx.user,
-        user_stats: inner_ctx.user_stats,
-        authority: outer_ctx.controller_authority,
-        spot_market_vault: inner_ctx.spot_market_vault,
-        user_token_account: inner_ctx.user_token_account,
-        token_program: inner_ctx.token_program,
+        state: &inner_ctx.state,
+        user: &inner_ctx.user,
+        user_stats: &inner_ctx.user_stats,
+        authority: &outer_ctx.controller_authority,
+        spot_market_vault: &inner_ctx.spot_market_vault,
+        user_token_account: &inner_ctx.user_token_account,
+        token_program: &inner_ctx.token_program,
         remaining_accounts: &inner_ctx.remaining_accounts,
-        market_index,
-        amount,
-        reduce_only,
+        market_index: market_index,
+        amount: amount,
+        reduce_only: reduce_only,
     }
     .invoke_signed(&[Signer::from(&[
         Seed::from(CONTROLLER_AUTHORITY_SEED),

@@ -8,13 +8,14 @@ cpi_instruction! {
     pub struct InitializeUserStats<'info> {
         program: DRIFT_PROGRAM_ID,
         discriminator: anchor_discriminator("global", "initialize_user_stats"),
-
-        user_stats: Writable,
-        state: Writable,
-        authority: Signer,
-        payer: Writable<Signer>,
-        rent: Readonly,
-        system_program: Readonly
+        accounts: {
+            user_stats: Writable,
+            state: Writable,
+            authority: Signer,
+            payer: Writable<Signer>,
+            rent: Readonly,
+            system_program: Readonly
+        }
     }
 }
 
@@ -26,92 +27,42 @@ cpi_instruction! {
     pub struct InitializeUser<'info> {
         program: DRIFT_PROGRAM_ID,
         discriminator: anchor_discriminator("global", "initialize_user"),
-
-        user: Writable,
-        user_stats: Writable,
-        state: Writable,
-        authority: Signer,
-        payer: Writable<Signer>,
-        rent: Readonly,
-        system_program: Readonly;
-
-        sub_account_id: u16,
-        name: [u8; 32]
+        accounts: {
+            user: Writable,
+            user_stats: Writable,
+            state: Writable,
+            authority: Signer,
+            payer: Writable<Signer>,
+            rent: Readonly,
+            system_program: Readonly
+        },
+        args: {
+            sub_account_id: u16,
+            name: [u8; 32]
+        }
     }
 }
 
-use pinocchio::{
-    account_info::AccountInfo,
-    instruction::{AccountMeta, Instruction, Signer},
-    ProgramResult,
-};
-extern crate alloc;
-use alloc::vec::Vec;
 
-/// Manual implementation of PushDrift CPI instruction
-pub struct Deposit<'info> {
-    pub state: &'info AccountInfo,
-    pub user: &'info AccountInfo,
-    pub user_stats: &'info AccountInfo,
-    pub authority: &'info AccountInfo,
-    pub spot_market_vault: &'info AccountInfo,
-    pub user_token_account: &'info AccountInfo,
-    pub token_program: &'info AccountInfo,
-    pub remaining_accounts: &'info [AccountInfo],
-    pub market_index: u16,
-    pub amount: u64,
-    pub reduce_only: bool,
-}
-
-impl<'info> Deposit<'info> {
-    pub fn invoke(&self) -> ProgramResult {
-        self.invoke_signed(&[])
-    }
-
-    pub fn invoke_signed(&self, signers: &[Signer]) -> ProgramResult {
-        let base_accounts = [
-            self.state.into(),
-            self.user.into(),
-            self.user_stats.into(),
-            AccountMeta::new(self.authority.key(), false, true), // authority must be a signer and for some reason .is_signer() returns false
-            self.spot_market_vault.into(),
-            self.user_token_account.into(),
-            self.token_program.into(),
-        ];
-
-        // Create accounts vector with pre-allocated capacity for optimal memory usage
-        let mut accounts = Vec::with_capacity(base_accounts.len() + self.remaining_accounts.len());
-        accounts.extend_from_slice(&base_accounts);
-        for account in self.remaining_accounts {
-            accounts.push(account.into());
+cpi_instruction! {
+    /// Deposit tokens into a Drift spot market
+    pub struct Deposit<'info> {
+        program: DRIFT_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "deposit"),
+        accounts: {
+            state: Readonly,
+            user: Writable,
+            user_stats: Writable,
+            authority: Signer,
+            spot_market_vault: Writable,
+            user_token_account: Writable,
+            token_program: Readonly
+        },
+        remaining_accounts: remaining_accounts,
+        args: {
+            market_index: u16,
+            amount: u64,
+            reduce_only: bool
         }
-
-        let mut data = anchor_discriminator("global", "deposit").to_vec();
-        data.extend_from_slice(&self.market_index.to_le_bytes());
-        data.extend_from_slice(&self.amount.to_le_bytes());
-        data.extend_from_slice(&[self.reduce_only as u8]);
-
-        let instruction = Instruction {
-            program_id: &DRIFT_PROGRAM_ID,
-            accounts: &accounts,
-            data: &data,
-        };
-
-        let accounts_array = [
-            self.state,
-            self.user,
-            self.user_stats,
-            self.authority,
-            self.spot_market_vault,
-            self.user_token_account,
-            self.token_program,
-        ];
-        let mut accounts_info = Vec::with_capacity(accounts_array.len() + self.remaining_accounts.len());
-        accounts_info.extend_from_slice(&accounts_array);
-        for account in self.remaining_accounts {
-            accounts_info.push(account);
-        }
-
-        pinocchio::program::slice_invoke_signed(&instruction, accounts_info.as_slice(), signers)
     }
 }
