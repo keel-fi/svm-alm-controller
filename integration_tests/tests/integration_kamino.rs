@@ -41,22 +41,7 @@ mod tests {
             TestContext
         }, 
         subs::{
-            derive_controller_authority_pda, 
-            edit_ata_amount, 
-            fetch_integration_account, 
-            fetch_kamino_reserve, 
-            fetch_reserve_account, 
-            get_liquidity_and_lp_amount, 
-            get_token_balance_or_zero, 
-            initialize_ata, 
-            initialize_reserve, 
-            refresh_kamino_obligation, 
-            refresh_kamino_reserve, 
-            set_kamino_reserve_liquidity_available_amount, 
-            setup_kamino_state, 
-            transfer_tokens, 
-            KaminoTestContext, 
-            ReserveKeys
+            derive_controller_authority_pda, edit_ata_amount, fetch_integration_account, fetch_kamino_reserve, fetch_reserve_account, get_liquidity_and_lp_amount, get_obligation_farm_rewards, get_token_balance_or_zero, initialize_ata, initialize_reserve, refresh_kamino_obligation, refresh_kamino_reserve, set_kamino_reserve_liquidity_available_amount, set_obligation_farm_rewards_issued_unclaimed, setup_kamino_state, transfer_tokens, KaminoTestContext, ReserveKeys
         }
     };
 
@@ -916,6 +901,10 @@ mod tests {
             padding: [0; 95] 
         };
 
+        // in order to trigger all accounting events in sync, we set the reward mint
+        // to equal the reserve mint
+        let reward_mint = kamino_config.reserve_liquidity_mint;
+
         let description = "test";
         let status = IntegrationStatus::Active;
         let rate_limit_slope = 100_000_000_000;
@@ -951,8 +940,7 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        // Deposit some amount into kamino so that there is a change in balance when moving slots forward
-
+        // Deposit some amount into kamino
         let push_ix = get_push_ix(
             &mut svm, 
             &controller_pk, 
@@ -975,9 +963,11 @@ mod tests {
 
         let rewards_ata = get_associated_token_address(
             &controller_authority, 
-            &USDC_TOKEN_MINT_PUBKEY
+            &reward_mint
         );
 
+        // increase the amount in the integration reserve in order to
+        // trigger the first event in reserve.sync_balance
         let reserve_before 
             = fetch_reserve_account(&svm, &reserve_keys.pubkey)?
             .unwrap();
@@ -1019,16 +1009,45 @@ mod tests {
             .unwrap()
             .unwrap();
 
+        let reward_ata_balance_before = get_token_balance_or_zero(&svm, &rewards_ata);
+
+        let obligation_collateral_farm = derive_obligation_farm_address(
+            &reserve_context.reserve_farm_collateral, 
+            &obligation
+        );
+
+        // increase unclaimed rewards of obligation farm
+        let rewards_unclaimed = 100_000_000;
+        set_obligation_farm_rewards_issued_unclaimed(
+            &mut svm,
+            &obligation_collateral_farm,
+            &reward_mint,
+            &spl_token::ID,
+            rewards_unclaimed
+        )?;
+
+        // we get the user_rewards by reading obligation_farm_collateral
+        // reserve_farm and global_config, as kamino does
+        let rewards_to_be_harvested = get_obligation_farm_rewards(
+            &svm,
+            &obligation_collateral_farm,
+            &kamino_config.reserve_liquidity_mint,
+            &spl_token::ID
+        )?;
+        
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk, 
             &integration_pk,
             &super_authority.pubkey(), 
             &kamino_config, 
-            &USDC_TOKEN_MINT_PUBKEY, 
+            &reward_mint, 
             &farms_context.global_config, 
             &reserve_context.reserve_farm_collateral,
-            &rewards_ata, 
-            &Pubkey::default(), 
+            &rewards_ata,
+            // since we are setting farm_collateral.scope_oracle_price_id = u64::MAX,
+            // no scope_price is required, in order to pass None we need to pass
+            // KFARMS program ID.
+            &KAMINO_FARMS_PROGRAM_ID, 
             &SPL_TOKEN_PROGRAM_ID
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
@@ -1045,6 +1064,11 @@ mod tests {
                 e.err.to_string()
             })?;
 
+        let reward_ata_balance_after = get_token_balance_or_zero(&svm, &rewards_ata);
+
+        let reward_ata_balance_delta = reward_ata_balance_after.saturating_sub(reward_ata_balance_before);
+
+
         let integration_after = fetch_integration_account(&svm, &integration_pk)
             .unwrap()
             .unwrap();
@@ -1052,6 +1076,12 @@ mod tests {
         let reserve_after 
             = fetch_reserve_account(&svm, &reserve_keys.pubkey)?
             .unwrap();
+
+        // assert lp amount didnt change
+        assert_eq!(lp_amount_after, lp_amount_before);
+
+        // assert the reward ata delta is equal to the rewards unclaimed in obligation farm
+        assert_eq!(rewards_unclaimed, reward_ata_balance_delta);
 
         // Assert emitted events 
         
@@ -1072,12 +1102,56 @@ mod tests {
             expected_reserve_event 
         );
 
-        // TODO: create a reserve with rewards available
-        // current reward mint has no rewards_available and doesnt match reserve mint
-        // no event will be emited.
+        // assert sync event for credit (inflow) integration
+        // emitted since harvest mint matches the integration reserve mint
+        let expected_credit_integration_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+            controller: controller_pk, 
+            integration: Some(integration_pk),
+            reserve: None,
+            direction: AccountingDirection::Credit,
+            mint: kamino_config.reserve_liquidity_mint, 
+            action: AccountingAction::Sync, 
+            delta: rewards_to_be_harvested,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_credit_integration_event 
+        );
 
-        // assert lp amount didnt change
-        assert_eq!(lp_amount_after, lp_amount_before);
+        // assert accounting event for debit (outflow) integration
+        // emitted since harvest mint matches the integration reserve mint
+        let expected_debit_integration_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+            controller: controller_pk, 
+            integration: Some(integration_pk),
+            reserve: None, 
+            direction: AccountingDirection::Debit,
+            mint: kamino_config.reserve_liquidity_mint, 
+            action: AccountingAction::Withdrawal, 
+            delta: rewards_to_be_harvested
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_debit_integration_event 
+        );
+
+        // assert accounting event for credit (inflow) reserve
+        // emitted since harvest mint matches the integration reserve mint
+        let expected_credit_reserve_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent { 
+            controller: controller_pk, 
+            integration: None, 
+            reserve: Some(reserve_keys.pubkey),
+            direction: AccountingDirection::Credit,
+            mint: kamino_config.reserve_liquidity_mint, 
+            action: AccountingAction::Withdrawal,
+            delta: reward_ata_balance_delta
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result, 
+            tx.message.account_keys.as_slice(), 
+            expected_credit_reserve_event 
+        );
 
         // assert liquidity_value change event was emitted
         let liq_value_delta = liquidity_value_after.abs_diff(liquidity_value_before);

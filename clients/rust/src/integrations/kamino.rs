@@ -119,13 +119,13 @@ pub fn derive_rewards_treasury_vault(
     address
 }
 
-pub fn derive_farm_vaults_authority(farm_state: &Pubkey) -> Pubkey {
-    let (address, _) = Pubkey::find_program_address(
+pub fn derive_farm_vaults_authority(farm_state: &Pubkey) -> (Pubkey, u8) {
+    let (address, bump) = Pubkey::find_program_address(
         &[b"authority", farm_state.as_ref()],
         &KAMINO_FARMS_PROGRAM_ID,
     );
 
-    address
+    (address, bump)
 }
 
 pub fn derive_kfarms_treasury_vault_authority(global_config: &Pubkey) -> (Pubkey, u8) {

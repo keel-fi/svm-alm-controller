@@ -158,7 +158,7 @@ pub fn process_sync_kamino(
     // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
     let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
-
+    
     // Claim farm rewards only if the reserve has a farm collateral
     // and rewards_available > 0
     if kamino_reserve_state.has_collateral_farm() 
@@ -170,25 +170,17 @@ pub fn process_sync_kamino(
             return Err(ProgramError::InvalidAccountData)
         }
 
-        // Initialize ATA if needed
-        CreateIdempotent {
-            funding_account: outer_ctx.payer,
-            account: inner_ctx.rewards_ata,
-            wallet: outer_ctx.controller_authority,
-            mint: inner_ctx.rewards_mint,
-            system_program: inner_ctx.system_program,
-            token_program: inner_ctx.token_program
-        }.invoke()?;
-
         // Find the reward index in the FarmState of this kamino_reserve
-        let reserve_farm_data = inner_ctx.reserve_farm.try_borrow_data()?;
-        let reserve_farm_state = FarmState::load_checked(&reserve_farm_data)?;
-        let (reward_index, rewards_available) = reserve_farm_state
-            .find_reward_index_and_rewards_available(
-                inner_ctx.rewards_mint.key(), 
-                inner_ctx.token_program.key()
-            )
-            .ok_or(ProgramError::InvalidAccountData)?;
+        let (reward_index, rewards_available) = {
+            let reserve_farm_data = inner_ctx.reserve_farm.try_borrow_data()?;
+            let reserve_farm_state = FarmState::load_checked(&reserve_farm_data)?;
+            reserve_farm_state
+                .find_reward_index_and_rewards_available(
+                    inner_ctx.rewards_mint.key(), 
+                    inner_ctx.token_program.key()
+                )
+                .ok_or(ProgramError::InvalidAccountData)?
+        };
 
         // Only harvest rewards if rewards_available > 0
         if rewards_available > 0 {
@@ -201,6 +193,16 @@ pub fn process_sync_kamino(
                     reward_index as usize
                 )?
             };
+
+            // Initialize ATA if needed
+            CreateIdempotent {
+                funding_account: outer_ctx.payer,
+                account: inner_ctx.rewards_ata,
+                wallet: outer_ctx.controller_authority,
+                mint: inner_ctx.rewards_mint,
+                system_program: inner_ctx.system_program,
+                token_program: inner_ctx.token_program
+            }.invoke()?;
 
             // Claim farms rewards
             HarvestReward {

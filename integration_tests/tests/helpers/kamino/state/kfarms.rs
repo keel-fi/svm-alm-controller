@@ -96,6 +96,13 @@ pub struct FarmState {
 impl FarmState {
     pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "FarmState");
 
+    pub fn try_from(data: &[u8]) -> Result<&Self, ProgramError> {
+        if data[..8] != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+    }
+    
     pub fn find_reward_index_and_rewards_available(
         &self, 
         reward_mint: &Pubkey,
@@ -169,7 +176,7 @@ pub struct UserState {
 }
 
 impl UserState {
-    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "UserState");
+    pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "UserState");
 
     pub fn try_from(data: &[u8]) -> Result<&Self, ProgramError> {
         if data[..8] != Self::DISCRIMINATOR {
@@ -179,16 +186,12 @@ impl UserState {
     }
     
     pub fn get_rewards(
+        &self,
         svm: &LiteSVM, 
-        user_state_pk: &Pubkey, 
         global_config_pk: &Pubkey, 
         reward_index: usize
     ) -> Result<u64, Box<dyn std::error::Error>> {
-        let user_state_acc = svm.get_account(user_state_pk)
-            .expect("Failed to get UserState");
-        let user_state = Self::try_from(&user_state_acc.data)?;
-
-        let reward = user_state.rewards_issued_unclaimed[reward_index];
+        let reward = self.rewards_issued_unclaimed[reward_index];
         if reward == 0 {
             return Ok(0)
         }
