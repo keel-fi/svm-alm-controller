@@ -144,7 +144,6 @@ pub struct CurvePoint {
     pub borrow_rate_bps: u32,
 }
 
-
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct ReserveFees {
@@ -212,12 +211,12 @@ impl KaminoReserve {
     }
 
     fn total_supply(&self) -> Fraction {
-        Fraction::from(self.liquidity.available_amount) 
+        Fraction::from(self.liquidity.available_amount)
             + Fraction::from_bits(self.liquidity.borrowed_amount_sf)
             - Fraction::from_bits(self.liquidity.accumulated_protocol_fees_sf)
             - Fraction::from_bits(self.liquidity.accumulated_referrer_fees_sf)
             - Fraction::from_bits(self.liquidity.pending_referrer_fees_sf)
-    } 
+    }
 
     fn collateral_exchange_rate(&self) -> (u128, Fraction) {
         let mut total_liquidity = self.total_supply();
@@ -236,8 +235,7 @@ impl KaminoReserve {
     fn fraction_collateral_to_liquidity(&self, collateral_amount: Fraction) -> Fraction {
         let (collateral_supply, liquidity) = self.collateral_exchange_rate();
 
-        (BigFraction::from(collateral_amount) * BigFraction::from(liquidity)
-            / collateral_supply)
+        (BigFraction::from(collateral_amount) * BigFraction::from(liquidity) / collateral_supply)
             .try_into()
             .expect("fraction_collateral_to_liquidity: liquidity_amount overflow")
     }
@@ -253,37 +251,43 @@ pub fn get_liquidity_and_lp_amount(
     kamino_reserve_pk: &Pubkey,
     obligation_pk: &Pubkey,
 ) -> Result<(u64, u64), Box<dyn std::error::Error>> {
-    let obligation_acc = svm.get_account(obligation_pk)
+    let obligation_acc = svm
+        .get_account(obligation_pk)
         .expect("could not get obligation");
 
     let obligation_state = Obligation::try_from(&obligation_acc.data)?;
 
-    // if the obligation is closed 
+    // if the obligation is closed
     // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
     // then the lp_amount is 0
     let is_obligation_closed = obligation_acc.lamports == 0;
 
-    let lp_amount = if is_obligation_closed { 0 } else {
+    let lp_amount = if is_obligation_closed {
+        0
+    } else {
         // if it's not closed, then we read the state,
         // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
         // in that case lp_amount is also 0
 
         // handles the case where no ObligationCollateral is found
-        obligation_state.get_obligation_collateral_for_reserve(kamino_reserve_pk)
+        obligation_state
+            .get_obligation_collateral_for_reserve(kamino_reserve_pk)
             .map_or(0, |collateral| collateral.deposited_amount)
     };
 
     // avoids deserializing kamino_reserve if lp_amount is 0
-    let liquidity_value = if lp_amount == 0 { 0 } else {
-        let kamino_reserve_acc = svm.get_account(kamino_reserve_pk)
-        .expect("could not get kamino reserve");
+    let liquidity_value = if lp_amount == 0 {
+        0
+    } else {
+        let kamino_reserve_acc = svm
+            .get_account(kamino_reserve_pk)
+            .expect("could not get kamino reserve");
         let kamino_reserve_state = KaminoReserve::try_from(&kamino_reserve_acc.data)?;
         kamino_reserve_state.collateral_to_liquidity(lp_amount)
     };
 
     Ok((liquidity_value, lp_amount))
 }
-
 
 // --------- Obligation ----------
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
@@ -396,16 +400,13 @@ impl Obligation {
     }
 
     pub fn get_obligation_collateral_for_reserve(
-        &self, 
-        reserve: &Pubkey
+        &self,
+        reserve: &Pubkey,
     ) -> Option<&ObligationCollateral> {
         self.deposits
             .iter()
-            .find(|obligation_collateral| {
-                obligation_collateral.deposit_reserve.eq(reserve)
-            })
+            .find(|obligation_collateral| obligation_collateral.deposit_reserve.eq(reserve))
     }
-
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]

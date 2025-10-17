@@ -1,29 +1,30 @@
 use pinocchio::{
-    instruction::{Seed, Signer}, msg, 
-    program_error::ProgramError, 
-    sysvars::{clock::Clock, Sysvar}
+    instruction::{Seed, Signer},
+    msg,
+    program_error::ProgramError,
+    sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token::state::TokenAccount;
 
 use crate::{
-    constants::CONTROLLER_AUTHORITY_SEED, 
-    enums::IntegrationState, 
-    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent}, 
-    instructions::PushArgs, 
+    constants::CONTROLLER_AUTHORITY_SEED,
+    enums::IntegrationState,
+    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
+    instructions::PushArgs,
     integrations::kamino::{
-        cpi::DepositReserveLiquidityV2, 
-        protocol_state::{get_liquidity_and_lp_amount, Obligation}, 
-        shared_sync::sync_kamino_liquidity_value, 
-        validations::PushPullKaminoAccounts
-    }, 
-    processor::PushAccounts, 
-    state::{Controller, Integration, Permission, Reserve}
+        cpi::DepositReserveLiquidityV2,
+        protocol_state::{get_liquidity_and_lp_amount, Obligation},
+        shared_sync::sync_kamino_liquidity_value,
+        validations::PushPullKaminoAccounts,
+    },
+    processor::PushAccounts,
+    state::{Controller, Integration, Permission, Reserve},
 };
 
 /// This function performs a "Push" on a `KaminoIntegration`.
 /// In order to do so it:
 /// - CPIs into KLEND program.
-/// - Tracks the change in balance of `liquidity_source` account (our vault) 
+/// - Tracks the change in balance of `liquidity_source` account (our vault)
 /// and `liquidity_value` from Kamino state
 /// - Updates the `liquidity_value` and `lp_token_amount` of the integration by reading
 ///     the `obligation` and the `kamino_reserve` after the CPI.
@@ -39,7 +40,7 @@ pub fn process_push_kamino(
 
     // Get the current slot and time
     let clock = Clock::get()?;
-    
+
     let amount = match outer_args {
         PushArgs::Kamino { amount } => *amount,
         _ => return Err(ProgramError::InvalidArgument),
@@ -57,9 +58,9 @@ pub fn process_push_kamino(
 
     let inner_ctx = PushPullKaminoAccounts::checked_from_accounts(
         outer_ctx.controller_authority.key(),
-        &integration.config, 
+        &integration.config,
         outer_ctx.remaining_accounts,
-        reserve
+        reserve,
     )?;
 
     // Push fails if the obligation is full and the current obligation collateral
@@ -68,14 +69,15 @@ pub fn process_push_kamino(
     {
         let obligation_data = inner_ctx.obligation.try_borrow_data()?;
         let obligation = Obligation::load_checked(&obligation_data)?;
-        if obligation.is_deposits_full() 
-            && obligation.get_obligation_collateral_for_reserve(inner_ctx.kamino_reserve.key()).is_none() 
+        if obligation.is_deposits_full()
+            && obligation
+                .get_obligation_collateral_for_reserve(inner_ctx.kamino_reserve.key())
+                .is_none()
         {
             msg! {"Obligation: invalid obligation, collateral deposit slots are full"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
     }
-
 
     reserve.sync_balance(
         inner_ctx.token_account,
@@ -86,28 +88,24 @@ pub fn process_push_kamino(
 
     // Accounting event for changes in liquidity value BEFORE deposit
     sync_kamino_liquidity_value(
-        controller, 
-        integration, 
-        outer_ctx.integration.key(), 
-        outer_ctx.controller.key(), 
-        outer_ctx.controller_authority, 
-        inner_ctx.reserve_liquidity_mint.key(), 
-        inner_ctx.kamino_reserve, 
-        inner_ctx.obligation
+        controller,
+        integration,
+        outer_ctx.integration.key(),
+        outer_ctx.controller.key(),
+        outer_ctx.controller_authority,
+        inner_ctx.reserve_liquidity_mint.key(),
+        inner_ctx.kamino_reserve,
+        inner_ctx.obligation,
     )?;
-    
 
     // This is for calculating the exact amount leaving our vault during reposit
     let liquidity_amount_before = {
-        let vault 
-            = TokenAccount::from_account_info(inner_ctx.token_account)?;
+        let vault = TokenAccount::from_account_info(inner_ctx.token_account)?;
         vault.amount()
     };
 
-    let (liquidity_value_before, _) = get_liquidity_and_lp_amount(
-        inner_ctx.kamino_reserve, 
-        inner_ctx.obligation
-    )?;
+    let (liquidity_value_before, _) =
+        get_liquidity_and_lp_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
 
     // Perform kamino deposit liquidity cpi
     DepositReserveLiquidityV2 {
@@ -129,7 +127,7 @@ pub fn process_push_kamino(
         obligation_farm_user_state: inner_ctx.obligation_farm_collateral,
         reserve_farm_state: inner_ctx.reserve_farm_collateral,
         farms_program: inner_ctx.kamino_farms_program,
-        liquidity_amount: amount
+        liquidity_amount: amount,
     }
     .invoke_signed(&[Signer::from(&[
         Seed::from(CONTROLLER_AUTHORITY_SEED),
@@ -139,16 +137,13 @@ pub fn process_push_kamino(
 
     // This is for calculating the exact amount leaving our vault during reposit
     let liquidity_amount_after = {
-        let vault 
-            = TokenAccount::from_account_info(inner_ctx.token_account)?;
+        let vault = TokenAccount::from_account_info(inner_ctx.token_account)?;
         vault.amount()
     };
     let liquidity_amount_delta = liquidity_amount_before.saturating_sub(liquidity_amount_after);
 
-    let (liquidity_value_after, lp_amount_after) = get_liquidity_and_lp_amount(
-        inner_ctx.kamino_reserve, 
-        inner_ctx.obligation
-    )?;
+    let (liquidity_value_after, lp_amount_after) =
+        get_liquidity_and_lp_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
     let liquidity_value_delta = liquidity_value_after.saturating_sub(liquidity_value_before);
 
     // In order to reflect the actual value of the liquidity deposit,
@@ -165,7 +160,7 @@ pub fn process_push_kamino(
             reserve: None,
             direction: AccountingDirection::Credit,
             action: AccountingAction::Deposit,
-            delta: liquidity_value_delta
+            delta: liquidity_value_delta,
         }),
     )?;
 
@@ -181,16 +176,16 @@ pub fn process_push_kamino(
             reserve: Some(*outer_ctx.reserve_a.key()),
             direction: AccountingDirection::Debit,
             action: AccountingAction::Deposit,
-            delta: liquidity_amount_delta
+            delta: liquidity_amount_delta,
         }),
     )?;
-    
+
     // Update the state
     match &mut integration.state {
         IntegrationState::Kamino(kamino_state) => {
             kamino_state.last_liquidity_value = liquidity_value_after;
             kamino_state.last_lp_amount = lp_amount_after;
-        },                   
+        }
         _ => return Err(ProgramError::InvalidAccountData),
     }
 

@@ -1,7 +1,7 @@
 use borsh::BorshDeserialize;
 use litesvm::LiteSVM;
 use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction
+    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
 };
 use std::error::Error;
 use svm_alm_controller_client::generated::{
@@ -11,7 +11,10 @@ use svm_alm_controller_client::generated::{
     types::{ControllerStatus, ControllerUpdateEvent, PermissionStatus, SvmAlmControllerEvent},
 };
 
-use crate::{assert_contains_controller_cpi_event, subs::{derive_permission_pda, fetch_permission_account}};
+use crate::{
+    assert_contains_controller_cpi_event,
+    subs::{derive_permission_pda, fetch_permission_account},
+};
 
 pub fn derive_controller_pda(id: &u16) -> Pubkey {
     let (controller_pda, _controller_bump) = Pubkey::find_program_address(
@@ -96,8 +99,8 @@ pub fn initialize_contoller(
         new_state: Some(controller.clone()),
     });
     assert_contains_controller_cpi_event!(
-        tx_result.unwrap(), 
-        txn.message.account_keys.as_slice(), 
+        tx_result.unwrap(),
+        txn.message.account_keys.as_slice(),
         expected_event
     );
 
@@ -194,7 +197,7 @@ pub fn manage_controller(
     );
 
     let tx_result = svm.send_transaction(txn.clone());
-    
+
     // If transaction failed, return the error
     if tx_result.is_err() {
         return Err(format!("Transaction failed: {:?}", tx_result.unwrap_err()).into());
@@ -239,8 +242,8 @@ pub fn manage_controller(
         new_state: controller_account_after,
     });
     assert_contains_controller_cpi_event!(
-        tx_result.unwrap(), 
-        txn.message.account_keys.as_slice(), 
+        tx_result.unwrap(),
+        txn.message.account_keys.as_slice(),
         expected_event
     );
 

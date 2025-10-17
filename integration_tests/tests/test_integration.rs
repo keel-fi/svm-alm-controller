@@ -5,11 +5,20 @@ mod subs;
 mod tests {
     use litesvm::LiteSVM;
     use solana_sdk::{
-        account::Account, instruction::InstructionError, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::{Transaction, TransactionError}
+        account::Account,
+        instruction::InstructionError,
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+        transaction::{Transaction, TransactionError},
     };
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
-        create_manage_integration_instruction, create_spl_token_external_initialize_integration_instruction, create_spl_token_external_push_instruction, create_sync_integration_instruction, generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus}, SVM_ALM_CONTROLLER_ID
+        create_manage_integration_instruction,
+        create_spl_token_external_initialize_integration_instruction,
+        create_spl_token_external_push_instruction, create_sync_integration_instruction,
+        generated::types::{ControllerStatus, IntegrationStatus, PermissionStatus, ReserveStatus},
+        SVM_ALM_CONTROLLER_ID,
     };
 
     use test_case::test_case;
@@ -17,8 +26,10 @@ mod tests {
     use crate::{
         helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
         subs::{
-            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve, manage_controller, manage_integration, manage_permission
-        }, test_invalid_accounts,
+            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve,
+            manage_controller, manage_integration, manage_permission,
+        },
+        test_invalid_accounts,
     };
 
     const DEFAULT_RATE_LIMIT_SLOPE: u64 = 1_000_000_000_000;
@@ -76,7 +87,8 @@ mod tests {
     }
 
     #[test]
-    fn test_init_integration_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_init_integration_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -129,7 +141,11 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -219,7 +235,8 @@ mod tests {
     }
 
     #[test]
-    fn test_manage_integration_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_integration_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -249,7 +266,11 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -265,7 +286,7 @@ mod tests {
         let (integration_pubkey, mint, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
-            // Initialize a reserve for the token
+        // Initialize a reserve for the token
         let reserve_keys = initialize_reserve(
             &mut svm,
             &controller_pk,
@@ -287,14 +308,12 @@ mod tests {
             ControllerStatus::Frozen,
         )?;
 
-        
-
         // Try to sync integration when frozen - should fail
         let instruction = create_sync_integration_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &integration_pubkey,
-            &reserve_keys.pubkey
+            &reserve_keys.pubkey,
         );
 
         let txn = Transaction::new_signed_with_payer(
@@ -491,7 +510,8 @@ mod tests {
     }
 
     #[test]
-    fn test_init_integration_outer_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_init_integration_outer_ctx_invalid_accounts_fails(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -532,7 +552,7 @@ mod tests {
             &spl_token::ID,
             &mint_pk,
             &external,
-            &external_ata
+            &external_ata,
         );
 
         // Checks for outer ctx accounts:
@@ -545,8 +565,8 @@ mod tests {
         // create Integration before creation in ix
         let integration_pk = init_integration_ix.accounts[5].pubkey;
         let account = Account {
-            lamports: 1_000_000_000,  // arbitrary default lamports
-            data: vec![1,1,1,1],
+            lamports: 1_000_000_000, // arbitrary default lamports
+            data: vec![1, 1, 1, 1],
             owner: SVM_ALM_CONTROLLER_ID,
             executable: false,
             rent_epoch: 0,
@@ -600,7 +620,8 @@ mod tests {
     }
 
     #[test]
-    fn test_push_integration_outer_ctx_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_push_integration_outer_ctx_invalid_accounts_fails(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -625,13 +646,13 @@ mod tests {
 
         let push_ix = create_spl_token_external_push_instruction(
             &controller_pk,
-            &super_authority.pubkey(), 
-            &integration_pubkey, 
-            &reserve_keys.pubkey, 
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
             &spl_token::ID,
-            &mint, 
-            &recipient, 
-            1000
+            &mint,
+            &recipient,
+            1000,
         );
 
         // Checks for outer ctx accounts:
@@ -680,12 +701,12 @@ mod tests {
         description_encoding[..description_bytes.len()].copy_from_slice(description_bytes);
 
         let ix = create_manage_integration_instruction(
-            &controller_pk, 
-            &super_authority.pubkey(), 
+            &controller_pk,
+            &super_authority.pubkey(),
             &integration_pubkey,
-            IntegrationStatus::Active, 
-            1000, 
-            1000
+            IntegrationStatus::Active,
+            1000,
+            1000,
         );
 
         // account checks

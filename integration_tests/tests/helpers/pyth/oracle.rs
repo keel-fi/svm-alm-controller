@@ -1,9 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use litesvm::LiteSVM;
-use solana_sdk::{
-    account::Account,
-    pubkey::Pubkey,
-};
+use solana_sdk::{account::Account, pubkey::Pubkey};
 use svm_alm_controller::constants::anchor_discriminator;
 
 #[derive(BorshSerialize, BorshDeserialize, Copy, Clone, PartialEq, Debug)]

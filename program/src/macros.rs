@@ -151,7 +151,7 @@ macro_rules! define_account_struct {
 // CPI INSTRUCTION MACRO
 // ============================================================================
 //
-// This macro generates type-safe CPI (Cross-Program Invocation) instruction 
+// This macro generates type-safe CPI (Cross-Program Invocation) instruction
 // structs following the Pinocchio pattern used in token/token22 programs.
 
 /// Generates a CPI instruction struct with automatic AccountMeta construction.
@@ -195,7 +195,7 @@ macro_rules! define_account_struct {
 ///
 /// ```ignore
 /// use crate::cpi_instruction;
-/// 
+///
 /// cpi_instruction! {
 ///     /// Transfer tokens from one account to another
 ///     pub struct Transfer<'info> {
@@ -208,7 +208,7 @@ macro_rules! define_account_struct {
 ///         }
 ///     }
 /// }
-/// 
+///
 /// // Usage:
 /// Transfer {
 ///     from: source_account,
@@ -216,7 +216,7 @@ macro_rules! define_account_struct {
 ///     authority: owner_account,
 /// }
 /// .invoke()?;  // No signers needed
-/// 
+///
 /// // Or with PDA signer:
 /// Transfer { from, to, authority }
 ///     .invoke_signed(&[authority_seeds])?;
@@ -378,7 +378,7 @@ macro_rules! cpi_instruction {
             pub fn invoke_signed(&self, signers: &[pinocchio::instruction::Signer]) -> pinocchio::ProgramResult {
                 extern crate alloc;
                 use alloc::vec::Vec;
-                
+
                 let base_accounts = [
                     $(
                         cpi_instruction!(@meta $account_name: $account_type $(<$($modifier),+>)?, self),
@@ -424,35 +424,35 @@ macro_rules! cpi_instruction {
     //
     // The @ prefix indicates these are internal implementation details and
     // should not be called directly by users of the macro.
-    
+
     // Writable + Signer: Account that can be modified and must sign
     // Used for: Payer accounts, initializing accounts that sign themselves
     // AccountMeta::new(pubkey, is_writable: true, is_signer: true)
     (@meta $name:ident: Writable<Signer>, $self:ident) => {
         pinocchio::instruction::AccountMeta::new($self.$name.key(), true, true)
     };
-    
+
     // Writable: Account that can be modified but doesn't sign
     // Used for: Token accounts being debited/credited, state accounts
     // AccountMeta::new(pubkey, is_writable: true, is_signer: false)
     (@meta $name:ident: Writable, $self:ident) => {
         pinocchio::instruction::AccountMeta::new($self.$name.key(), true, false)
     };
-    
+
     // Signer: Account that must sign but won't be modified
     // Used for: Authority accounts that approve actions
     // AccountMeta::new(pubkey, is_writable: false, is_signer: true)
     (@meta $name:ident: Signer, $self:ident) => {
         pinocchio::instruction::AccountMeta::new($self.$name.key(), false, true)
     };
-    
+
     // Readonly: Account that neither signs nor gets modified
     // Used for: Program IDs, reference accounts, sysvars
     // AccountMeta::new(pubkey, is_writable: false, is_signer: false)
     (@meta $name:ident: Readonly, $self:ident) => {
         pinocchio::instruction::AccountMeta::new($self.$name.key(), false, false)
     };
-    
+
     // ========================================================================
     // INTERNAL MATCHER: @data (Instruction Data Serialization)
     // ========================================================================
@@ -462,21 +462,21 @@ macro_rules! cpi_instruction {
     //
     // Pattern matching determines whether arguments are present and handles
     // both cases appropriately.
-    
+
     // No arguments: instruction data is just the discriminator
     // This is used for simple instructions like close_account, sync_native, etc.
     (@data $self:ident, $discriminator:expr) => {
         $discriminator
     };
-    
+
     // Empty arguments case: when $($arg_name),* is empty
     (@data $self:ident, $discriminator:expr, ) => {
         $discriminator
     };
-    
+
     // With arguments: discriminator followed by Borsh-serialized args
     // Each argument is serialized in order and appended to the data vector.
-    // 
+    //
     // Example generated code:
     // {
     //     use borsh::BorshSerialize;

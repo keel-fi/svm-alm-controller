@@ -4,7 +4,7 @@ use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
 use spl_token::state::Mint;
 use svm_alm_controller::constants::anchor_discriminator;
 use svm_alm_controller_client::integrations::drift::{
-    derive_spot_market_pda, derive_spot_market_vault_pda, SpotMarket, DRIFT_PROGRAM_ID
+    derive_spot_market_pda, derive_spot_market_vault_pda, SpotMarket, DRIFT_PROGRAM_ID,
 };
 
 /// Setup Drift SpotMarket state in LiteSvm giving full control over state.

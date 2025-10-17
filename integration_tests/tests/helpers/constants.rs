@@ -38,7 +38,6 @@ pub const LZ_R2_PROGRAM_ID: Pubkey = pubkey!("HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvN
 // TODO fix
 pub const DEVNET_RPC: &str = "https://api.devnet.solana.com";
 
-
 // Kamino Lend
 pub const KAMINO_LEND_PROGRAM_ID: Pubkey = pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
 pub const KAMINO_FARMS_PROGRAM_ID: Pubkey = pubkey!("FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr");

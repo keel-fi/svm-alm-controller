@@ -10,11 +10,14 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, PermissionSt
 
 #[cfg(test)]
 mod tests {
-    use solana_sdk::{account::Account, instruction::InstructionError, pubkey::Pubkey, transaction::{Transaction, TransactionError}};
-    use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::{
-        create_manage_permissions_instruction,
+    use solana_sdk::{
+        account::Account,
+        instruction::InstructionError,
+        pubkey::Pubkey,
+        transaction::{Transaction, TransactionError},
     };
+    use svm_alm_controller::error::SvmAlmControllerErrors;
+    use svm_alm_controller_client::create_manage_permissions_instruction;
 
     use crate::helpers::assert::assert_custom_error;
 
@@ -480,7 +483,8 @@ mod tests {
     }
 
     #[test]
-    fn test_manage_permission_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_permission_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -535,7 +539,7 @@ mod tests {
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
             false, // can_liquidate
-        ); 
+        );
 
         // modify controller authority to an invalid pubkey
         instruction.accounts[2].pubkey = Pubkey::new_unique();
@@ -547,7 +551,11 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -577,7 +585,7 @@ mod tests {
             false, // can_manage_reserves_and_integrations
             false, // can_suspend_permissions
             false, // can_liquidate
-        ); 
+        );
 
         // account checks:
         // (index 1) controller: owner == crate::ID,
@@ -590,15 +598,16 @@ mod tests {
         // needs to be set since test_invalid_accounts doesnt handle uninit accounts
         let permission_pk = instruction.accounts[6].pubkey;
         svm.set_account(
-            permission_pk, 
+            permission_pk,
             Account {
                 lamports: 10000,
                 data: vec![1, 1, 1, 1],
                 owner: Pubkey::new_unique(),
                 executable: false,
-                rent_epoch: 1
-            }
-        ).expect("failed to set account");
+                rent_epoch: 1,
+            },
+        )
+        .expect("failed to set account");
         let txn = Transaction::new_signed_with_payer(
             &[instruction.clone()],
             Some(&super_authority.pubkey()),
@@ -611,21 +620,19 @@ mod tests {
             TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
         );
         svm.set_account(
-            permission_pk, 
-            Account { 
-                lamports: 0, 
-                data: vec![], 
-                owner: Pubkey::default(), 
-                executable: false, 
-                rent_epoch: 0
-            }
-        ).expect("failed to set account");
+            permission_pk,
+            Account {
+                lamports: 0,
+                data: vec![],
+                owner: Pubkey::default(),
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+        .expect("failed to set account");
         svm.expire_blockhash();
 
-
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&super_authority),
-        ];
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),

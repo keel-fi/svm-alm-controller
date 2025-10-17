@@ -4,9 +4,8 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
     integrations::{
-        drift::push::process_push_drift,
-        cctp_bridge::push::process_push_cctp_bridge, kamino::push::process_push_kamino,
-        lz_bridge::push::process_push_lz_bridge,
+        cctp_bridge::push::process_push_cctp_bridge, drift::push::process_push_drift,
+        kamino::push::process_push_kamino, lz_bridge::push::process_push_lz_bridge,
         spl_token_external::push::process_push_spl_token_external,
     },
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},

@@ -1,8 +1,7 @@
 use crate::integrations::{
     atomic_swap::state::AtomicSwapState, cctp_bridge::state::CctpBridgeState,
-    drift::state::DriftState, lz_bridge::state::LzBridgeState,
+    drift::state::DriftState, kamino::state::KaminoState, lz_bridge::state::LzBridgeState,
     spl_token_external::state::SplTokenExternalState,
-    kamino::state::KaminoState,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;

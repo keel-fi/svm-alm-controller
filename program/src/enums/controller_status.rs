@@ -10,5 +10,5 @@ pub enum ControllerStatus {
     /// Normal operations
     Active,
     /// Push or Pull instructions revert, but all other operations are valid
-    PushPullFrozen, 
+    PushPullFrozen,
 }

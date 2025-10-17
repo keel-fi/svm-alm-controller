@@ -3,17 +3,12 @@ use pinocchio::pubkey::Pubkey;
 use crate::{
     cpi_instruction,
     integrations::kamino::constants::{
-        DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR,
-        HARVEST_REWARD_DISCRIMINATOR,
-        INIT_METADATA_DISCRIMINATOR,
-        INIT_OBLIGATION_DISCRIMINATOR,
-        INIT_OBLIGATION_FARM_DISCRIMINATOR,
-        KAMINO_FARMS_PROGRAM_ID,
-        KAMINO_LEND_PROGRAM_ID,
-        WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
-    }
+        DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, HARVEST_REWARD_DISCRIMINATOR,
+        INIT_METADATA_DISCRIMINATOR, INIT_OBLIGATION_DISCRIMINATOR,
+        INIT_OBLIGATION_FARM_DISCRIMINATOR, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID,
+        WITHDRAW_OBLIGATION_V2_DISCRIMINATOR,
+    },
 };
-
 
 cpi_instruction! {
     /// Initializes a Kamino `Obligation`.
@@ -43,7 +38,6 @@ cpi_instruction! {
     }
 }
 
-
 cpi_instruction! {
     /// Initialize a Kamino `UserMetadata` account.
     /// This only needs to be called ONCE per controller.
@@ -64,10 +58,9 @@ cpi_instruction! {
     }
 }
 
-
 cpi_instruction! {
     /// Initialize an Obligation `Farm`, linked to a `reserve.collateral_farm` (mode 0)
-    /// or a `reserve.debt_farm` (mode 1). 
+    /// or a `reserve.debt_farm` (mode 1).
     /// Obligation farms are used for rewards harvesting.
     pub struct InitializeObligationFarmForReserve<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
@@ -90,7 +83,6 @@ cpi_instruction! {
         }
     }
 }
-
 
 cpi_instruction! {
     /// Deposits liquidity into a kamino `Reserve`,
@@ -124,7 +116,6 @@ cpi_instruction! {
     }
 }
 
-
 cpi_instruction! {
     /// Withdraws collateral from an `Obligation`.
     pub struct WithdrawObligationCollateralV2<'info> {
@@ -156,10 +147,9 @@ cpi_instruction! {
     }
 }
 
-
 cpi_instruction! {
     /// Harvests earned rewards. It should be called if the
-    /// `farm_state.rewards_available` > 0 
+    /// `farm_state.rewards_available` > 0
     pub struct HarvestReward<'info> {
         program: KAMINO_FARMS_PROGRAM_ID,
         discriminator: HARVEST_REWARD_DISCRIMINATOR,
