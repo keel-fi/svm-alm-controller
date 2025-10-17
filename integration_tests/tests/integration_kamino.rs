@@ -11,11 +11,11 @@ mod tests {
             TestContext,
         },
         subs::{
-            derive_controller_authority_pda, edit_ata_amount, fetch_integration_account,
-            fetch_kamino_reserve, fetch_reserve_account, get_liquidity_and_lp_amount,
-            get_token_balance_or_zero, initialize_ata, initialize_reserve,
-            refresh_kamino_obligation, refresh_kamino_reserve,
-            set_kamino_reserve_liquidity_available_amount,
+            airdrop_lamports, derive_controller_authority_pda, edit_ata_amount,
+            fetch_integration_account, fetch_kamino_reserve, fetch_reserve_account,
+            get_liquidity_and_lp_amount, get_token_balance_or_zero, initialize_ata,
+            initialize_reserve, manage_permission, refresh_kamino_obligation,
+            refresh_kamino_reserve, set_kamino_reserve_liquidity_available_amount,
             set_obligation_farm_rewards_issued_unclaimed, setup_kamino_state, transfer_tokens,
             KaminoTestContext, ReserveKeys,
         },
@@ -23,15 +23,20 @@ mod tests {
     use borsh::BorshDeserialize;
     use litesvm::LiteSVM;
     use solana_sdk::{
-        clock::Clock, compute_budget::ComputeBudgetInstruction, instruction::Instruction,
-        pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction,
+        clock::Clock,
+        compute_budget::ComputeBudgetInstruction,
+        instruction::{Instruction, InstructionError},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+        transaction::{Transaction, TransactionError},
     };
     use spl_associated_token_account_client::address::get_associated_token_address;
     use svm_alm_controller_client::{
         generated::types::{
             AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig,
             IntegrationState, IntegrationStatus, IntegrationUpdateEvent, KaminoConfig,
-            ReserveStatus, SvmAlmControllerEvent,
+            PermissionStatus, ReserveStatus, SvmAlmControllerEvent,
         },
         initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix,
         integrations::kamino::{
@@ -42,6 +47,7 @@ mod tests {
         push::create_push_kamino_lend_ix,
         sync_integration::create_sync_kamino_lend_ix,
     };
+    use test_case::test_case;
 
     fn setup_env_and_get_init_ix(
         svm: &mut LiteSVM,
@@ -1115,6 +1121,300 @@ mod tests {
         //assert lp amount did not change
         assert_eq!(state_after.last_lp_amount, state_before.last_lp_amount);
 
+        Ok(())
+    }
+
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, false; "can_liquidate w/ permit_liquidation fails")]
+    fn kamino_push_permissions(
+        can_manage_permissions: bool,
+        can_invoke_external_transfer: bool,
+        can_execute_swap: bool,
+        can_reallocate: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
+        can_manage_reserves_and_integrations: bool,
+        can_suspend_permissions: bool,
+        can_liquidate: bool,
+        permit_liquidation: bool,
+        result_ok: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let KaminoTestContext {
+            lending_market,
+            reserve_context,
+            farms_context: _,
+        } = setup_kamino_state(&mut svm, &USDC_TOKEN_MINT_PUBKEY, &USDC_TOKEN_MINT_PUBKEY);
+
+        let obligation_id = 0;
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id,
+            &controller_authority,
+            &lending_market,
+        );
+
+        let kamino_config = KaminoConfig {
+            market: lending_market,
+            reserve: reserve_context.kamino_reserve_pk,
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
+        };
+
+        let description = "test";
+        let status = IntegrationStatus::Active;
+        let rate_limit_slope = 100_000_000_000;
+        let rate_limit_max_outflow = 100_000_000_000;
+
+        let (kamino_init_ix, integration_pk, _reserve_keys) = setup_env_and_get_init_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            description,
+            status,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &kamino_config,
+            &reserve_context.reserve_farm_collateral,
+            &reserve_context.reserve_farm_debt,
+            &USDC_TOKEN_MINT_PUBKEY,
+            obligation_id,
+        )
+        .unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        let push_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;
+        // Update the authority to have permissions
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &push_authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            can_execute_swap,                     // can_execute_swap,
+            can_manage_permissions,               // can_manage_permissions,
+            can_invoke_external_transfer,         // can_invoke_external_transfer,
+            can_reallocate,                       // can_reallocate,
+            can_freeze_controller,                // can_freeze,
+            can_unfreeze_controller,              // can_unfreeze,
+            can_manage_reserves_and_integrations, // can_manage_reserves_and_integrations
+            can_suspend_permissions,              // can_suspend_permissions
+            can_liquidate,                        // can_liquidate
+        )?;
+
+        let deposited_amount = 100_000_000;
+        let push_ix = get_push_ix(
+            &mut svm,
+            &controller_pk,
+            &push_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            deposited_amount,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&push_authority.pubkey()),
+            &[&push_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+
+        // Assert the expected result given the enabled privilege
+        match result_ok {
+            true => assert!(tx_result.is_ok()),
+            false => assert_eq!(
+                tx_result.err().unwrap().err,
+                TransactionError::InstructionError(1, InstructionError::IncorrectAuthority)
+            ),
+        }
+        Ok(())
+    }
+
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, true; "can_liquidate w/ permit_liquidation passes")]
+    fn kamino_pull_permissions(
+        can_manage_permissions: bool,
+        can_invoke_external_transfer: bool,
+        can_execute_swap: bool,
+        can_reallocate: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
+        can_manage_reserves_and_integrations: bool,
+        can_suspend_permissions: bool,
+        can_liquidate: bool,
+        permit_liquidation: bool,
+        result_ok: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let KaminoTestContext {
+            lending_market,
+            reserve_context,
+            farms_context: _,
+        } = setup_kamino_state(&mut svm, &USDC_TOKEN_MINT_PUBKEY, &USDC_TOKEN_MINT_PUBKEY);
+
+        let obligation_id = 0;
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id,
+            &controller_authority,
+            &lending_market,
+        );
+
+        let kamino_config = KaminoConfig {
+            market: lending_market,
+            reserve: reserve_context.kamino_reserve_pk,
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
+        };
+
+        let description = "test";
+        let status = IntegrationStatus::Active;
+        let rate_limit_slope = 100_000_000_000;
+        let rate_limit_max_outflow = 100_000_000_000;
+
+        let (kamino_init_ix, integration_pk, _reserve_keys) = setup_env_and_get_init_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            description,
+            status,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &kamino_config,
+            &reserve_context.reserve_farm_collateral,
+            &reserve_context.reserve_farm_debt,
+            &USDC_TOKEN_MINT_PUBKEY,
+            obligation_id,
+        )
+        .unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        let push_ix = get_push_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            100_000_000,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx).unwrap();
+
+        let pull_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &pull_authority.pubkey(), 1_000_000_000)?;
+        // Update the authority to have permissions
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &pull_authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            can_execute_swap,                     // can_execute_swap,
+            can_manage_permissions,               // can_manage_permissions,
+            can_invoke_external_transfer,         // can_invoke_external_transfer,
+            can_reallocate,                       // can_reallocate,
+            can_freeze_controller,                // can_freeze,
+            can_unfreeze_controller,              // can_unfreeze,
+            can_manage_reserves_and_integrations, // can_manage_reserves_and_integrations
+            can_suspend_permissions,              // can_suspend_permissions
+            can_liquidate,                        // can_liquidate
+        )?;
+
+        let pull_ix = get_pull_ix(
+            &mut svm,
+            &controller_pk,
+            &pull_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            &kamino_config.reserve,
+            100_000,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, pull_ix],
+            Some(&pull_authority.pubkey()),
+            &[&pull_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+
+        // Assert the expected result given the enabled privilege
+        match result_ok {
+            true => assert!(tx_result.is_ok()),
+            false => assert_eq!(
+                tx_result.err().unwrap().err,
+                TransactionError::InstructionError(1, InstructionError::IncorrectAuthority)
+            ),
+        }
         Ok(())
     }
 }
