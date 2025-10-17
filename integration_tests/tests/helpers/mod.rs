@@ -9,6 +9,8 @@ pub mod assert;
 pub mod cctp;
 pub mod constants;
 pub mod drift;
+pub use pyth::*;
+pub mod pyth;
 pub mod invalid_account_testing;
 pub mod lite_svm;
 pub mod lz_oft;

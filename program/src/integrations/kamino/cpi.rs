@@ -1,15 +1,15 @@
 use pinocchio::pubkey::Pubkey;
 
 use crate::{
-    cpi_instruction, 
+    cpi_instruction,
     integrations::kamino::constants::{
-        DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, 
-        HARVEST_REWARD_DISCRIMINATOR, 
-        INIT_METADATA_DISCRIMINATOR, 
-        INIT_OBLIGATION_DISCRIMINATOR, 
-        INIT_OBLIGATION_FARM_DISCRIMINATOR, 
-        KAMINO_FARMS_PROGRAM_ID, 
-        KAMINO_LEND_PROGRAM_ID, 
+        DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR,
+        HARVEST_REWARD_DISCRIMINATOR,
+        INIT_METADATA_DISCRIMINATOR,
+        INIT_OBLIGATION_DISCRIMINATOR,
+        INIT_OBLIGATION_FARM_DISCRIMINATOR,
+        KAMINO_FARMS_PROGRAM_ID,
+        KAMINO_LEND_PROGRAM_ID,
         WITHDRAW_OBLIGATION_V2_DISCRIMINATOR
     }
 };
@@ -23,21 +23,23 @@ cpi_instruction! {
     pub struct InitializeObligation<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
         discriminator: INIT_OBLIGATION_DISCRIMINATOR,
-
-        obligation_owner: Signer,
-        payer: Writable<Signer>,
-        obligation: Writable,
-        lending_market: Readonly,
-        /// For a `VanillaObligation`, `system_program` should be passed.
-        seed_1: Readonly,
-        /// For a `VanillaObligation`, `system_program` should be passed.
-        seed_2: Readonly,
-        owner_user_metadata: Readonly,
-        rent: Readonly,
-        system_program: Readonly;
-
-        tag: u8,
-        id: u8,
+        accounts: {
+            obligation_owner: Signer,
+            payer: Writable<Signer>,
+            obligation: Writable,
+            lending_market: Readonly,
+            /// For a `VanillaObligation`, `system_program` should be passed.
+            seed_1: Readonly,
+            /// For a `VanillaObligation`, `system_program` should be passed.
+            seed_2: Readonly,
+            owner_user_metadata: Readonly,
+            rent: Readonly,
+            system_program: Readonly
+        },
+        args: {
+            tag: u8,
+            id: u8,
+        }
     }
 }
 
@@ -48,15 +50,17 @@ cpi_instruction! {
     pub struct InitializeUserMetadata<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
         discriminator: INIT_METADATA_DISCRIMINATOR,
-
-        owner: Signer,
-        payer: Writable<Signer>,
-        user_metadata: Writable,
-        referrer_user_metadata: Readonly,
-        rent: Readonly,
-        system_program: Readonly;
-
-        user_lookup_table: Pubkey,
+        accounts: {
+            owner: Signer,
+            payer: Writable<Signer>,
+            user_metadata: Writable,
+            referrer_user_metadata: Readonly,
+            rent: Readonly,
+            system_program: Readonly
+        },
+        args: {
+            user_lookup_table: Pubkey,
+        }
     }
 }
 
@@ -68,20 +72,22 @@ cpi_instruction! {
     pub struct InitializeObligationFarmForReserve<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
         discriminator: INIT_OBLIGATION_FARM_DISCRIMINATOR,
-
-        payer: Writable<Signer>,
-        owner: Readonly,
-        obligation: Writable,
-        market_authority: Readonly,
-        kamino_reserve: Writable,
-        reserve_farm_state: Writable,
-        obligation_farm: Writable,
-        lending_market: Readonly,
-        farms_program: Readonly,
-        rent: Readonly,
-        system_program: Readonly;
-
-        mode: u8
+        accounts: {
+            payer: Writable<Signer>,
+            owner: Readonly,
+            obligation: Writable,
+            market_authority: Readonly,
+            kamino_reserve: Writable,
+            reserve_farm_state: Writable,
+            obligation_farm: Writable,
+            lending_market: Readonly,
+            farms_program: Readonly,
+            rent: Readonly,
+            system_program: Readonly
+        },
+        args: {
+            mode: u8
+        }
     }
 }
 
@@ -92,27 +98,29 @@ cpi_instruction! {
     pub struct DepositReserveLiquidityV2<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
         discriminator: DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR,
-
-        owner: Writable<Signer>,
-        obligation: Writable,
-        lending_market: Readonly,
-        market_authority: Readonly,
-        kamino_reserve: Writable,
-        reserve_liquidity_mint: Readonly,
-        reserve_liquidity_supply: Writable,
-        reserve_collateral_mint: Writable,
-        reserve_collateral_supply: Writable,
-        user_source_liquidity: Writable,
-        /// Placeholder account, should be used with `KLEND` program pubkey
-        placeholder_user_destination_collateral: Readonly,
-        collateral_token_program: Readonly,
-        liquidity_token_program: Readonly,
-        instruction_sysvar: Readonly,
-        obligation_farm_user_state: Writable,
-        reserve_farm_state: Writable,
-        farms_program: Readonly;
-
-        liquidity_amount: u64,
+        accounts: {
+            owner: Writable<Signer>,
+            obligation: Writable,
+            lending_market: Readonly,
+            market_authority: Readonly,
+            kamino_reserve: Writable,
+            reserve_liquidity_mint: Readonly,
+            reserve_liquidity_supply: Writable,
+            reserve_collateral_mint: Writable,
+            reserve_collateral_supply: Writable,
+            user_source_liquidity: Writable,
+            /// Placeholder account, should be used with `KLEND` program pubkey
+            placeholder_user_destination_collateral: Readonly,
+            collateral_token_program: Readonly,
+            liquidity_token_program: Readonly,
+            instruction_sysvar: Readonly,
+            obligation_farm_user_state: Writable,
+            reserve_farm_state: Writable,
+            farms_program: Readonly
+        },
+        args: {
+            liquidity_amount: u64,
+        }
     }
 }
 
@@ -122,27 +130,29 @@ cpi_instruction! {
     pub struct WithdrawObligationCollateralV2<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
         discriminator: WITHDRAW_OBLIGATION_V2_DISCRIMINATOR,
-
-        owner: Writable<Signer>,
-        obligation: Writable,
-        lending_market: Readonly,
-        market_authority: Readonly,
-        kamino_reserve: Writable,
-        reserve_liquidity_mint: Readonly,
-        reserve_collateral_supply: Writable,
-        reserve_collateral_mint: Writable,
-        reserve_liquidity_supply: Writable,
-        user_liquidity_destination: Writable,
-        /// Placeholder account, should be used with `KLEND` program pubkey
-        placeholder_user_destination_collateral: Readonly,
-        collateral_token_program: Readonly,
-        liquidity_token_program: Readonly,
-        instruction_sysvar: Readonly,
-        obligation_farm_user_state: Writable,
-        reserve_farm_state: Writable,
-        farms_program: Readonly;
-
-        collateral_amount: u64,
+        accounts: {
+            owner: Writable<Signer>,
+            obligation: Writable,
+            lending_market: Readonly,
+            market_authority: Readonly,
+            kamino_reserve: Writable,
+            reserve_liquidity_mint: Readonly,
+            reserve_collateral_supply: Writable,
+            reserve_collateral_mint: Writable,
+            reserve_liquidity_supply: Writable,
+            user_liquidity_destination: Writable,
+            /// Placeholder account, should be used with `KLEND` program pubkey
+            placeholder_user_destination_collateral: Readonly,
+            collateral_token_program: Readonly,
+            liquidity_token_program: Readonly,
+            instruction_sysvar: Readonly,
+            obligation_farm_user_state: Writable,
+            reserve_farm_state: Writable,
+            farms_program: Readonly
+        },
+        args: {
+            collateral_amount: u64,
+        }
     }
 }
 
@@ -153,19 +163,21 @@ cpi_instruction! {
     pub struct HarvestReward<'info> {
         program: KAMINO_FARMS_PROGRAM_ID,
         discriminator: HARVEST_REWARD_DISCRIMINATOR,
-
-        owner: Writable<Signer>,
-        user_state: Writable,
-        farm_state: Writable,
-        global_config: Readonly,
-        reward_mint: Readonly,
-        user_reward_ata: Writable,
-        rewards_vault: Writable,
-        rewards_treasure_vault: Writable,
-        farm_vaults_authority: Readonly,
-        scope_prices: Readonly,
-        token_program: Readonly;
-
-        reward_index: u64,
+        accounts: {
+            owner: Writable<Signer>,
+            user_state: Writable,
+            farm_state: Writable,
+            global_config: Readonly,
+            reward_mint: Readonly,
+            user_reward_ata: Writable,
+            rewards_vault: Writable,
+            rewards_treasure_vault: Writable,
+            farm_vaults_authority: Readonly,
+            scope_prices: Readonly,
+            token_program: Readonly
+        },
+        args: {
+            reward_index: u64,
+        }
     }
 }

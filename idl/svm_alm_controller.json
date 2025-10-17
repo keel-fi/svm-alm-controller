@@ -2755,6 +2755,23 @@
             ]
           },
           {
+            "name": "Drift",
+            "fields": [
+              {
+                "name": "market_index",
+                "type": "u16"
+              },
+              {
+                "name": "amount",
+                "type": "u64"
+              },
+              {
+                "name": "reduce_only",
+                "type": "bool"
+              }
+            ]
+          },
+          {
             "name": "Kamino",
             "fields": [
               {

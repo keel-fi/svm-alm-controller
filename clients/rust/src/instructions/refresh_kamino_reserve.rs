@@ -1,14 +1,14 @@
 use solana_instruction::{AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
 
-use crate::{integrations::kamino::derive_anchor_discriminator, KAMINO_LEND_PROGRAM_ID};
+use crate::{integrations::utils::anchor_discriminator, KAMINO_LEND_PROGRAM_ID};
 
 pub fn create_refresh_kamino_reserve_instruction(
     reserve: &Pubkey,
     market: &Pubkey,
     scope_prices: &Pubkey,
 ) -> Instruction {
-    let data = derive_anchor_discriminator("global", "refresh_reserve");
+    let data = anchor_discriminator("global", "refresh_reserve");
 
     Instruction {
         program_id: KAMINO_LEND_PROGRAM_ID,
