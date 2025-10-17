@@ -1,13 +1,12 @@
 use crate::{
-    define_account_struct, 
+    define_account_struct,
     enums::IntegrationConfig,
     integrations::drift::{
-        constants::DRIFT_PROGRAM_ID, 
+        constants::DRIFT_PROGRAM_ID, protocol_state::SpotMarket,
         shared_sync::sync_drift_liquidity_value,
-        protocol_state::SpotMarket
-    }, 
-    processor::SyncIntegrationAccounts, 
-    state::{Controller, Integration, Reserve}
+    },
+    processor::SyncIntegrationAccounts,
+    state::{Controller, Integration, Reserve},
 };
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, ProgramResult};
 
@@ -36,7 +35,7 @@ impl<'info> SyncDriftAccounts<'info> {
         // Validate spot market matches config
         let spot_market_data = ctx.spot_market.try_borrow_data()?;
         let spot_market_state = SpotMarket::load_checked(&spot_market_data)?;
-        
+
         if spot_market_state.market_index != config.spot_market_index {
             msg!("spot_market_index: does not match config");
             return Err(ProgramError::InvalidAccountData);
@@ -59,7 +58,7 @@ pub fn process_sync_drift(
     outer_ctx: &SyncIntegrationAccounts,
 ) -> ProgramResult {
     msg!("process_sync_drift");
-    
+
     let inner_ctx = SyncDriftAccounts::checked_from_accounts(
         &integration.config,
         outer_ctx.remaining_accounts,
