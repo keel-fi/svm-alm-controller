@@ -400,9 +400,7 @@ macro_rules! cpi_instruction {
                 let mut account_infos = Vec::with_capacity(base_account_infos.len() + $(self.$remaining_accounts_name.len() +)? 0);
                 account_infos.extend_from_slice(&base_account_infos);
                 $(
-                    for account in self.$remaining_accounts_name {
-                        account_infos.push(account);
-                    }
+                    account_infos.extend(self.$remaining_accounts_name.iter());
                 )?
 
                 let data = cpi_instruction!(@data self, $discriminator $(, $($arg_name),*)?);

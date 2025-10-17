@@ -1,4 +1,5 @@
 use pinocchio::{
+    account_info::AccountInfo,
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
@@ -32,6 +33,24 @@ define_account_struct! {
     }
 }
 
+impl<'info> PushDriftAccounts<'info> {
+    pub fn checked_from_accounts(
+        config: &IntegrationConfig,
+        accounts_infos: &'info [AccountInfo],
+        spot_market_index: u16,
+    ) -> Result<Self, ProgramError> {
+        let ctx = Self::from_accounts(accounts_infos)?;
+        let config = match config {
+            IntegrationConfig::Drift(config) => config,
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
+        if spot_market_index != config.spot_market_index {
+            msg!("spot_market_index: does not match config");
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Ok(ctx)
+    }
+}
 pub fn process_push_drift(
     controller: &Controller,
     permission: &Permission,
@@ -61,20 +80,11 @@ pub fn process_push_drift(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PushDriftAccounts::from_accounts(outer_ctx.remaining_accounts)?;
-
-    match integration.config {
-        IntegrationConfig::Drift(config) => {
-            if config.spot_market_index != market_index {
-                msg!("spot_market_index mismatch");
-                return Err(ProgramError::InvalidArgument);
-            }
-        }
-        _ => {
-            msg!("config: not a Drift config");
-            return Err(ProgramError::InvalidAccountData);
-        }
-    }
+    let inner_ctx = PushDriftAccounts::checked_from_accounts(
+        &integration.config,
+        &outer_ctx.remaining_accounts,
+        market_index,
+    )?;
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
@@ -128,10 +138,6 @@ pub fn process_push_drift(
     let liquidity_value_delta = liquidity_value_balance_after
         .checked_sub(liquidity_value_balance_before)
         .unwrap();
-    if liquidity_value_delta != amount {
-        msg! {"liquidity_value_delta: transfer did not match the liquidity value account balance change"};
-        return Err(ProgramError::InvalidArgument);
-    }
 
     // Emit accounting event for credit Integration
     controller.emit_event(
