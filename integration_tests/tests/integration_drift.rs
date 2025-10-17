@@ -38,27 +38,7 @@ mod tests {
         instructions::create_drift_push_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
-
-    fn fetch_inner_remaining_accounts(
-        svm: &LiteSVM,
-        spot_market_pubkey: &Pubkey,
-    ) -> Vec<AccountMeta> {
-        let spot_market_account = svm.get_account(spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
-        vec![
-            AccountMeta {
-                pubkey: spot_market.oracle,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: spot_market.pubkey,
-                is_signer: false,
-                is_writable: true,
-            },
-        ]
-    }
+    use svm_alm_controller_client::instructions::push::fetch_inner_remaining_accounts;
 
     #[test]
     fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
@@ -352,7 +332,7 @@ mod tests {
         let drift_user_acct_before = svm.get_account(&drift_user_pda).unwrap();
         let drift_user_before = User::try_from(&drift_user_acct_before.data).unwrap();
 
-        let inner_remaining_accounts = fetch_inner_remaining_accounts(&svm, &spot_market_pubkey);
+        let inner_remaining_accounts = fetch_inner_remaining_accounts(&[*spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
