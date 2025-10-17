@@ -29,7 +29,7 @@ define_account_struct! {
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_vault;
+        reserve_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
         @remaining_accounts as remaining_accounts;
     }
