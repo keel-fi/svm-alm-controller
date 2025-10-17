@@ -41,7 +41,15 @@ mod tests {
             TestContext
         }, 
         subs::{
-            derive_controller_authority_pda, edit_ata_amount, fetch_integration_account, fetch_kamino_reserve, fetch_reserve_account, get_liquidity_and_lp_amount, get_obligation_farm_rewards, get_token_balance_or_zero, initialize_ata, initialize_reserve, refresh_kamino_obligation, refresh_kamino_reserve, set_kamino_reserve_liquidity_available_amount, set_obligation_farm_rewards_issued_unclaimed, setup_kamino_state, transfer_tokens, KaminoTestContext, ReserveKeys
+            derive_controller_authority_pda, edit_ata_amount, 
+            fetch_integration_account, fetch_kamino_reserve, 
+            fetch_reserve_account, get_liquidity_and_lp_amount, 
+            get_token_balance_or_zero, initialize_ata, initialize_reserve, 
+            refresh_kamino_obligation, refresh_kamino_reserve, 
+            set_kamino_reserve_liquidity_available_amount, 
+            set_obligation_farm_rewards_issued_unclaimed, 
+            setup_kamino_state, transfer_tokens, KaminoTestContext, 
+            ReserveKeys
         }
     };
 
@@ -1025,15 +1033,6 @@ mod tests {
             &spl_token::ID,
             rewards_unclaimed
         )?;
-
-        // we get the user_rewards by reading obligation_farm_collateral
-        // reserve_farm and global_config, as kamino does
-        let rewards_to_be_harvested = get_obligation_farm_rewards(
-            &svm,
-            &obligation_collateral_farm,
-            &kamino_config.reserve_liquidity_mint,
-            &spl_token::ID
-        )?;
         
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk, 
@@ -1111,7 +1110,7 @@ mod tests {
             direction: AccountingDirection::Credit,
             mint: kamino_config.reserve_liquidity_mint, 
             action: AccountingAction::Sync, 
-            delta: rewards_to_be_harvested,
+            delta: rewards_unclaimed,
         });
         assert_contains_controller_cpi_event!(
             tx_result, 
@@ -1128,7 +1127,7 @@ mod tests {
             direction: AccountingDirection::Debit,
             mint: kamino_config.reserve_liquidity_mint, 
             action: AccountingAction::Withdrawal, 
-            delta: rewards_to_be_harvested
+            delta: rewards_unclaimed
         });
         assert_contains_controller_cpi_event!(
             tx_result, 

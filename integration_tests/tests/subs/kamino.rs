@@ -54,34 +54,6 @@ pub fn get_liquidity_and_lp_amount(
     Ok((liquidity_value, lp_amount))
 }
 
-pub fn get_obligation_farm_rewards(
-    svm: &LiteSVM,
-    obligation_farm: &Pubkey,
-    reward_mint: &Pubkey,
-    token_program: &Pubkey
-) -> Result<u64, Box<dyn std::error::Error>> {
-    let user_state_acc = svm.get_account(obligation_farm)
-        .expect("Failed to fetch reserve farm");
-    let user_state = UserState::try_from(&user_state_acc.data)?;
-
-    let reserve_farm_acc = svm.get_account(&user_state.farm_state)
-        .expect("Failed to fetch reserve farm");
-    let reserve_farm = FarmState::try_from(&reserve_farm_acc.data)?;
-
-    let (reward_index, _) = reserve_farm.find_reward_index_and_rewards_available(
-        reward_mint, 
-        token_program
-    ).expect("Failed to get reward_index");
-
-    let user_rewards = user_state.get_rewards(
-        svm, 
-        &reserve_farm.global_config, 
-        reward_index as usize
-    )?;
-
-    Ok(user_rewards)
-}
-
 pub fn set_obligation_farm_rewards_issued_unclaimed(
     svm: &mut LiteSVM,
     obligation_farm: &Pubkey,
