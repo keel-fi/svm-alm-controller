@@ -32,3 +32,5 @@ sha2-const-stable = { workspace = true }
 solana-keccak-hasher = { workspace = true }
 switchboard-on-demand = { workspace = true }
 bytemuck = { workspace = true }
+fixed = { workspace = true }
+uint = { workspace = true }

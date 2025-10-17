@@ -24,6 +24,8 @@ import {
   getU32Encoder,
   getU64Decoder,
   getU64Encoder,
+  getU8Decoder,
+  getU8Encoder,
   getUnitDecoder,
   getUnitEncoder,
   type Address,
@@ -49,7 +51,8 @@ export type InitializeArgs =
       expiryTimestamp: bigint;
       oraclePriceInverted: boolean;
     }
-  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number };
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number }
+  | { __kind: 'KaminoIntegration'; obligationId: number };
 
 export type InitializeArgsArgs =
   | { __kind: 'SplTokenExternal' }
@@ -66,7 +69,8 @@ export type InitializeArgsArgs =
       expiryTimestamp: number | bigint;
       oraclePriceInverted: boolean;
     }
-  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number };
+  | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number }
+  | { __kind: 'KaminoIntegration'; obligationId: number };
 
 export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -101,6 +105,7 @@ export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
         ['spotMarketIndex', getU16Encoder()],
       ]),
     ],
+    ['KaminoIntegration', getStructEncoder([['obligationId', getU8Encoder()]])],
   ]);
 }
 
@@ -137,6 +142,7 @@ export function getInitializeArgsDecoder(): Decoder<InitializeArgs> {
         ['spotMarketIndex', getU16Decoder()],
       ]),
     ],
+    ['KaminoIntegration', getStructDecoder([['obligationId', getU8Decoder()]])],
   ]);
 }
 
@@ -187,6 +193,18 @@ export function initializeArgs(
     'Drift'
   >
 ): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'Drift'>;
+export function initializeArgs(
+  kind: 'KaminoIntegration',
+  data: GetDiscriminatedUnionVariantContent<
+    InitializeArgsArgs,
+    '__kind',
+    'KaminoIntegration'
+  >
+): GetDiscriminatedUnionVariant<
+  InitializeArgsArgs,
+  '__kind',
+  'KaminoIntegration'
+>;
 export function initializeArgs<K extends InitializeArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data

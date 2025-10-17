@@ -34,7 +34,8 @@ export type PushArgs =
       marketIndex: number;
       amount: bigint;
       reduceOnly: boolean;
-    };
+    }
+  | { __kind: 'Kamino'; amount: bigint };
 
 export type PushArgsArgs =
   | { __kind: 'SplTokenExternal'; amount: number | bigint }
@@ -45,7 +46,8 @@ export type PushArgsArgs =
       marketIndex: number;
       amount: number | bigint;
       reduceOnly: boolean;
-    };
+    }
+  | { __kind: 'Kamino'; amount: number | bigint };
 
 export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -60,6 +62,7 @@ export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
         ['reduceOnly', getBooleanEncoder()],
       ]),
     ],
+    ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
   ]);
 }
 
@@ -76,6 +79,7 @@ export function getPushArgsDecoder(): Decoder<PushArgs> {
         ['reduceOnly', getBooleanDecoder()],
       ]),
     ],
+    ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],
   ]);
 }
 
@@ -108,6 +112,10 @@ export function pushArgs(
   kind: 'Drift',
   data: GetDiscriminatedUnionVariantContent<PushArgsArgs, '__kind', 'Drift'>
 ): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'Drift'>;
+export function pushArgs(
+  kind: 'Kamino',
+  data: GetDiscriminatedUnionVariantContent<PushArgsArgs, '__kind', 'Kamino'>
+): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'Kamino'>;
 export function pushArgs<K extends PushArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data

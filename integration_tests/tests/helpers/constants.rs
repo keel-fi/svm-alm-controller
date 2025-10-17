@@ -36,4 +36,9 @@ pub const LZ_R1_PROGRAM_ID: Pubkey = pubkey!("8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkE
 pub const LZ_R2_PROGRAM_ID: Pubkey = pubkey!("HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW");
 
 // TODO fix
-pub const DEVNET_RPC: &str = "https://nova-devnet-6827.devnet.rpcpool.com/f14be6f8-f430-4979-bb90-208677d5770f";
+pub const DEVNET_RPC: &str = "https://api.devnet.solana.com";
+
+
+// Kamino Lend
+pub const KAMINO_LEND_PROGRAM_ID: Pubkey = pubkey!("KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD");
+pub const KAMINO_FARMS_PROGRAM_ID: Pubkey = pubkey!("FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr");

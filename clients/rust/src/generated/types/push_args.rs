@@ -25,4 +25,7 @@ pub enum PushArgs {
         amount: u64,
         reduce_only: bool,
     },
+    Kamino {
+        amount: u64,
+    },
 }

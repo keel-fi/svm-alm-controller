@@ -50,7 +50,6 @@ export type PullInstruction<
   TAccountPermission extends string | IAccountMeta<string> = string,
   TAccountIntegration extends string | IAccountMeta<string> = string,
   TAccountReserveA extends string | IAccountMeta<string> = string,
-  TAccountReserveB extends string | IAccountMeta<string> = string,
   TAccountProgramId extends
     | string
     | IAccountMeta<string> = 'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9',
@@ -63,7 +62,7 @@ export type PullInstruction<
         ? ReadonlyAccount<TAccountController>
         : TAccountController,
       TAccountControllerAuthority extends string
-        ? ReadonlyAccount<TAccountControllerAuthority>
+        ? WritableAccount<TAccountControllerAuthority>
         : TAccountControllerAuthority,
       TAccountAuthority extends string
         ? ReadonlySignerAccount<TAccountAuthority> &
@@ -78,9 +77,6 @@ export type PullInstruction<
       TAccountReserveA extends string
         ? WritableAccount<TAccountReserveA>
         : TAccountReserveA,
-      TAccountReserveB extends string
-        ? WritableAccount<TAccountReserveB>
-        : TAccountReserveB,
       TAccountProgramId extends string
         ? ReadonlyAccount<TAccountProgramId>
         : TAccountProgramId,
@@ -126,7 +122,6 @@ export type PullInput<
   TAccountPermission extends string = string,
   TAccountIntegration extends string = string,
   TAccountReserveA extends string = string,
-  TAccountReserveB extends string = string,
   TAccountProgramId extends string = string,
 > = {
   controller: Address<TAccountController>;
@@ -135,7 +130,6 @@ export type PullInput<
   permission: Address<TAccountPermission>;
   integration: Address<TAccountIntegration>;
   reserveA: Address<TAccountReserveA>;
-  reserveB: Address<TAccountReserveB>;
   programId?: Address<TAccountProgramId>;
   pullArgs: PullInstructionDataArgs['pullArgs'];
 };
@@ -147,7 +141,6 @@ export function getPullInstruction<
   TAccountPermission extends string,
   TAccountIntegration extends string,
   TAccountReserveA extends string,
-  TAccountReserveB extends string,
   TAccountProgramId extends string,
   TProgramAddress extends Address = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
 >(
@@ -158,7 +151,6 @@ export function getPullInstruction<
     TAccountPermission,
     TAccountIntegration,
     TAccountReserveA,
-    TAccountReserveB,
     TAccountProgramId
   >,
   config?: { programAddress?: TProgramAddress }
@@ -170,7 +162,6 @@ export function getPullInstruction<
   TAccountPermission,
   TAccountIntegration,
   TAccountReserveA,
-  TAccountReserveB,
   TAccountProgramId
 > {
   // Program address.
@@ -182,13 +173,12 @@ export function getPullInstruction<
     controller: { value: input.controller ?? null, isWritable: false },
     controllerAuthority: {
       value: input.controllerAuthority ?? null,
-      isWritable: false,
+      isWritable: true,
     },
     authority: { value: input.authority ?? null, isWritable: false },
     permission: { value: input.permission ?? null, isWritable: false },
     integration: { value: input.integration ?? null, isWritable: true },
     reserveA: { value: input.reserveA ?? null, isWritable: true },
-    reserveB: { value: input.reserveB ?? null, isWritable: true },
     programId: { value: input.programId ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -214,7 +204,6 @@ export function getPullInstruction<
       getAccountMeta(accounts.permission),
       getAccountMeta(accounts.integration),
       getAccountMeta(accounts.reserveA),
-      getAccountMeta(accounts.reserveB),
       getAccountMeta(accounts.programId),
     ],
     programAddress,
@@ -229,7 +218,6 @@ export function getPullInstruction<
     TAccountPermission,
     TAccountIntegration,
     TAccountReserveA,
-    TAccountReserveB,
     TAccountProgramId
   >;
 
@@ -248,8 +236,7 @@ export type ParsedPullInstruction<
     permission: TAccountMetas[3];
     integration: TAccountMetas[4];
     reserveA: TAccountMetas[5];
-    reserveB: TAccountMetas[6];
-    programId: TAccountMetas[7];
+    programId: TAccountMetas[6];
   };
   data: PullInstructionData;
 };
@@ -262,7 +249,7 @@ export function parsePullInstruction<
     IInstructionWithAccounts<TAccountMetas> &
     IInstructionWithData<Uint8Array>
 ): ParsedPullInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -281,7 +268,6 @@ export function parsePullInstruction<
       permission: getNextAccount(),
       integration: getNextAccount(),
       reserveA: getNextAccount(),
-      reserveB: getNextAccount(),
       programId: getNextAccount(),
     },
     data: getPullInstructionDataDecoder().decode(instruction.data),

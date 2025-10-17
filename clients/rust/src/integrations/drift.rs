@@ -1,5 +1,5 @@
-use solana_pubkey::{pubkey, Pubkey};
 use bytemuck::{Pod, Zeroable};
+use solana_pubkey::{pubkey, Pubkey};
 
 use svm_alm_controller::constants::anchor_discriminator;
 
@@ -62,7 +62,7 @@ pub struct SpotMarket {
     pub historical_index_data: HistoricalIndexData,
     pub revenue_pool: PoolBalance,
     pub spot_fee_pool: PoolBalance,
-    pub insurance_fund: InsuranceFund, 
+    pub insurance_fund: InsuranceFund,
     pub total_spot_fee: u128,
     pub deposit_balance: u128,
     pub borrow_balance: u128,
@@ -128,18 +128,20 @@ impl SpotMarket {
 }
 
 /// Extract oracle and insurance fund addresses from spot market account data
-pub fn extract_spot_market_data(spot_market_account_data: &[u8]) -> Result<SpotMarket, Box<dyn std::error::Error>> {
+pub fn extract_spot_market_data(
+    spot_market_account_data: &[u8],
+) -> Result<SpotMarket, Box<dyn std::error::Error>> {
     // Skip the 8-byte discriminator
     if spot_market_account_data.len() < 8 {
         return Err("Account data too short".into());
     }
-    
+
     let market_data = &spot_market_account_data[8..];
-    
+
     // Parse the SpotMarket struct using bytemuck
     let spot_market = bytemuck::try_from_bytes::<SpotMarket>(market_data)
         .map_err(|e| format!("Failed to parse spot market data: {}", e))?;
-    
+
     Ok(*spot_market)
 }
 

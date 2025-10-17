@@ -420,6 +420,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
+name = "az"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
+
+[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1388,6 +1394,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94474d15a76982be62ca8a39570dccce148d98c238ebb7408b0a21b2c4bdddc4"
 
 [[package]]
+name = "fixed"
+version = "1.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "707070ccf8c4173548210893a0186e29c266901b71ed20cd9e2ca0193dfe95c3"
+dependencies = [
+ "az",
+ "bytemuck",
+ "half",
+ "typenum",
+]
+
+[[package]]
 name = "flate2"
 version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1631,6 +1649,16 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "half"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "459196ed295495a68f7d7fe1d84f6c4b7ff0e21fe3017b2f283c6fac3ad803c9"
+dependencies = [
+ "cfg-if",
+ "crunchy",
 ]
 
 [[package]]
@@ -6739,6 +6767,7 @@ dependencies = [
  "bs58 0.4.0",
  "bytemuck",
  "byteorder",
+ "fixed",
  "num-derive",
  "num-traits",
  "pinocchio",
@@ -6753,6 +6782,7 @@ dependencies = [
  "shank",
  "solana-keccak-hasher",
  "switchboard-on-demand",
+ "uint",
 ]
 
 [[package]]
@@ -6769,6 +6799,7 @@ dependencies = [
  "solana-program",
  "solana-program-error",
  "solana-pubkey",
+ "solana-sdk",
  "solana-sysvar",
  "spl-associated-token-account-client",
  "spl-token-2022 7.0.0",
@@ -6784,6 +6815,7 @@ dependencies = [
  "borsh 1.5.5",
  "bytemuck",
  "endpoint-client",
+ "fixed",
  "hex",
  "litesvm",
  "oft-client",
@@ -6807,6 +6839,7 @@ dependencies = [
  "test-case",
  "test-log",
  "tokio",
+ "uint",
  "uln-client",
 ]
 
@@ -7277,6 +7310,18 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "uint"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76f64bba2c53b04fcab63c01a7d7427eadc821e3bc48c34dc9ba29c501164b52"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "hex",
+ "static_assertions",
+]
 
 [[package]]
 name = "uln-client"

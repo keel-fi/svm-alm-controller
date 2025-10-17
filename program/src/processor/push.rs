@@ -4,7 +4,8 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
     integrations::{
-        cctp_bridge::push::process_push_cctp_bridge, drift::push::process_push_drift,
+        drift::push::process_push_drift,
+        cctp_bridge::push::process_push_cctp_bridge, kamino::push::process_push_kamino,
         lz_bridge::push::process_push_lz_bridge,
         spl_token_external::push::process_push_spl_token_external,
     },
@@ -23,12 +24,16 @@ use pinocchio::{
 define_account_struct! {
     pub struct PushAccounts<'info> {
         controller: @owner(crate::ID);
-        controller_authority: empty, @owner(pinocchio_system::ID);
+        // Needs to be mutable since Kamino requires the `owner`
+        // to be `mut` for depositing
+        controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
         integration: mut, @owner(crate::ID);
+        // Not all Integrations require more than 1 Reserve. Therefore, additional
+        // Reserves are omitted from the outer context. It is entirely up to
+        // the Integration's processor to handle additional reserves.
         reserve_a: mut, @owner(crate::ID);
-        reserve_b: mut, @owner(crate::ID);
         program_id: @pubkey(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
@@ -74,19 +79,6 @@ pub fn process_push(
         return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
     }
 
-    // Load in the reserve account for b (if applicable)
-    // `mut` is kept intentionally so `.as_mut()` can be used safely.
-    #[allow(unused_mut)]
-    let mut reserve_b = if ctx.reserve_a.key().ne(ctx.reserve_b.key()) {
-        let reserve_b = Reserve::load_and_check(ctx.reserve_b, ctx.controller.key())?;
-        if reserve_b.status != ReserveStatus::Active {
-            return Err(SvmAlmControllerErrors::ReserveStatusDoesNotPermitAction.into());
-        }
-        Some(reserve_b)
-    } else {
-        None
-    };
-
     match args {
         PushArgs::SplTokenExternal { .. } => {
             process_push_spl_token_external(
@@ -128,15 +120,22 @@ pub fn process_push(
                 &args,
             )?;
         }
+        PushArgs::Kamino { .. } => {
+            process_push_kamino(
+                &controller,
+                &permission,
+                &mut integration,
+                &mut reserve_a,
+                &ctx,
+                &args,
+            )?;
+        }
         _ => return Err(ProgramError::InvalidArgument),
     }
 
     // Save the reserve and integration accounts
     integration.save(ctx.integration)?;
     reserve_a.save(ctx.reserve_a)?;
-    if reserve_b.is_some() {
-        reserve_b.unwrap().save(ctx.reserve_b)?;
-    }
 
     Ok(())
 }

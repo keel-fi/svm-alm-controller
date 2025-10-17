@@ -455,11 +455,21 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
           "name": "integration",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
           "isMut": true,
           "isSigner": false
         }
@@ -487,7 +497,7 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -507,11 +517,6 @@
         },
         {
           "name": "reserveA",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveB",
           "isMut": true,
           "isSigner": false
         },
@@ -544,7 +549,7 @@
         },
         {
           "name": "controllerAuthority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -564,11 +569,6 @@
         },
         {
           "name": "reserveA",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveB",
           "isMut": true,
           "isSigner": false
         },
@@ -2029,6 +2029,68 @@
       }
     },
     {
+      "name": "KaminoConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserve",
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveLiquidityMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "obligation",
+            "type": "publicKey"
+          },
+          {
+            "name": "obligationId",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                95
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "KaminoState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lastLiquidityValue",
+            "type": "u64"
+          },
+          {
+            "name": "lastLpAmount",
+            "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "LzBridgeConfig",
       "type": {
         "kind": "struct",
@@ -2334,6 +2396,14 @@
                 "defined": "DriftConfig"
               }
             ]
+          },
+          {
+            "name": "Kamino",
+            "fields": [
+              {
+                "defined": "KaminoConfig"
+              }
+            ]
           }
         ]
       }
@@ -2396,6 +2466,14 @@
                 "defined": "DriftState"
               }
             ]
+          },
+          {
+            "name": "Kamino",
+            "fields": [
+              {
+                "defined": "KaminoState"
+              }
+            ]
           }
         ]
       }
@@ -2433,6 +2511,9 @@
           },
           {
             "name": "Drift"
+          },
+          {
+            "name": "Kamino"
           }
         ]
       }
@@ -2628,6 +2709,15 @@
                 "type": "u16"
               }
             ]
+          },
+          {
+            "name": "KaminoIntegration",
+            "fields": [
+              {
+                "name": "obligation_id",
+                "type": "u8"
+              }
+            ]
           }
         ]
       }
@@ -2680,6 +2770,15 @@
                 "type": "bool"
               }
             ]
+          },
+          {
+            "name": "Kamino",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
           }
         ]
       }
@@ -2697,6 +2796,15 @@
           },
           {
             "name": "LzBridge"
+          },
+          {
+            "name": "Kamino",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
           }
         ]
       }

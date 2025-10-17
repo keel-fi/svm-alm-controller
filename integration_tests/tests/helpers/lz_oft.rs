@@ -2,12 +2,8 @@ use std::error::Error;
 
 use oft_client::{
     instructions::SendInstructionArgs,
-    oft302::{
-        Oft302, Oft302Accounts, Oft302Programs, Oft302QuoteParams, Oft302SendAccounts,
-        Oft302SendPrograms,
-    },
+    oft302::{Oft302, Oft302SendAccounts, Oft302SendPrograms},
 };
-use solana_program::pubkey;
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, sysvar};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 use svm_alm_controller_client::{
@@ -26,31 +22,9 @@ pub async fn create_send_ix(
     destination_address: &Pubkey,
     destination_eid: u32,
     amount: u64,
-) -> Result<(Instruction), Box<dyn Error>> {
+) -> Result<Instruction, Box<dyn Error>> {
     let payer_ata = get_associated_token_address_with_program_id(payer, mint, token_program_id);
     let oft302: Oft302 = Oft302::new(*oft_program_id, DEVNET_RPC.to_owned());
-    let quote_accounts = Oft302Accounts {
-        // dummy payer for devnet fetch
-        payer: pubkey!("Fty7h4FYAN7z8yjqaJExMHXbUoJYMcRjWYmggSxLbHp8"),
-        token_mint: *mint,
-        token_escrow: LZ_USDS_ESCROW,
-        peer_address: None,
-    };
-    let quote_params = Oft302QuoteParams {
-        dst_eid: destination_eid,
-        to: destination_address.to_bytes(),
-        amount_ld: amount,
-        min_amount_ld: amount,
-    };
-    let quote = oft302
-        .quote(
-            quote_accounts.clone(),
-            quote_params.clone(),
-            Oft302Programs { endpoint: None },
-            vec![],
-        )
-        .await
-        .unwrap();
 
     let send_accs = Oft302SendAccounts {
         payer: *payer,
@@ -62,12 +36,13 @@ pub async fn create_send_ix(
     let send_params = SendInstructionArgs {
         dst_eid: destination_eid,
         to: destination_address.to_bytes(),
-        amount_ld: quote_params.amount_ld,
-        min_amount_ld: quote_params.min_amount_ld,
+        amount_ld: amount,
+        min_amount_ld: amount,
         options: vec![],
         compose_msg: None,
-        native_fee: quote.native_fee,
-        lz_token_fee: quote.lz_token_fee,
+        // value read from program in LiteSVM env
+        native_fee: 1025646,
+        lz_token_fee: 0,
     };
     let send_programs = Oft302SendPrograms {
         endpoint: Some(LZ_ENDPOINT_PROGRAM_ID),

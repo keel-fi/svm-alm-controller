@@ -61,3 +61,5 @@ endpoint-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = 
 uln-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "uln-client" }
 
 test-case = "3.3.1"
+fixed = "1.23.1"
+uint = "0.9.5"

@@ -5,7 +5,10 @@ pub mod manage_controller;
 pub mod manage_integration;
 pub mod manage_permissions;
 pub mod manage_reserve;
+pub mod pull;
 pub mod push;
+pub mod refresh_kamino_obligation;
+pub mod refresh_kamino_reserve;
 pub mod sync_integration;
 pub mod sync_reserve;
 pub mod update_oracle;
@@ -26,6 +29,8 @@ pub use push::{
     create_cctp_bridge_push_instruction, create_drift_push_instruction,
     create_lz_bridge_push_instruction, create_spl_token_external_push_instruction,
 };
+pub use refresh_kamino_obligation::create_refresh_kamino_obligation_instruction;
+pub use refresh_kamino_reserve::create_refresh_kamino_reserve_instruction;
 pub use sync_integration::create_sync_integration_instruction;
 pub use sync_reserve::create_sync_reserve_instruction;
 pub use update_oracle::create_update_oracle_instruction;

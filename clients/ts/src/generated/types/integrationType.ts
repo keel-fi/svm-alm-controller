@@ -21,6 +21,7 @@ export enum IntegrationType {
   LzBridge,
   AtomicSwap,
   Drift,
+  Kamino,
 }
 
 export type IntegrationTypeArgs = IntegrationType;

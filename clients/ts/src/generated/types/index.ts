@@ -26,6 +26,8 @@ export * from './integrationState';
 export * from './integrationStatus';
 export * from './integrationType';
 export * from './integrationUpdateEvent';
+export * from './kaminoConfig';
+export * from './kaminoState';
 export * from './localToken';
 export * from './lzBridgeConfig';
 export * from './lzBridgeState';

@@ -98,30 +98,30 @@ pub enum SvmAlmControllerInstruction {
 
     /// SyncIntegration
     #[account(0, name = "controller")]
-    #[account(1, name = "controller_authority")]
-    #[account(2, writable, name = "integration")]
+    #[account(1, writable, name = "controller_authority")]
+    #[account(2, writable, signer, name = "payer")]
+    #[account(3, writable, name = "integration")]
+    #[account(4, writable, name = "reserve")]
     Sync(SyncIntegrationArgs),
 
     /// Push
     #[account(0, name = "controller")]
-    #[account(1, name = "controller_authority")]
+    #[account(1, writable, name = "controller_authority")]
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
-    #[account(6, writable, name = "reserve_b")]
-    #[account(7, name = "program_id")]
+    #[account(6, name = "program_id")]
     Push(PushArgs),
 
     /// Pull
     #[account(0, name = "controller")]
-    #[account(1, name = "controller_authority")]
+    #[account(1, writable, name = "controller_authority")]
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
     #[account(4, writable, name = "integration")]
     #[account(5, writable, name = "reserve_a")]
-    #[account(6, writable, name = "reserve_b")]
-    #[account(7, name = "program_id")]
+    #[account(6, name = "program_id")]
     Pull(PullArgs),
 
     /// InitializeOracle
@@ -295,6 +295,9 @@ pub enum InitializeArgs {
         sub_account_id: u16,
         spot_market_index: u16,
     },
+    KaminoIntegration {
+        obligation_id: u8,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -318,7 +321,8 @@ pub enum PushArgs {
         market_index: u16,
         amount: u64,
         reduce_only: bool,
-    }
+    },
+    Kamino { amount: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -326,6 +330,7 @@ pub enum PullArgs {
     SplTokenExternal,
     CctpBridge,
     LzBridge,
+    Kamino { amount: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

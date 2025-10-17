@@ -262,8 +262,21 @@ mod tests {
             controller_pk,
         } = setup_test_controller().unwrap();
 
-        let (integration_pubkey, _, _) =
+        let (integration_pubkey, mint, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
+
+            // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &mint,            // mint
+            &super_authority, // payer
+            &super_authority, // authority
+            ReserveStatus::Active,
+            1_000_000_000, // rate_limit_slope
+            1_000_000_000, // rate_limit_max_outflow
+            &spl_token::ID,
+        )?;
 
         // Freeze the controller
         manage_controller(
@@ -274,11 +287,14 @@ mod tests {
             ControllerStatus::Frozen,
         )?;
 
+        
+
         // Try to sync integration when frozen - should fail
         let instruction = create_sync_integration_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &integration_pubkey,
+            &reserve_keys.pubkey
         );
 
         let txn = Transaction::new_signed_with_payer(
@@ -640,8 +656,8 @@ mod tests {
                 4 => invalid_owner(InstructionError::InvalidAccountOwner, "Integration: Invalid owner"),
                 // Change reserve (index 5) owner:
                 5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve: Invalid owner"),
-                // Change program_id (index 7) owner:
-                7 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
+                // Change program_id (index 6) owner:
+                6 => invalid_program_id(InstructionError::IncorrectProgramId, "Program: invalid program id"),
             }
         );
 

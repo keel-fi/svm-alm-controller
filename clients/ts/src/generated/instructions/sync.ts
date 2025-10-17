@@ -18,11 +18,14 @@ import {
   type Decoder,
   type Encoder,
   type IAccountMeta,
+  type IAccountSignerMeta,
   type IInstruction,
   type IInstructionWithAccounts,
   type IInstructionWithData,
   type ReadonlyAccount,
+  type TransactionSigner,
   type WritableAccount,
+  type WritableSignerAccount,
 } from '@solana/kit';
 import { SVM_ALM_CONTROLLER_PROGRAM_ADDRESS } from '../programs';
 import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
@@ -37,7 +40,9 @@ export type SyncInstruction<
   TProgram extends string = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
   TAccountController extends string | IAccountMeta<string> = string,
   TAccountControllerAuthority extends string | IAccountMeta<string> = string,
+  TAccountPayer extends string | IAccountMeta<string> = string,
   TAccountIntegration extends string | IAccountMeta<string> = string,
+  TAccountReserve extends string | IAccountMeta<string> = string,
   TRemainingAccounts extends readonly IAccountMeta<string>[] = [],
 > = IInstruction<TProgram> &
   IInstructionWithData<Uint8Array> &
@@ -47,11 +52,18 @@ export type SyncInstruction<
         ? ReadonlyAccount<TAccountController>
         : TAccountController,
       TAccountControllerAuthority extends string
-        ? ReadonlyAccount<TAccountControllerAuthority>
+        ? WritableAccount<TAccountControllerAuthority>
         : TAccountControllerAuthority,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            IAccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountIntegration extends string
         ? WritableAccount<TAccountIntegration>
         : TAccountIntegration,
+      TAccountReserve extends string
+        ? WritableAccount<TAccountReserve>
+        : TAccountReserve,
       ...TRemainingAccounts,
     ]
   >;
@@ -84,30 +96,40 @@ export function getSyncInstructionDataCodec(): Codec<
 export type SyncInput<
   TAccountController extends string = string,
   TAccountControllerAuthority extends string = string,
+  TAccountPayer extends string = string,
   TAccountIntegration extends string = string,
+  TAccountReserve extends string = string,
 > = {
   controller: Address<TAccountController>;
   controllerAuthority: Address<TAccountControllerAuthority>;
+  payer: TransactionSigner<TAccountPayer>;
   integration: Address<TAccountIntegration>;
+  reserve: Address<TAccountReserve>;
 };
 
 export function getSyncInstruction<
   TAccountController extends string,
   TAccountControllerAuthority extends string,
+  TAccountPayer extends string,
   TAccountIntegration extends string,
+  TAccountReserve extends string,
   TProgramAddress extends Address = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
 >(
   input: SyncInput<
     TAccountController,
     TAccountControllerAuthority,
-    TAccountIntegration
+    TAccountPayer,
+    TAccountIntegration,
+    TAccountReserve
   >,
   config?: { programAddress?: TProgramAddress }
 ): SyncInstruction<
   TProgramAddress,
   TAccountController,
   TAccountControllerAuthority,
-  TAccountIntegration
+  TAccountPayer,
+  TAccountIntegration,
+  TAccountReserve
 > {
   // Program address.
   const programAddress =
@@ -118,9 +140,11 @@ export function getSyncInstruction<
     controller: { value: input.controller ?? null, isWritable: false },
     controllerAuthority: {
       value: input.controllerAuthority ?? null,
-      isWritable: false,
+      isWritable: true,
     },
+    payer: { value: input.payer ?? null, isWritable: true },
     integration: { value: input.integration ?? null, isWritable: true },
+    reserve: { value: input.reserve ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -132,7 +156,9 @@ export function getSyncInstruction<
     accounts: [
       getAccountMeta(accounts.controller),
       getAccountMeta(accounts.controllerAuthority),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.integration),
+      getAccountMeta(accounts.reserve),
     ],
     programAddress,
     data: getSyncInstructionDataEncoder().encode({}),
@@ -140,7 +166,9 @@ export function getSyncInstruction<
     TProgramAddress,
     TAccountController,
     TAccountControllerAuthority,
-    TAccountIntegration
+    TAccountPayer,
+    TAccountIntegration,
+    TAccountReserve
   >;
 
   return instruction;
@@ -154,7 +182,9 @@ export type ParsedSyncInstruction<
   accounts: {
     controller: TAccountMetas[0];
     controllerAuthority: TAccountMetas[1];
-    integration: TAccountMetas[2];
+    payer: TAccountMetas[2];
+    integration: TAccountMetas[3];
+    reserve: TAccountMetas[4];
   };
   data: SyncInstructionData;
 };
@@ -167,7 +197,7 @@ export function parseSyncInstruction<
     IInstructionWithAccounts<TAccountMetas> &
     IInstructionWithData<Uint8Array>
 ): ParsedSyncInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 3) {
+  if (instruction.accounts.length < 5) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -182,7 +212,9 @@ export function parseSyncInstruction<
     accounts: {
       controller: getNextAccount(),
       controllerAuthority: getNextAccount(),
+      payer: getNextAccount(),
       integration: getNextAccount(),
+      reserve: getNextAccount(),
     },
     data: getSyncInstructionDataDecoder().decode(instruction.data),
   };
