@@ -15,7 +15,7 @@ use svm_alm_controller_client::{
 
 use crate::helpers::{
     constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID}, 
-    kamino::{math_utils::Fraction, state::{kfarms::{FarmState, GlobalConfig, RewardInfo}, klend::{KaminoReserve, LendingMarket, Obligation}}}, spl::{setup_token_account, setup_token_mint}
+    kamino::{math_utils::Fraction, state::{kfarms::{FarmState, GlobalConfig, RewardInfo, UserState}, klend::{KaminoReserve, LendingMarket, Obligation}}}, spl::{setup_token_account, setup_token_mint}
 };
 
 pub fn get_liquidity_and_lp_amount(
@@ -52,6 +52,42 @@ pub fn get_liquidity_and_lp_amount(
     };
 
     Ok((liquidity_value, lp_amount))
+}
+
+pub fn set_obligation_farm_rewards_issued_unclaimed(
+    svm: &mut LiteSVM,
+    obligation_farm: &Pubkey,
+    reward_mint: &Pubkey,
+    token_program: &Pubkey,
+    amount: u64
+) -> Result<(), Box<dyn std::error::Error>>  {
+    let user_state_acc = svm.get_account(obligation_farm)
+        .expect("Failed to fetch reserve farm");
+    let mut user_state = UserState::try_from(&user_state_acc.data)?.clone();
+
+    let reserve_farm_acc = svm.get_account(&user_state.farm_state)
+        .expect("Failed to fetch reserve farm");
+    let reserve_farm = FarmState::try_from(&reserve_farm_acc.data)?;
+
+    let (reward_index, _) = reserve_farm.find_reward_index_and_rewards_available(
+        reward_mint, 
+        token_program
+    ).expect("Failed to get reward_index");
+
+    user_state.rewards_issued_unclaimed[reward_index as usize] = amount;
+
+    svm.set_account(
+        *obligation_farm, 
+        Account { 
+            data: vec![
+                UserState::DISCRIMINATOR.to_vec(),
+                bytemuck::bytes_of(&user_state).to_vec(),
+            ].concat(),
+            ..user_state_acc
+        }
+    )?;
+
+    Ok(())
 }
 
 pub fn fetch_kamino_reserve(
@@ -266,9 +302,11 @@ pub fn setup_kamino_state(
         &reserve_farm_collateral, 
         &reward_mint
     );
-    let farm_vault_authority = derive_farm_vaults_authority(
+    let (farm_vault_authority, farm_vault_authority_bump) = derive_farm_vaults_authority(
         &reserve_farm_collateral
     );
+    farm_collateral.farm_vaults_authority = farm_vault_authority;
+    farm_collateral.farm_vaults_authority_bump = farm_vault_authority_bump as u64; 
 
     setup_token_account(
         svm, 
@@ -284,7 +322,9 @@ pub fn setup_kamino_state(
     reward_info.token.decimals = 6;
     reward_info.token.mint = *reward_mint;
     reward_info.token.token_program= spl_token::ID;
-
+    reward_info.rewards_available = u64::MAX;
+    reward_info.rewards_vault = reward_vault;
+    reward_info.rewards_issued_unclaimed = u64::MAX;
     farm_collateral.reward_infos[0] = reward_info;
     svm.set_account(
         reserve_farm_collateral, 
@@ -323,7 +363,6 @@ pub fn setup_kamino_state(
         }
     )
     .unwrap();
-
 
 
     // setup reserve (klend)

@@ -71,7 +71,7 @@ pub fn create_sync_kamino_lend_ix(
     let obligation_farm_pda = derive_obligation_farm_address(reserve_farm, &obligation);
     let rewards_vault_pda = derive_rewards_vault(reserve_farm, &rewards_mint);
     let rewards_treasury_vault_pda = derive_rewards_treasury_vault(&global_config, &rewards_mint);
-    let farms_vault_authority_pda = derive_farm_vaults_authority(reserve_farm);
+    let (farms_vault_authority_pda, _) = derive_farm_vaults_authority(reserve_farm);
 
     let remaining_accounts = &[
         AccountMeta {
