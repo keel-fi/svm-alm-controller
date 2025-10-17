@@ -5,3 +5,4 @@ pub mod initialize;
 pub mod protocol_state;
 pub mod push;
 pub mod state;
+pub mod sync;
