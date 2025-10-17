@@ -1,8 +1,11 @@
 use solana_pubkey::{pubkey, Pubkey};
 
-use crate::integrations::drift::state::SpotMarket;
-
 pub const DRIFT_PROGRAM_ID: Pubkey = pubkey!("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH");
+
+/// Derives Drift CPI signer
+pub fn derive_drift_signer() -> Pubkey {
+    Pubkey::find_program_address(&[b"drift_signer".as_ref()], &DRIFT_PROGRAM_ID).0
+}
 
 /// Derives State PDA
 pub fn derive_state_pda() -> Pubkey {
