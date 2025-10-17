@@ -90,7 +90,6 @@ pub fn create_drift_push_instruction(
         .permission(permission_pda)
         .integration(*integration)
         .reserve_a(*reserve)
-        .reserve_b(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
         .push_args(PushArgs::Drift {
             market_index: spot_market_index,
