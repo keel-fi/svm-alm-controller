@@ -8,7 +8,7 @@
 use crate::generated::types::PermissionStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_pubkey::Pubkey;
+use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -46,10 +46,12 @@ impl Permission {
     }
 }
 
-impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for Permission {
+impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Permission {
     type Error = std::io::Error;
 
-    fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
+    fn try_from(
+        account_info: &solana_program::account_info::AccountInfo<'a>,
+    ) -> Result<Self, Self::Error> {
         let mut data: &[u8] = &(*account_info.data).borrow();
         Self::deserialize(&mut data)
     }
@@ -58,7 +60,7 @@ impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for Permission {
 #[cfg(feature = "fetch")]
 pub fn fetch_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_pubkey::Pubkey,
+    address: &solana_program::pubkey::Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Permission>, std::io::Error> {
     let accounts = fetch_all_permission(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -67,7 +69,7 @@ pub fn fetch_permission(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_pubkey::Pubkey],
+    addresses: &[solana_program::pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Permission>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
@@ -92,7 +94,7 @@ pub fn fetch_all_permission(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_pubkey::Pubkey,
+    address: &solana_program::pubkey::Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Permission>, std::io::Error> {
     let accounts = fetch_all_maybe_permission(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -101,7 +103,7 @@ pub fn fetch_maybe_permission(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_permission(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_pubkey::Pubkey],
+    addresses: &[solana_program::pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Permission>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
@@ -147,5 +149,5 @@ impl anchor_lang::IdlBuild for Permission {}
 
 #[cfg(feature = "anchor-idl-build")]
 impl anchor_lang::Discriminator for Permission {
-    const DISCRIMINATOR: &[u8] = &[0; 8];
+    const DISCRIMINATOR: [u8; 8] = [0; 8];
 }

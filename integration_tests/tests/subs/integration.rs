@@ -1,6 +1,4 @@
-use crate::subs::{
-    derive_controller_authority_pda, derive_permission_pda,
-};
+use crate::subs::{derive_controller_authority_pda, derive_permission_pda};
 use borsh::BorshDeserialize;
 use litesvm::{types::TransactionResult, LiteSVM};
 use solana_sdk::{
@@ -50,7 +48,7 @@ pub fn manage_integration(
     rate_limit_slope: u64,
     rate_limit_max_outflow: u64,
     description: String,
-) -> TransactionResult  {
+) -> TransactionResult {
     let calling_permission_pda = derive_permission_pda(controller, &authority.pubkey());
     let controller_authority = derive_controller_authority_pda(controller);
 

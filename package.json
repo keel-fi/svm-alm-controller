@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "generate-clients": "node ./scripts/generate-clients.js",
-    "generate-idl": "shank idl -r program -o idl"
+    "generate-idl": "shank idl -r program -o idl",
+    "generate-all": "cargo build-sbf && yarn generate-idl && yarn generate-clients"
   },
   "devDependencies": {
     "@codama/nodes-from-anchor": "^1.2.9",

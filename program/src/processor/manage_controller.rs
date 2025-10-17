@@ -34,7 +34,8 @@ pub fn process_manage_controller(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let mut controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    let mut controller =
+        Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
     // Error when Controller is frozen and updated status is not Active
     if controller.is_frozen() && args.status != ControllerStatus::Active {

@@ -10,7 +10,9 @@ use svm_alm_controller_client::generated::types::{ControllerStatus, ReserveStatu
 #[cfg(test)]
 mod tests {
 
-    use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, signature::Keypair, transaction::Transaction};
+    use solana_sdk::{
+        instruction::InstructionError, pubkey::Pubkey, signature::Keypair, transaction::Transaction,
+    };
     use svm_alm_controller_client::{
         create_initialize_reserve_instruction, create_manage_reserve_instruction,
         create_sync_reserve_instruction, generated::types::PermissionStatus,
@@ -65,7 +67,8 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize_reserve_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_initialize_reserve_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -86,7 +89,6 @@ mod tests {
         // modify controller authority (index 2) to a different pubkey
         instruction.accounts[2].pubkey = Pubkey::new_unique();
 
-
         let txn = Transaction::new_signed_with_payer(
             &[instruction],
             Some(&super_authority.pubkey()),
@@ -96,7 +98,11 @@ mod tests {
 
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -154,7 +160,8 @@ mod tests {
     }
 
     #[test]
-    fn test_manage_reserve_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_reserve_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -194,7 +201,11 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -275,7 +286,11 @@ mod tests {
 
         let invalid_permission_authority = Keypair::new();
 
-        airdrop_lamports(&mut svm, &invalid_permission_authority.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(
+            &mut svm,
+            &invalid_permission_authority.pubkey(),
+            1_000_000_000,
+        )?;
 
         // Create Permission with the given permissions
         let _ = manage_permission(
@@ -348,7 +363,11 @@ mod tests {
 
         let invalid_permission_authority = Keypair::new();
 
-        airdrop_lamports(&mut svm, &invalid_permission_authority.pubkey(), 1_000_000_000)?;
+        airdrop_lamports(
+            &mut svm,
+            &invalid_permission_authority.pubkey(),
+            1_000_000_000,
+        )?;
 
         // Create Permission with the given permissions
         let _ = manage_permission(
@@ -411,7 +430,8 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_reserve_fails_with_invalid_controller_authority() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_sync_reserve_fails_with_invalid_controller_authority(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -448,7 +468,11 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidControllerAuthority);
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidControllerAuthority,
+        );
 
         Ok(())
     }
@@ -495,9 +519,7 @@ mod tests {
         // (index 4) reserve: mut, owner == crate::ID,
         // (index 5) program_id: pubkey == crate::ID
 
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&super_authority)
-        ];
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
@@ -550,9 +572,7 @@ mod tests {
         // (index 2) reserve: mut, owner == crate::ID,
         // (index 3) vault: pubkey check
 
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&super_authority)
-        ];
+        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),

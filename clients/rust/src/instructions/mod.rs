@@ -26,8 +26,8 @@ pub use manage_integration::create_manage_integration_instruction;
 pub use manage_permissions::create_manage_permissions_instruction;
 pub use manage_reserve::create_manage_reserve_instruction;
 pub use push::{
-    create_cctp_bridge_push_instruction, create_lz_bridge_push_instruction,
-    create_spl_token_external_push_instruction,
+    create_cctp_bridge_push_instruction, create_drift_push_instruction,
+    create_lz_bridge_push_instruction, create_spl_token_external_push_instruction,
 };
 pub use refresh_kamino_obligation::create_refresh_kamino_obligation_instruction;
 pub use refresh_kamino_reserve::create_refresh_kamino_reserve_instruction;

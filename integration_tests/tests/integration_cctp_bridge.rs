@@ -1058,7 +1058,6 @@ mod tests {
         // (index 19) token_program: pubkey == SplToken / Token2022
         // (index 20) system_program: pubkey == systen_program_id
 
-
         // change remote_token_messenger data
         let remote_token_messenger_pk = push_ix.accounts[12].pubkey;
         let remote_token_messenger_acc_before = svm
@@ -1084,7 +1083,6 @@ mod tests {
         svm.set_account(remote_token_messenger_pk, remote_token_messenger_acc_before)
             .expect("failed to get account");
         svm.expire_blockhash();
-
 
         // change local_token data
         let local_token_pk = push_ix.accounts[14].pubkey;
@@ -1112,10 +1110,9 @@ mod tests {
             .expect("failed to get account");
         svm.expire_blockhash();
 
-
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![
-            Box::new(&super_authority), 
-            Box::new(&message_sent_event_data_kp)
+            Box::new(&super_authority),
+            Box::new(&message_sent_event_data_kp),
         ];
         test_invalid_accounts!(
             svm.clone(),

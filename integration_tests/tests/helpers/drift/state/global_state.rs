@@ -109,6 +109,7 @@ pub fn setup_drift_state(svm: &mut LiteSVM) -> DriftTestContext {
     let mut state = State::default();
     // -- Update state variables
     state.admin = admin.pubkey();
+    state.number_of_spot_markets = 2; // Allow at least 2 spot markets for testing
 
     let mut state_data = Vec::with_capacity(std::mem::size_of::<State>() + 8);
     state_data.extend_from_slice(&State::DISCRIMINATOR);

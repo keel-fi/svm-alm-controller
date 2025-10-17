@@ -2204,7 +2204,9 @@ mod tests {
         let reserve_a_account = svm.get_account(&swap_env.pc_reserve_pubkey).unwrap();
         let reserve_b_account = svm.get_account(&swap_env.coin_reserve_pubkey).unwrap();
         let permission_account = svm.get_account(&swap_env.permission_pda).unwrap();
-        let integration_account = svm.get_account(&swap_env.atomic_swap_integration_pk).unwrap();
+        let integration_account = svm
+            .get_account(&swap_env.atomic_swap_integration_pk)
+            .unwrap();
         // overwrite controller to incorrect pubkey
         let mut invalid_permission_controller = permission_account.clone();
         invalid_permission_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
@@ -2305,7 +2307,9 @@ mod tests {
         let reserve_a_account = svm.get_account(&swap_env.pc_reserve_pubkey).unwrap();
         let reserve_b_account = svm.get_account(&swap_env.coin_reserve_pubkey).unwrap();
         let permission_account = svm.get_account(&swap_env.permission_pda).unwrap();
-        let integration_account = svm.get_account(&swap_env.atomic_swap_integration_pk).unwrap();
+        let integration_account = svm
+            .get_account(&swap_env.atomic_swap_integration_pk)
+            .unwrap();
         // overwrite controller to incorrect pubkey
         let mut invalid_permission_controller = permission_account.clone();
         invalid_permission_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
@@ -2329,10 +2333,12 @@ mod tests {
         invalid_integration_controller.data[1..33].copy_from_slice(Pubkey::new_unique().as_ref());
         // overwrite AtomicSwap Config input_token to incorrect pubkey
         let mut invalid_integration_input_token = integration_account.clone();
-        invalid_integration_input_token.data[147..179].copy_from_slice(Pubkey::new_unique().as_ref());
+        invalid_integration_input_token.data[147..179]
+            .copy_from_slice(Pubkey::new_unique().as_ref());
         // overwrite AtomicSwap Config output_token to incorrect pubkey
         let mut invalid_integration_output_token = integration_account.clone();
-        invalid_integration_output_token.data[179..211].copy_from_slice(Pubkey::new_unique().as_ref());
+        invalid_integration_output_token.data[179..211]
+            .copy_from_slice(Pubkey::new_unique().as_ref());
         // overwrite AtomicSwap Config oracle to incorrect pubkey
         let mut invalid_integration_oracle = integration_account.clone();
         invalid_integration_oracle.data[211..243].copy_from_slice(Pubkey::new_unique().as_ref());
