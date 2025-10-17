@@ -27,6 +27,6 @@ solana-program-error = { workspace = true }
 solana-pubkey = { workspace = true }
 solana-sysvar = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
-spl-token-2022 = { workspace = true }
-svm-alm-controller = { path = "../../program" }
+spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
 solana-sdk = { workspace = true }
+sha2-const-stable = { workspace = true }

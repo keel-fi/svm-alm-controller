@@ -1,9 +1,7 @@
 use bytemuck::{Pod, Zeroable};
-use solana_pubkey::{pubkey, Pubkey};
+use solana_pubkey::Pubkey;
 
-use svm_alm_controller::constants::anchor_discriminator;
-
-pub const DRIFT_PROGRAM_ID: Pubkey = pubkey!("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH");
+use crate::integrations::utils::anchor_discriminator;
 
 // Import the SpotMarket struct from the integration tests helpers
 // This is a temporary solution - ideally we'd have this in a shared location
@@ -125,63 +123,4 @@ pub struct SpotMarket {
 
 impl SpotMarket {
     pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
-}
-
-/// Extract oracle and insurance fund addresses from spot market account data
-pub fn extract_spot_market_data(
-    spot_market_account_data: &[u8],
-) -> Result<SpotMarket, Box<dyn std::error::Error>> {
-    // Skip the 8-byte discriminator
-    if spot_market_account_data.len() < 8 {
-        return Err("Account data too short".into());
-    }
-
-    let market_data = &spot_market_account_data[8..];
-
-    // Parse the SpotMarket struct using bytemuck
-    let spot_market = bytemuck::try_from_bytes::<SpotMarket>(market_data)
-        .map_err(|e| format!("Failed to parse spot market data: {}", e))?;
-
-    Ok(*spot_market)
-}
-
-/// Derives State PDA
-pub fn derive_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[b"drift_state"], &DRIFT_PROGRAM_ID).0
-}
-
-/// Derives UserStats PDA
-pub fn derive_user_stats_pda(authority: &Pubkey) -> Pubkey {
-    Pubkey::find_program_address(&[b"user_stats", authority.as_ref()], &DRIFT_PROGRAM_ID).0
-}
-
-/// Derives User subaccount PDA
-pub fn derive_user_pda(authority: &Pubkey, sub_account_id: u16) -> Pubkey {
-    Pubkey::find_program_address(
-        &[
-            b"user",
-            authority.as_ref(),
-            sub_account_id.to_le_bytes().as_ref(),
-        ],
-        &DRIFT_PROGRAM_ID,
-    )
-    .0
-}
-
-/// Derives SpotMarket PDA
-pub fn derive_spot_market_pda(market_index: u16) -> Pubkey {
-    Pubkey::find_program_address(
-        &[b"spot_market", market_index.to_le_bytes().as_ref()],
-        &DRIFT_PROGRAM_ID,
-    )
-    .0
-}
-
-/// Derives SpotMarket Vault PDA
-pub fn derive_spot_market_vault_pda(market_index: u16) -> Pubkey {
-    Pubkey::find_program_address(
-        &[b"spot_market_vault", market_index.to_le_bytes().as_ref()],
-        &DRIFT_PROGRAM_ID,
-    )
-    .0
 }

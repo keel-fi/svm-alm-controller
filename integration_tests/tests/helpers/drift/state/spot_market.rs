@@ -26,7 +26,7 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<
         let mint_account = spl_token::state::Mint::unpack(&mint_account.data).unwrap();
         spot_market.decimals = mint_account.decimals as u32;
     } else {
-        spot_market.decimals = 6; // Set decimals (matching our token mint)
+        spot_market.decimals = 6;
     }
 
     // Set up vault account (the spot market vault PDA)
@@ -47,8 +47,8 @@ pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<
     spot_market.orders_enabled = 1; // Enable orders
     spot_market.asset_tier = 1; // Set asset tier
     spot_market.oracle_source = 7; // Set oracle source to pyth pull
-    spot_market.cumulative_deposit_interest = 1000000000000000000; // Set cumulative deposit interest to 1
-    spot_market.cumulative_borrow_interest = 1000000000000000000; // Set cumulative borrow interest to 1
+    spot_market.cumulative_deposit_interest = 10_000_000_000; // Set cumulative deposit interest to 1
+    spot_market.cumulative_borrow_interest = 10_000_000_000; // Set cumulative borrow interest to 1
 
     // Set market_index in PoolBalance structs - this is critical for Drift validation
     spot_market.revenue_pool.market_index = market_index;

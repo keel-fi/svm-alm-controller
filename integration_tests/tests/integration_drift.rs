@@ -17,15 +17,14 @@ mod tests {
     };
     use borsh::BorshDeserialize;
     use bytemuck;
-    use litesvm::LiteSVM;
-    use solana_sdk::instruction::AccountMeta;
+    use solana_sdk::program_pack::Pack;
     use solana_sdk::{
         clock::Clock,
         instruction::InstructionError,
         signer::Signer,
         transaction::{Transaction, TransactionError},
     };
-    use solana_sdk::{pubkey::Pubkey, signer::keypair::Keypair};
+    use solana_sdk::{signer::keypair::Keypair};
     use spl_token;
     use svm_alm_controller_client::integrations::drift::SpotMarket;
     use svm_alm_controller_client::{
@@ -38,7 +37,7 @@ mod tests {
         instructions::create_drift_push_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
     };
-    use svm_alm_controller_client::instructions::push::fetch_inner_remaining_accounts;
+    use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
 
     #[test]
     fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
@@ -332,7 +331,7 @@ mod tests {
         let drift_user_acct_before = svm.get_account(&drift_user_pda).unwrap();
         let drift_user_before = User::try_from(&drift_user_acct_before.data).unwrap();
 
-        let inner_remaining_accounts = fetch_inner_remaining_accounts(&[*spot_market]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -415,10 +414,20 @@ mod tests {
             "Spot position cumulative_deposits should have increased by push amount"
         );
 
-        // Assert spot position scaled_balance increased (this represents the actual deposit)
-        assert!(
-            spot_position_after.scaled_balance > spot_position_before.scaled_balance,
-            "Spot position scaled_balance should have increased"
+        // Copy packed field to avoid unaligned reference error
+        let cumulative_deposit_interest = spot_market.cumulative_deposit_interest;
+        
+        let token_mint_account = svm.get_account(&token_mint).unwrap();
+        let token_mint_account = spl_token::state::Mint::unpack(&token_mint_account.data).unwrap();
+        // https://github.com/drift-labs/protocol-v2/blob/master/programs/drift/src/math/spot_balance.rs#L45
+        let spot_balance_precision = 10_u128.pow(19 - token_mint_account.decimals as u32); // 10^13 (19 - 6)
+        let expected_scaled_balance_increase = (push_amount as u128 * spot_balance_precision as u128 / cumulative_deposit_interest) as u64;
+        
+        // Assert spot position scaled_balance increased by the calculated amount
+        assert_eq!(
+            spot_position_after.scaled_balance,
+            spot_position_before.scaled_balance + expected_scaled_balance_increase,
+            "Spot position scaled_balance should have increased by calculated amount based on cumulative deposit interest"
         );
 
         // Assert the spot position balance_type is 0 (Deposit)

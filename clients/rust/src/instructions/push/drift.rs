@@ -77,11 +77,7 @@ pub fn create_drift_push_instruction(
         },
     ];
 
-    remaining_accounts.extend(inner_remaining_accounts.iter().map(|account| AccountMeta {
-        pubkey: account.pubkey,
-        is_signer: account.is_signer,
-        is_writable: account.is_writable,
-    }));
+    remaining_accounts.extend_from_slice(inner_remaining_accounts);
 
     let instruction = PushBuilder::new()
         .controller(*controller)
