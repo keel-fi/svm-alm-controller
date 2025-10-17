@@ -62,7 +62,7 @@ pub fn process_sync_integration(
             // since it's the only integration that needs it for now.
             reserve.save(ctx.reserve)?;
         }
-        IntegrationConfig::Drift(config) => {
+        IntegrationConfig::Drift(_config) => {
             // Load in the reserve account (drift only handles one reserve)
             let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
