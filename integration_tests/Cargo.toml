@@ -16,8 +16,8 @@ pinocchio-token = { workspace = true }
 pinocchio-associated-token-account = { workspace = true }
 safe-transmute = { workspace = true }
 solana-keccak-hasher = { workspace = true}
-spl-token = { workspace = true }
-spl-token-2022 = { workspace = true }
+spl-token = { workspace = true, features = ["no-entrypoint"] }
+spl-token-2022 = { workspace = true, features = ["no-entrypoint"] }
 solana-system-interface = { workspace = true }
 spl-associated-token-account-client = { workspace = true }
 serde = { workspace = true }
