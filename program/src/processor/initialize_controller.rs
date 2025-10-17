@@ -6,7 +6,9 @@ use crate::{
     state::{Controller, Permission},
 };
 use borsh::BorshDeserialize;
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult};
+use pinocchio::{
+    account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 
 define_account_struct! {
     pub struct InitializeControllerAccounts<'info> {

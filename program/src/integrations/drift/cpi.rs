@@ -43,7 +43,6 @@ cpi_instruction! {
     }
 }
 
-
 cpi_instruction! {
     /// Deposit tokens into a Drift spot market
     pub struct Deposit<'info> {

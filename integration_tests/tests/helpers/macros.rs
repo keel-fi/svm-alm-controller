@@ -18,16 +18,15 @@ macro_rules! assert_contains_controller_cpi_event {
                     let event_data = &inner_instruction.instruction.data[7..];
                     let event_res = SvmAlmControllerEvent::try_from_slice(event_data);
                     match event_res {
-                      Ok(event) => {
-                        if event == $svm_controller_event {
-                            found = true;
-                            break;
+                        Ok(event) => {
+                            if event == $svm_controller_event {
+                                found = true;
+                                break;
+                            }
                         }
-
-                      },
-                      Err(_e) => {
-                        println!("Failed to deserialze Controller CPI event");
-                      }
+                        Err(_e) => {
+                            println!("Failed to deserialze Controller CPI event");
+                        }
                     }
                 }
             }

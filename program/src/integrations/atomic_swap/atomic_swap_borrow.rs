@@ -19,9 +19,7 @@ use crate::{
         ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX, ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX,
     },
     define_account_struct,
-    enums::{
-        IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
-    },
+    enums::{IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},

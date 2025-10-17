@@ -90,7 +90,6 @@ pub struct FarmState {
     pub _padding_1: [u64; 32],
     pub _padding_2: [u64; 32],
     pub _padding_3: [u64; 10],
-
 }
 
 impl FarmState {
@@ -102,11 +101,11 @@ impl FarmState {
         }
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
-    
+
     pub fn find_reward_index_and_rewards_available(
-        &self, 
+        &self,
         reward_mint: &Pubkey,
-        reward_token_program: &Pubkey
+        reward_token_program: &Pubkey,
     ) -> Option<(u64, u64)> {
         self.reward_infos
             .iter()
@@ -121,9 +120,7 @@ impl FarmState {
                 }
             })
     }
-    
 }
-
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
@@ -184,23 +181,25 @@ impl UserState {
         }
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
-    
+
     pub fn get_rewards(
         &self,
-        svm: &LiteSVM, 
-        global_config_pk: &Pubkey, 
-        reward_index: usize
+        svm: &LiteSVM,
+        global_config_pk: &Pubkey,
+        reward_index: usize,
     ) -> Result<u64, Box<dyn std::error::Error>> {
         let reward = self.rewards_issued_unclaimed[reward_index];
         if reward == 0 {
-            return Ok(0)
+            return Ok(0);
         }
 
-        let global_config_acc = svm.get_account(global_config_pk)
+        let global_config_acc = svm
+            .get_account(global_config_pk)
             .expect("Failed to get GlobalConfig");
 
         let global_config_state = GlobalConfig::try_from(&global_config_acc.data)?;
-        let reward_treasury = Self::u64_mul_div(reward, global_config_state.treasury_fee_bps, 10000)?;
+        let reward_treasury =
+            Self::u64_mul_div(reward, global_config_state.treasury_fee_bps, 10000)?;
         let reward_user = reward
             .checked_sub(reward_treasury)
             .ok_or_else(|| ProgramError::ArithmeticOverflow)?;
@@ -213,9 +212,7 @@ impl UserState {
         let b: u128 = b.into();
         let c: u128 = c.into();
 
-        let numerator = a
-            .checked_mul(b)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
+        let numerator = a.checked_mul(b).ok_or(ProgramError::ArithmeticOverflow)?;
 
         let result = numerator
             .checked_div(c)

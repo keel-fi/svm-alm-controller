@@ -322,7 +322,9 @@ pub enum PushArgs {
         amount: u64,
         reduce_only: bool,
     },
-    Kamino { amount: u64 },
+    Kamino {
+        amount: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
