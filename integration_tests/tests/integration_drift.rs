@@ -347,8 +347,10 @@ mod tests {
         let reserve_vault_before = get_token_balance_or_zero(&svm, &reserve_keys.vault);
         let spot_market_vault_before = get_token_balance_or_zero(&svm, &spot_market.vault);
 
-        // The user_token_account is the controller authority's ATA (same as reserve vault)
-        let user_token_account_before = reserve_vault_before;
+        // Fetch drift user state before push
+        let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
+        let drift_user_acct_before = svm.get_account(&drift_user_pda).unwrap();
+        let drift_user_before = User::try_from(&drift_user_acct_before.data).unwrap();
 
         let inner_remaining_accounts = fetch_inner_remaining_accounts(&svm, &spot_market_pubkey);
         let push_ix = create_drift_push_instruction(
@@ -387,8 +389,10 @@ mod tests {
         let reserve_vault_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
         let spot_market_vault_after = get_token_balance_or_zero(&svm, &spot_market.vault);
 
-        // The user_token_account is the controller authority's ATA (same as reserve vault)
-        let user_token_account_after = reserve_vault_after;
+        // Fetch drift user state after push
+        let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
+        let drift_user_acct_after = svm.get_account(&drift_user_pda).unwrap();
+        let drift_user_after = User::try_from(&drift_user_acct_after.data).unwrap();
 
         assert_eq!(
             integration_after.rate_limit_outflow_amount_available,
@@ -414,11 +418,34 @@ mod tests {
             "Drift spot market vault should have increased by push amount"
         );
 
-        // Assert user token account balance decreased by push amount (intermediate step)
+        // Find the spot position for the market we're depositing into
+        let spot_position_index = drift_user_after
+            .spot_positions
+            .iter()
+            .position(|pos| pos.market_index == spot_market_index)
+            .expect("Spot position should exist for the market");
+
+        let spot_position_before = drift_user_before.spot_positions[spot_position_index];
+        let spot_position_after = drift_user_after.spot_positions[spot_position_index];
+
+        // Assert spot position cumulative_deposits increased by push amount
         assert_eq!(
-            user_token_account_after,
-            user_token_account_before - push_amount,
-            "User token account should have decreased by push amount"
+            spot_position_after.cumulative_deposits,
+            spot_position_before.cumulative_deposits + push_amount as i64,
+            "Spot position cumulative_deposits should have increased by push amount"
+        );
+
+        // Assert spot position scaled_balance increased (this represents the actual deposit)
+        assert!(
+            spot_position_after.scaled_balance > spot_position_before.scaled_balance,
+            "Spot position scaled_balance should have increased"
+        );
+
+        // Assert the spot position balance_type is 0 (Deposit)
+        assert_eq!(
+            spot_position_after.balance_type,
+            0,
+            "Spot position balance_type should be 0 (Deposit)"
         );
 
         assert_contains_controller_cpi_event!(

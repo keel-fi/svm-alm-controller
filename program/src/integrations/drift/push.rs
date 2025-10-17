@@ -16,7 +16,6 @@ use crate::{
     integrations::drift::{
         constants::DRIFT_PROGRAM_ID,
         cpi::Deposit,
-        protocol_state::{User, UserStats},
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
