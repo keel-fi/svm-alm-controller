@@ -1,11 +1,10 @@
-use bytemuck::{Pod, Zeroable};
 use litesvm::LiteSVM;
 use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
-use spl_token::state::Mint;
-use svm_alm_controller::constants::anchor_discriminator;
 use svm_alm_controller_client::integrations::drift::{
-    derive_spot_market_pda, derive_spot_market_vault_pda, SpotMarket, DRIFT_PROGRAM_ID,
+    derive_drift_signer, derive_spot_market_pda, SpotMarket, DRIFT_PROGRAM_ID,
 };
+use crate::helpers::spl::setup_token_account;
+
 
 /// Setup Drift SpotMarket state in LiteSvm giving full control over state.
 ///
@@ -13,13 +12,23 @@ use svm_alm_controller_client::integrations::drift::{
 /// - IF applicable to all tests, mutate state with a set value here
 /// - ELSE IF requires variable values for testing, add a argument
 ///     and mutate state set from the arg.
-pub fn set_drift_spot_market(svm: &mut LiteSVM, market_index: u16, mint: Option<Pubkey>) -> Pubkey {
+pub fn set_drift_spot_market(
+    svm: &mut LiteSVM,
+    market_index: u16,
+    mint: Option<Pubkey>,
+    oracle_price: i64,
+) -> Pubkey {
     let pubkey = derive_spot_market_pda(market_index);
 
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
     spot_market.pubkey = pubkey; // Set the pubkey field to the actual PDA
     spot_market.market_index = market_index;
+    // Set TWAP oracle price to the provided oracle_price
+    spot_market.historical_oracle_data.last_oracle_price_twap = oracle_price;
+    spot_market
+        .historical_oracle_data
+        .last_oracle_price_twap_5min = oracle_price;
     if let Some(mint) = mint {
         spot_market.mint = mint;
         let mint_account = svm.get_account(&spot_market.mint).unwrap();
@@ -83,16 +92,14 @@ pub fn setup_drift_spot_market_vault(
 ) -> Pubkey {
     let vault_pubkey =
         svm_alm_controller_client::integrations::drift::derive_spot_market_vault_pda(market_index);
-
-    // Import the setup_token_account function
-    use crate::helpers::spl::setup_token_account;
+    let owner = derive_drift_signer();
 
     setup_token_account(
         svm,
         &vault_pubkey,
         mint,
-        &vault_pubkey, // The vault PDA is the owner of its own token account
-        0,             // Start with 0 tokens
+        &owner, // owner must be "drift_signer"
+        0,      // Start with 0 tokens
         token_program,
         None,
     );

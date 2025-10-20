@@ -8,10 +8,14 @@
 
 import {
   combineCodec,
+  getBooleanDecoder,
+  getBooleanEncoder,
   getDiscriminatedUnionDecoder,
   getDiscriminatedUnionEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU16Decoder,
+  getU16Encoder,
   getU64Decoder,
   getU64Encoder,
   getUnitDecoder,
@@ -27,13 +31,25 @@ export type PullArgs =
   | { __kind: 'SplTokenExternal' }
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
-  | { __kind: 'Kamino'; amount: bigint };
+  | { __kind: 'Kamino'; amount: bigint }
+  | {
+      __kind: 'Drift';
+      marketIndex: number;
+      amount: bigint;
+      reduceOnly: boolean;
+    };
 
 export type PullArgsArgs =
   | { __kind: 'SplTokenExternal' }
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
-  | { __kind: 'Kamino'; amount: number | bigint };
+  | { __kind: 'Kamino'; amount: number | bigint }
+  | {
+      __kind: 'Drift';
+      marketIndex: number;
+      amount: number | bigint;
+      reduceOnly: boolean;
+    };
 
 export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -41,6 +57,14 @@ export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
     ['CctpBridge', getUnitEncoder()],
     ['LzBridge', getUnitEncoder()],
     ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
+    [
+      'Drift',
+      getStructEncoder([
+        ['marketIndex', getU16Encoder()],
+        ['amount', getU64Encoder()],
+        ['reduceOnly', getBooleanEncoder()],
+      ]),
+    ],
   ]);
 }
 
@@ -50,6 +74,14 @@ export function getPullArgsDecoder(): Decoder<PullArgs> {
     ['CctpBridge', getUnitDecoder()],
     ['LzBridge', getUnitDecoder()],
     ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],
+    [
+      'Drift',
+      getStructDecoder([
+        ['marketIndex', getU16Decoder()],
+        ['amount', getU64Decoder()],
+        ['reduceOnly', getBooleanDecoder()],
+      ]),
+    ],
   ]);
 }
 
@@ -71,6 +103,10 @@ export function pullArgs(
   kind: 'Kamino',
   data: GetDiscriminatedUnionVariantContent<PullArgsArgs, '__kind', 'Kamino'>
 ): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'Kamino'>;
+export function pullArgs(
+  kind: 'Drift',
+  data: GetDiscriminatedUnionVariantContent<PullArgsArgs, '__kind', 'Drift'>
+): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'Drift'>;
 export function pullArgs<K extends PullArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data

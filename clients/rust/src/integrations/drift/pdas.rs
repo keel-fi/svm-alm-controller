@@ -6,6 +6,9 @@ pub const DRIFT_PROGRAM_ID: Pubkey = pubkey!("dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn
 pub fn derive_drift_signer() -> Pubkey {
     Pubkey::find_program_address(&[b"drift_signer".as_ref()], &DRIFT_PROGRAM_ID).0
 }
+pub fn derive_drift_signer_nonce() -> u8 {
+    Pubkey::find_program_address(&[b"drift_signer".as_ref()], &DRIFT_PROGRAM_ID).1
+}
 
 /// Derives State PDA
 pub fn derive_state_pda() -> Pubkey {

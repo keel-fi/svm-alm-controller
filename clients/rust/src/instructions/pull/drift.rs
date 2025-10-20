@@ -3,7 +3,7 @@ use solana_pubkey::Pubkey;
 
 use crate::{
     derive_controller_authority_pda, derive_permission_pda,
-    generated::{instructions::PushBuilder, types::PushArgs},
+    generated::{instructions::PullBuilder, types::PullArgs},
     integrations::drift::{
         derive_drift_signer, derive_spot_market_vault_pda, derive_state_pda, derive_user_pda,
         derive_user_stats_pda, DRIFT_PROGRAM_ID,
@@ -77,7 +77,7 @@ pub fn create_drift_pull_instruction(
 
     remaining_accounts.extend_from_slice(inner_remaining_accounts);
 
-    let instruction = PushBuilder::new()
+    let instruction = PullBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
         .authority(*super_authority)
@@ -85,7 +85,7 @@ pub fn create_drift_pull_instruction(
         .integration(*integration)
         .reserve_a(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
-        .push_args(PushArgs::Drift {
+        .pull_args(PullArgs::Drift {
             market_index: spot_market_index,
             amount,
             reduce_only,
