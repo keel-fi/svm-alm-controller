@@ -80,7 +80,7 @@ pub fn process_sync_drift(
     };
 
     // Sync liquidity value and update state
-    let (new_liquidity_value, new_deposit_amount) = sync_drift_liquidity_value(
+    let new_balance = sync_drift_liquidity_value(
         controller,
         integration,
         outer_ctx.integration.key(),
@@ -95,8 +95,7 @@ pub fn process_sync_drift(
     // Update the state
     match &mut integration.state {
         crate::enums::IntegrationState::Drift(drift_state) => {
-            drift_state.last_liquidity_value = new_liquidity_value;
-            drift_state.last_deposit_amount = new_deposit_amount;
+            drift_state.balance = new_balance;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }

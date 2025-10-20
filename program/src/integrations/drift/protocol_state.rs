@@ -2,6 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
 use crate::constants::anchor_discriminator;
+use crate::integrations::drift::math::CheckedCeilDiv;
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
@@ -244,6 +245,7 @@ pub struct SpotMarket {
     pub padding_4: [u8; 8],
     pub padding_5: [u8; 8],
 }
+
 impl SpotMarket {
     pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
 
@@ -254,6 +256,34 @@ impl SpotMarket {
         }
 
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+    }
+
+    pub fn get_balance(self, balance_type: u8) -> Result<u128, ProgramError> {
+        let precision_decrease = 10_u128.pow(19_u32.checked_sub(self.decimals).unwrap());
+
+        let cumulative_interest = match balance_type {
+            0 => self.cumulative_deposit_interest,
+            1 => self.cumulative_borrow_interest,
+            _ =>  return Err(ProgramError::InvalidArgument),
+        };
+
+        let token_amount = match balance_type {
+            0 => self
+                .deposit_balance
+                .checked_mul(cumulative_interest)
+                .unwrap()
+                .checked_div(precision_decrease)
+                .unwrap(),
+            1 => self
+                .borrow_balance
+                .checked_mul(cumulative_interest)
+                .unwrap()
+                .checked_ceil_div(precision_decrease)
+                .unwrap(),
+            _ => return Err(ProgramError::InvalidArgument)
+        };
+
+        Ok(token_amount)
     }
 }
 

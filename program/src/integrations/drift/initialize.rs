@@ -103,8 +103,7 @@ pub fn process_initialize_drift(
         _padding: [0u8; 220],
     });
     let state = IntegrationState::Drift(DriftState {
-        last_liquidity_value: 0,
-        last_deposit_amount: 0,
+        balance: 0,
         _padding: [0u8; 32],
     });
 
