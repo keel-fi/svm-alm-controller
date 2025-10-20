@@ -32,7 +32,8 @@ mod tests {
         derive_controller_authority_pda,
         generated::types::{
             AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig,
-            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, ReserveStatus, SvmAlmControllerEvent,
+            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, ReserveStatus,
+            SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
         instructions::create_drift_push_instruction,
@@ -568,12 +569,14 @@ mod tests {
         let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
         let spot_market_mut = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
         spot_market_mut.vault = reserve_keys.vault;
-        svm.set_account(spot_market_pubkey, spot_market_account).unwrap();
+        svm.set_account(spot_market_pubkey, spot_market_account)
+            .unwrap();
 
         // Get the updated spot market data for the push instruction
         let spot_market_account_updated = svm.get_account(&spot_market_pubkey).unwrap();
         let spot_market_data_updated = &spot_market_account_updated.data[8..]; // Skip discriminator
-        let spot_market_updated = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_updated).unwrap();
+        let spot_market_updated =
+            bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_updated).unwrap();
 
         // Push some tokens to drift first to have something to sync
         let push_amount = 100_000_000;

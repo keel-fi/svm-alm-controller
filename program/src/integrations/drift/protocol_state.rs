@@ -264,7 +264,7 @@ impl SpotMarket {
         let cumulative_interest = match balance_type {
             0 => self.cumulative_deposit_interest,
             1 => self.cumulative_borrow_interest,
-            _ =>  return Err(ProgramError::InvalidArgument),
+            _ => return Err(ProgramError::InvalidArgument),
         };
 
         let token_amount = match balance_type {
@@ -280,7 +280,7 @@ impl SpotMarket {
                 .unwrap()
                 .checked_ceil_div(precision_decrease)
                 .unwrap(),
-            _ => return Err(ProgramError::InvalidArgument)
+            _ => return Err(ProgramError::InvalidArgument),
         };
 
         Ok(token_amount)
