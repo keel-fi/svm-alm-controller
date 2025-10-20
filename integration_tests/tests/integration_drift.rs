@@ -28,6 +28,7 @@ mod tests {
     use spl_token;
     use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
     use svm_alm_controller_client::integrations::drift::SpotMarket;
+    use svm_alm_controller_client::pull::drift::create_drift_pull_instruction;
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
         generated::types::{
@@ -338,7 +339,6 @@ mod tests {
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &reserve_keys.vault,
             &spl_token::ID,
             spot_market_index,
             sub_account_id,
@@ -581,7 +581,6 @@ mod tests {
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &reserve_keys.vault,
             &spl_token::ID,
             spot_market_index,
             sub_account_id,
@@ -597,16 +596,24 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(tx.clone()).unwrap();
+        svm.send_transaction(tx.clone()).unwrap();
 
-        // // Execute the pull instruction
-        // let tx = Transaction::new_signed_with_payer(
-        //     &[push_ix],
-        //     Some(&super_authority.pubkey()),
-        //     &[&super_authority],
-        //     svm.latest_blockhash(),
-        // );
-        // let tx_result = svm.send_transaction(tx.clone()).unwrap();
+        // TODO could we warp some slots and have a specific amount
+        // of interest we expect to be accrued?
+
+        let pull_ix = create_drift_pull_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+            false,
+            &inner_remaining_accounts,
+        )?;
 
         let integration_before = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
@@ -615,6 +622,15 @@ mod tests {
         let reserve_before = fetch_reserve_account(&svm, &reserve_keys.pubkey)
             .expect("reserve should exist")
             .unwrap();
+
+        // Execute the pull instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[pull_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
 
         let integration_after = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
@@ -635,27 +651,29 @@ mod tests {
 
         assert_eq!(
             integration_after.rate_limit_outflow_amount_available,
-            integration_before.rate_limit_outflow_amount_available - push_amount
+            integration_before.rate_limit_outflow_amount_available + push_amount
         );
 
         assert_eq!(
             reserve_after.rate_limit_outflow_amount_available,
-            reserve_before.rate_limit_outflow_amount_available - push_amount
+            reserve_before.rate_limit_outflow_amount_available + push_amount
         );
 
-        // Assert reserve vault balance decreased by push amount
+        // Assert reserve vault balance decreased by amount
         assert_eq!(
             reserve_vault_after,
-            reserve_vault_before - push_amount,
-            "Reserve vault should have decreased by push amount"
+            reserve_vault_before + push_amount,
+            "Reserve vault should have increased by amount"
         );
 
-        // Assert spot market vault balance increased by push amount
+        // Assert spot market vault balance increased by amount
         assert_eq!(
             spot_market_vault_after,
             spot_market_vault_before + push_amount,
-            "Drift spot market vault should have increased by push amount"
+            "Drift spot market vault should have increased by amount"
         );
+
+        // TODO should spot position be removed?
 
         // Find the spot position for the market we're depositing into
         let spot_position_index = drift_user_after
@@ -706,7 +724,7 @@ mod tests {
                 integration: Some(integration_pubkey),
                 mint: spot_market.vault,
                 reserve: None,
-                direction: AccountingDirection::Credit,
+                direction: AccountingDirection::Debit,
                 action: AccountingAction::Deposit,
                 delta: push_amount,
             })
@@ -720,7 +738,7 @@ mod tests {
                 integration: None,
                 mint: spot_market.vault,
                 reserve: Some(reserve_keys.pubkey),
-                direction: AccountingDirection::Debit,
+                direction: AccountingDirection::Credit,
                 action: AccountingAction::Deposit,
                 delta: push_amount,
             })

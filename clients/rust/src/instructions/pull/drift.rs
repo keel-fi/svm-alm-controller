@@ -1,4 +1,3 @@
-use bytemuck::{Pod, Zeroable};
 use solana_instruction::{AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
 
@@ -7,7 +6,7 @@ use crate::{
     generated::{instructions::PushBuilder, types::PushArgs},
     integrations::drift::{
         derive_drift_signer, derive_spot_market_vault_pda, derive_state_pda, derive_user_pda,
-        derive_user_stats_pda, extract_spot_market_data, DRIFT_PROGRAM_ID,
+        derive_user_stats_pda, DRIFT_PROGRAM_ID,
     },
 };
 
@@ -18,7 +17,6 @@ pub fn create_drift_pull_instruction(
     integration: &Pubkey,
     reserve: &Pubkey,
     reserve_vault: &Pubkey,
-    user_token_account: &Pubkey,
     token_program: &Pubkey,
     spot_market_index: u16,
     sub_account_id: u16,
@@ -61,17 +59,12 @@ pub fn create_drift_pull_instruction(
             is_writable: false,
         },
         AccountMeta {
-            pubkey: *user_token_account, // user_token_account - controller authority's ATA
+            pubkey: *reserve_vault,
             is_signer: false,
             is_writable: true,
         },
         AccountMeta {
             pubkey: *token_program,
-            is_signer: false,
-            is_writable: false,
-        },
-        AccountMeta {
-            pubkey: *reserve_vault, // reserve vault for balance sync
             is_signer: false,
             is_writable: false,
         },

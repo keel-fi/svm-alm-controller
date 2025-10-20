@@ -25,9 +25,8 @@ define_account_struct! {
         user: mut @owner(DRIFT_PROGRAM_ID);
         user_stats: mut @owner(DRIFT_PROGRAM_ID);
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
         @remaining_accounts as remaining_accounts;
     }
@@ -95,9 +94,9 @@ pub fn process_push_drift(
     )?;
 
     // Track the user token account balance before the transfer
-    let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
-    let user_token_balance_before = user_token_account.amount();
-    drop(user_token_account);
+    let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
+    let user_token_balance_before = reserve_vault.amount();
+    drop(reserve_vault);
 
     let liquidity_value_account = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
     let liquidity_value_balance_before = liquidity_value_account.amount();
@@ -109,7 +108,7 @@ pub fn process_push_drift(
         user_stats: &inner_ctx.user_stats,
         authority: &outer_ctx.controller_authority,
         spot_market_vault: &inner_ctx.spot_market_vault,
-        user_token_account: &inner_ctx.user_token_account,
+        user_token_account: &inner_ctx.reserve_vault,
         token_program: &inner_ctx.token_program,
         remaining_accounts: &inner_ctx.remaining_accounts,
         market_index: market_index,
@@ -123,8 +122,8 @@ pub fn process_push_drift(
     ])])?;
 
     // Reload the user token account to check its balance
-    let user_token_account = TokenAccount::from_account_info(&inner_ctx.user_token_account)?;
-    let user_token_balance_after = user_token_account.amount();
+    let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
+    let user_token_balance_after = reserve_vault.amount();
     let check_delta = user_token_balance_before
         .checked_sub(user_token_balance_after)
         .unwrap();

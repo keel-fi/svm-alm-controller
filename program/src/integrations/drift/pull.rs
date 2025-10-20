@@ -27,9 +27,8 @@ define_account_struct! {
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         // TODO unsure if this is an empty account
         drift_signer;
-        user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
         @remaining_accounts as remaining_accounts;
     }
