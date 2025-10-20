@@ -16,7 +16,6 @@ define_account_struct! {
         spot_market: @owner(DRIFT_PROGRAM_ID);
         user: @owner(DRIFT_PROGRAM_ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
-        @remaining_accounts as remaining_accounts;
     }
 }
 
@@ -42,10 +41,10 @@ impl<'info> SyncDriftAccounts<'info> {
         }
 
         // Validate vault matches reserve
-        if ctx.spot_market_vault.key().ne(&reserve.vault) {
-            msg!("spot_market_vault: does not match reserve vault");
-            return Err(ProgramError::InvalidAccountData);
-        }
+        // if ctx.spot_market_vault.key().ne(&reserve.vault) {
+        //     msg!("spot_market_vault: does not match reserve vault");
+        //     return Err(ProgramError::InvalidAccountData);
+        // }
 
         Ok(ctx)
     }
@@ -66,12 +65,12 @@ pub fn process_sync_drift(
     )?;
 
     // Sync the reserve before main logic
-    reserve.sync_balance(
-        inner_ctx.spot_market_vault,
-        outer_ctx.controller_authority,
-        outer_ctx.controller.key(),
-        controller,
-    )?;
+    // reserve.sync_balance(
+    //     inner_ctx.spot_market_vault,
+    //     outer_ctx.controller_authority,
+    //     outer_ctx.controller.key(),
+    //     controller,
+    // )?;
 
     // Get the drift config to extract market index
     let drift_config = match &integration.config {
