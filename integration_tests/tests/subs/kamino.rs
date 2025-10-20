@@ -126,7 +126,8 @@ pub fn fetch_kamino_obligation(
     svm: &LiteSVM,
     kamino_obligation_pk: &Pubkey,
 ) -> Result<Obligation, Box<dyn std::error::Error>> {
-    let acc = svm.get_account(kamino_obligation_pk)
+    let acc = svm
+        .get_account(kamino_obligation_pk)
         .expect("failed to get kamino account");
 
     let kamino_obligation = Obligation::try_from(&acc.data)?.clone();
@@ -192,19 +193,14 @@ pub fn refresh_kamino_reserve(
     Ok(())
 }
 
-
 pub fn refresh_kamino_obligation(
     svm: &mut LiteSVM,
     payer: &Keypair,
     market: &Pubkey,
     obligation: &Pubkey,
-    reserves: Vec<&Pubkey>
+    reserves: Vec<&Pubkey>,
 ) -> Result<(), Box<dyn Error>> {
-    let instruction = create_refresh_kamino_obligation_instruction(
-        market, 
-        obligation, 
-        reserves
-    );
+    let instruction = create_refresh_kamino_obligation_instruction(market, obligation, reserves);
 
     let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
         &[instruction],
@@ -251,10 +247,8 @@ pub fn setup_kamino_state(
 
     let lending_market_pk = Pubkey::new_unique();
     let mut market = LendingMarket::default();
-    let (
-        _lending_market_authority, 
-        market_auth_bump
-    ) = derive_market_authority_address(&lending_market_pk);
+    let (_lending_market_authority, market_auth_bump) =
+        derive_market_authority_address(&lending_market_pk);
     // the bump seed is checked during user initialization, and the default is 0
     market.bump_seed = market_auth_bump as u64;
     market.price_refresh_trigger_to_max_age_pct = 1;
@@ -313,21 +307,21 @@ pub fn setup_kamino_state(
     .unwrap();
 
     let reserve_context = setup_reserve(
-        svm, 
-        &global_config_pk, 
-        liquidity_mint, 
-        reward_mint, 
-        &lending_market_pk
+        svm,
+        &global_config_pk,
+        liquidity_mint,
+        reward_mint,
+        &lending_market_pk,
     );
 
     let farms_context = KaminoFarmsContext {
-        global_config: global_config_pk
+        global_config: global_config_pk,
     };
-    
+
     KaminoTestContext {
         lending_market: lending_market_pk,
         reserve_context,
-        farms_context
+        farms_context,
     }
 }
 
@@ -336,12 +330,10 @@ fn setup_reserve(
     global_config_pk: &Pubkey,
     liquidity_mint: &Pubkey,
     reward_mint: &Pubkey,
-    lending_market_pk: &Pubkey
+    lending_market_pk: &Pubkey,
 ) -> KaminoReserveContext {
-    let (
-        lending_market_authority, 
-        _market_auth_bump
-    ) = derive_market_authority_address(lending_market_pk);
+    let (lending_market_authority, _market_auth_bump) =
+        derive_market_authority_address(lending_market_pk);
 
     let reserve_farm_collateral = Pubkey::new_unique();
     let mut farm_collateral = FarmState::default();
@@ -495,7 +487,7 @@ fn setup_reserve(
         reserve_collateral_mint,
         reserve_collateral_supply,
         reserve_farm_collateral,
-        reserve_farm_debt
+        reserve_farm_debt,
     }
 }
 
@@ -505,17 +497,17 @@ pub fn setup_additional_reserves(
     global_config_pk: &Pubkey,
     lending_market_pk: &Pubkey,
     reward_mint: &Pubkey,
-    liquidity_mints: Vec<&Pubkey>
+    liquidity_mints: Vec<&Pubkey>,
 ) -> Vec<KaminoReserveContext> {
     let mut reserves = Vec::with_capacity(liquidity_mints.len());
 
     for liquidity_mint in liquidity_mints {
         let reserve_context = setup_reserve(
-            svm, 
-            &global_config_pk, 
-            liquidity_mint, 
-            reward_mint, 
-            &lending_market_pk
+            svm,
+            &global_config_pk,
+            liquidity_mint,
+            reward_mint,
+            &lending_market_pk,
         );
 
         reserves.push(reserve_context);

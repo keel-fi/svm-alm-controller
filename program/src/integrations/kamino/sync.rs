@@ -70,11 +70,11 @@ impl<'info> SyncKaminoAccounts<'info> {
 
         // rewards_ata can either be pubkey::default or be owned by spl_token/token2022 programs
         if ctx.rewards_ata.key().ne(&Pubkey::default())
-            && !ctx.rewards_ata.is_owned_by(&pinocchio_token::ID) 
+            && !ctx.rewards_ata.is_owned_by(&pinocchio_token::ID)
             && !ctx.rewards_ata.is_owned_by(&pinocchio_token2022::ID)
         {
             msg! {"rewards_ata: Invalid owner"}
-            return Err(ProgramError::IllegalOwner)
+            return Err(ProgramError::IllegalOwner);
         }
 
         let obligation_farm_pda = derive_obligation_farm_address(

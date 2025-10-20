@@ -5,10 +5,21 @@ mod tests {
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
-            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY}, kamino::state::klend::Obligation, setup_test_controller, spl::SPL_TOKEN_PROGRAM_ID, TestContext
+            constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY},
+            kamino::state::klend::Obligation,
+            setup_test_controller,
+            spl::SPL_TOKEN_PROGRAM_ID,
+            TestContext,
         },
         subs::{
-            airdrop_lamports, derive_controller_authority_pda, edit_ata_amount, fetch_integration_account, fetch_kamino_obligation, fetch_kamino_reserve, fetch_reserve_account, get_liquidity_and_lp_amount, get_token_balance_or_zero, initialize_ata, initialize_mint, initialize_reserve, manage_permission, refresh_kamino_obligation, refresh_kamino_reserve, set_kamino_reserve_liquidity_available_amount, set_obligation_farm_rewards_issued_unclaimed, setup_additional_reserves, setup_kamino_state, transfer_tokens, KaminoTestContext, ReserveKeys
+            airdrop_lamports, derive_controller_authority_pda, edit_ata_amount,
+            fetch_integration_account, fetch_kamino_obligation, fetch_kamino_reserve,
+            fetch_reserve_account, get_liquidity_and_lp_amount, get_token_balance_or_zero,
+            initialize_ata, initialize_mint, initialize_reserve, manage_permission,
+            refresh_kamino_obligation, refresh_kamino_reserve,
+            set_kamino_reserve_liquidity_available_amount,
+            set_obligation_farm_rewards_issued_unclaimed, setup_additional_reserves,
+            setup_kamino_state, transfer_tokens, KaminoTestContext, ReserveKeys,
         },
     };
     use borsh::BorshDeserialize;
@@ -24,11 +35,14 @@ mod tests {
     };
     use spl_associated_token_account_client::address::get_associated_token_address;
     use svm_alm_controller_client::{
-        generated::{accounts::Integration, types::{
-            AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig,
-            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, KaminoConfig,
-            PermissionStatus, ReserveStatus, SvmAlmControllerEvent,
-        }},
+        generated::{
+            accounts::Integration,
+            types::{
+                AccountingAction, AccountingDirection, AccountingEvent, IntegrationConfig,
+                IntegrationState, IntegrationStatus, IntegrationUpdateEvent, KaminoConfig,
+                PermissionStatus, ReserveStatus, SvmAlmControllerEvent,
+            },
+        },
         initialize_integration::kamino_lend::create_initialize_kamino_lend_integration_ix,
         integrations::kamino::{
             derive_obligation_farm_address, derive_reserve_collateral_supply,
@@ -59,17 +73,14 @@ mod tests {
 
         // Initialize a reserve for the USDC token
         let usdc_reserve_pk = create_and_fund_controller_reserves(
-            svm, 
-            controller_pk, 
-            super_authority, 
-            &controller_authority, 
-            mint
+            svm,
+            controller_pk,
+            super_authority,
+            &controller_authority,
+            mint,
         )?;
 
-        let (
-            kamino_init_ix, 
-            kamino_integration_pk
-        ) = create_initialize_kamino_lend_integration_ix(
+        let (kamino_init_ix, kamino_integration_pk) = create_initialize_kamino_lend_integration_ix(
             &controller_pk,
             &super_authority.pubkey(),
             &super_authority.pubkey(),
@@ -82,11 +93,10 @@ mod tests {
             reserve_farm_collateral,
             reserve_farm_debt,
             obligation_id,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         );
 
         Ok((kamino_init_ix, kamino_integration_pk, usdc_reserve_pk))
-
     }
 
     fn create_and_fund_controller_reserves(
@@ -94,14 +104,10 @@ mod tests {
         controller_pk: &Pubkey,
         super_authority: &Keypair,
         controller_authority: &Pubkey,
-        mint: &Pubkey
+        mint: &Pubkey,
     ) -> Result<ReserveKeys, Box<dyn std::error::Error>> {
-        let _authority_mint_ata = initialize_ata(
-            svm,
-            &super_authority,
-            &super_authority.pubkey(),
-            mint,
-        )?;
+        let _authority_mint_ata =
+            initialize_ata(svm, &super_authority, &super_authority.pubkey(), mint)?;
 
         edit_ata_amount(svm, &super_authority.pubkey(), mint, 1_000_000_000_000)?;
 
@@ -141,29 +147,31 @@ mod tests {
         scope_prices: &Pubkey,
         reserve_farm_collateral: &Pubkey,
     ) -> Result<Instruction, Box<dyn std::error::Error>> {
-
         // fetch and deserialize the obligation to get the active deposits
         // that need to be passed to refresh_kamino_obligation
-        let obligation_acc = svm.get_account(obligation)
+        let obligation_acc = svm
+            .get_account(obligation)
             .expect("Failed to fetch obligation");
 
         let obligation_state = Obligation::try_from(&obligation_acc.data)?;
-        let obligation_reserves: Vec<&Pubkey> = obligation_state.deposits
+        let obligation_reserves: Vec<&Pubkey> = obligation_state
+            .deposits
             .iter()
             .filter_map(|deposit| {
                 if deposit.deposit_reserve != Pubkey::default() {
-                    return Some(&deposit.deposit_reserve)
+                    return Some(&deposit.deposit_reserve);
                 }
                 None
-            }).collect();
+            })
+            .collect();
 
-        // refresh the reserve and the obligation (kamino) 
+        // refresh the reserve and the obligation (kamino)
         for reserve in &obligation_reserves {
             refresh_kamino_reserve(
-                svm, 
-                &super_authority, 
-                reserve, 
-                &kamino_config.market, 
+                svm,
+                &super_authority,
+                reserve,
+                &kamino_config.market,
                 scope_prices,
             )?;
         }
@@ -173,7 +181,7 @@ mod tests {
             super_authority,
             &kamino_config.market,
             obligation,
-            obligation_reserves
+            obligation_reserves,
         )?;
 
         let push_ix = create_push_kamino_lend_ix(
@@ -199,26 +207,29 @@ mod tests {
         scope_prices: &Pubkey,
         reserve_farm_collateral: &Pubkey,
     ) -> Result<Instruction, Box<dyn std::error::Error>> {
-        let obligation_acc = svm.get_account(obligation)
+        let obligation_acc = svm
+            .get_account(obligation)
             .expect("Failed to fetch obligation");
 
         let obligation_state = Obligation::try_from(&obligation_acc.data)?;
-        let obligation_reserves: Vec<&Pubkey> = obligation_state.deposits
+        let obligation_reserves: Vec<&Pubkey> = obligation_state
+            .deposits
             .iter()
             .filter_map(|deposit| {
                 if deposit.deposit_reserve != Pubkey::default() {
-                    return Some(&deposit.deposit_reserve)
+                    return Some(&deposit.deposit_reserve);
                 }
                 None
-            }).collect();
+            })
+            .collect();
 
         // refresh the reserve and the obligation (kamino)
         for reserve in &obligation_reserves {
             refresh_kamino_reserve(
-                svm, 
-                &super_authority, 
-                reserve, 
-                &kamino_config.market, 
+                svm,
+                &super_authority,
+                reserve,
+                &kamino_config.market,
                 scope_prices,
             )?;
         }
@@ -228,7 +239,7 @@ mod tests {
             super_authority,
             &kamino_config.market,
             obligation,
-            obligation_reserves
+            obligation_reserves,
         )?;
 
         let pull_ix = create_pull_kamino_lend_ix(
@@ -250,7 +261,7 @@ mod tests {
         rate_limit_slope: u64,
         rate_limit_max_outflow: u64,
         permit_liquidation: bool,
-        clock: &Clock
+        clock: &Clock,
     ) {
         assert_eq!(integration.controller, *controller_pk);
         assert_eq!(integration.status, IntegrationStatus::Active);
@@ -355,13 +366,13 @@ mod tests {
 
         // assert integration was properly set
         assert_kamino_integration_at_init(
-            &integration, 
-            &kamino_config, 
-            &controller_pk, 
-            rate_limit_slope, 
-            rate_limit_max_outflow, 
-            permit_liquidation, 
-            &clock
+            &integration,
+            &kamino_config,
+            &controller_pk,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &clock,
         );
 
         let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
@@ -603,7 +614,7 @@ mod tests {
             action: AccountingAction::Sync,
             direction: AccountingDirection::Credit,
             // amount deposited into reserve after initialization
-            delta: 1_000_000_000_000
+            delta: 1_000_000_000_000,
         });
         assert_contains_controller_cpi_event!(
             tx_result,
@@ -759,12 +770,12 @@ mod tests {
             get_liquidity_and_lp_amount(&svm, &kamino_config.reserve, &kamino_config.obligation)?;
 
         let pull_ix = get_pull_ix(
-            &mut svm, 
-            &controller_pk, 
-            &super_authority, 
-            &integration_pk, 
-            &obligation, 
-            &kamino_config, 
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
             100_000,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
@@ -991,10 +1002,10 @@ mod tests {
         let reserve_before = fetch_reserve_account(&svm, &reserve_keys.pubkey)?.unwrap();
 
         edit_ata_amount(
-            &mut svm, 
-            &controller_authority, 
-            &kamino_config.reserve_liquidity_mint, 
-            1_100_000_000_000
+            &mut svm,
+            &controller_authority,
+            &kamino_config.reserve_liquidity_mint,
+            1_100_000_000_000,
         )?;
 
         // increase the liquidity amount available in the kamino reserve
@@ -1204,23 +1215,23 @@ mod tests {
         let KaminoTestContext {
             lending_market,
             reserve_context,
-            farms_context
+            farms_context,
         } = setup_kamino_state(&mut svm, &USDC_TOKEN_MINT_PUBKEY, &USDC_TOKEN_MINT_PUBKEY);
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
-            obligation_id, 
-            &controller_authority, 
-            &lending_market, 
+            obligation_id,
+            &controller_authority,
+            &lending_market,
         );
-        
-        let kamino_config = KaminoConfig { 
-            market: lending_market, 
-            reserve: reserve_context.kamino_reserve_pk, 
-            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY, 
-            obligation, 
-            obligation_id, 
-            padding: [0; 95] 
+
+        let kamino_config = KaminoConfig {
+            market: lending_market,
+            reserve: reserve_context.kamino_reserve_pk,
+            reserve_liquidity_mint: USDC_TOKEN_MINT_PUBKEY,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
         };
 
         let description = "test";
@@ -1229,25 +1240,22 @@ mod tests {
         let rate_limit_max_outflow = 100_000_000_000;
         let permit_liquidation = true;
 
-        let (
-            kamino_init_ix, 
-            _integration_pk,
-            _reserve_keys
-        ) = setup_env_and_get_init_ix(
-            &mut svm, 
-            &controller_pk, 
-            &super_authority, 
+        let (kamino_init_ix, _integration_pk, _reserve_keys) = setup_env_and_get_init_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
             description,
             status,
             rate_limit_slope,
             rate_limit_max_outflow,
             permit_liquidation,
-            &kamino_config, 
+            &kamino_config,
             &reserve_context.reserve_farm_collateral,
             &reserve_context.reserve_farm_debt,
-            &USDC_TOKEN_MINT_PUBKEY, 
-            obligation_id
-        ).unwrap();
+            &USDC_TOKEN_MINT_PUBKEY,
+            obligation_id,
+        )
+        .unwrap();
 
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1267,7 +1275,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
-            None
+            None,
         )?;
         let mint_2 = initialize_mint(
             &mut svm,
@@ -1277,23 +1285,23 @@ mod tests {
             6,
             None,
             &spl_token::ID,
-            None
+            None,
         )?;
 
         // create two new controller reserves
         let _reserve_1 = create_and_fund_controller_reserves(
-            &mut svm, 
-            &controller_pk, 
+            &mut svm,
+            &controller_pk,
             &super_authority,
-            &controller_authority, 
-            &mint_1
+            &controller_authority,
+            &mint_1,
         )?;
         let _reserve_2 = create_and_fund_controller_reserves(
-            &mut svm, 
-            &controller_pk, 
+            &mut svm,
+            &controller_pk,
             &super_authority,
-            &controller_authority, 
-            &mint_2
+            &controller_authority,
+            &mint_2,
         )?;
 
         // create two new kamino reserves
@@ -1305,68 +1313,61 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             vec![&mint_1, &mint_2],
         );
-        let [
-            context_1, 
-            context_2
-        ] = contexts.as_slice() else {
+        let [context_1, context_2] = contexts.as_slice() else {
             panic!("error");
         };
 
-        let kamino_config_1 = KaminoConfig { 
-            market: lending_market, 
-            reserve: context_1.kamino_reserve_pk, 
-            reserve_liquidity_mint: mint_1, 
-            obligation, 
-            obligation_id, 
-            padding: [0; 95] 
+        let kamino_config_1 = KaminoConfig {
+            market: lending_market,
+            reserve: context_1.kamino_reserve_pk,
+            reserve_liquidity_mint: mint_1,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
         };
 
-        let kamino_config_2 = KaminoConfig { 
-            market: lending_market, 
-            reserve: context_2.kamino_reserve_pk, 
-            reserve_liquidity_mint: mint_2, 
-            obligation, 
-            obligation_id, 
-            padding: [0; 95] 
+        let kamino_config_2 = KaminoConfig {
+            market: lending_market,
+            reserve: context_2.kamino_reserve_pk,
+            reserve_liquidity_mint: mint_2,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
         };
 
-        let (
-            kamino_init_ix_1, 
-            kamino_integration_pk_1
-        ) = create_initialize_kamino_lend_integration_ix(
-            &controller_pk,
-            &super_authority.pubkey(),
-            &super_authority.pubkey(),
-            &description,
-            status,
-            rate_limit_slope,
-            rate_limit_max_outflow,
-            permit_liquidation,
-            &IntegrationConfig::Kamino(kamino_config_1.clone()),
-            &context_1.reserve_farm_collateral,
-            &context_1.reserve_farm_debt,
-            obligation_id,
-            &KAMINO_LEND_PROGRAM_ID
-        );
+        let (kamino_init_ix_1, kamino_integration_pk_1) =
+            create_initialize_kamino_lend_integration_ix(
+                &controller_pk,
+                &super_authority.pubkey(),
+                &super_authority.pubkey(),
+                &description,
+                status,
+                rate_limit_slope,
+                rate_limit_max_outflow,
+                permit_liquidation,
+                &IntegrationConfig::Kamino(kamino_config_1.clone()),
+                &context_1.reserve_farm_collateral,
+                &context_1.reserve_farm_debt,
+                obligation_id,
+                &KAMINO_LEND_PROGRAM_ID,
+            );
 
-        let (
-            kamino_init_ix_2, 
-            kamino_integration_pk_2
-        ) = create_initialize_kamino_lend_integration_ix(
-            &controller_pk,
-            &super_authority.pubkey(),
-            &super_authority.pubkey(),
-            &description,
-            status,
-            rate_limit_slope,
-            rate_limit_max_outflow,
-            permit_liquidation,
-            &IntegrationConfig::Kamino(kamino_config_2.clone()),
-            &context_2.reserve_farm_collateral,
-            &context_2.reserve_farm_debt,
-            obligation_id,
-            &KAMINO_LEND_PROGRAM_ID
-        );
+        let (kamino_init_ix_2, kamino_integration_pk_2) =
+            create_initialize_kamino_lend_integration_ix(
+                &controller_pk,
+                &super_authority.pubkey(),
+                &super_authority.pubkey(),
+                &description,
+                status,
+                rate_limit_slope,
+                rate_limit_max_outflow,
+                permit_liquidation,
+                &IntegrationConfig::Kamino(kamino_config_2.clone()),
+                &context_2.reserve_farm_collateral,
+                &context_2.reserve_farm_debt,
+                obligation_id,
+                &KAMINO_LEND_PROGRAM_ID,
+            );
 
         // initialize the two new integrations (same obligation under the hood)
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
@@ -1376,11 +1377,10 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        svm.send_transaction(tx.clone())
-            .map_err(|e| {
-                println!("logs: {}", e.meta.pretty_logs());
-                e.err.to_string()
-            })?;
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
 
         let clock = svm.get_sysvar::<Clock>();
 
@@ -1393,120 +1393,114 @@ mod tests {
             .unwrap();
 
         assert_kamino_integration_at_init(
-            &integration_1, 
-            &kamino_config_1, 
-            &controller_pk, 
-            rate_limit_slope, 
-            rate_limit_max_outflow, 
-            permit_liquidation, 
-            &clock
+            &integration_1,
+            &kamino_config_1,
+            &controller_pk,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &clock,
         );
 
         assert_kamino_integration_at_init(
-            &integration_2, 
-            &kamino_config_2, 
-            &controller_pk, 
-            rate_limit_slope, 
-            rate_limit_max_outflow, 
-            permit_liquidation, 
-            &clock
+            &integration_2,
+            &kamino_config_2,
+            &controller_pk,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &clock,
         );
 
         // push into the two integration
         let deposited_amount_1 = 100_000_000;
         let push_ix_1 = get_push_ix(
-            &mut svm, 
-            &controller_pk, 
-            &super_authority, 
-            &kamino_integration_pk_1, 
-            &obligation, 
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &kamino_integration_pk_1,
+            &obligation,
             &kamino_config_1,
             deposited_amount_1,
             &Pubkey::default(),
-            &context_1.reserve_farm_collateral
+            &context_1.reserve_farm_collateral,
         )?;
-        
+
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
-            &[cu_ix, push_ix_1,],
+            &[cu_ix, push_ix_1],
             Some(&super_authority.pubkey()),
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        svm
-            .send_transaction(tx.clone())
-            .map_err(|e| {
-                println!("logs: {}", e.meta.pretty_logs());
-                e.err.to_string()
-            })?;
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
 
         // assert the obligation collateral slot was filled with a new ObligationCollateral
         // for the new reserve
-        let obligation_after 
-            = fetch_kamino_obligation(&svm, &obligation)?;
-        
-        assert!(
-            obligation_after.get_obligation_collateral_for_reserve(&context_1.kamino_reserve_pk).is_some()
-        );
+        let obligation_after = fetch_kamino_obligation(&svm, &obligation)?;
+
+        assert!(obligation_after
+            .get_obligation_collateral_for_reserve(&context_1.kamino_reserve_pk)
+            .is_some());
 
         svm.expire_blockhash();
 
         // push + pull + sync with kamino reserve 2
         let deposited_amount_2 = 200_000_000;
         let push_ix_2 = get_push_ix(
-            &mut svm, 
-            &controller_pk, 
-            &super_authority, 
-            &kamino_integration_pk_2, 
-            &obligation, 
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &kamino_integration_pk_2,
+            &obligation,
             &kamino_config_2,
             deposited_amount_2,
             &Pubkey::default(),
-            &context_2.reserve_farm_collateral
+            &context_2.reserve_farm_collateral,
         )?;
-        
+
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
-            &[cu_ix, push_ix_2,],
+            &[cu_ix, push_ix_2],
             Some(&super_authority.pubkey()),
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        svm
-            .send_transaction(tx.clone())
-            .map_err(|e| {
-                println!("logs: {}", e.meta.pretty_logs());
-                e.err.to_string()
-            })?;
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
 
         // assert the obligation collateral slot was filled with a new ObligationCollateral
         // for the new kamino reserve
-        let obligation_after_push 
-            = fetch_kamino_obligation(&svm, &obligation)?;
-        
-        assert!(
-            obligation_after_push.get_obligation_collateral_for_reserve(&context_2.kamino_reserve_pk).is_some()
-        );
+        let obligation_after_push = fetch_kamino_obligation(&svm, &obligation)?;
+
+        assert!(obligation_after_push
+            .get_obligation_collateral_for_reserve(&context_2.kamino_reserve_pk)
+            .is_some());
 
         svm.expire_blockhash();
 
         // pull
-        let total_collateral_amount_before = 
-            obligation_after_push.get_obligation_collateral_for_reserve(&context_2.kamino_reserve_pk)
+        let total_collateral_amount_before = obligation_after_push
+            .get_obligation_collateral_for_reserve(&context_2.kamino_reserve_pk)
             .unwrap()
             .deposited_amount;
 
         let collateral_amount = 100_000;
         let pull_ix = get_pull_ix(
-            &mut svm, 
-            &controller_pk, 
-            &super_authority, 
-            &kamino_integration_pk_2, 
-            &obligation, 
-            &kamino_config_2, 
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &kamino_integration_pk_2,
+            &obligation,
+            &kamino_config_2,
             collateral_amount,
             &Pubkey::default(),
-            &context_2.reserve_farm_collateral
+            &context_2.reserve_farm_collateral,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1515,16 +1509,14 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        svm
-            .send_transaction(tx.clone())
-            .map_err(|e| {
-                println!("logs: {}", e.meta.pretty_logs());
-                e.err.to_string()
-            })?;
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
 
-        let obligation_after_pull  = fetch_kamino_obligation(&svm, &obligation)?;
-        let total_collateral_amount_after = 
-            obligation_after_pull.get_obligation_collateral_for_reserve(&context_2.kamino_reserve_pk)
+        let obligation_after_pull = fetch_kamino_obligation(&svm, &obligation)?;
+        let total_collateral_amount_after = obligation_after_pull
+            .get_obligation_collateral_for_reserve(&context_2.kamino_reserve_pk)
             .unwrap()
             .deposited_amount;
 
@@ -1536,15 +1528,13 @@ mod tests {
 
         // sync ix
         // increase kamino reserve liquidity to increase the integration liquidity value
-        let kamino_reserve = fetch_kamino_reserve(
-            &svm, 
-            &kamino_config_2.reserve
-        )?;
-        let new_kamino_reserve_liq_available_amount = kamino_reserve.liquidity.available_amount + 100_000_000_000;
+        let kamino_reserve = fetch_kamino_reserve(&svm, &kamino_config_2.reserve)?;
+        let new_kamino_reserve_liq_available_amount =
+            kamino_reserve.liquidity.available_amount + 100_000_000_000;
         set_kamino_reserve_liquidity_available_amount(
-            &mut svm, 
-            &kamino_config_2.reserve, 
-            new_kamino_reserve_liq_available_amount
+            &mut svm,
+            &kamino_config_2.reserve,
+            new_kamino_reserve_liq_available_amount,
         )?;
 
         let integration_before_sync = fetch_integration_account(&svm, &kamino_integration_pk_2)
@@ -1552,20 +1542,20 @@ mod tests {
             .unwrap();
 
         let sync_ix = create_sync_kamino_lend_ix(
-            &controller_pk, 
+            &controller_pk,
             &kamino_integration_pk_2,
-            &super_authority.pubkey(), 
-            &kamino_config_2, 
-            &USDC_TOKEN_MINT_PUBKEY, 
-            &farms_context.global_config, 
+            &super_authority.pubkey(),
+            &kamino_config_2,
+            &USDC_TOKEN_MINT_PUBKEY,
+            &farms_context.global_config,
             &context_2.reserve_farm_collateral,
             // rewards_ata set to default to skip harvesting rewards
             &Pubkey::default(),
             // since we are setting farm_collateral.scope_oracle_price_id = u64::MAX,
             // no scope_price is required, in order to pass None we need to pass
             // KFARMS program ID.
-            &KAMINO_FARMS_PROGRAM_ID, 
-            &SPL_TOKEN_PROGRAM_ID
+            &KAMINO_FARMS_PROGRAM_ID,
+            &SPL_TOKEN_PROGRAM_ID,
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1574,12 +1564,10 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        svm
-            .send_transaction(tx.clone())
-            .map_err(|e| {
-                println!("logs: {}", e.meta.pretty_logs());
-                e.err.to_string()
-            })?;
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
 
         let integration_after_sync = fetch_integration_account(&svm, &kamino_integration_pk_2)
             .unwrap()
@@ -1598,10 +1586,7 @@ mod tests {
         assert!(state_before.last_liquidity_value < state_after.last_liquidity_value);
 
         //assert lp amount did not change
-        assert_eq!(
-            state_after.last_lp_amount,
-            state_before.last_lp_amount
-        );
+        assert_eq!(state_after.last_lp_amount, state_before.last_lp_amount);
 
         Ok(())
     }
