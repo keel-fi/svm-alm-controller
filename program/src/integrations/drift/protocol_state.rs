@@ -263,7 +263,7 @@ impl SpotMarket {
     /// 1: borrow balance
     /// Returns the balance in the base asset
     /// https://github.com/drift-labs/protocol-v2/blob/master/programs/drift/src/math/spot_balance.rs#L40
-    pub fn get_balance(self, balance_type: u8) -> Result<u64, ProgramError> {
+    pub fn get_token_amount(self, balance: u128, balance_type: u8) -> Result<u64, ProgramError> {
         let precision_decrease = 10_u128.pow(19_u32.checked_sub(self.decimals).unwrap());
 
         let cumulative_interest = match balance_type {
@@ -273,14 +273,12 @@ impl SpotMarket {
         };
 
         let token_amount = match balance_type {
-            0 => self
-                .deposit_balance
+            0 => balance
                 .checked_mul(cumulative_interest)
                 .unwrap()
                 .checked_div(precision_decrease)
                 .unwrap(),
-            1 => self
-                .borrow_balance
+            1 => balance
                 .checked_mul(cumulative_interest)
                 .unwrap()
                 .checked_ceil_div(precision_decrease)
@@ -288,7 +286,9 @@ impl SpotMarket {
             _ => return Err(ProgramError::InvalidArgument),
         };
 
-        Ok(token_amount as u64)
+        let token_amount: u64 = token_amount.try_into().unwrap();
+
+        Ok(token_amount)
     }
 }
 

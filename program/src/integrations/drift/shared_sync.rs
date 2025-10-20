@@ -37,7 +37,10 @@ pub fn sync_drift_balance(
         .find(|pos| pos.market_index == market_index)
         .ok_or(ProgramError::InvalidAccountData)?;
 
-    let new_balance = spot_market_state.get_balance(spot_position.balance_type)?;
+    let new_balance = spot_market_state.get_token_amount(
+        spot_position.scaled_balance as u128,
+        spot_position.balance_type,
+    )?;
 
     if balance != new_balance {
         let abs_delta = new_balance.abs_diff(balance);
@@ -59,7 +62,7 @@ pub fn sync_drift_balance(
                 reserve: None,
                 mint: *liquidity_mint,
                 action: AccountingAction::Sync,
-                delta: abs_delta as u64,
+                delta: abs_delta,
                 direction,
             }),
         )?
