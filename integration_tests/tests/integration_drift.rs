@@ -17,6 +17,7 @@ mod tests {
     };
     use borsh::BorshDeserialize;
     use bytemuck;
+    use solana_sdk::account::Account;
     use solana_sdk::program_pack::Pack;
     use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
@@ -605,8 +606,8 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        // Get integration state before sync
-        let integration_before = fetch_integration_account(&svm, &integration_pubkey)
+        // Get integration state before sync (not used in this test but kept for completeness)
+        let _integration_before = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
 
@@ -619,6 +620,42 @@ mod tests {
             &reserve_keys.vault,
             spot_market_index,
             sub_account_id,
+        )?;
+
+        // Advance slots to simulate time passage for interest accrual
+        let current_slot = svm.get_sysvar::<Clock>().slot;
+        svm.warp_to_slot(current_slot + 1000); // Advance by 1000 slots
+
+        // Update the spot market to simulate interest accrual
+        // We'll increase the cumulative deposit interest to simulate interest earned
+        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
+        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
+        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
+
+        // Create a new spot market with increased cumulative deposit interest
+        let mut updated_spot_market = *spot_market;
+        // Increase cumulative deposit interest by 1% (multiply by 1.01)
+        updated_spot_market.cumulative_deposit_interest = spot_market
+            .cumulative_deposit_interest
+            .checked_mul(101)
+            .unwrap()
+            .checked_div(100)
+            .unwrap();
+
+        // Update the spot market account with the new interest rate
+        let mut new_spot_market_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
+        new_spot_market_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
+        new_spot_market_data.extend_from_slice(&bytemuck::bytes_of(&updated_spot_market));
+
+        svm.set_account(
+            spot_market_pubkey,
+            Account {
+                lamports: spot_market_account.lamports,
+                rent_epoch: spot_market_account.rent_epoch,
+                data: new_spot_market_data,
+                owner: spot_market_account.owner,
+                executable: spot_market_account.executable,
+            },
         )?;
 
         // Execute the sync instruction
@@ -635,33 +672,35 @@ mod tests {
             .expect("integration should exist")
             .unwrap();
 
-        // Verify that the integration state was updated
+        // The balance should reflect the pushed amount plus interest earned
+        // With 1% interest, the balance should be approximately push_amount * 1.0
+        let expected_balance_with_interest = (push_amount as u128)
+            .checked_mul(101)
+            .unwrap()
+            .checked_div(100)
+            .unwrap();
+        // Verify that the integration state was updated with interest
         match &integration_after.state {
             IntegrationState::Drift(drift_state) => {
-                // The balance should reflect the pushed amount
-                assert_eq!(drift_state.balance, push_amount as u128);
+                assert_eq!(drift_state.balance, expected_balance_with_interest);
             }
             _ => panic!("Expected Drift integration state"),
         }
 
-        // Verify that the integration state changed from before
-        match &integration_before.state {
-            IntegrationState::Drift(drift_state_before) => {
-                match &integration_after.state {
-                    IntegrationState::Drift(drift_state_after) => {
-                        assert_ne!(drift_state_before.balance, drift_state_after.balance);
-                        // Verify the exact amount changed matches the push amount
-                        assert_eq!(
-                            drift_state_after.balance - drift_state_before.balance,
-                            push_amount as u128,
-                            "Balance should have increased by exactly the push amount"
-                        );
-                    }
-                    _ => panic!("Expected Drift integration state"),
-                }
-            }
-            _ => panic!("Expected Drift integration state"),
-        }
+        // Assert the sync event from shared_sync.rs - this should use the token_mint, not reserve_keys.pubkey
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey),
+                mint: token_mint,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Sync,
+                delta: expected_balance_with_interest as u64,
+            })
+        );
 
         Ok(())
     }

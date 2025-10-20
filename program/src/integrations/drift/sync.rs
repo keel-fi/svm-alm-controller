@@ -3,7 +3,7 @@ use crate::{
     enums::IntegrationConfig,
     integrations::drift::{
         constants::DRIFT_PROGRAM_ID, protocol_state::SpotMarket,
-        shared_sync::sync_drift_liquidity_value,
+        shared_sync::sync_drift_balance,
     },
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
@@ -12,7 +12,7 @@ use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, Pro
 
 define_account_struct! {
     pub struct SyncDriftAccounts<'info> {
-        spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        spot_market_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         spot_market: @owner(DRIFT_PROGRAM_ID);
         user: @owner(DRIFT_PROGRAM_ID);
         reserve_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -57,14 +57,6 @@ pub fn process_sync_drift(
         outer_ctx.remaining_accounts,
     )?;
 
-    // Sync the reserve before main logic
-    reserve.sync_balance(
-        inner_ctx.reserve_vault,
-        outer_ctx.controller_authority,
-        outer_ctx.controller.key(),
-        controller,
-    )?;
-
     // Get the drift config to extract market index
     let drift_config = match &integration.config {
         IntegrationConfig::Drift(config) => config,
@@ -72,7 +64,7 @@ pub fn process_sync_drift(
     };
 
     // Sync liquidity value and update state
-    let new_balance = sync_drift_liquidity_value(
+    let new_balance = sync_drift_balance(
         controller,
         integration,
         outer_ctx.integration.key(),

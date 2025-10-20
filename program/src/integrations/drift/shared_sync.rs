@@ -7,10 +7,9 @@ use crate::{
     state::{Controller, Integration},
 };
 
-/// Calculates the current `liquidity_value` of a Drift spot position and emits Sync event
-/// in the case of a change regarding previously stored `liquidity_value`.
-/// Used in Push/Pull/Sync.
-pub fn sync_drift_liquidity_value(
+/// Calculates the current `balance` of a Drift spot position and emits Sync event
+/// in the case of a change regarding previously stored `balance`.
+pub fn sync_drift_balance(
     controller: &Controller,
     integration: &Integration,
     integration_pubkey: &Pubkey,
@@ -20,7 +19,7 @@ pub fn sync_drift_liquidity_value(
     spot_market: &AccountInfo,
     user: &AccountInfo,
     market_index: u16,
-) -> Result<u128, ProgramError> {
+) -> Result<u64, ProgramError> {
     let balance = match &integration.state {
         IntegrationState::Drift(drift_state) => drift_state.balance,
         _ => return Err(ProgramError::InvalidAccountData),
@@ -29,7 +28,16 @@ pub fn sync_drift_liquidity_value(
     let spot_market_data = spot_market.try_borrow_data()?;
     let spot_market_state = SpotMarket::load_checked(&spot_market_data)?;
 
-    let new_balance = spot_market_state.get_balance(0)?;
+    let user_data = user.try_borrow_data()?;
+    let user_state = User::try_from(&user_data)?;
+
+    let spot_position = user_state
+        .spot_positions
+        .iter()
+        .find(|pos| pos.market_index == market_index)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    let new_balance = spot_market_state.get_balance(spot_position.balance_type)?;
 
     if balance != new_balance {
         let abs_delta = new_balance.abs_diff(balance);

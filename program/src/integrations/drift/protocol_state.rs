@@ -258,7 +258,12 @@ impl SpotMarket {
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 
-    pub fn get_balance(self, balance_type: u8) -> Result<u128, ProgramError> {
+    /// Get the balance of the spot market for a given balance type
+    /// 0: deposit balance
+    /// 1: borrow balance
+    /// Returns the balance in the base asset
+    /// https://github.com/drift-labs/protocol-v2/blob/master/programs/drift/src/math/spot_balance.rs#L40
+    pub fn get_balance(self, balance_type: u8) -> Result<u64, ProgramError> {
         let precision_decrease = 10_u128.pow(19_u32.checked_sub(self.decimals).unwrap());
 
         let cumulative_interest = match balance_type {
@@ -283,7 +288,7 @@ impl SpotMarket {
             _ => return Err(ProgramError::InvalidArgument),
         };
 
-        Ok(token_amount)
+        Ok(token_amount as u64)
     }
 }
 
