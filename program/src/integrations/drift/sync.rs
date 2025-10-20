@@ -2,8 +2,7 @@ use crate::{
     define_account_struct,
     enums::IntegrationConfig,
     integrations::drift::{
-        constants::DRIFT_PROGRAM_ID, protocol_state::SpotMarket,
-        shared_sync::sync_drift_balance,
+        constants::DRIFT_PROGRAM_ID, protocol_state::SpotMarket, shared_sync::sync_drift_balance,
     },
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
