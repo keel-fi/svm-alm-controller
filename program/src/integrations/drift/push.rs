@@ -16,7 +16,7 @@ use crate::{
     instructions::PushArgs,
     integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit},
     processor::PushAccounts,
-    state::{Controller, Integration, Permission, Reserve},
+    state::{reserve, Controller, Integration, Permission, Reserve},
 };
 
 define_account_struct! {
@@ -123,6 +123,7 @@ pub fn process_push_drift(
 
     // Reload the user token account to check its balance
     let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
+    let reserve_mint = reserve_vault.mint();
     let user_token_balance_after = reserve_vault.amount();
     let check_delta = user_token_balance_before
         .checked_sub(user_token_balance_after)
@@ -145,7 +146,7 @@ pub fn process_push_drift(
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
             integration: Some(*outer_ctx.integration.key()),
-            mint: *inner_ctx.spot_market_vault.key(),
+            mint: *reserve_mint,
             reserve: None,
             direction: AccountingDirection::Credit,
             action: AccountingAction::Deposit,
@@ -161,7 +162,7 @@ pub fn process_push_drift(
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
             integration: None,
-            mint: *inner_ctx.spot_market_vault.key(),
+            mint: *reserve_mint,
             reserve: Some(*outer_ctx.reserve_a.key()),
             direction: AccountingDirection::Debit,
             action: AccountingAction::Deposit,
