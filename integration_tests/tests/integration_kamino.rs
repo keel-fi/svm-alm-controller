@@ -71,8 +71,8 @@ mod tests {
     ) -> Result<(Instruction, Pubkey, ReserveKeys), Box<dyn std::error::Error>> {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
-        // Initialize a reserve for the USDC token
-        let usdc_reserve_pk = create_and_fund_controller_reserves(
+        // Initialize a reserve for the given mint
+        let reserve_pk = create_and_fund_controller_reserves(
             svm,
             controller_pk,
             super_authority,
@@ -96,7 +96,7 @@ mod tests {
             &KAMINO_LEND_PROGRAM_ID,
         );
 
-        Ok((kamino_init_ix, kamino_integration_pk, usdc_reserve_pk))
+        Ok((kamino_init_ix, kamino_integration_pk, reserve_pk))
     }
 
     fn create_and_fund_controller_reserves(

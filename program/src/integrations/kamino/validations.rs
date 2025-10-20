@@ -21,13 +21,13 @@ use pinocchio_token::state::TokenAccount;
 define_account_struct! {
     pub struct PushPullKaminoAccounts<'info> {
         // Pull = liquidity_destination, Push = liquidity_source
-        token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         obligation: mut @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
-        reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_collateral_mint: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        kamino_reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        kamino_reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        kamino_reserve_collateral_mint: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
         collateral_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -42,9 +42,9 @@ define_account_struct! {
 
 impl<'info> PushPullKaminoAccounts<'info> {
     /// Builds `PushPullKaminoAccounts` and validates identities:
-    /// - Config (Kamino): market, kamino_reserve, reserve_liquidity_mint, obligation
-    /// - KLend PDAs: reserve_{collateral_mint, collateral_supply, liquidity_supply}, market_authority
-    /// - token_account: mint == reserve_liquidity_mint, owner == controller_authority, key == reserve.vault
+    /// - Config (Kamino): market, kamino_reserve, kamino_reserve_liquidity_mint, obligation
+    /// - KLend PDAs: kamino_reserve_{collateral_mint, collateral_supply, liquidity_supply}, market_authority
+    /// - reserve_vault: mint == reserve_liquidity_mint, owner == controller_authority, key == reserve.vault
     /// - reserve.mint == reserve_liquidity_mint
     /// - obligation_farm_collateral: matches PDA derived from reserve_farm_collateral and obligation
     /// Returns ctx or `InvalidAccountData`/`InvalidPda`. Use for both push and pull.
@@ -65,17 +65,17 @@ impl<'info> PushPullKaminoAccounts<'info> {
         config.check_accounts(
             ctx.obligation.key(),
             ctx.kamino_reserve.key(),
-            ctx.reserve_liquidity_mint.key(),
+            ctx.kamino_reserve_liquidity_mint.key(),
             Some(ctx.market.key()),
         )?;
 
         let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
             &ctx.market.key(),
-            &ctx.reserve_liquidity_mint.key(),
+            &ctx.kamino_reserve_liquidity_mint.key(),
             &KAMINO_LEND_PROGRAM_ID,
         )?;
         if ctx
-            .reserve_collateral_mint
+            .kamino_reserve_collateral_mint
             .key()
             .ne(&reserve_collateral_mint_pda)
         {
@@ -85,11 +85,11 @@ impl<'info> PushPullKaminoAccounts<'info> {
 
         let reserve_collateral_supply_pda = derive_reserve_collateral_supply(
             &ctx.market.key(),
-            &ctx.reserve_liquidity_mint.key(),
+            &ctx.kamino_reserve_liquidity_mint.key(),
             &KAMINO_LEND_PROGRAM_ID,
         )?;
         if ctx
-            .reserve_collateral_supply
+            .kamino_reserve_collateral_supply
             .key()
             .ne(&reserve_collateral_supply_pda)
         {
@@ -99,11 +99,11 @@ impl<'info> PushPullKaminoAccounts<'info> {
 
         let reserve_liquidity_supply_pda = derive_reserve_liquidity_supply(
             &ctx.market.key(),
-            &ctx.reserve_liquidity_mint.key(),
+            &ctx.kamino_reserve_liquidity_mint.key(),
             &KAMINO_LEND_PROGRAM_ID,
         )?;
         if ctx
-            .reserve_liquidity_supply
+            .kamino_reserve_liquidity_supply
             .key()
             .ne(&reserve_liquidity_supply_pda)
         {
@@ -118,7 +118,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
-        let token_account = TokenAccount::from_account_info(ctx.token_account)?;
+        let token_account = TokenAccount::from_account_info(ctx.reserve_vault)?;
         if token_account.mint().ne(&config.reserve_liquidity_mint) {
             msg! {"token_account_info: invalid mint"};
             return Err(ProgramError::InvalidAccountData);
@@ -128,12 +128,12 @@ impl<'info> PushPullKaminoAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        if ctx.token_account.key().ne(&reserve.vault) {
+        if ctx.reserve_vault.key().ne(&reserve.vault) {
             msg! {"token_account_info: mismatch with reserve"};
             return Err(ProgramError::InvalidAccountData);
         }
 
-        if ctx.reserve_liquidity_mint.key().ne(&reserve.mint) {
+        if ctx.kamino_reserve_liquidity_mint.key().ne(&reserve.mint) {
             msg! {"reserve_liquidity_mint: mismatch with reserve"};
             return Err(ProgramError::InvalidAccountData);
         }

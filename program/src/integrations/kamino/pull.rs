@@ -59,7 +59,7 @@ pub fn process_pull_kamino(
     )?;
 
     reserve.sync_balance(
-        inner_ctx.token_account,
+        inner_ctx.reserve_vault,
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         controller,
@@ -72,13 +72,13 @@ pub fn process_pull_kamino(
         outer_ctx.integration.key(),
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
-        inner_ctx.reserve_liquidity_mint.key(),
+        inner_ctx.kamino_reserve_liquidity_mint.key(),
         inner_ctx.kamino_reserve,
         inner_ctx.obligation,
     )?;
 
     let liquidity_amount_before = {
-        let vault = TokenAccount::from_account_info(inner_ctx.token_account)?;
+        let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()
     };
 
@@ -91,11 +91,11 @@ pub fn process_pull_kamino(
         lending_market: inner_ctx.market,
         market_authority: inner_ctx.market_authority,
         kamino_reserve: inner_ctx.kamino_reserve,
-        reserve_liquidity_mint: inner_ctx.reserve_liquidity_mint,
-        reserve_collateral_supply: inner_ctx.reserve_collateral_supply,
-        reserve_collateral_mint: inner_ctx.reserve_collateral_mint,
-        reserve_liquidity_supply: inner_ctx.reserve_liquidity_supply,
-        user_liquidity_destination: inner_ctx.token_account,
+        reserve_liquidity_mint: inner_ctx.kamino_reserve_liquidity_mint,
+        reserve_collateral_supply: inner_ctx.kamino_reserve_collateral_supply,
+        reserve_collateral_mint: inner_ctx.kamino_reserve_collateral_mint,
+        reserve_liquidity_supply: inner_ctx.kamino_reserve_liquidity_supply,
+        user_liquidity_destination: inner_ctx.reserve_vault,
         // placeholder AccountInfo
         placeholder_user_destination_collateral: inner_ctx.kamino_program,
         collateral_token_program: inner_ctx.collateral_token_program,
@@ -114,7 +114,7 @@ pub fn process_pull_kamino(
 
     // For liquidity and collateral amount calculation
     let liquidity_amount_after = {
-        let vault = TokenAccount::from_account_info(inner_ctx.token_account)?;
+        let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()
     };
     let liquidity_amount_delta = liquidity_amount_after.saturating_sub(liquidity_amount_before);
@@ -130,7 +130,7 @@ pub fn process_pull_kamino(
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
             integration: Some(*outer_ctx.integration.key()),
-            mint: *inner_ctx.reserve_liquidity_mint.key(),
+            mint: *inner_ctx.kamino_reserve_liquidity_mint.key(),
             reserve: None,
             direction: AccountingDirection::Debit,
             action: AccountingAction::Withdrawal,
@@ -146,7 +146,7 @@ pub fn process_pull_kamino(
         SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: *outer_ctx.controller.key(),
             integration: None,
-            mint: *inner_ctx.reserve_liquidity_mint.key(),
+            mint: *inner_ctx.kamino_reserve_liquidity_mint.key(),
             reserve: Some(*outer_ctx.reserve_a.key()),
             direction: AccountingDirection::Credit,
             action: AccountingAction::Withdrawal,
