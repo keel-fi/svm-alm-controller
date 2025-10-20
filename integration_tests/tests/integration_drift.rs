@@ -616,6 +616,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
+            &reserve_keys.vault,
             spot_market_index,
             sub_account_id,
         )?;
