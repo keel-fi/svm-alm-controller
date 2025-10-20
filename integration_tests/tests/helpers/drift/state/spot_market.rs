@@ -1,10 +1,9 @@
+use crate::helpers::spl::setup_token_account;
 use litesvm::LiteSVM;
 use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
 use svm_alm_controller_client::integrations::drift::{
     derive_drift_signer, derive_spot_market_pda, SpotMarket, DRIFT_PROGRAM_ID,
 };
-use crate::helpers::spl::setup_token_account;
-
 
 /// Setup Drift SpotMarket state in LiteSvm giving full control over state.
 ///
