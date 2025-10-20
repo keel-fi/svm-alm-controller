@@ -1,11 +1,13 @@
 use borsh::BorshDeserialize;
 use litesvm::LiteSVM;
 use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction
+    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
 };
 use std::error::Error;
 use svm_alm_controller_client::generated::{
-    accounts::Permission, instructions::ManagePermissionBuilder, programs::SVM_ALM_CONTROLLER_ID,
+    accounts::Permission,
+    instructions::ManagePermissionBuilder,
+    programs::SVM_ALM_CONTROLLER_ID,
     types::{PermissionStatus, PermissionUpdateEvent, SvmAlmControllerEvent},
 };
 
@@ -185,10 +187,10 @@ pub fn manage_permission(
         new_state: subject_permission_account_after,
     });
     assert_contains_controller_cpi_event!(
-        tx_result.unwrap(), 
-        txn.message.account_keys.as_slice(), 
+        tx_result.unwrap(),
+        txn.message.account_keys.as_slice(),
         expected_event
     );
-    
+
     Ok(subject_permission_pda)
 }

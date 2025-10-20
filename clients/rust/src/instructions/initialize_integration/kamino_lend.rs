@@ -8,12 +8,15 @@ use solana_sdk::{
 
 use crate::{
     constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
-    derive_controller_authority_pda, derive_integration_pda,
-    derive_permission_pda,
+    derive_controller_authority_pda, derive_integration_pda, derive_permission_pda,
     generated::{
         instructions::InitializeIntegrationBuilder,
         types::{InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType},
-    }, integrations::kamino::{derive_market_authority_address, derive_obligation_farm_address, derive_user_metadata_address},
+    },
+    integrations::kamino::{
+        derive_market_authority_address, derive_obligation_farm_address,
+        derive_user_metadata_address,
+    },
 };
 
 /// Creates an `InitializeIntegration` instruction for a **Kamino Lend integration** under the

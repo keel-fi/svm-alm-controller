@@ -4,8 +4,8 @@ use crate::{
     error::SvmAlmControllerErrors,
     instructions::PushArgs,
     integrations::{
-        cctp_bridge::push::process_push_cctp_bridge, kamino::push::process_push_kamino,
-        lz_bridge::push::process_push_lz_bridge,
+        cctp_bridge::push::process_push_cctp_bridge, drift::push::process_push_drift,
+        kamino::push::process_push_kamino, lz_bridge::push::process_push_lz_bridge,
         spl_token_external::push::process_push_spl_token_external,
     },
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
@@ -101,6 +101,16 @@ pub fn process_push(
         }
         PushArgs::LzBridge { .. } => {
             process_push_lz_bridge(
+                &controller,
+                &permission,
+                &mut integration,
+                &mut reserve_a,
+                &ctx,
+                &args,
+            )?;
+        }
+        PushArgs::Drift { .. } => {
+            process_push_drift(
                 &controller,
                 &permission,
                 &mut integration,

@@ -1,7 +1,7 @@
 use solana_instruction::{AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
 
-use crate::{integrations::kamino::derive_anchor_discriminator, KAMINO_LEND_PROGRAM_ID};
+use crate::{integrations::utils::anchor_discriminator, KAMINO_LEND_PROGRAM_ID};
 
 /// If obligation has reserves, they need to be added as remaining accounts.
 /// for the sake of simplicity, this method only support obligations with 1 reserve.
@@ -11,7 +11,7 @@ pub fn create_refresh_kamino_obligation_instruction(
     obligation: &Pubkey,
     reserves: Vec<&Pubkey>,
 ) -> Instruction {
-    let data = derive_anchor_discriminator("global", "refresh_obligation");
+    let data = anchor_discriminator("global", "refresh_obligation");
 
     let mut accounts = vec![
         AccountMeta {

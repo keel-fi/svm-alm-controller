@@ -1,9 +1,9 @@
 use crate::{
-    define_account_struct, 
-    enums::IntegrationConfig, 
-    error::SvmAlmControllerErrors, 
-    integrations::kamino::sync::process_sync_kamino, 
-    state::{keel_account::KeelAccount, Controller, Integration, Reserve}
+    define_account_struct,
+    enums::IntegrationConfig,
+    error::SvmAlmControllerErrors,
+    integrations::kamino::sync::process_sync_kamino,
+    state::{keel_account::KeelAccount, Controller, Integration, Reserve},
 };
 use pinocchio::{
     account_info::AccountInfo,
@@ -54,8 +54,7 @@ pub fn process_sync_integration(
     match integration.config {
         IntegrationConfig::Kamino(_kamino_config) => {
             // Load in the reserve account (kamino only handles one reserve)
-            let mut reserve 
-                = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
+            let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 
             process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?;
 

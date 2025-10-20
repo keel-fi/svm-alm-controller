@@ -1,7 +1,7 @@
 use core::ops::{Div, Mul};
+use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
 use solana_sdk::program_error::ProgramError;
 pub use uint_types::U256;
-use fixed::{FixedU128, types::extra::U60, traits::FromFixed};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct BigFraction(pub U256);
 
@@ -55,7 +55,6 @@ pub type Fraction = FixedU128<U60>;
 pub trait FractionExtra {
     fn to_floor<Dst: FromFixed>(&self) -> Dst;
 }
-
 
 impl FractionExtra for Fraction {
     #[inline]

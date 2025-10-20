@@ -1,24 +1,18 @@
 use core::ops::{Div, Mul};
 
-use pinocchio::{
-    account_info::AccountInfo, msg, 
-    program_error::ProgramError, 
-    pubkey::Pubkey
-};
-use fixed::{FixedU128, types::extra::U60, traits::FromFixed};
 use crate::{
     integrations::kamino::{
         constants::{
-            FARMS_GLOBAL_CONFIG_DISCRIMINATOR, 
-            FARM_STATE_DISCRIMINATOR, 
-            OBLIGATION_DISCRIMINATOR, 
-            RESERVE_DISCRIMINATOR, 
-            USER_FARM_STATE_DISCRIMINATOR
-        }, 
-        initialize::InitializeKaminoAccounts
-    }, processor::shared::is_account_closed
+            FARMS_GLOBAL_CONFIG_DISCRIMINATOR, FARM_STATE_DISCRIMINATOR, OBLIGATION_DISCRIMINATOR,
+            RESERVE_DISCRIMINATOR, USER_FARM_STATE_DISCRIMINATOR,
+        },
+        initialize::InitializeKaminoAccounts,
+    },
+    processor::shared::is_account_closed,
 };
 use bytemuck::{Pod, Zeroable};
+use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
 // --------- from KLEND program ---------
 
@@ -77,7 +71,6 @@ type Fraction = FixedU128<U60>;
 pub trait FractionExtra {
     fn to_floor<Dst: FromFixed>(&self) -> Dst;
 }
-
 
 impl FractionExtra for Fraction {
     #[inline]
@@ -233,7 +226,6 @@ pub struct CurvePoint {
     pub borrow_rate_bps: u32,
 }
 
-
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct ReserveFees {
@@ -296,30 +288,30 @@ impl KaminoReserve {
     /// Verifies that:
     /// - the `Reserve` belongs to the market
     /// - the `Reserve` `liquidity_mint` matches `reserve_liquidity_mint`
-    /// - the `Reserve` `farm_collateral` matches `reserve_farm_collateral` 
+    /// - the `Reserve` `farm_collateral` matches `reserve_farm_collateral`
     /// - the `Reserve` `farm debt` matches `reserve_farm_debt`
     pub fn check_from_init_accounts(
-        &self, 
-        inner_ctx: &InitializeKaminoAccounts
+        &self,
+        inner_ctx: &InitializeKaminoAccounts,
     ) -> Result<(), ProgramError> {
         if &self.lending_market != inner_ctx.market.key() {
             msg! {"reserve: invalid reserve, does not belong to market"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         if &self.liquidity.mint_pubkey != inner_ctx.reserve_liquidity_mint.key() {
             msg! {"reserve: invalid reserve, liquidity mint does not match"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         if &self.farm_collateral != inner_ctx.reserve_farm_collateral.key() {
             msg! {"reserve: farm collateral does not match reserve farm"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         if &self.farm_debt != inner_ctx.reserve_farm_debt.key() {
             msg! {"reserve: farm debt does not match reserve farm"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         Ok(())
@@ -334,12 +326,12 @@ impl KaminoReserve {
     }
 
     fn total_supply(&self) -> Fraction {
-        Fraction::from(self.liquidity.available_amount) 
+        Fraction::from(self.liquidity.available_amount)
             + Fraction::from_bits(self.liquidity.borrowed_amount_sf)
             - Fraction::from_bits(self.liquidity.accumulated_protocol_fees_sf)
             - Fraction::from_bits(self.liquidity.accumulated_referrer_fees_sf)
             - Fraction::from_bits(self.liquidity.pending_referrer_fees_sf)
-    } 
+    }
 
     fn collateral_exchange_rate(&self) -> (u128, Fraction) {
         let mut total_liquidity = self.total_supply();
@@ -358,8 +350,7 @@ impl KaminoReserve {
     fn fraction_collateral_to_liquidity(&self, collateral_amount: Fraction) -> Fraction {
         let (collateral_supply, liquidity) = self.collateral_exchange_rate();
 
-        (BigFraction::from(collateral_amount) * BigFraction::from(liquidity)
-            / collateral_supply)
+        (BigFraction::from(collateral_amount) * BigFraction::from(liquidity) / collateral_supply)
             .try_into()
             .expect("fraction_collateral_to_liquidity: liquidity_amount overflow")
     }
@@ -380,11 +371,13 @@ pub fn get_liquidity_and_lp_amount(
     kamino_reserve: &AccountInfo,
     obligation: &AccountInfo,
 ) -> Result<(u64, u64), ProgramError> {
-    // if the obligation is closed 
+    // if the obligation is closed
     // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
     // then the lp_amount is 0
 
-    let lp_amount = if is_account_closed(obligation) { 0 } else {
+    let lp_amount = if is_account_closed(obligation) {
+        0
+    } else {
         // if it's not closed, then we read the state,
         // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
         // in that case lp_amount is also 0
@@ -392,12 +385,15 @@ pub fn get_liquidity_and_lp_amount(
         let obligation_state = Obligation::load_checked(&obligation_data)?;
 
         // handles the case where no ObligationCollateral is found
-        obligation_state.get_obligation_collateral_for_reserve(kamino_reserve.key())
+        obligation_state
+            .get_obligation_collateral_for_reserve(kamino_reserve.key())
             .map_or(0, |collateral| collateral.deposited_amount)
     };
 
     // avoids deserializing kamino_reserve if lp_amount is 0
-    let liquidity_value = if lp_amount == 0 { 0 } else {
+    let liquidity_value = if lp_amount == 0 {
+        0
+    } else {
         let kamino_reserve_data = kamino_reserve.try_borrow_data()?;
         let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
         kamino_reserve_state.collateral_to_liquidity(lp_amount)
@@ -405,7 +401,6 @@ pub fn get_liquidity_and_lp_amount(
 
     Ok((liquidity_value, lp_amount))
 }
-
 
 // --------- Obligation ----------
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
@@ -517,15 +512,14 @@ impl Obligation {
         controller_authority: &Pubkey,
         market: &Pubkey,
     ) -> Result<(), ProgramError> {
-
         if &self.owner != controller_authority {
             msg! {"obligation: invalid obligation, owner is not controller_authority"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         if &self.lending_market != market {
             msg! {"obligation: invalid obligation, belongs to another market"}
-            return Err(ProgramError::InvalidAccountData)
+            return Err(ProgramError::InvalidAccountData);
         }
 
         Ok(())
@@ -541,16 +535,13 @@ impl Obligation {
     }
 
     pub fn get_obligation_collateral_for_reserve(
-        &self, 
-        reserve: &Pubkey
+        &self,
+        reserve: &Pubkey,
     ) -> Option<&ObligationCollateral> {
         self.deposits
             .iter()
-            .find(|obligation_collateral| {
-                obligation_collateral.deposit_reserve.eq(reserve)
-            })
+            .find(|obligation_collateral| obligation_collateral.deposit_reserve.eq(reserve))
     }
-
 }
 
 // --------- FarmState ---------
@@ -640,7 +631,6 @@ pub struct FarmState {
     pub _padding_1: [u64; 32],
     pub _padding_2: [u64; 32],
     pub _padding_3: [u64; 10],
-
 }
 
 impl FarmState {
@@ -655,9 +645,9 @@ impl FarmState {
     }
 
     pub fn find_reward_index_and_rewards_available(
-        &self, 
+        &self,
         reward_mint: &Pubkey,
-        reward_token_program: &Pubkey
+        reward_token_program: &Pubkey,
     ) -> Option<(u64, u64)> {
         self.reward_infos
             .iter()
@@ -672,9 +662,7 @@ impl FarmState {
                 }
             })
     }
-    
 }
-
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
@@ -740,18 +728,23 @@ impl UserState {
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 
-    pub fn get_rewards(user_state: &AccountInfo, global_config: &AccountInfo, reward_index: usize) -> Result<u64, ProgramError> {
+    pub fn get_rewards(
+        user_state: &AccountInfo,
+        global_config: &AccountInfo,
+        reward_index: usize,
+    ) -> Result<u64, ProgramError> {
         let user_state_data = user_state.try_borrow_data()?;
         let user_state = Self::load_checked(&user_state_data)?;
 
         let reward = user_state.rewards_issued_unclaimed[reward_index];
         if reward == 0 {
-            return Ok(0)
+            return Ok(0);
         }
 
         let global_config_data = global_config.try_borrow_data()?;
         let global_config_state = GlobalConfig::load_checked(&global_config_data)?;
-        let reward_treasury = Self::u64_mul_div(reward, global_config_state.treasury_fee_bps, 10000)?;
+        let reward_treasury =
+            Self::u64_mul_div(reward, global_config_state.treasury_fee_bps, 10000)?;
         let reward_user = reward
             .checked_sub(reward_treasury)
             .ok_or_else(|| ProgramError::ArithmeticOverflow)?;
@@ -764,9 +757,7 @@ impl UserState {
         let b: u128 = b.into();
         let c: u128 = c.into();
 
-        let numerator = a
-            .checked_mul(b)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
+        let numerator = a.checked_mul(b).ok_or(ProgramError::ArithmeticOverflow)?;
 
         let result = numerator
             .checked_div(c)
@@ -842,5 +833,5 @@ mod tests {
         reserve.liquidity.available_amount = 0;
         reserve.collateral.mint_total_supply = 1_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 1_000);
-    }    
+    }
 }

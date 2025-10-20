@@ -136,13 +136,3 @@ pub fn derive_kfarms_treasury_vault_authority(global_config: &Pubkey) -> (Pubkey
 
     (address, bump)
 }
-
-
-pub fn derive_anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {
-    let preimage = format!("{}:{}", namespace, name);
-
-    let mut sighash = [0_u8; 8];
-    sighash.copy_from_slice(&hash::hash(preimage.as_bytes()).to_bytes()[..8]);
-
-    sighash
-}
