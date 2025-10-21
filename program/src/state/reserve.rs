@@ -350,8 +350,9 @@ mod tests {
             _padding: [0; 120],
         };
 
+        let default_clock = Clock::from_bytes(&[0u8; Clock::LEN]).unwrap();
         reserve
-            .update_for_outflow(Clock::default(), 600, true)
+            .update_for_outflow(*default_clock, 600, true)
             .unwrap();
         assert_eq!(
             reserve.rate_limit_outflow_amount_available, 0,
@@ -360,7 +361,7 @@ mod tests {
 
         assert!(
             reserve
-                .update_for_outflow(Clock::default(), 600, false)
+                .update_for_outflow(*default_clock, 600, false)
                 .is_err(),
             "Should error on underflow without allow_underflow"
         );

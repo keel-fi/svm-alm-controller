@@ -2,7 +2,11 @@
 name = "pinocchio-token2022"
 version = { workspace = true }
 edition = { workspace = true }
-description = "A fork of Pinocchio Token 2022 SDK necessary to enable Token 2022 support in the ALM Controller."
+description = """
+A wrapper of Pinocchio Token 2022 SDK necessary to enable Token 2022
+support in the ALM Controller. Eventually this should be replaced
+entirely by the canonical pinocchio-token-2022 crate
+"""
 
 [lib]
 crate-type = ["rlib"]
@@ -10,3 +14,4 @@ crate-type = ["rlib"]
 [dependencies]
 pinocchio = { workspace = true }
 pinocchio-pubkey = { workspace = true }
+pinocchio-token-2022 = { workspace = true }

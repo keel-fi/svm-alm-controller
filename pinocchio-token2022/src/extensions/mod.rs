@@ -7,41 +7,6 @@ pub mod pausable;
 pub mod transfer_fee;
 pub mod transfer_hook;
 
-pub const ELGAMAL_PUBKEY_LEN: usize = 32;
-
-pub const POD_AE_CIPHERTEXT_LEN: usize = 36;
-pub const POD_ELGAMAL_CIPHERTEXT_LEN: usize = 64;
-
-/// Local definition mirroring spl_token_confidential_transfer::pod::PodElGamalCiphertext
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(C)]
-pub struct PodElGamalCiphertext(pub [u8; POD_ELGAMAL_CIPHERTEXT_LEN]);
-
-impl Default for PodElGamalCiphertext {
-    fn default() -> Self {
-        Self([0u8; POD_ELGAMAL_CIPHERTEXT_LEN])
-    }
-}
-
-/// Local definition mirroring spl_token_confidential_transfer::pod::PodAeCiphertext
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(C)]
-pub struct PodAeCiphertext(pub [u8; POD_AE_CIPHERTEXT_LEN]);
-
-impl Default for PodAeCiphertext {
-    fn default() -> Self {
-        Self([0u8; POD_AE_CIPHERTEXT_LEN])
-    }
-}
-
-/// Alias for clarity, mirroring spl_token_confidential_transfer::instruction::DecryptableBalance
-pub type DecryptableBalance = PodAeCiphertext;
-/// Alias for clarity, mirroring spl_token_confidential_transfer::state::EncryptedBalance
-pub type EncryptedBalance = PodElGamalCiphertext;
-
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct PodElGamalPubkey(pub [u8; ELGAMAL_PUBKEY_LEN]);
-
 pub const EXTENSIONS_PADDING: usize = 83;
 
 pub const EXTENSION_START_OFFSET: usize = 1;
@@ -216,45 +181,6 @@ pub fn get_extension_from_bytes<T: Extension + Clone + Copy>(acc_data_bytes: &[u
             return Some(unsafe {
                 from_bytes_ref(&ext_bytes[ext_data_idx..ext_data_idx + T::LEN])
             });
-        }
-
-        start = start + EXTENSION_TYPE_LEN + EXTENSION_LENGTH_LEN + ext_len as usize;
-    }
-    None
-}
-
-pub fn get_extension_data_bytes_for_variable_pack<T: Extension + Clone>(
-    acc_data_bytes: &[u8],
-) -> Option<&[u8]> {
-    let ext_bytes = match T::BASE_STATE {
-        BaseState::Mint => {
-            &acc_data_bytes[Mint::BASE_LEN + EXTENSIONS_PADDING + EXTENSION_START_OFFSET..]
-        }
-        BaseState::TokenAccount => {
-            &acc_data_bytes[TokenAccount::BASE_LEN + EXTENSION_START_OFFSET..]
-        }
-        _ => return None,
-    };
-    let mut start = 0;
-    let end = ext_bytes.len();
-    while start < end {
-        let ext_type_idx = start;
-        let ext_len_idx = ext_type_idx + 2;
-        let ext_data_idx = ext_len_idx + EXTENSION_LENGTH_LEN;
-
-        let ext_type: [u8; 2] = ext_bytes[ext_type_idx..ext_type_idx + EXTENSION_TYPE_LEN]
-            .try_into()
-            .ok()?;
-
-        let ext_type = ExtensionType::from_bytes(ext_type)?;
-        let ext_len: [u8; 2] = ext_bytes[ext_len_idx..ext_len_idx + EXTENSION_LENGTH_LEN]
-            .try_into()
-            .ok()?;
-
-        let ext_len = u16::from_le_bytes(ext_len);
-
-        if ext_type == T::TYPE {
-            return Some(&ext_bytes[ext_data_idx..ext_data_idx + ext_len as usize]);
         }
 
         start = start + EXTENSION_TYPE_LEN + EXTENSION_LENGTH_LEN + ext_len as usize;
