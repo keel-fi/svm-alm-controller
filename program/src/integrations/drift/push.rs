@@ -14,7 +14,7 @@ use crate::{
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit},
+    integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit, shared_sync::sync_drift_balance},
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
@@ -92,6 +92,20 @@ pub fn process_push_drift(
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
         controller,
+    )?;
+
+    sync_drift_balance(
+        controller,
+        integration,
+        outer_ctx.integration.key(),
+        outer_ctx.controller.key(),
+        outer_ctx.controller_authority,
+        &reserve.mint,
+        // TODO: do we need this todo?
+        // TODO need to iterate over remaining accounts to find the correct spot_market
+        inner_ctx.spot_market_vault,
+        inner_ctx.user,
+        market_index,
     )?;
 
     // Track the user token account balance before the transfer
