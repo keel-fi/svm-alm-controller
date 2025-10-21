@@ -33,7 +33,6 @@ pub fn create_drift_push_instruction(
     let drift_user_stats_pda = derive_user_stats_pda(&controller_authority);
     let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
     let drift_spot_market_vault_pda = derive_spot_market_vault_pda(spot_market_index);
-    let drift_spot_market_pda = derive_spot_market_pda(spot_market_index);
 
     let mut remaining_accounts = vec![
         AccountMeta {
@@ -50,11 +49,6 @@ pub fn create_drift_push_instruction(
             pubkey: drift_user_stats_pda,
             is_signer: false,
             is_writable: true,
-        },
-        AccountMeta {
-            pubkey: drift_spot_market_pda,
-            is_signer: false,
-            is_writable: false,
         },
         AccountMeta {
             pubkey: drift_spot_market_vault_pda,

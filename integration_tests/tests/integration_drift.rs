@@ -5,6 +5,7 @@ mod subs;
 mod tests {
 
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
+    use crate::helpers::drift::state::user::{set_drift_user_with_spot_positions, SpotPosition};
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_token_balance_or_zero};
     use crate::{
@@ -754,8 +755,8 @@ mod tests {
         )?;
 
         // Set up spot markets for the additional tokens
-        let spot_market_index_1 = 1;
-        let spot_market_index_2 = 2;
+        let spot_market_index_1 = 0;
+        let spot_market_index_2 = 1;
 
         let spot_market_pubkey_1 =
             set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1));
@@ -777,8 +778,43 @@ mod tests {
         setup_mock_oracle_account(&mut svm, &spot_market_1.oracle);
         setup_mock_oracle_account(&mut svm, &spot_market_2.oracle);
 
+        // Set up User accounts with spot positions for both markets
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        
+        // Define sub account IDs
+        let sub_account_id_1 = 0;
+        let sub_account_id_2 = 1;
+        
+        // Create spot positions for both markets
+        let spot_position_1 = SpotPosition {
+            scaled_balance: 0,
+            open_bids: 0,
+            open_asks: 0,
+            cumulative_deposits: 0,
+            market_index: spot_market_index_1,
+            balance_type: 0, // Deposit
+            open_orders: 0,
+            padding: [0u8; 4],
+        };
+        
+        let spot_position_2 = SpotPosition {
+            scaled_balance: 0,
+            open_bids: 0,
+            open_asks: 0,
+            cumulative_deposits: 0,
+            market_index: spot_market_index_2,
+            balance_type: 0, // Deposit
+            open_orders: 0,
+            padding: [0u8; 4],
+        };
+
+        // Set up User account for first integration
+        set_drift_user_with_spot_positions(&mut svm, &controller_authority, sub_account_id_1, &[spot_position_1]);
+        
+        // Set up User account for second integration
+        set_drift_user_with_spot_positions(&mut svm, &controller_authority, sub_account_id_2, &[spot_position_2]);
+
         // Initialize Drift Integration for first spot market
-        let sub_account_id = 0;
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
         let permit_liquidation = true;
@@ -792,10 +828,19 @@ mod tests {
             rate_limit_slope,
             rate_limit_max_outflow,
             permit_liquidation,
-            sub_account_id,
+            sub_account_id_1,
             spot_market_index_1,
         );
         let integration_pubkey_1 = init_ix_1.accounts[5].pubkey;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix_1],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
 
         // Initialize Drift Integration for second spot market
         let init_ix_2 = create_drift_initialize_integration_instruction(
@@ -807,10 +852,19 @@ mod tests {
             rate_limit_slope,
             rate_limit_max_outflow,
             permit_liquidation,
-            sub_account_id,
+            sub_account_id_2,
             spot_market_index_2,
         );
         let integration_pubkey_2 = init_ix_2.accounts[5].pubkey;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix_2],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?; 
 
         // Initialize reserves for both tokens
         let reserve_keys_1 = initialize_reserve(
@@ -858,16 +912,6 @@ mod tests {
             vault_start_amount,
         )?;
 
-        // Initialize both integrations
-        let tx = Transaction::new_signed_with_payer(
-            &[init_ix_1, init_ix_2],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        );
-        svm.send_transaction(tx.clone())
-            .map_err(|e| e.err.to_string())?;
-
         let _clock = svm.get_sysvar::<Clock>();
 
         // Verify both integrations were created properly
@@ -887,7 +931,7 @@ mod tests {
         // Verify Drift configs
         match &integration_1.config {
             IntegrationConfig::Drift(c) => {
-                assert_eq!(c.sub_account_id, sub_account_id);
+                assert_eq!(c.sub_account_id, sub_account_id_1);
                 assert_eq!(c.spot_market_index, spot_market_index_1);
             }
             _ => panic!("invalid config for integration 1"),
@@ -895,7 +939,7 @@ mod tests {
 
         match &integration_2.config {
             IntegrationConfig::Drift(c) => {
-                assert_eq!(c.sub_account_id, sub_account_id);
+                assert_eq!(c.sub_account_id, sub_account_id_2);
                 assert_eq!(c.spot_market_index, spot_market_index_2);
             }
             _ => panic!("invalid config for integration 2"),
@@ -916,7 +960,7 @@ mod tests {
             &reserve_keys_1.vault,
             &spl_token::ID,
             spot_market_index_1,
-            sub_account_id,
+            sub_account_id_1,
             push_amount_1,
             false,
             &inner_remaining_accounts_1,
@@ -941,7 +985,7 @@ mod tests {
             &reserve_keys_2.vault,
             &spl_token::ID,
             spot_market_index_2,
-            sub_account_id,
+            sub_account_id_2,
             push_amount_2,
             false,
             &inner_remaining_accounts_2,
@@ -953,7 +997,14 @@ mod tests {
             &[&super_authority],
             svm.latest_blockhash(),
         );
-        let tx_result_2 = svm.send_transaction(tx.clone()).unwrap();
+        let tx_result_2 = svm.send_transaction(tx.clone());
+
+        let tx_result_2 = match tx_result_2 {
+            Ok(tx_result) => tx_result,
+            Err(e) => {
+                panic!("error: {}", e.meta.pretty_logs());
+            }
+        };
 
         // Verify push operations worked correctly
         let integration_after_push_1 = fetch_integration_account(&svm, &integration_pubkey_1)
@@ -1078,7 +1129,7 @@ mod tests {
             &reserve_keys_1.pubkey,
             &reserve_keys_1.vault,
             spot_market_index_1,
-            sub_account_id,
+            sub_account_id_1,
         )?;
 
         let sync_ix_2 = create_drift_sync_integration_instruction(
@@ -1088,7 +1139,7 @@ mod tests {
             &reserve_keys_2.pubkey,
             &reserve_keys_2.vault,
             spot_market_index_2,
-            sub_account_id,
+            sub_account_id_2,
         )?;
 
         let tx = Transaction::new_signed_with_payer(

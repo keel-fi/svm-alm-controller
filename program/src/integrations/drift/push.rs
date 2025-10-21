@@ -3,6 +3,7 @@ use pinocchio::{
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
@@ -11,7 +12,7 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
-    enums::IntegrationConfig,
+    enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::drift::{
@@ -26,7 +27,6 @@ define_account_struct! {
         state: @owner(DRIFT_PROGRAM_ID);
         user: mut @owner(DRIFT_PROGRAM_ID);
         user_stats: mut @owner(DRIFT_PROGRAM_ID);
-        spot_market: mut @owner(DRIFT_PROGRAM_ID);
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -97,6 +97,8 @@ pub fn process_push_drift(
         controller,
     )?;
 
+    let spot_market = find_spot_market_account_info_by_id(&inner_ctx.remaining_accounts, market_index)?;
+
     sync_drift_balance(
         controller,
         integration,
@@ -104,9 +106,7 @@ pub fn process_push_drift(
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
         &reserve.mint,
-        // TODO: do we need this todo?
-        // TODO need to iterate over remaining accounts to find the correct spot_market
-        inner_ctx.spot_market,
+        spot_market,
         inner_ctx.user,
         market_index,
     )?;
@@ -193,4 +193,28 @@ pub fn process_push_drift(
     reserve.update_for_outflow(clock, check_delta, false)?;
 
     Ok(())
+}
+
+/// Find the Drift SpotMarket account in `remaining_accounts` by market index
+pub fn find_spot_market_account_info_by_id<'info>(
+    account_infos: &'info [AccountInfo],
+    market_index: u16,
+) -> Result<&'info AccountInfo, ProgramError> {
+    let spot_market_pubkey = derive_drift_spot_market_pda(market_index)?;
+
+    for (i, acct) in account_infos.iter().enumerate() {
+        if acct.key().eq(&spot_market_pubkey) {
+            return Ok(acct);
+        }
+    }
+
+    Err(ProgramError::NotEnoughAccountKeys)
+}
+
+pub fn derive_drift_spot_market_pda(market_index: u16) -> Result<Pubkey, ProgramError> {
+    let (pubkey, _) = try_find_program_address(
+        &[b"spot_market", market_index.to_le_bytes().as_ref()],
+        &DRIFT_PROGRAM_ID,
+    ).ok_or(ProgramError::InvalidAccountData)?;
+    Ok(pubkey)
 }

@@ -104,7 +104,7 @@ impl UserStats {
     }
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct SpotPosition {
     /// The scaled balance of the position. To get the token amount, multiply by the cumulative deposit/borrow
@@ -131,7 +131,7 @@ pub struct SpotPosition {
     pub padding: [u8; 4],
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct PerpPosition {
     /// The perp market's last cumulative funding rate. Used to calculate the funding payment owed to user
@@ -183,7 +183,7 @@ pub struct PerpPosition {
     pub per_lp_base: i8,
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Order {
     /// The slot the order was placed
@@ -330,4 +330,77 @@ impl User {
         }
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
+}
+
+/// Setup Drift User account with spot positions for testing
+pub fn set_drift_user_with_spot_positions(
+    svm: &mut litesvm::LiteSVM,
+    authority: &Pubkey,
+    sub_account_id: u16,
+    spot_positions: &[SpotPosition],
+) -> Pubkey {
+    use litesvm::LiteSVM;
+    use solana_sdk::{account::Account, pubkey::Pubkey};
+    use svm_alm_controller_client::integrations::drift::{derive_user_pda, DRIFT_PROGRAM_ID};
+
+    let user_pubkey = derive_user_pda(authority, sub_account_id);
+
+    let mut user = User {
+        authority: *authority,
+        delegate: Pubkey::default(),
+        name: [0u8; 32],
+        spot_positions: [SpotPosition::default(); 8],
+        perp_positions: [PerpPosition::default(); 8],
+        orders: [Order::default(); 32],
+        last_add_perp_lp_shares_ts: 0,
+        total_deposits: 0,
+        total_withdraws: 0,
+        total_social_loss: 0,
+        settled_perp_pnl: 0,
+        cumulative_spot_fees: 0,
+        cumulative_perp_funding: 0,
+        liquidation_margin_freed: 0,
+        last_active_slot: 0,
+        next_order_id: 0,
+        max_margin_ratio: 0,
+        next_liquidation_id: 0,
+        sub_account_id,
+        status: 1, // Active status
+        is_margin_trading_enabled: 0,
+        idle: 0,
+        open_orders: 0,
+        has_open_order: 0,
+        open_auctions: 0,
+        has_open_auction: 0,
+        margin_mode: 0,
+        pool_id: 0,
+        padding1: [0u8; 3],
+        last_fuel_bonus_update_ts: 0,
+        padding: [0u8; 12],
+    };
+
+    // Set up spot positions
+    for (i, spot_position) in spot_positions.iter().enumerate() {
+        if i < user.spot_positions.len() {
+            user.spot_positions[i] = *spot_position;
+        }
+    }
+
+    let mut state_data = Vec::with_capacity(std::mem::size_of::<User>() + 8);
+    state_data.extend_from_slice(&User::DISCRIMINATOR);
+    state_data.extend_from_slice(&bytemuck::bytes_of(&user));
+
+    svm.set_account(
+        user_pubkey,
+        Account {
+            lamports: u64::MAX,
+            rent_epoch: u64::MAX,
+            data: state_data,
+            owner: DRIFT_PROGRAM_ID,
+            executable: false,
+        },
+    )
+    .unwrap();
+
+    user_pubkey
 }
