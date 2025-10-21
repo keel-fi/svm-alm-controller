@@ -12,8 +12,6 @@ pub use pinocchio_token2022::instructions;
 
 pub mod utils;
 
-pub use utils::*;
-
 pub struct TokenAccount<'info>(Ref<'info, pinocchio_token2022::state::TokenAccount>);
 
 /// Size of multisig account for TokenAccount and Mint.

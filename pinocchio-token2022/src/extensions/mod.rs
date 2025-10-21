@@ -2,26 +2,8 @@ use crate::{
     from_bytes_ref,
     state::{Mint, TokenAccount},
 };
-// pub mod confidential_transfer;
-pub mod confidential_mint_burn;
-pub mod confidential_transfer;
-pub mod confidential_transfer_fee;
-pub mod cpi_guard;
-pub mod default_account_state;
-pub mod group_member_pointer;
-pub mod group_pointer;
-pub mod immutable_owner;
-pub mod interest_bearing_mint;
-pub mod memo_transfer;
-pub mod metadata;
-pub mod metadata_pointer;
-pub mod mint_close_authority;
-pub mod non_transferable;
+
 pub mod pausable;
-pub mod permanent_delegate;
-pub mod reallocate;
-pub mod scaled_ui_amount;
-pub mod token_group;
 pub mod transfer_fee;
 pub mod transfer_hook;
 
@@ -282,18 +264,7 @@ pub fn get_extension_data_bytes_for_variable_pack<T: Extension + Clone>(
 
 #[cfg(test)]
 mod tests {
-    use crate::extensions::{
-        confidential_transfer::{ConfidentialTransferFeeConfig, ConfidentialTransferMint},
-        get_extension_from_bytes,
-        group_member_pointer::GroupMemberPointer,
-        group_pointer::GroupPointer,
-        metadata::TokenMetadata,
-        metadata_pointer::MetadataPointer,
-        mint_close_authority::MintCloseAuthority,
-        permanent_delegate::PermanentDelegate,
-        token_group::TokenGroup,
-        transfer_fee::TransferFeeConfig,
-    };
+    use crate::extensions::{get_extension_from_bytes, transfer_fee::TransferFeeConfig};
 
     pub const TEST_MINT_WITH_EXTENSIONS_SLICE: &[u8] = &[
         1, 0, 0, 0, 221, 76, 72, 108, 144, 248, 182, 240, 7, 195, 4, 239, 36, 129, 248, 5, 24, 107,
@@ -354,109 +325,11 @@ mod tests {
         1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
     ];
-    pub const TEST_GROUP_MEMBER_MINT_SLICE: &[u8] = &[
-        1, 0, 0, 0, 221, 76, 72, 108, 144, 248, 182, 240, 7, 195, 4, 239, 36, 129, 248, 5, 24, 107,
-        232, 253, 95, 82, 172, 209, 2, 92, 183, 155, 159, 103, 255, 33, 133, 204, 6, 44, 35, 140,
-        0, 0, 6, 1, 1, 0, 0, 0, 23, 133, 50, 97, 239, 106, 184, 83, 42, 103, 240, 83, 134, 90, 173,
-        49, 41, 63, 207, 7, 207, 18, 10, 181, 185, 161, 87, 6, 84, 141, 192, 43, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        /*                  GroupMemberPointer Extension                                      */
-        22, 0, 64, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2,
-    ];
 
     #[test]
     fn test_transfer_fee_config() {
         let transfer_fee =
             get_extension_from_bytes::<TransferFeeConfig>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
         assert!(transfer_fee.is_some());
-    }
-
-    #[test]
-    fn test_metadata_pointer() {
-        let metadata_pointer =
-            get_extension_from_bytes::<MetadataPointer>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(metadata_pointer.is_some());
-    }
-
-    #[test]
-    fn test_mint_close_authority() {
-        let mint_close_authority =
-            get_extension_from_bytes::<MintCloseAuthority>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(mint_close_authority.is_some());
-    }
-
-    #[test]
-    fn test_permanent_delegate() {
-        let permanent_delegate =
-            get_extension_from_bytes::<PermanentDelegate>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(permanent_delegate.is_some());
-    }
-
-    #[test]
-    fn test_group_pointer() {
-        let group_pointer =
-            get_extension_from_bytes::<GroupPointer>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(group_pointer.is_some());
-        let gp = group_pointer.unwrap();
-        assert!(gp.authority.eq(&[1u8; 32]));
-        assert!(gp.group_address.eq(&[2u8; 32]));
-    }
-
-    #[test]
-    fn test_token_group() {
-        let token_group = get_extension_from_bytes::<TokenGroup>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(token_group.is_some());
-        let tg = token_group.unwrap();
-        assert!(tg.update_authority.eq(&[1u8; 32]));
-        assert!(tg.mint.eq(&[2u8; 32]));
-        assert_eq!(u64::from_le_bytes(tg.size), 1);
-        assert_eq!(u64::from_le_bytes(tg.max_size), 2);
-    }
-
-    #[test]
-    fn test_group_member_pointer() {
-        let group_member_pointer =
-            get_extension_from_bytes::<GroupMemberPointer>(&TEST_GROUP_MEMBER_MINT_SLICE);
-        assert!(group_member_pointer.is_some());
-        let gmp = group_member_pointer.unwrap();
-        assert!(gmp.authority.eq(&[1u8; 32]));
-        assert!(gmp.member_address.eq(&[2u8; 32]));
-    }
-
-    #[test]
-    fn test_confidential_transfer_mint() {
-        let confidential_transfer_mint =
-            get_extension_from_bytes::<ConfidentialTransferMint>(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(confidential_transfer_mint.is_some());
-    }
-
-    #[test]
-    fn test_confidential_transfer_fee_config() {
-        let confidential_transfer_fee_config = get_extension_from_bytes::<
-            ConfidentialTransferFeeConfig,
-        >(&TEST_MINT_WITH_EXTENSIONS_SLICE);
-        assert!(confidential_transfer_fee_config.is_some());
-    }
-
-    #[test]
-    fn test_token_metadata() {
-        use crate::extensions::get_extension_data_bytes_for_variable_pack;
-
-        let token_metadata = get_extension_data_bytes_for_variable_pack::<TokenMetadata>(
-            &TEST_MINT_WITH_EXTENSIONS_SLICE,
-        )
-        .unwrap();
-
-        let token_metadata = TokenMetadata::from_bytes(token_metadata);
-
-        assert!(token_metadata.is_ok());
-
-        let token_metadata = token_metadata.unwrap();
-
-        assert_eq!(token_metadata.symbol, "PYUSD");
     }
 }
