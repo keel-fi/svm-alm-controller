@@ -103,7 +103,8 @@ pub fn process_initialize_drift(
         _padding: [0u8; 220],
     });
     let state = IntegrationState::Drift(DriftState {
-        _padding: [0u8; 48],
+        balance: 0,
+        _padding: [0u8; 40],
     });
 
     Ok((config, state))

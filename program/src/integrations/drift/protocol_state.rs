@@ -2,6 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
 use crate::constants::anchor_discriminator;
+use crate::integrations::drift::math::CheckedCeilDiv;
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
@@ -244,6 +245,7 @@ pub struct SpotMarket {
     pub padding_4: [u8; 8],
     pub padding_5: [u8; 8],
 }
+
 impl SpotMarket {
     pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
 
@@ -254,6 +256,39 @@ impl SpotMarket {
         }
 
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+    }
+
+    /// Get the balance of the spot market for a given balance type
+    /// 0: deposit balance
+    /// 1: borrow balance
+    /// Returns the balance in the base asset
+    /// https://github.com/drift-labs/protocol-v2/blob/master/programs/drift/src/math/spot_balance.rs#L40
+    pub fn get_token_amount(self, balance: u128, balance_type: u8) -> Result<u64, ProgramError> {
+        let precision_decrease = 10_u128.pow(19_u32.checked_sub(self.decimals).unwrap());
+
+        let cumulative_interest = match balance_type {
+            0 => self.cumulative_deposit_interest,
+            1 => self.cumulative_borrow_interest,
+            _ => return Err(ProgramError::InvalidArgument),
+        };
+
+        let token_amount = match balance_type {
+            0 => balance
+                .checked_mul(cumulative_interest)
+                .unwrap()
+                .checked_div(precision_decrease)
+                .unwrap(),
+            1 => balance
+                .checked_mul(cumulative_interest)
+                .unwrap()
+                .checked_ceil_div(precision_decrease)
+                .unwrap(),
+            _ => return Err(ProgramError::InvalidArgument),
+        };
+
+        let token_amount: u64 = token_amount.try_into().unwrap();
+
+        Ok(token_amount)
     }
 }
 
