@@ -187,6 +187,27 @@ pub fn process_push_drift(
         }),
     )?;
 
+    // Sync the balance again after the deposit to update the integration state
+    let new_balance = sync_drift_balance(
+        controller,
+        integration,
+        outer_ctx.integration.key(),
+        outer_ctx.controller.key(),
+        outer_ctx.controller_authority,
+        &reserve.mint,
+        spot_market,
+        inner_ctx.user,
+        market_index,
+    )?;
+
+    // Update the integration state with the new balance
+    match &mut integration.state {
+        crate::enums::IntegrationState::Drift(drift_state) => {
+            drift_state.balance = new_balance;
+        }
+        _ => return Err(ProgramError::InvalidAccountData),
+    }
+
     let clock = Clock::get()?;
 
     integration.update_rate_limit_for_outflow(clock, check_delta)?;
