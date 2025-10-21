@@ -30,6 +30,8 @@ define_account_struct! {
         kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
+        // KLEND only supports spl token program for collateral_token_program
+        // See: https://github.com/Kamino-Finance/klend/blob/master/programs/klend/src/handlers/handler_init_reserve.rs#L144
         collateral_token_program: @pubkey(pinocchio_token::ID);
         liquidity_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         instruction_sysvar_account: @pubkey(INSTRUCTIONS_ID);
