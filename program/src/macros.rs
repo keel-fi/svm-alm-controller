@@ -266,7 +266,6 @@ macro_rules! define_account_struct {
 ///         args: {
 ///             market_index: u16,
 ///             amount: u64,
-///             reduce_only: bool
 ///         }
 ///     }
 /// }

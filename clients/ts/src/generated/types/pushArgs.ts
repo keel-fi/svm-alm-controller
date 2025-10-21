@@ -8,8 +8,6 @@
 
 import {
   combineCodec,
-  getBooleanDecoder,
-  getBooleanEncoder,
   getDiscriminatedUnionDecoder,
   getDiscriminatedUnionEncoder,
   getStructDecoder,
@@ -29,24 +27,14 @@ export type PushArgs =
   | { __kind: 'SplTokenExternal'; amount: bigint }
   | { __kind: 'CctpBridge'; amount: bigint }
   | { __kind: 'LzBridge'; amount: bigint }
-  | {
-      __kind: 'Drift';
-      marketIndex: number;
-      amount: bigint;
-      reduceOnly: boolean;
-    }
+  | { __kind: 'Drift'; marketIndex: number; amount: bigint }
   | { __kind: 'Kamino'; amount: bigint };
 
 export type PushArgsArgs =
   | { __kind: 'SplTokenExternal'; amount: number | bigint }
   | { __kind: 'CctpBridge'; amount: number | bigint }
   | { __kind: 'LzBridge'; amount: number | bigint }
-  | {
-      __kind: 'Drift';
-      marketIndex: number;
-      amount: number | bigint;
-      reduceOnly: boolean;
-    }
+  | { __kind: 'Drift'; marketIndex: number; amount: number | bigint }
   | { __kind: 'Kamino'; amount: number | bigint };
 
 export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
@@ -59,7 +47,6 @@ export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
       getStructEncoder([
         ['marketIndex', getU16Encoder()],
         ['amount', getU64Encoder()],
-        ['reduceOnly', getBooleanEncoder()],
       ]),
     ],
     ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
@@ -76,7 +63,6 @@ export function getPushArgsDecoder(): Decoder<PushArgs> {
       getStructDecoder([
         ['marketIndex', getU16Decoder()],
         ['amount', getU64Decoder()],
-        ['reduceOnly', getBooleanDecoder()],
       ]),
     ],
     ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],

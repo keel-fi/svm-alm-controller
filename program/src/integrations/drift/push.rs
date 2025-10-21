@@ -60,12 +60,11 @@ pub fn process_push_drift(
 ) -> ProgramResult {
     msg!("process_push_drift");
 
-    let (market_index, amount, reduce_only) = match outer_args {
+    let (market_index, amount) = match outer_args {
         PushArgs::Drift {
             market_index,
             amount,
-            reduce_only,
-        } => (*market_index, *amount, *reduce_only),
+        } => (*market_index, *amount),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -115,7 +114,10 @@ pub fn process_push_drift(
         remaining_accounts: &inner_ctx.remaining_accounts,
         market_index: market_index,
         amount: amount,
-        reduce_only: reduce_only,
+        // Borrows are not supported by this integration, so we can
+        // always set reduce_only to false as we'll never be depositing
+        // to pay down a borrow.
+        reduce_only: false,
     }
     .invoke_signed(&[Signer::from(&[
         Seed::from(CONTROLLER_AUTHORITY_SEED),

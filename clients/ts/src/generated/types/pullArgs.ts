@@ -8,8 +8,6 @@
 
 import {
   combineCodec,
-  getBooleanDecoder,
-  getBooleanEncoder,
   getDiscriminatedUnionDecoder,
   getDiscriminatedUnionEncoder,
   getStructDecoder,
@@ -32,24 +30,14 @@ export type PullArgs =
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
   | { __kind: 'Kamino'; amount: bigint }
-  | {
-      __kind: 'Drift';
-      marketIndex: number;
-      amount: bigint;
-      reduceOnly: boolean;
-    };
+  | { __kind: 'Drift'; marketIndex: number; amount: bigint };
 
 export type PullArgsArgs =
   | { __kind: 'SplTokenExternal' }
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
   | { __kind: 'Kamino'; amount: number | bigint }
-  | {
-      __kind: 'Drift';
-      marketIndex: number;
-      amount: number | bigint;
-      reduceOnly: boolean;
-    };
+  | { __kind: 'Drift'; marketIndex: number; amount: number | bigint };
 
 export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -62,7 +50,6 @@ export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
       getStructEncoder([
         ['marketIndex', getU16Encoder()],
         ['amount', getU64Encoder()],
-        ['reduceOnly', getBooleanEncoder()],
       ]),
     ],
   ]);
@@ -79,7 +66,6 @@ export function getPullArgsDecoder(): Decoder<PullArgs> {
       getStructDecoder([
         ['marketIndex', getU16Decoder()],
         ['amount', getU64Decoder()],
-        ['reduceOnly', getBooleanDecoder()],
       ]),
     ],
   ]);
