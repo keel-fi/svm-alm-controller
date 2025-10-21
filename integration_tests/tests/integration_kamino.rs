@@ -307,6 +307,9 @@ mod tests {
     #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_init_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
@@ -467,6 +470,9 @@ mod tests {
     #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_push_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
@@ -652,8 +658,6 @@ mod tests {
             reserve_before.rate_limit_outflow_amount_available - balance_delta
         );
 
-        // NOTE: This wont hold true with TransferFees enables,
-        // so the assertion needs to be improved when adding Token2022 tests
         // Assert Reserve vault was debited exact amount
         assert_eq!(
             balance_after,
@@ -756,6 +760,9 @@ mod tests {
     #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_pull_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
@@ -1046,6 +1053,9 @@ mod tests {
     #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_sync_success(
         liquidity_mint_token_program: Pubkey,
         _reward_mint_token_program: Pubkey,
