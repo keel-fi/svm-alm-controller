@@ -1,4 +1,3 @@
-use solana_program::hash;
 use solana_pubkey::Pubkey;
 
 use crate::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID};

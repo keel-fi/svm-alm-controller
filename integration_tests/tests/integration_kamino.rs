@@ -79,7 +79,7 @@ mod tests {
             super_authority,
             &controller_authority,
             mint,
-            integration_reserve_token_program
+            integration_reserve_token_program,
         )?;
 
         let (kamino_init_ix, kamino_integration_pk) = create_initialize_kamino_lend_integration_ix(
@@ -107,16 +107,15 @@ mod tests {
         super_authority: &Keypair,
         controller_authority: &Pubkey,
         mint: &Pubkey,
-        reserve_token_program: &Pubkey
+        reserve_token_program: &Pubkey,
     ) -> Result<ReserveKeys, Box<dyn std::error::Error>> {
         let _authority_mint_ata =
             initialize_ata(svm, &super_authority, &super_authority.pubkey(), mint)?;
 
-        edit_ata_amount(svm, &super_authority.pubkey(), mint, 1_000_000_000_000)
-            .map_err(|e| {
-                println!("edit_ata_amount error: {}", e);
-                e
-            })?;
+        edit_ata_amount(svm, &super_authority.pubkey(), mint, 1_000_000_000_000).map_err(|e| {
+            println!("edit_ata_amount error: {}", e);
+            e
+        })?;
 
         let reserve_keys = initialize_reserve(
             svm,
@@ -312,7 +311,7 @@ mod tests {
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
-        reward_mint_transfer_fee: Option<u16>
+        reward_mint_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -349,11 +348,11 @@ mod tests {
             reserve_context,
             farms_context: _,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &liquidity_mint,
             &liquidity_mint_token_program,
             &reward_mint,
-            &reward_mint_token_program
+            &reward_mint_token_program,
         );
 
         let obligation_id = 0;
@@ -392,8 +391,9 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
-            &liquidity_mint_token_program
-        ).map_err(|e| {
+            &liquidity_mint_token_program,
+        )
+        .map_err(|e| {
             println!("error in setup_env_and_get_init_ix: {}", e);
             e
         })?;
@@ -471,7 +471,7 @@ mod tests {
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
-        reward_mint_transfer_fee: Option<u16>
+        reward_mint_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -508,11 +508,11 @@ mod tests {
             reserve_context,
             farms_context: _,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &liquidity_mint,
             &liquidity_mint_token_program,
             &reward_mint,
-            &reward_mint_token_program
+            &reward_mint_token_program,
         );
 
         let obligation_id = 0;
@@ -560,7 +560,7 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )
         .unwrap();
 
@@ -601,7 +601,7 @@ mod tests {
             deposited_amount,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -760,7 +760,7 @@ mod tests {
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
-        reward_mint_transfer_fee: Option<u16>
+        reward_mint_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -797,7 +797,7 @@ mod tests {
             reserve_context,
             farms_context: _,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &liquidity_mint,
             &liquidity_mint_token_program,
             &reward_mint,
@@ -849,7 +849,7 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )
         .unwrap();
 
@@ -872,7 +872,7 @@ mod tests {
             100_000_000,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -912,7 +912,7 @@ mod tests {
             100_000,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1050,7 +1050,7 @@ mod tests {
         liquidity_mint_token_program: Pubkey,
         _reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
-        _reward_mint_transfer_fee: Option<u16>
+        _reward_mint_transfer_fee: Option<u16>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -1076,7 +1076,7 @@ mod tests {
             reserve_context,
             farms_context,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &liquidity_mint,
             &liquidity_mint_token_program,
             &liquidity_mint,
@@ -1123,7 +1123,7 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )
         .unwrap();
 
@@ -1147,7 +1147,7 @@ mod tests {
             100_000_000,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1159,9 +1159,9 @@ mod tests {
         svm.send_transaction(tx.clone()).unwrap();
 
         let rewards_ata = get_associated_token_address_with_program_id(
-            &controller_authority, 
+            &controller_authority,
             &reward_mint,
-            &liquidity_mint_token_program
+            &liquidity_mint_token_program,
         );
 
         // increase the amount in the integration reserve in order to
@@ -1385,7 +1385,7 @@ mod tests {
             reserve_context,
             farms_context,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
             &spl_token::ID,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1428,7 +1428,7 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
-            &spl_token::ID
+            &spl_token::ID,
         )
         .unwrap();
 
@@ -1470,7 +1470,7 @@ mod tests {
             &super_authority,
             &controller_authority,
             &mint_1,
-            &spl_token::ID
+            &spl_token::ID,
         )?;
         let _reserve_2 = create_and_fund_controller_reserves(
             &mut svm,
@@ -1478,7 +1478,7 @@ mod tests {
             &super_authority,
             &controller_authority,
             &mint_2,
-            &spl_token::ID
+            &spl_token::ID,
         )?;
 
         // create two new kamino reserves
@@ -1487,8 +1487,8 @@ mod tests {
             &mut svm,
             &farms_context.global_config,
             &lending_market,
-            (&USDC_TOKEN_MINT_PUBKEY, &spl_token::ID,),
-            vec![(&mint_1, &spl_token::ID,), (&mint_2, &spl_token::ID,)],
+            (&USDC_TOKEN_MINT_PUBKEY, &spl_token::ID),
+            vec![(&mint_1, &spl_token::ID), (&mint_2, &spl_token::ID)],
         );
         let [context_1, context_2] = contexts.as_slice() else {
             panic!("error");
@@ -1601,7 +1601,7 @@ mod tests {
             deposited_amount_1,
             &Pubkey::default(),
             &context_1.reserve_farm_collateral,
-            &SPL_TOKEN_PROGRAM_ID
+            &SPL_TOKEN_PROGRAM_ID,
         )?;
 
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
@@ -1638,7 +1638,7 @@ mod tests {
             deposited_amount_2,
             &Pubkey::default(),
             &context_2.reserve_farm_collateral,
-            &SPL_TOKEN_PROGRAM_ID
+            &SPL_TOKEN_PROGRAM_ID,
         )?;
 
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
@@ -1736,7 +1736,7 @@ mod tests {
             // KFARMS program ID.
             &KAMINO_FARMS_PROGRAM_ID,
             &SPL_TOKEN_PROGRAM_ID,
-            &SPL_TOKEN_PROGRAM_ID
+            &SPL_TOKEN_PROGRAM_ID,
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1808,7 +1808,7 @@ mod tests {
             reserve_context,
             farms_context: _,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
             &spl_token::ID,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1850,7 +1850,7 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
-            &spl_token::ID
+            &spl_token::ID,
         )
         .unwrap();
 
@@ -1895,7 +1895,7 @@ mod tests {
             deposited_amount,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
-            &SPL_TOKEN_PROGRAM_ID
+            &SPL_TOKEN_PROGRAM_ID,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1953,7 +1953,7 @@ mod tests {
             reserve_context,
             farms_context: _,
         } = setup_kamino_state(
-            &mut svm, 
+            &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
             &spl_token::ID,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1995,7 +1995,7 @@ mod tests {
             &reserve_context.reserve_farm_debt,
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
-            &spl_token::ID
+            &spl_token::ID,
         )
         .unwrap();
 
@@ -2018,7 +2018,7 @@ mod tests {
             100_000_000,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
-            &SPL_TOKEN_PROGRAM_ID
+            &SPL_TOKEN_PROGRAM_ID,
         )?;
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
