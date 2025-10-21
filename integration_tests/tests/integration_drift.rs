@@ -476,6 +476,239 @@ mod tests {
     }
 
     #[test]
+    fn drift_sync_integration_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+        let oracle_price = 100;
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        let spot_market_pubkey =
+            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+
+        // Set up mock oracle and insurance fund accounts
+        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
+        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
+        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
+
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Create associated token account for controller authority and mint tokens
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let vault_start_amount = 1_000_000_000;
+
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Update the spot market to use the reserve vault instead of its own vault
+        let mut spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
+        let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
+        let spot_market_mut = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
+        spot_market_mut.vault = reserve_keys.vault;
+        svm.set_account(spot_market_pubkey, spot_market_account)
+            .unwrap();
+
+        // Get the updated spot market data for the push instruction
+        let spot_market_account_updated = svm.get_account(&spot_market_pubkey).unwrap();
+        let spot_market_data_updated = &spot_market_account_updated.data[8..]; // Skip discriminator
+        let spot_market_updated =
+            bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_updated).unwrap();
+
+        // Push some tokens to drift first to have something to sync
+        let push_amount = 100_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market_updated]);
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+            false,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute the push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        // Get integration state before sync (not used in this test but kept for completeness)
+        let _integration_before = fetch_integration_account(&svm, &integration_pubkey)
+            .expect("integration should exist")
+            .unwrap();
+
+        // Create the sync instruction
+        let sync_ix = create_drift_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            spot_market_index,
+            sub_account_id,
+        )?;
+
+        // Advance slots to simulate time passage for interest accrual
+        let current_slot = svm.get_sysvar::<Clock>().slot;
+        svm.warp_to_slot(current_slot + 1000); // Advance by 1000 slots
+
+        // Update the spot market to simulate interest accrual
+        // We'll increase the cumulative deposit interest to simulate interest earned
+        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
+        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
+        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
+
+        // Create a new spot market with increased cumulative deposit interest
+        let mut updated_spot_market = *spot_market;
+        // Increase cumulative deposit interest by 1% (multiply by 1.01)
+        updated_spot_market.cumulative_deposit_interest = spot_market
+            .cumulative_deposit_interest
+            .checked_mul(101)
+            .unwrap()
+            .checked_div(100)
+            .unwrap();
+
+        // Update the spot market account with the new interest rate
+        let mut new_spot_market_data = Vec::with_capacity(std::mem::size_of::<SpotMarket>() + 8);
+        new_spot_market_data.extend_from_slice(&SpotMarket::DISCRIMINATOR);
+        new_spot_market_data.extend_from_slice(&bytemuck::bytes_of(&updated_spot_market));
+
+        svm.set_account(
+            spot_market_pubkey,
+            Account {
+                lamports: spot_market_account.lamports,
+                rent_epoch: spot_market_account.rent_epoch,
+                data: new_spot_market_data,
+                owner: spot_market_account.owner,
+                executable: spot_market_account.executable,
+            },
+        )?;
+
+        // Execute the sync instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[sync_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
+
+        // Get integration state after sync
+        let integration_after = fetch_integration_account(&svm, &integration_pubkey)
+            .expect("integration should exist")
+            .unwrap();
+
+        // The balance should reflect the pushed amount plus interest earned
+        // With 1% interest, the balance should be approximately push_amount * 1.0
+        let expected_balance_with_interest = (push_amount as u128)
+            .checked_mul(101)
+            .unwrap()
+            .checked_div(100)
+            .unwrap();
+        // Verify that the integration state was updated with interest
+        match &integration_after.state {
+            IntegrationState::Drift(drift_state) => {
+                assert_eq!(drift_state.balance, expected_balance_with_interest as u64);
+            }
+            _ => panic!("Expected Drift integration state"),
+        }
+
+        // Assert the sync event from shared_sync.rs - this should use the token_mint, not reserve_keys.pubkey
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey),
+                mint: token_mint,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Sync,
+                delta: expected_balance_with_interest as u64,
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn drift_pull_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
