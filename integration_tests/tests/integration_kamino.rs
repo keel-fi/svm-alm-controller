@@ -670,7 +670,7 @@ mod tests {
             reserve_liquidity_destination_balance_before + balance_delta
         );
 
-        // assert integration state changed
+        // Assert integration state changed
         let state_before = match integration_before.clone().state {
             IntegrationState::Kamino(kamino_state) => kamino_state,
             _ => panic!("invalid state"),

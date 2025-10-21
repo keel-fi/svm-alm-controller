@@ -49,15 +49,15 @@ pub struct PriceUpdateV2 {
 }
 
 /// Setup mock oracle account for testing
-pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey) {
+pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey, price: i64) {
     // Create a minimal mock oracle account
     let price_update = PriceUpdateV2 {
         write_authority: *oracle_pubkey,
         verification_level: VerificationLevel::Full,
         price_message: PriceFeedMessage {
             feed_id: FeedId { id: [0; 32] },
-            price: 0,
-            conf: 0,
+            price,
+            conf: 1,
             exponent: 6,
             publish_time: 0,
             prev_publish_time: 0,

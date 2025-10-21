@@ -7,7 +7,7 @@ use crate::integrations::utils::anchor_discriminator;
 // This is a temporary solution - ideally we'd have this in a shared location
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
-struct HistoricalOracleData {
+pub struct HistoricalOracleData {
     pub last_oracle_price: i64,
     pub last_oracle_conf: u64,
     pub last_oracle_delay: i64,
@@ -18,7 +18,7 @@ struct HistoricalOracleData {
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
-struct HistoricalIndexData {
+pub struct HistoricalIndexData {
     pub last_index_bid_price: u64,
     pub last_index_ask_price: u64,
     pub last_index_price_twap: u64,
