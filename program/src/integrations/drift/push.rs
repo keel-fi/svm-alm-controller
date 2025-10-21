@@ -24,6 +24,7 @@ define_account_struct! {
         state: @owner(DRIFT_PROGRAM_ID);
         user: mut @owner(DRIFT_PROGRAM_ID);
         user_stats: mut @owner(DRIFT_PROGRAM_ID);
+        spot_market: mut @owner(DRIFT_PROGRAM_ID);
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         user_token_account: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -103,7 +104,7 @@ pub fn process_push_drift(
         &reserve.mint,
         // TODO: do we need this todo?
         // TODO need to iterate over remaining accounts to find the correct spot_market
-        inner_ctx.spot_market_vault,
+        inner_ctx.spot_market,
         inner_ctx.user,
         market_index,
     )?;
