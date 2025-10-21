@@ -682,7 +682,7 @@ mod tests {
         // Verify that the integration state was updated with interest
         match &integration_after.state {
             IntegrationState::Drift(drift_state) => {
-                assert_eq!(drift_state.balance, expected_balance_with_interest);
+                assert_eq!(drift_state.balance, expected_balance_with_interest as u64);
             }
             _ => panic!("Expected Drift integration state"),
         }

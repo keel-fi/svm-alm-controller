@@ -8,7 +8,7 @@
 use crate::generated::types::ReserveStatus;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
-use solana_program::pubkey::Pubkey;
+use solana_pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -50,12 +50,10 @@ impl Reserve {
     }
 }
 
-impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Reserve {
+impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for Reserve {
     type Error = std::io::Error;
 
-    fn try_from(
-        account_info: &solana_program::account_info::AccountInfo<'a>,
-    ) -> Result<Self, Self::Error> {
+    fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
         let mut data: &[u8] = &(*account_info.data).borrow();
         Self::deserialize(&mut data)
     }
@@ -64,7 +62,7 @@ impl<'a> TryFrom<&solana_program::account_info::AccountInfo<'a>> for Reserve {
 #[cfg(feature = "fetch")]
 pub fn fetch_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &solana_pubkey::Pubkey,
 ) -> Result<crate::shared::DecodedAccount<Reserve>, std::io::Error> {
     let accounts = fetch_all_reserve(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -73,7 +71,7 @@ pub fn fetch_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[solana_pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<Reserve>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
@@ -98,7 +96,7 @@ pub fn fetch_all_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    address: &solana_program::pubkey::Pubkey,
+    address: &solana_pubkey::Pubkey,
 ) -> Result<crate::shared::MaybeAccount<Reserve>, std::io::Error> {
     let accounts = fetch_all_maybe_reserve(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -107,7 +105,7 @@ pub fn fetch_maybe_reserve(
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_reserve(
     rpc: &solana_client::rpc_client::RpcClient,
-    addresses: &[solana_program::pubkey::Pubkey],
+    addresses: &[solana_pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<Reserve>>, std::io::Error> {
     let accounts = rpc
         .get_multiple_accounts(addresses)
@@ -153,5 +151,5 @@ impl anchor_lang::IdlBuild for Reserve {}
 
 #[cfg(feature = "anchor-idl-build")]
 impl anchor_lang::Discriminator for Reserve {
-    const DISCRIMINATOR: [u8; 8] = [0; 8];
+    const DISCRIMINATOR: &[u8] = &[0; 8];
 }

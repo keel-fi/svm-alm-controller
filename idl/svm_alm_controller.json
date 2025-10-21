@@ -2018,14 +2018,14 @@
         "fields": [
           {
             "name": "balance",
-            "type": "u128"
+            "type": "u64"
           },
           {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                32
+                40
               ]
             }
           }
