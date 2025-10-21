@@ -6841,7 +6841,6 @@ dependencies = [
  "solana-sdk",
  "solana-system-interface",
  "spl-associated-token-account-client",
- "spl-pod",
  "spl-token",
  "spl-token-2022 7.0.0",
  "static_assertions",
