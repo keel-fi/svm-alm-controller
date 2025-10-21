@@ -13,7 +13,10 @@ mod tests {
             drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::{airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve, manage_permission, mint_tokens},
+        subs::{
+            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve,
+            manage_permission, mint_tokens,
+        },
     };
     use borsh::BorshDeserialize;
     use bytemuck;
@@ -33,8 +36,8 @@ mod tests {
         derive_controller_authority_pda,
         generated::types::{
             AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig,
-            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PermissionStatus, ReserveStatus,
-            SvmAlmControllerEvent,
+            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PermissionStatus,
+            ReserveStatus, SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
         instructions::create_drift_push_instruction,
@@ -1527,7 +1530,7 @@ mod tests {
 
         let push_authority = Keypair::new();
         airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;
-        
+
         // Update the authority to have permissions
         manage_permission(
             &mut svm,
@@ -1741,7 +1744,7 @@ mod tests {
         let mut spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
         let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
         let spot_market_mut = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
-        
+
         // Increase cumulative deposit interest by 2% (multiply by 1.02)
         spot_market_mut.cumulative_deposit_interest = spot_market_mut
             .cumulative_deposit_interest

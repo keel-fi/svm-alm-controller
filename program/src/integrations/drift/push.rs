@@ -14,7 +14,9 @@ use crate::{
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit, shared_sync::sync_drift_balance},
+    integrations::drift::{
+        constants::DRIFT_PROGRAM_ID, cpi::Deposit, shared_sync::sync_drift_balance,
+    },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
