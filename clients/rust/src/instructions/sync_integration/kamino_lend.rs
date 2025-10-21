@@ -13,7 +13,6 @@ use crate::{
         derive_rewards_treasury_vault, derive_rewards_vault,
     },
     pda::{derive_controller_authority_pda, derive_reserve_pda},
-    SPL_TOKEN_PROGRAM_ID,
 };
 
 /// Creates a `Sync` instruction for a **Kamino Lend integration** under the
@@ -59,13 +58,14 @@ pub fn create_sync_kamino_lend_ix(
     rewards_ata: &Pubkey,
     scope_prices: &Pubkey,
     rewards_token_program: &Pubkey,
+    liquidity_token_program: &Pubkey,
 ) -> Instruction {
     let controller_authority = derive_controller_authority_pda(controller);
 
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         &kamino_config.reserve_liquidity_mint,
-        &SPL_TOKEN_PROGRAM_ID,
+        &liquidity_token_program,
     );
     let obligation = kamino_config.obligation;
     let kamino_reserve = kamino_config.reserve;

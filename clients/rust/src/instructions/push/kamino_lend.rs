@@ -60,7 +60,8 @@ pub fn create_push_kamino_lend_ix(
     integration: &Pubkey,
     authority: &Pubkey,
     kamino_config: &KaminoConfig,
-    reserve_farm_collateral: &Pubkey,
+    kamino_reserve_farm_collateral: &Pubkey,
+    liquidity_token_program: &Pubkey,
     amount: u64,
 ) -> Instruction {
     let calling_permission_pda = derive_permission_pda(controller, authority);
@@ -78,12 +79,12 @@ pub fn create_push_kamino_lend_ix(
         derive_reserve_collateral_supply(&kamino_market, &kamino_reserve_liquidity_mint);
     let (market_authority, _) = derive_market_authority_address(&kamino_market);
     let obligation_farm_collateral =
-        derive_obligation_farm_address(reserve_farm_collateral, &obligation);
+        derive_obligation_farm_address(kamino_reserve_farm_collateral, &obligation);
     let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         &kamino_reserve_liquidity_mint,
-        &SPL_TOKEN_PROGRAM_ID,
+        liquidity_token_program,
     );
 
     let remaining_accounts = &[
@@ -132,13 +133,15 @@ pub fn create_push_kamino_lend_ix(
             is_signer: false,
             is_writable: false,
         },
+        // collateral token program
         AccountMeta {
             pubkey: SPL_TOKEN_PROGRAM_ID,
             is_signer: false,
             is_writable: false,
         },
+        // liquidity token program
         AccountMeta {
-            pubkey: SPL_TOKEN_PROGRAM_ID,
+            pubkey: *liquidity_token_program,
             is_signer: false,
             is_writable: false,
         },
@@ -153,7 +156,7 @@ pub fn create_push_kamino_lend_ix(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: *reserve_farm_collateral,
+            pubkey: *kamino_reserve_farm_collateral,
             is_signer: false,
             is_writable: true,
         },
