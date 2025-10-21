@@ -398,6 +398,23 @@ mod tests {
             "Reserve vault should have decreased by push amount"
         );
 
+        // Assert integration state changed
+        let state_before = match integration_before.clone().state {
+            IntegrationState::Drift(state) => state,
+            _ => panic!("invalid state"),
+        };
+        let state_after = match integration_after.clone().state {
+            IntegrationState::Drift(state) => state,
+            _ => panic!("invalid state"),
+        };
+
+        // Assert Drift integration state update balance by push amount
+        assert_eq!(
+            state_after.balance,
+            state_before.balance + push_amount,
+            "Drift integration state balance should have increased by push amount"
+        );
+
         // Assert spot market vault balance increased by push amount
         assert_eq!(
             spot_market_vault_after,
@@ -848,7 +865,8 @@ mod tests {
         let drift_user_acct_after = svm.get_account(&drift_user_pda).unwrap();
         let drift_user_after = User::try_from(&drift_user_acct_after.data).unwrap();
 
-        let amount_with_interest = 101_000_000;
+        let interest = 1_000_000;
+        let amount_with_interest = amount + interest;
 
         assert_eq!(
             integration_after.rate_limit_outflow_amount_available,
@@ -897,7 +915,7 @@ mod tests {
                 reserve: None,
                 direction: AccountingDirection::Credit,
                 action: AccountingAction::Sync,
-                delta: amount_with_interest - amount,
+                delta: interest,
             })
         );
 

@@ -11,7 +11,7 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
-    enums::IntegrationConfig,
+    enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit},
@@ -93,6 +93,8 @@ pub fn process_push_drift(
         controller,
     )?;
 
+    // TODO Sync Drift Integration balance
+
     // Track the user token account balance before the transfer
     let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
     let user_token_balance_before = reserve_vault.amount();
@@ -169,6 +171,15 @@ pub fn process_push_drift(
             delta: check_delta,
         }),
     )?;
+
+    // Update the state
+    match &mut integration.state {
+        IntegrationState::Drift(state) => {
+            // Add the deposited amount to the Drift balance
+            state.balance = state.balance.checked_add(liquidity_value_delta).unwrap();
+        }
+        _ => return Err(ProgramError::InvalidAccountData),
+    }
 
     let clock = Clock::get()?;
 

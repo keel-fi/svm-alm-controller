@@ -1,5 +1,4 @@
 use pinocchio::{
-    account_info::AccountInfo,
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
@@ -16,6 +15,7 @@ use crate::{
     instructions::PullArgs,
     integrations::drift::{
         constants::DRIFT_PROGRAM_ID, cpi::Withdraw, shared_sync::sync_drift_balance,
+        utils::find_spot_market_account_info_by_id,
     },
     processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -99,6 +99,9 @@ pub fn process_pull_drift(
         controller,
     )?;
 
+    let spot_market_info =
+        find_spot_market_account_info_by_id(inner_ctx.remaining_accounts, market_index)?;
+
     sync_drift_balance(
         controller,
         integration,
@@ -106,8 +109,7 @@ pub fn process_pull_drift(
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
         &reserve.mint,
-        // TODO need to iterate over remaining accounts to find the correct spot_market
-        inner_ctx.spot_market,
+        spot_market_info,
         inner_ctx.user,
         market_index,
     )?;
