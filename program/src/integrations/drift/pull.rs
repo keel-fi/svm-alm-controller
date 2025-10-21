@@ -84,7 +84,7 @@ pub fn process_pull_drift(
     }
 
     if !permission.can_reallocate() && !permission.can_liquidate(integration) {
-        msg! {"permission: can_reallocate required"};
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 
