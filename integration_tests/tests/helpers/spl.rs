@@ -73,16 +73,8 @@ pub fn setup_token_mint(
     svm.set_account(*pubkey, Account::from(account)).unwrap();
 }
 
-pub fn add_tokens_to_token_account(
-    svm: &mut LiteSVM,
-    token_account_pubkey: &Pubkey,
-    amount: u64,
-) {
-    let mut token_account_data = svm
-        .get_account(token_account_pubkey)
-        .unwrap()
-        .data
-        .clone();
+pub fn add_tokens_to_token_account(svm: &mut LiteSVM, token_account_pubkey: &Pubkey, amount: u64) {
+    let mut token_account_data = svm.get_account(token_account_pubkey).unwrap().data.clone();
     let mut token_account =
         spl_token_2022::state::Account::unpack_from_slice(&token_account_data).unwrap();
 
