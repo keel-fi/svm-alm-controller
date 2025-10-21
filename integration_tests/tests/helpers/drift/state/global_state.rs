@@ -5,7 +5,9 @@ use litesvm::LiteSVM;
 use solana_program::example_mocks::{solana_keypair::Keypair, solana_signer::Signer};
 use solana_sdk::{account::Account, pubkey::Pubkey};
 use svm_alm_controller::constants::anchor_discriminator;
-use svm_alm_controller_client::integrations::drift::{derive_state_pda, DRIFT_PROGRAM_ID};
+use svm_alm_controller_client::integrations::drift::{
+    derive_drift_signer, derive_drift_signer_nonce, derive_state_pda, DRIFT_PROGRAM_ID,
+};
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
@@ -110,6 +112,8 @@ pub fn setup_drift_state(svm: &mut LiteSVM) -> DriftTestContext {
     // -- Update state variables
     state.admin = admin.pubkey();
     state.number_of_spot_markets = 2; // Allow at least 2 spot markets for testing
+    state.signer = derive_drift_signer();
+    state.signer_nonce = derive_drift_signer_nonce();
 
     let mut state_data = Vec::with_capacity(std::mem::size_of::<State>() + 8);
     state_data.extend_from_slice(&State::DISCRIMINATOR);

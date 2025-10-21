@@ -4,7 +4,7 @@ use pinocchio::{
     program_error::ProgramError,
     sysvars::{clock::Clock, Sysvar},
 };
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,

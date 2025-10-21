@@ -241,7 +241,9 @@ pub struct KaminoTestContext {
 pub fn setup_kamino_state(
     svm: &mut LiteSVM,
     liquidity_mint: &Pubkey,
+    liquidity_mint_token_program: &Pubkey,
     reward_mint: &Pubkey,
+    reward_mint_token_program: &Pubkey,
 ) -> KaminoTestContext {
     // setup lending market (klend)
 
@@ -277,14 +279,13 @@ pub fn setup_kamino_state(
     let (treasury_vault_authority, treasury_vault_authority_bump) =
         derive_kfarms_treasury_vault_authority(&global_config_pk);
     // create the treasury vault
-
     setup_token_account(
         svm,
         &treasury_vault,
         reward_mint,
         &treasury_vault_authority,
         0,
-        &spl_token::ID,
+        reward_mint_token_program,
         None,
     );
 
@@ -310,7 +311,9 @@ pub fn setup_kamino_state(
         svm,
         &global_config_pk,
         liquidity_mint,
+        liquidity_mint_token_program,
         reward_mint,
+        reward_mint_token_program,
         &lending_market_pk,
     );
 
@@ -329,7 +332,9 @@ fn setup_reserve(
     svm: &mut LiteSVM,
     global_config_pk: &Pubkey,
     liquidity_mint: &Pubkey,
+    liquidity_mint_token_program: &Pubkey,
     reward_mint: &Pubkey,
+    reward_mint_token_program: &Pubkey,
     lending_market_pk: &Pubkey,
 ) -> KaminoReserveContext {
     let (lending_market_authority, _market_auth_bump) =
@@ -357,14 +362,14 @@ fn setup_reserve(
         reward_mint,
         &farm_vault_authority,
         u64::MAX,
-        &spl_token::ID,
+        reward_mint_token_program,
         None,
     );
 
     let mut reward_info = RewardInfo::default();
     reward_info.token.decimals = 6;
     reward_info.token.mint = *reward_mint;
-    reward_info.token.token_program = spl_token::ID;
+    reward_info.token.token_program = *reward_mint_token_program;
     reward_info.rewards_available = u64::MAX;
     reward_info.rewards_vault = reward_vault;
     reward_info.rewards_issued_unclaimed = u64::MAX;
@@ -416,6 +421,7 @@ fn setup_reserve(
     kamino_reserve.liquidity.mint_pubkey = *liquidity_mint;
     kamino_reserve.liquidity.mint_decimals = 6;
     kamino_reserve.liquidity.market_price_sf = Fraction::ONE.to_bits();
+    kamino_reserve.liquidity.token_program = *liquidity_mint_token_program;
     kamino_reserve.farm_collateral = reserve_farm_collateral;
     kamino_reserve.farm_debt = reserve_farm_debt;
     kamino_reserve.version = 1;
@@ -434,7 +440,7 @@ fn setup_reserve(
         liquidity_mint,
         &lending_market_authority,
         0,
-        &spl_token::ID,
+        liquidity_mint_token_program,
         None,
     );
 
@@ -496,17 +502,19 @@ pub fn setup_additional_reserves(
     svm: &mut LiteSVM,
     global_config_pk: &Pubkey,
     lending_market_pk: &Pubkey,
-    reward_mint: &Pubkey,
-    liquidity_mints: Vec<&Pubkey>,
+    reward_mint_and_program: (&Pubkey, &Pubkey),
+    liquidity_mints_and_programs: Vec<(&Pubkey, &Pubkey)>,
 ) -> Vec<KaminoReserveContext> {
-    let mut reserves = Vec::with_capacity(liquidity_mints.len());
+    let mut reserves = Vec::with_capacity(liquidity_mints_and_programs.len());
 
-    for liquidity_mint in liquidity_mints {
+    for (liquidity_mint, liquidity_mint_program) in liquidity_mints_and_programs {
         let reserve_context = setup_reserve(
             svm,
             &global_config_pk,
             liquidity_mint,
-            reward_mint,
+            liquidity_mint_program,
+            reward_mint_and_program.0,
+            reward_mint_and_program.1,
             &lending_market_pk,
         );
 

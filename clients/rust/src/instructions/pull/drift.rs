@@ -3,15 +3,15 @@ use solana_pubkey::Pubkey;
 
 use crate::{
     derive_controller_authority_pda, derive_permission_pda,
-    generated::{instructions::PushBuilder, types::PushArgs},
+    generated::{instructions::PullBuilder, types::PullArgs},
     integrations::drift::{
-        derive_spot_market_pda, derive_spot_market_vault_pda, derive_state_pda, derive_user_pda,
+        derive_drift_signer, derive_spot_market_vault_pda, derive_state_pda, derive_user_pda,
         derive_user_stats_pda, DRIFT_PROGRAM_ID,
     },
 };
 
-/// Instruction generation for Drift "Push".
-pub fn create_drift_push_instruction(
+/// Instruction generation for Drift "Pull".
+pub fn create_drift_pull_instruction(
     controller: &Pubkey,
     super_authority: &Pubkey,
     integration: &Pubkey,
@@ -26,6 +26,7 @@ pub fn create_drift_push_instruction(
 ) -> Result<Instruction, Box<dyn std::error::Error>> {
     let controller_authority = derive_controller_authority_pda(controller);
     let permission_pda = derive_permission_pda(controller, super_authority);
+    let drift_signer = derive_drift_signer();
     let drift_state_pda = derive_state_pda();
     let drift_user_stats_pda = derive_user_stats_pda(&controller_authority);
     let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
@@ -53,6 +54,11 @@ pub fn create_drift_push_instruction(
             is_writable: true,
         },
         AccountMeta {
+            pubkey: drift_signer,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
             pubkey: *reserve_vault,
             is_signer: false,
             is_writable: true,
@@ -71,7 +77,7 @@ pub fn create_drift_push_instruction(
 
     remaining_accounts.extend_from_slice(inner_remaining_accounts);
 
-    let instruction = PushBuilder::new()
+    let instruction = PullBuilder::new()
         .controller(*controller)
         .controller_authority(controller_authority)
         .authority(*super_authority)
@@ -79,7 +85,7 @@ pub fn create_drift_push_instruction(
         .integration(*integration)
         .reserve_a(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
-        .push_args(PushArgs::Drift {
+        .pull_args(PullArgs::Drift {
             market_index: spot_market_index,
             amount,
             reduce_only,

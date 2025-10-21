@@ -65,3 +65,27 @@ cpi_instruction! {
         }
     }
 }
+
+cpi_instruction! {
+    /// Withdraw tokens from a Drift spot market
+    pub struct Withdraw<'info> {
+        program: DRIFT_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "withdraw"),
+        accounts: {
+            state: Readonly,
+            user: Writable,
+            user_stats: Writable,
+            authority: Signer,
+            spot_market_vault: Writable,
+            drift_signer: Readonly,
+            user_token_account: Writable,
+            token_program: Readonly,
+        },
+        remaining_accounts: remaining_accounts,
+        args: {
+            market_index: u16,
+            amount: u64,
+            reduce_only: bool
+        }
+    }
+}

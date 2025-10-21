@@ -56,6 +56,7 @@ pub fn create_pull_kamino_lend_ix(
     authority: &Pubkey,
     kamino_config: &KaminoConfig,
     reserve_farm_collateral: &Pubkey,
+    liquidity_token_program: &Pubkey,
     amount: u64,
 ) -> Instruction {
     let calling_permission_pda = derive_permission_pda(controller, authority);
@@ -78,7 +79,7 @@ pub fn create_pull_kamino_lend_ix(
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,
         &kamino_reserve_liquidity_mint,
-        &SPL_TOKEN_PROGRAM_ID,
+        liquidity_token_program,
     );
 
     let remaining_accounts = &[
@@ -127,13 +128,15 @@ pub fn create_pull_kamino_lend_ix(
             is_signer: false,
             is_writable: false,
         },
+        // collateral token program
         AccountMeta {
             pubkey: SPL_TOKEN_PROGRAM_ID,
             is_signer: false,
             is_writable: false,
         },
+        // liquidity token program
         AccountMeta {
-            pubkey: SPL_TOKEN_PROGRAM_ID,
+            pubkey: *liquidity_token_program,
             is_signer: false,
             is_writable: false,
         },
