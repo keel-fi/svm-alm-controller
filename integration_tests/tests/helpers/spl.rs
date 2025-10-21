@@ -72,3 +72,28 @@ pub fn setup_token_mint(
     account.set_data_from_slice(&data);
     svm.set_account(*pubkey, Account::from(account)).unwrap();
 }
+
+pub fn add_tokens_to_token_account(
+    svm: &mut LiteSVM,
+    token_account_pubkey: &Pubkey,
+    amount: u64,
+) {
+    let mut token_account_data = svm
+        .get_account(token_account_pubkey)
+        .unwrap()
+        .data
+        .clone();
+    let mut token_account =
+        spl_token_2022::state::Account::unpack_from_slice(&token_account_data).unwrap();
+
+    token_account.amount = token_account
+        .amount
+        .checked_add(amount)
+        .expect("Overflow when adding tokens to token account");
+
+    spl_token_2022::state::Account::pack(token_account, &mut token_account_data).unwrap();
+
+    let mut account = svm.get_account(token_account_pubkey).unwrap();
+    account.data = token_account_data;
+    svm.set_account(*token_account_pubkey, account).unwrap();
+}

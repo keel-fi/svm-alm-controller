@@ -14,7 +14,9 @@ use crate::{
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
-    integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Withdraw},
+    integrations::drift::{
+        constants::DRIFT_PROGRAM_ID, cpi::Withdraw, shared_sync::sync_drift_balance,
+    },
     processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
@@ -36,18 +38,21 @@ define_account_struct! {
 impl<'info> PullDriftAccounts<'info> {
     pub fn checked_from_accounts(
         config: &IntegrationConfig,
-        accounts_infos: &'info [AccountInfo],
+        outer_ctx: &'info PullAccounts,
         spot_market_index: u16,
     ) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts_infos)?;
+        let ctx = Self::from_accounts(outer_ctx.remaining_accounts)?;
         let config = match config {
             IntegrationConfig::Drift(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
-        if spot_market_index != config.spot_market_index {
-            msg!("spot_market_index: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
+
+        config.check_accounts(
+            outer_ctx.controller_authority.key(),
+            ctx.user.key(),
+            spot_market_index,
+        )?;
+
         Ok(ctx)
     }
 }
@@ -83,11 +88,8 @@ pub fn process_pull_drift(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PullDriftAccounts::checked_from_accounts(
-        &integration.config,
-        &outer_ctx.remaining_accounts,
-        market_index,
-    )?;
+    let inner_ctx =
+        PullDriftAccounts::checked_from_accounts(&integration.config, &outer_ctx, market_index)?;
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
@@ -97,7 +99,18 @@ pub fn process_pull_drift(
         controller,
     )?;
 
-    // TODO sync Drift balance state before withdraw.
+    sync_drift_balance(
+        controller,
+        integration,
+        outer_ctx.integration.key(),
+        outer_ctx.controller.key(),
+        outer_ctx.controller_authority,
+        &reserve.mint,
+        // TODO need to iterate over remaining accounts to find the correct spot_market
+        inner_ctx.spot_market,
+        inner_ctx.user,
+        market_index,
+    )?;
 
     let reserve_balance_before = reserve.last_balance;
 

@@ -1,6 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use pinocchio::{msg, program_error::ProgramError};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 use shank::ShankType;
+
+use crate::integrations::drift::pdas::derive_drift_user_pda;
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
 pub struct DriftConfig {
@@ -13,16 +15,21 @@ pub struct DriftConfig {
 }
 
 impl DriftConfig {
+    /// Validate the Integration instruction matches the config.
+    /// This is to prevent an Integration instance from being used
+    /// for unintended tokens/markets.
     pub fn check_accounts(
         &self,
-        sub_account_id: u16,
+        controller_authority: &Pubkey,
+        drift_user: &Pubkey,
         spot_market_index: u16,
     ) -> Result<(), ProgramError> {
-        if sub_account_id != self.sub_account_id {
-            msg!("sub_account_id: does not match config");
+        let drift_user_pda = derive_drift_user_pda(controller_authority, self.sub_account_id)?;
+        if drift_user_pda.ne(drift_user) {
+            msg!("drift_user: does not match config");
             return Err(ProgramError::InvalidAccountData);
         }
-        if spot_market_index != self.spot_market_index {
+        if spot_market_index.ne(&self.spot_market_index) {
             msg!("spot_market_index: does not match config");
             return Err(ProgramError::InvalidAccountData);
         }

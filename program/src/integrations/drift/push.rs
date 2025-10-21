@@ -16,7 +16,7 @@ use crate::{
     instructions::PushArgs,
     integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit},
     processor::PushAccounts,
-    state::{reserve, Controller, Integration, Permission, Reserve},
+    state::{Controller, Integration, Permission, Reserve},
 };
 
 define_account_struct! {

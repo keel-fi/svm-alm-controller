@@ -1,4 +1,4 @@
-use crate::helpers::spl::setup_token_account;
+use crate::{helpers::spl::setup_token_account, subs::edit_token_amount};
 use litesvm::LiteSVM;
 use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
 use svm_alm_controller_client::integrations::drift::{
@@ -104,6 +104,36 @@ pub fn setup_drift_spot_market_vault(
     );
 
     vault_pubkey
+}
+
+/// Increments the SpotMarket's cumulative_deposit_interest by the given basis points.
+pub fn spot_market_accrue_cumulative_interest(
+    svm: &mut LiteSVM,
+    market_index: u16,
+    deposit_interest_bps: u16,
+) {
+    let spot_market_pubkey = derive_spot_market_pda(market_index);
+    let mut spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
+    let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
+    let spot_market = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
+
+    spot_market.cumulative_deposit_interest = spot_market
+        .cumulative_deposit_interest
+        .saturating_mul(10_000 + deposit_interest_bps as u128)
+        .saturating_div(10_000);
+
+    let net_tokens_from_interest = spot_market
+        .deposit_balance
+        .saturating_mul(deposit_interest_bps as u128)
+        .saturating_div(10_000)
+        .try_into()
+        .unwrap();
+
+    // Add more tokens to the SpotMarket vault
+    edit_token_amount(svm, &spot_market.vault, net_tokens_from_interest).unwrap();
+
+    svm.set_account(spot_market_pubkey, spot_market_account)
+        .unwrap();
 }
 
 /// Setup mock insurance fund account for testing
