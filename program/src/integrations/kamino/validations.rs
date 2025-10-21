@@ -30,7 +30,7 @@ define_account_struct! {
         kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
-        collateral_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        collateral_token_program: @pubkey(pinocchio_token::ID);
         liquidity_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         instruction_sysvar_account: @pubkey(INSTRUCTIONS_ID);
         obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
