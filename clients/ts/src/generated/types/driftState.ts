@@ -14,22 +14,33 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
   type ReadonlyUint8Array,
 } from '@solana/kit';
 
-export type DriftState = { padding: ReadonlyUint8Array };
+export type DriftState = { balance: bigint; padding: ReadonlyUint8Array };
 
-export type DriftStateArgs = DriftState;
+export type DriftStateArgs = {
+  balance: number | bigint;
+  padding: ReadonlyUint8Array;
+};
 
 export function getDriftStateEncoder(): FixedSizeEncoder<DriftStateArgs> {
-  return getStructEncoder([['padding', fixEncoderSize(getBytesEncoder(), 48)]]);
+  return getStructEncoder([
+    ['balance', getU64Encoder()],
+    ['padding', fixEncoderSize(getBytesEncoder(), 40)],
+  ]);
 }
 
 export function getDriftStateDecoder(): FixedSizeDecoder<DriftState> {
-  return getStructDecoder([['padding', fixDecoderSize(getBytesDecoder(), 48)]]);
+  return getStructDecoder([
+    ['balance', getU64Decoder()],
+    ['padding', fixDecoderSize(getBytesDecoder(), 40)],
+  ]);
 }
 
 export function getDriftStateCodec(): FixedSizeCodec<

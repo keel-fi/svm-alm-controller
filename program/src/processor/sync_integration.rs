@@ -2,7 +2,7 @@ use crate::{
     define_account_struct,
     enums::IntegrationConfig,
     error::SvmAlmControllerErrors,
-    integrations::kamino::sync::process_sync_kamino,
+    integrations::{drift::sync::process_sync_drift, kamino::sync::process_sync_kamino},
     state::{keel_account::KeelAccount, Controller, Integration, Reserve},
 };
 use pinocchio::{
@@ -61,6 +61,12 @@ pub fn process_sync_integration(
             // TODO: reserve will be moved into sync_kamino inner_ctx
             // since it's the only integration that needs it for now.
             reserve.save(ctx.reserve)?;
+        }
+        IntegrationConfig::Drift(_config) => {
+            // Load in the reserve account (drift only handles one reserve)
+            let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
+
+            process_sync_drift(&controller, &mut integration, &mut reserve, &ctx)?;
         }
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),

@@ -39,7 +39,7 @@ define_account_struct! {
         rewards_treasury_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         farm_vaults_authority;
         farms_global_config: @owner(KAMINO_FARMS_PROGRAM_ID);
-        rewards_ata: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID, pinocchio_system::ID);
+        rewards_ata: mut;
         rewards_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         scope_prices;
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -67,6 +67,15 @@ impl<'info> SyncKaminoAccounts<'info> {
             &reserve.mint,
             None,
         )?;
+
+        // rewards_ata can either be pubkey::default or be owned by spl_token/token2022 programs
+        if ctx.rewards_ata.key().ne(&Pubkey::default())
+            && !ctx.rewards_ata.is_owned_by(&pinocchio_token::ID)
+            && !ctx.rewards_ata.is_owned_by(&pinocchio_token2022::ID)
+        {
+            msg! {"rewards_ata: Invalid owner"}
+            return Err(ProgramError::IllegalOwner);
+        }
 
         let obligation_farm_pda = derive_obligation_farm_address(
             ctx.reserve_farm.key(),

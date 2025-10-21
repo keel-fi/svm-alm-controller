@@ -9,7 +9,7 @@ use crate::{integrations::utils::anchor_discriminator, KAMINO_LEND_PROGRAM_ID};
 pub fn create_refresh_kamino_obligation_instruction(
     market: &Pubkey,
     obligation: &Pubkey,
-    reserve: Option<&Pubkey>,
+    reserves: Vec<&Pubkey>,
 ) -> Instruction {
     let data = anchor_discriminator("global", "refresh_obligation");
 
@@ -26,14 +26,11 @@ pub fn create_refresh_kamino_obligation_instruction(
         },
     ];
 
-    match reserve {
-        Some(reserve) => accounts.push(AccountMeta {
-            pubkey: *reserve,
-            is_signer: false,
-            is_writable: true,
-        }),
-        None => (),
-    }
+    accounts.extend(reserves.into_iter().map(|reserve| AccountMeta {
+        pubkey: *reserve,
+        is_signer: false,
+        is_writable: true,
+    }));
 
     Instruction {
         program_id: KAMINO_LEND_PROGRAM_ID,

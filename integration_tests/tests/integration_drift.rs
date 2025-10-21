@@ -17,6 +17,7 @@ mod tests {
     };
     use borsh::BorshDeserialize;
     use bytemuck;
+    use solana_sdk::account::Account;
     use solana_sdk::program_pack::Pack;
     use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
@@ -33,11 +34,13 @@ mod tests {
         derive_controller_authority_pda,
         generated::types::{
             AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig,
-            IntegrationStatus, IntegrationUpdateEvent, ReserveStatus, SvmAlmControllerEvent,
+            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, ReserveStatus,
+            SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
         instructions::create_drift_push_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
+        sync_integration::create_drift_sync_integration_instruction,
     };
 
     #[test]

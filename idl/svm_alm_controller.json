@@ -2017,11 +2017,15 @@
         "kind": "struct",
         "fields": [
           {
+            "name": "balance",
+            "type": "u64"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                48
+                40
               ]
             }
           }
