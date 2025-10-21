@@ -6,7 +6,7 @@ use pinocchio::{
     pubkey::Pubkey,
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
@@ -42,7 +42,7 @@ define_account_struct! {
         rewards_ata: mut;
         rewards_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         scope_prices;
-        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        rewards_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
@@ -183,7 +183,7 @@ pub fn process_sync_kamino(
             reserve_farm_state
                 .find_reward_index_and_rewards_available(
                     inner_ctx.rewards_mint.key(),
-                    inner_ctx.token_program.key(),
+                    inner_ctx.rewards_token_program.key(),
                 )
                 .ok_or(ProgramError::InvalidAccountData)?
         };
@@ -206,7 +206,7 @@ pub fn process_sync_kamino(
                 wallet: outer_ctx.controller_authority,
                 mint: inner_ctx.rewards_mint,
                 system_program: inner_ctx.system_program,
-                token_program: inner_ctx.token_program,
+                token_program: inner_ctx.rewards_token_program,
             }
             .invoke()?;
 
@@ -222,7 +222,7 @@ pub fn process_sync_kamino(
                 rewards_treasure_vault: inner_ctx.rewards_treasury_vault,
                 farm_vaults_authority: inner_ctx.farm_vaults_authority,
                 scope_prices: inner_ctx.scope_prices,
-                token_program: inner_ctx.token_program,
+                token_program: inner_ctx.rewards_token_program,
                 reward_index,
             }
             .invoke_signed(&[Signer::from(&[

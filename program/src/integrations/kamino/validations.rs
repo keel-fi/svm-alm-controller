@@ -16,7 +16,7 @@ use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey,
     sysvars::instructions::INSTRUCTIONS_ID,
 };
-use pinocchio_token::state::TokenAccount;
+use pinocchio_token_interface::TokenAccount;
 
 define_account_struct! {
     pub struct PushPullKaminoAccounts<'info> {

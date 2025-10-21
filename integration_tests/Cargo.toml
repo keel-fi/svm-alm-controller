@@ -32,6 +32,7 @@ uln-client = { workspace = true }
 solana-client = { workspace = true }
 fixed = { workspace = true }
 uint = { workspace = true }
+spl-pod = "0.5.1"
 
 [dev-dependencies]
 test-case = { workspace = true }

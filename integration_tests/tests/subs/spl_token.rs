@@ -276,6 +276,7 @@ pub fn edit_ata_amount(
     amount: u64,
 ) -> Result<(), Box<dyn Error>> {
     let token_program = svm.get_account(mint).unwrap().owner;
+
     let ata_pk = get_associated_token_address_with_program_id(&owner, mint, &token_program);
 
     edit_token_amount(svm, &ata_pk, amount)?;
@@ -291,12 +292,25 @@ pub fn edit_token_amount(
     svm: &mut LiteSVM,
     pubkey: &Pubkey,
     amount: u64,
-) -> Result<(), Box<dyn Error>> {
-    let mut account_info = svm.get_account(&pubkey).unwrap();
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut account_info = svm.get_account(pubkey).unwrap();
 
-    let mut account = unpack_token_account(&account_info).unwrap();
-    account.amount = amount;
-    Account::pack(account, &mut account_info.data)?;
+    write_token_amount_in_place(&mut account_info.data, amount)
+        .map_err(|e| format!("write amount failed: {e}"))?;
+
     svm.set_account(*pubkey, account_info)?;
+    Ok(())
+}
+
+/// Overwrite the `amount` field of a Token/Token-2022 Account in-place.
+/// Works for both programs because `amount` is at a stable offset.
+fn write_token_amount_in_place(data: &mut [u8], amount: u64) -> Result<(), String> {
+    const AMOUNT_OFFSET: usize = 32  // mint
+                               + 32; // owner
+    let end = AMOUNT_OFFSET + 8;
+    if data.len() < end {
+        return Err(format!("account data too short: {} < {}", data.len(), end));
+    }
+    data[AMOUNT_OFFSET..end].copy_from_slice(&amount.to_le_bytes());
     Ok(())
 }
