@@ -116,6 +116,10 @@ pub fn process_pull_drift(
 
     let reserve_balance_before = reserve.last_balance;
 
+    let spot_market_vault = TokenAccount::from_account_info(inner_ctx.spot_market_vault)?;
+    let spot_market_vault_balance_before = spot_market_vault.amount();
+    drop(spot_market_vault);
+
     Withdraw {
         state: &inner_ctx.state,
         user: &inner_ctx.user,
@@ -141,6 +145,11 @@ pub fn process_pull_drift(
     let reserve_mint = reserve_vault.mint();
     let net_inflow = reserve_balance_after.saturating_sub(reserve_balance_before);
 
+    let spot_market_vault = TokenAccount::from_account_info(inner_ctx.spot_market_vault)?;
+    let spot_market_vault_balance_after = spot_market_vault.amount();
+    let spot_market_vault_delta =
+        spot_market_vault_balance_before.saturating_sub(spot_market_vault_balance_after);
+
     // Emit accounting event for debit integration
     controller.emit_event(
         outer_ctx.controller_authority,
@@ -152,8 +161,7 @@ pub fn process_pull_drift(
             reserve: None,
             direction: AccountingDirection::Debit,
             action: AccountingAction::Withdrawal,
-            // TODO this should be balance delta Integration value, not token amount
-            delta: net_inflow,
+            delta: spot_market_vault_delta,
         }),
     )?;
 

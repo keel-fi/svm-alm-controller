@@ -659,15 +659,12 @@ mod tests {
 
         // The balance should reflect the pushed amount plus interest earned
         // With 1% interest, the balance should be approximately push_amount * 1.0
-        let expected_balance_with_interest = (push_amount as u128)
-            .checked_mul(101)
-            .unwrap()
-            .checked_div(100)
-            .unwrap();
+        let expected_interest = push_amount.checked_div(100).unwrap();
+        let expected_total_balance = push_amount + expected_interest;
         // Verify that the integration state was updated with interest
         match &integration_after.state {
             IntegrationState::Drift(drift_state) => {
-                assert_eq!(drift_state.balance, expected_balance_with_interest as u64);
+                assert_eq!(drift_state.balance, expected_total_balance);
             }
             _ => panic!("Expected Drift integration state"),
         }
@@ -683,7 +680,7 @@ mod tests {
                 reserve: None,
                 direction: AccountingDirection::Credit,
                 action: AccountingAction::Sync,
-                delta: expected_balance_with_interest as u64,
+                delta: expected_interest,
             })
         );
 
