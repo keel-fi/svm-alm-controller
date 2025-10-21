@@ -27,11 +27,11 @@ mod tests {
     use solana_sdk::program_pack::Pack;
     use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
+        account::Account,
         clock::Clock,
         instruction::InstructionError,
         signer::Signer,
         transaction::{Transaction, TransactionError},
-        account::Account,
     };
     use spl_token;
     use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
@@ -1024,11 +1024,11 @@ mod tests {
 
         // Set up User accounts with spot positions for both markets
         let controller_authority = derive_controller_authority_pda(&controller_pk);
-        
+
         // Define sub account IDs
         let sub_account_id_1 = 0;
         let sub_account_id_2 = 1;
-        
+
         // Create spot positions for both markets
         let spot_position_1 = SpotPosition {
             scaled_balance: 0,
@@ -1040,7 +1040,7 @@ mod tests {
             open_orders: 0,
             padding: [0u8; 4],
         };
-        
+
         let spot_position_2 = SpotPosition {
             scaled_balance: 0,
             open_bids: 0,
@@ -1053,10 +1053,20 @@ mod tests {
         };
 
         // Set up User account for first integration
-        set_drift_user_with_spot_positions(&mut svm, &controller_authority, sub_account_id_1, &[spot_position_1]);
-        
+        set_drift_user_with_spot_positions(
+            &mut svm,
+            &controller_authority,
+            sub_account_id_1,
+            &[spot_position_1],
+        );
+
         // Set up User account for second integration
-        set_drift_user_with_spot_positions(&mut svm, &controller_authority, sub_account_id_2, &[spot_position_2]);
+        set_drift_user_with_spot_positions(
+            &mut svm,
+            &controller_authority,
+            sub_account_id_2,
+            &[spot_position_2],
+        );
 
         // Initialize Drift Integration for first spot market
         let rate_limit_slope = 1_000_000_000_000;
@@ -1108,7 +1118,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         svm.send_transaction(tx.clone())
-            .map_err(|e| e.err.to_string())?; 
+            .map_err(|e| e.err.to_string())?;
 
         // Initialize reserves for both tokens
         let reserve_keys_1 = initialize_reserve(
@@ -1540,7 +1550,7 @@ mod tests {
 
         // Set up User account with spot positions for both markets
         let sub_account_id = 0;
-        
+
         // Create spot positions for both markets
         let spot_position_1 = SpotPosition {
             scaled_balance: 0,
@@ -1552,7 +1562,7 @@ mod tests {
             open_orders: 0,
             padding: [0u8; 4],
         };
-        
+
         let spot_position_2 = SpotPosition {
             scaled_balance: 0,
             open_bids: 0,
@@ -1563,7 +1573,7 @@ mod tests {
             open_orders: 0,
             padding: [0u8; 4],
         };
-        
+
         // Set up User account with both spot positions
         set_drift_user_with_spot_positions(
             &mut svm,
@@ -1953,7 +1963,7 @@ mod tests {
         // Set up User account with spot position for the market
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let sub_account_id = 0;
-        
+
         // Create spot position for the market
         let spot_position = SpotPosition {
             scaled_balance: 0,
@@ -1965,7 +1975,7 @@ mod tests {
             open_orders: 0,
             padding: [0u8; 4],
         };
-        
+
         // Set up User account with spot position
         set_drift_user_with_spot_positions(
             &mut svm,
@@ -2069,7 +2079,8 @@ mod tests {
         // Fetch drift user state after first push to verify spot position was updated
         let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
         let drift_user_acct_after_first_push = svm.get_account(&drift_user_pda).unwrap();
-        let drift_user_after_first_push = User::try_from(&drift_user_acct_after_first_push.data).unwrap();
+        let drift_user_after_first_push =
+            User::try_from(&drift_user_acct_after_first_push.data).unwrap();
 
         // Find the spot position for the market we're depositing into
         let spot_position_index = drift_user_after_first_push
@@ -2078,12 +2089,12 @@ mod tests {
             .position(|pos| pos.market_index == spot_market_index)
             .expect("Spot position should exist for the market");
 
-        let spot_position_after_first_push = drift_user_after_first_push.spot_positions[spot_position_index];
+        let spot_position_after_first_push =
+            drift_user_after_first_push.spot_positions[spot_position_index];
 
         // Assert spot position cumulative_deposits increased by first push amount
         assert_eq!(
-            spot_position_after_first_push.cumulative_deposits,
-            first_push_amount as i64,
+            spot_position_after_first_push.cumulative_deposits, first_push_amount as i64,
             "Spot position cumulative_deposits should equal first push amount"
         );
 
@@ -2136,17 +2147,18 @@ mod tests {
 
         // Fetch drift user state after second push to verify spot position was updated
         let drift_user_acct_after_second_push = svm.get_account(&drift_user_pda).unwrap();
-        let drift_user_after_second_push = User::try_from(&drift_user_acct_after_second_push.data).unwrap();
+        let drift_user_after_second_push =
+            User::try_from(&drift_user_acct_after_second_push.data).unwrap();
 
-        let spot_position_after_second_push = drift_user_after_second_push.spot_positions[spot_position_index];
+        let spot_position_after_second_push =
+            drift_user_after_second_push.spot_positions[spot_position_index];
 
         // Calculate expected cumulative deposits: first_push_amount + second_push_amount
         let expected_cumulative_deposits = (first_push_amount + second_push_amount) as i64;
 
         // Assert spot position cumulative_deposits increased by both push amounts
         assert_eq!(
-            spot_position_after_second_push.cumulative_deposits,
-            expected_cumulative_deposits,
+            spot_position_after_second_push.cumulative_deposits, expected_cumulative_deposits,
             "Spot position cumulative_deposits should equal both push amounts combined"
         );
 
@@ -2163,8 +2175,7 @@ mod tests {
         );
 
         assert_eq!(
-            spot_market_vault_final,
-            reserve_vault_final,
+            spot_market_vault_final, reserve_vault_final,
             "Spot market vault and reserve vault should be the same account"
         );
 
