@@ -5,6 +5,22 @@ use svm_alm_controller_client::integrations::drift::{
     derive_drift_signer, derive_spot_market_pda, SpotMarket, DRIFT_PROGRAM_ID,
 };
 
+/// Get the SpotMarket data from the LiteSvm.
+///
+/// # Arguments
+///
+/// * `svm` - The LiteSvm instance.
+/// * `spot_market_pubkey` - The pubkey of the SpotMarket account.
+///
+/// # Returns
+///
+/// The SpotMarket data.
+pub fn get_spot_market_data(svm: &LiteSVM, spot_market_pubkey: &Pubkey) -> SpotMarket {
+    let spot_market_account = svm.get_account(spot_market_pubkey).unwrap();
+    let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
+    bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap().clone()
+}
+
 /// Setup Drift SpotMarket state in LiteSvm giving full control over state.
 ///
 /// If anything is not set correctly for a subsequent test, either:
@@ -16,12 +32,12 @@ pub fn set_drift_spot_market(
     market_index: u16,
     mint: Option<Pubkey>,
     oracle_price: i64,
-) -> Pubkey {
-    let pubkey = derive_spot_market_pda(market_index);
+) -> (Pubkey, Pubkey) {
+    let spot_market_pubkey = derive_spot_market_pda(market_index);
 
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
-    spot_market.pubkey = pubkey; // Set the pubkey field to the actual PDA
+    spot_market.pubkey = spot_market_pubkey; // Set the pubkey field to the actual PDA
     spot_market.market_index = market_index;
     // Set TWAP oracle price to the provided oracle_price
     spot_market.historical_oracle_data.last_oracle_price_twap = oracle_price;
@@ -67,7 +83,7 @@ pub fn set_drift_spot_market(
     state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
 
     svm.set_account(
-        pubkey,
+        spot_market_pubkey,
         Account {
             lamports: u64::MAX,
             rent_epoch: u64::MAX,
@@ -78,7 +94,7 @@ pub fn set_drift_spot_market(
     )
     .unwrap();
 
-    pubkey
+    (spot_market_pubkey, oracle_pubkey)
 }
 
 /// Setup Drift SpotMarket Vault token account in LiteSvm.
