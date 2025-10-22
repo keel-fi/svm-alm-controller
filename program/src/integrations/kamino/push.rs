@@ -61,6 +61,8 @@ impl<'info> InitializeObligationAccounts<'info> {
 
 /// This function performs a "Push" on a `KaminoIntegration`.
 /// In order to do so it:
+/// - If an `Obligation` was closed by a Pull instruction, in reinitializes and
+/// refreshes it by using `inner_ctx.remaining_accounts`.
 /// - CPIs into KLEND program.
 /// - Tracks the change in balance of `liquidity_source` account (our vault)
 /// and `liquidity_value` from Kamino state
