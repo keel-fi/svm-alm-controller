@@ -2004,11 +2004,11 @@ mod tests {
         // Not exactly sure how to calculate this, so we're using a hardcoded value for now
         // Why is the interest accrued 800,000,000 tokens?
         let interest_accrual_amount = 800_000_000;
-        let expected_total = vault_start_amount + first_push_amount + second_push_amount + interest_accrual_amount;
+        let expected_total =
+            vault_start_amount + first_push_amount + second_push_amount + interest_accrual_amount;
 
         assert_eq!(
-            reserve_vault_final,
-            expected_total,
+            reserve_vault_final, expected_total,
             "Reserve vault should have increased by both push amounts plus interest accrual"
         );
 

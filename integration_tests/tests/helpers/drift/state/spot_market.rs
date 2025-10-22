@@ -18,7 +18,9 @@ use svm_alm_controller_client::integrations::drift::{
 pub fn get_spot_market_data(svm: &LiteSVM, spot_market_pubkey: &Pubkey) -> SpotMarket {
     let spot_market_account = svm.get_account(spot_market_pubkey).unwrap();
     let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-    bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap().clone()
+    bytemuck::try_from_bytes::<SpotMarket>(spot_market_data)
+        .unwrap()
+        .clone()
 }
 
 /// Setup Drift SpotMarket state in LiteSvm giving full control over state.
