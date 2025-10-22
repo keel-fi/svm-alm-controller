@@ -1,6 +1,9 @@
-use crate::{helpers::spl::setup_token_account, subs::edit_token_amount};
+use crate::{
+    helpers::spl::setup_token_account,
+    subs::{edit_token_amount, get_mint},
+};
 use litesvm::LiteSVM;
-use solana_sdk::{account::Account, program_pack::Pack, pubkey::Pubkey};
+use solana_sdk::{account::Account, pubkey::Pubkey};
 use svm_alm_controller_client::integrations::drift::{
     derive_drift_signer, derive_spot_market_pda, SpotMarket, DRIFT_PROGRAM_ID,
 };
@@ -30,8 +33,7 @@ pub fn set_drift_spot_market(
         .last_oracle_price_twap_5min = oracle_price;
     if let Some(mint) = mint {
         spot_market.mint = mint;
-        let mint_account = svm.get_account(&spot_market.mint).unwrap();
-        let mint_account = spl_token::state::Mint::unpack(&mint_account.data).unwrap();
+        let mint_account = get_mint(svm, &spot_market.mint);
         spot_market.decimals = mint_account.decimals as u32;
     } else {
         spot_market.decimals = 6;

@@ -5,8 +5,8 @@ use crate::{
     derive_controller_authority_pda, derive_permission_pda,
     generated::{instructions::PushBuilder, types::PushArgs},
     integrations::drift::{
-        derive_spot_market_pda, derive_spot_market_vault_pda, derive_state_pda, derive_user_pda,
-        derive_user_stats_pda, DRIFT_PROGRAM_ID,
+        derive_spot_market_vault_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda,
+        DRIFT_PROGRAM_ID,
     },
 };
 
@@ -14,6 +14,7 @@ use crate::{
 pub fn create_drift_push_instruction(
     controller: &Pubkey,
     super_authority: &Pubkey,
+    mint: &Pubkey,
     integration: &Pubkey,
     reserve: &Pubkey,
     reserve_vault: &Pubkey,
@@ -69,6 +70,8 @@ pub fn create_drift_push_instruction(
     ];
 
     remaining_accounts.extend_from_slice(inner_remaining_accounts);
+    // Mint is always after SpotMarket|Oracle accounts in remaining_accounts
+    remaining_accounts.push(AccountMeta::new_readonly(*mint, false));
 
     let instruction = PushBuilder::new()
         .controller(*controller)
