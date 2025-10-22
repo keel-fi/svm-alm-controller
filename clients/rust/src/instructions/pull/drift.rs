@@ -14,6 +14,7 @@ use crate::{
 pub fn create_drift_pull_instruction(
     controller: &Pubkey,
     super_authority: &Pubkey,
+    mint: &Pubkey,
     integration: &Pubkey,
     reserve: &Pubkey,
     reserve_vault: &Pubkey,
@@ -76,6 +77,8 @@ pub fn create_drift_pull_instruction(
     ];
 
     remaining_accounts.extend_from_slice(inner_remaining_accounts);
+    // Mint is always after SpotMarket|Oracle accounts in remaining_accounts
+    remaining_accounts.push(AccountMeta::new_readonly(*mint, false));
 
     let instruction = PullBuilder::new()
         .controller(*controller)

@@ -10,7 +10,7 @@ mod tests {
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
     use crate::helpers::drift::state::user::SpotPosition;
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
-    use crate::subs::{fetch_reserve_account, get_token_balance_or_zero};
+    use crate::subs::{fetch_reserve_account, get_mint, get_token_balance_or_zero};
     use crate::{
         assert_contains_controller_cpi_event,
         helpers::{
@@ -25,6 +25,7 @@ mod tests {
     use borsh::BorshDeserialize;
     use bytemuck;
     use solana_sdk::program_pack::Pack;
+    use solana_sdk::pubkey::Pubkey;
     use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
         account::Account,
@@ -34,6 +35,7 @@ mod tests {
         transaction::{Transaction, TransactionError},
     };
     use spl_token;
+    use spl_token_2022::extension::transfer_fee;
     use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
     use svm_alm_controller_client::integrations::drift::SpotMarket;
     use svm_alm_controller_client::pull::drift::create_drift_pull_instruction;
@@ -232,8 +234,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn drift_push_success() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(spl_token::ID, None ; "SPL Token Program")]
+    #[test_case(spl_token_2022::ID, Some(0) ; "Token2022 Program")]
+    fn drift_push_success(
+        token_program: Pubkey,
+        transfer_fee_bps: Option<u16>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -256,14 +262,14 @@ mod tests {
             None,
             6,
             Some(token_mint_kp),
-            &spl_token::ID,
-            None,
+            &token_program,
+            transfer_fee_bps,
         )?;
 
         let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
-        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
         // Set up mock oracle and insurance fund accounts
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
@@ -305,7 +311,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000,
             1_000_000_000_000,
-            &spl_token::ID,
+            &token_program,
         )?;
 
         // Create associated token account for controller authority and mint tokens
@@ -346,10 +352,11 @@ mod tests {
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &spl_token::ID,
+            &token_program,
             spot_market_index,
             sub_account_id,
             push_amount,
@@ -444,8 +451,7 @@ mod tests {
         // Copy packed field to avoid unaligned reference error
         let cumulative_deposit_interest = spot_market.cumulative_deposit_interest;
 
-        let token_mint_account = svm.get_account(&token_mint).unwrap();
-        let token_mint_account = spl_token::state::Mint::unpack(&token_mint_account.data).unwrap();
+        let token_mint_account = get_mint(&svm, &token_mint);
         // https://github.com/drift-labs/protocol-v2/blob/master/programs/drift/src/math/spot_balance.rs#L45
         let spot_balance_precision = 10_u128.pow(19 - token_mint_account.decimals as u32); // 10^13 (19 - 6)
         let expected_scaled_balance_increase = (push_amount as u128
@@ -496,8 +502,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn drift_sync_integration_success() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(spl_token::ID, None ; "SPL Token Program")]
+    #[test_case(spl_token_2022::ID, Some(0) ; "Token2022 Program")]
+    fn drift_sync_integration_success(
+        token_program: Pubkey,
+        transfer_fee_bps: Option<u16>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -520,14 +530,14 @@ mod tests {
             None,
             6,
             Some(token_mint_kp),
-            &spl_token::ID,
-            None,
+            &token_program,
+            transfer_fee_bps,
         )?;
 
         let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
-        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
@@ -568,7 +578,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000,
             1_000_000_000_000,
-            &spl_token::ID,
+            &token_program,
         )?;
 
         // Create associated token account for controller authority and mint tokens
@@ -591,10 +601,11 @@ mod tests {
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &spl_token::ID,
+            &token_program,
             spot_market_index,
             sub_account_id,
             push_amount,
@@ -678,8 +689,12 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn drift_pull_success() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(spl_token::ID, None ; "SPL Token Program")]
+    #[test_case(spl_token_2022::ID, Some(0) ; "Token2022 Program")]
+    fn drift_pull_success(
+        token_program: Pubkey,
+        transfer_fee_bps: Option<u16>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -702,14 +717,14 @@ mod tests {
             None,
             6,
             Some(token_mint_kp),
-            &spl_token::ID,
-            None,
+            &token_program,
+            transfer_fee_bps,
         )?;
 
         let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
-        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
@@ -750,7 +765,7 @@ mod tests {
             ReserveStatus::Active,
             1_000_000_000_000,
             1_000_000_000_000,
-            &spl_token::ID,
+            &token_program,
         )?;
 
         // Create associated token account for controller authority and mint tokens
@@ -773,10 +788,11 @@ mod tests {
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &spl_token::ID,
+            &token_program,
             spot_market_index,
             sub_account_id,
             amount,
@@ -799,10 +815,11 @@ mod tests {
         let pull_ix = create_drift_pull_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
-            &spl_token::ID,
+            &token_program,
             spot_market_index,
             sub_account_id,
             u64::MAX,
@@ -1125,6 +1142,7 @@ mod tests {
         let push_ix_1 = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_1,
             &integration_pubkey_1,
             &reserve_keys_1.pubkey,
             &reserve_keys_1.vault,
@@ -1149,6 +1167,7 @@ mod tests {
         let push_ix_2 = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_2,
             &integration_pubkey_2,
             &reserve_keys_2.pubkey,
             &reserve_keys_2.vault,
@@ -1528,6 +1547,7 @@ mod tests {
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_2,
             &integration_pubkey_2,
             &reserve_keys_2.pubkey,
             &reserve_keys_2.vault,
@@ -1721,6 +1741,7 @@ mod tests {
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &push_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
@@ -1847,6 +1868,7 @@ mod tests {
         let first_push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,
@@ -1902,6 +1924,7 @@ mod tests {
         let second_push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             &integration_pubkey,
             &reserve_keys.pubkey,
             &reserve_keys.vault,

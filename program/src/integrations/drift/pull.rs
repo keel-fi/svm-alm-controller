@@ -129,6 +129,10 @@ pub fn process_pull_drift(
         drift_signer: &inner_ctx.drift_signer,
         user_token_account: &inner_ctx.reserve_vault,
         token_program: &inner_ctx.token_program,
+        // NOTE: we do not support TransferHooks with non-null programs.
+        // If we ever do, then the TransferHooks extra accounts
+        // must be included in remaining_accounts.
+        // https://github.com/drift-labs/protocol-v2/blob/c3a43e411def66c74d2bc0063bd8268e2037eb7b/programs/drift/src/instructions/user.rs#L987
         remaining_accounts: &inner_ctx.remaining_accounts,
         market_index: market_index,
         amount: amount,
