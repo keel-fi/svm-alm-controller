@@ -935,7 +935,7 @@ mod tests {
     }
 
     #[test]
-    fn drift_multiple_reserves_success() -> Result<(), Box<dyn std::error::Error>> {
+    fn drift_push_multiple_spot_markets_and_sub_ids_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -1353,7 +1353,7 @@ mod tests {
     }
 
     #[test]
-    fn drift_multiple_spot_positions_same_push_success() -> Result<(), Box<dyn std::error::Error>> {
+    fn drift_push_multiple_spot_positions_same_sub_id_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
