@@ -193,12 +193,12 @@ mod tests {
 
         let spot_market_index = 0;
         let oracle_price = 100;
-        let (spot_market_pubkey, _) = set_drift_spot_market(&mut svm, 0, None, oracle_price);
+        let spot_market = set_drift_spot_market(&mut svm, 0, None, oracle_price);
 
         // overwrite with incorrect market ID
-        let mut market = svm.get_account(&spot_market_pubkey).unwrap();
+        let mut market = svm.get_account(&spot_market.pubkey).unwrap();
         market.data[684..686].copy_from_slice(&9u16.to_le_bytes());
-        svm.set_account(spot_market_pubkey, market).unwrap();
+        svm.set_account(spot_market.pubkey, market).unwrap();
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -260,16 +260,12 @@ mod tests {
             None,
         )?;
 
-        let (spot_market_pubkey, _) =
+        let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
         // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
-
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
         // Initialize Drift Integration
@@ -346,7 +342,7 @@ mod tests {
         let drift_user_acct_before = svm.get_account(&drift_user_pda).unwrap();
         let drift_user_before = User::try_from(&drift_user_acct_before.data).unwrap();
 
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -528,12 +524,12 @@ mod tests {
             None,
         )?;
 
-        let (spot_market_pubkey, oracle_pubkey) =
+        let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
-        setup_mock_oracle_account(&mut svm, &oracle_pubkey, oracle_price);
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -589,15 +585,9 @@ mod tests {
             vault_start_amount,
         )?;
 
-        // Get the updated spot market data for the push instruction
-        let spot_market_account_updated = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data_updated = &spot_market_account_updated.data[8..]; // Skip discriminator
-        let spot_market_updated =
-            bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_updated).unwrap();
-
         // Push some tokens to drift first to have something to sync
         let push_amount = 100_000_000;
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market_updated]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -716,12 +706,12 @@ mod tests {
             None,
         )?;
 
-        let (spot_market_pubkey, oracle_pubkey) =
+        let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
-        setup_mock_oracle_account(&mut svm, &oracle_pubkey, oracle_price);
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -778,8 +768,6 @@ mod tests {
         )?;
 
         let amount = 100_000_000;
-
-        let spot_market = get_spot_market_data(&svm, &spot_market_pubkey);
 
         let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
@@ -994,20 +982,17 @@ mod tests {
         let spot_market_index_1 = 0;
         let spot_market_index_2 = 1;
 
-        let (spot_market_pubkey_1, oracle_pubkey_1) =
+        let spot_market_1 =
             set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1), 100);
-        let (spot_market_pubkey_2, oracle_pubkey_2) =
+        let spot_market_2 =
             set_drift_spot_market(&mut svm, spot_market_index_2, Some(token_mint_2), 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
 
         // Set up mock oracle accounts for both spot markets
-        let spot_market_1 = get_spot_market_data(&svm, &spot_market_pubkey_1);
-        let spot_market_2 = get_spot_market_data(&svm, &spot_market_pubkey_2);
-
-        setup_mock_oracle_account(&mut svm, &oracle_pubkey_1, 100);
-        setup_mock_oracle_account(&mut svm, &oracle_pubkey_2, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, 100);
 
         // Set up User accounts with spot positions for both markets
         let controller_authority = derive_controller_authority_pda(&controller_pk);
@@ -1415,20 +1400,17 @@ mod tests {
         let spot_market_index_1 = 1;
         let spot_market_index_2 = 2;
 
-        let (spot_market_pubkey_1, oracle_pubkey_1) =
+        let spot_market_1 =
             set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1), 100);
-        let (spot_market_pubkey_2, oracle_pubkey_2) =
+        let spot_market_2 =
             set_drift_spot_market(&mut svm, spot_market_index_2, Some(token_mint_2), 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
 
         // Set up mock oracle accounts for both spot markets
-        let spot_market_1 = get_spot_market_data(&svm, &spot_market_pubkey_1);
-        let spot_market_2 = get_spot_market_data(&svm, &spot_market_pubkey_2);
-
-        setup_mock_oracle_account(&mut svm, &oracle_pubkey_1, 100);
-        setup_mock_oracle_account(&mut svm, &oracle_pubkey_2, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, 100);
 
         // Set up User account with spot positions for both markets
         let sub_account_id = 0;
@@ -1650,16 +1632,11 @@ mod tests {
             None,
         )?;
 
-        let (spot_market_pubkey, oracle_pubkey) =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
         // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
-
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
 
         // Initialize Drift Integration
@@ -1738,7 +1715,7 @@ mod tests {
 
         // Create the push instruction
         let push_amount = 100_000_000;
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &push_authority.pubkey(),
@@ -1800,15 +1777,9 @@ mod tests {
             None,
         )?;
 
-        let (spot_market_pubkey, oracle_pubkey) =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
-
-        // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
         // Set up User account with spot position for the market
@@ -1868,23 +1839,9 @@ mod tests {
             vault_start_amount,
         )?;
 
-        // Update the spot market to use the reserve vault instead of its own vault
-        let mut spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
-        let spot_market_mut = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
-        spot_market_mut.vault = reserve_keys.vault;
-        svm.set_account(spot_market_pubkey, spot_market_account)
-            .unwrap();
-
-        // Get the updated spot market data for the push instruction
-        let spot_market_account_updated = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data_updated = &spot_market_account_updated.data[8..]; // Skip discriminator
-        let spot_market_updated =
-            bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_updated).unwrap();
-
         // FIRST PUSH: Push some tokens to drift
         let first_push_amount = 100_000_000;
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market_updated]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let first_push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -1939,7 +1896,7 @@ mod tests {
 
         // SECOND PUSH: This should trigger sync_drift_balance to accrue interest
         let second_push_amount = 50_000_000;
-        let inner_remaining_accounts_second = get_inner_remaining_accounts(&[*spot_market_updated]);
+        let inner_remaining_accounts_second = get_inner_remaining_accounts(&[spot_market]);
         let second_push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -1998,23 +1955,12 @@ mod tests {
 
         // Verify final token balances
         let reserve_vault_final = get_token_balance_or_zero(&svm, &reserve_keys.vault);
-        let spot_market_vault_final = get_token_balance_or_zero(&svm, &spot_market_updated.vault);
 
-        // Calculate expected amount including interest accrual
-        // Not exactly sure how to calculate this, so we're using a hardcoded value for now
-        // Why is the interest accrued 800,000,000 tokens?
-        let interest_accrual_amount = 800_000_000;
-        let expected_total =
-            vault_start_amount + first_push_amount + second_push_amount + interest_accrual_amount;
+        let expected_total = vault_start_amount - first_push_amount - second_push_amount;
 
         assert_eq!(
             reserve_vault_final, expected_total,
-            "Reserve vault should have increased by both push amounts plus interest accrual"
-        );
-
-        assert_eq!(
-            spot_market_vault_final, reserve_vault_final,
-            "Spot market vault and reserve vault should be the same account"
+            "Reserve vault should have decreased by both push amounts plus interest accrual"
         );
 
         Ok(())

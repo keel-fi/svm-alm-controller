@@ -34,7 +34,7 @@ pub fn set_drift_spot_market(
     market_index: u16,
     mint: Option<Pubkey>,
     oracle_price: i64,
-) -> (Pubkey, Pubkey) {
+) -> SpotMarket {
     let spot_market_pubkey = derive_spot_market_pda(market_index);
 
     let mut spot_market = SpotMarket::default();
@@ -96,7 +96,7 @@ pub fn set_drift_spot_market(
     )
     .unwrap();
 
-    (spot_market_pubkey, oracle_pubkey)
+    spot_market
 }
 
 /// Setup Drift SpotMarket Vault token account in LiteSvm.
