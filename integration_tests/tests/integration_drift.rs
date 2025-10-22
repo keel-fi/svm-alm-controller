@@ -6,9 +6,9 @@ mod tests {
 
     use std::u64;
 
+    use crate::helpers::drift::spot_market_accrue_cumulative_interest;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
     use crate::helpers::drift::state::user::SpotPosition;
-    use crate::helpers::drift::{get_spot_market_data, spot_market_accrue_cumulative_interest};
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_token_balance_or_zero};
     use crate::{
