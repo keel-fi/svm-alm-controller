@@ -384,7 +384,9 @@ impl Obligation {
     pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "Obligation");
 
     pub fn try_from(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
+        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
+
+        if discriminator != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)

@@ -278,7 +278,8 @@ impl KaminoReserve {
     pub const DISCRIMINATOR: [u8; 8] = RESERVE_DISCRIMINATOR;
 
     pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
+        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
+        if discriminator != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -497,7 +498,8 @@ impl Obligation {
     pub const DISCRIMINATOR: [u8; 8] = OBLIGATION_DISCRIMINATOR;
 
     pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
+        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
+        if discriminator != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -637,7 +639,8 @@ impl FarmState {
     const DISCRIMINATOR: [u8; 8] = FARM_STATE_DISCRIMINATOR;
 
     pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
+        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
+        if discriminator != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -684,7 +687,8 @@ impl GlobalConfig {
 
     /// Load GlobalConfig account and check discriminator
     pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
+        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
+        if discriminator != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -721,7 +725,8 @@ impl UserState {
 
     /// Load GlobalConfig account and check discriminator
     pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
+        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
+        if discriminator != Self::DISCRIMINATOR {
             return Err(ProgramError::InvalidAccountData);
         }
 

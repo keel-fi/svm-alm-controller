@@ -1,8 +1,9 @@
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    sysvar,
+    system_program, sysvar,
 };
+use solana_sysvar::rent;
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
     integrations::kamino::{
         derive_market_authority_address, derive_obligation_farm_address,
         derive_reserve_collateral_mint, derive_reserve_collateral_supply,
-        derive_reserve_liquidity_supply,
+        derive_reserve_liquidity_supply, derive_user_metadata_address,
     },
     pda::{derive_controller_authority_pda, derive_permission_pda, derive_reserve_pda},
     SPL_TOKEN_PROGRAM_ID, SVM_ALM_CONTROLLER_ID,
@@ -86,6 +87,7 @@ pub fn create_push_kamino_lend_ix(
         &kamino_reserve_liquidity_mint,
         liquidity_token_program,
     );
+    let user_metadata = derive_user_metadata_address(&controller_authority);
 
     let remaining_accounts = &[
         AccountMeta {
@@ -167,6 +169,28 @@ pub fn create_push_kamino_lend_ix(
         },
         AccountMeta {
             pubkey: KAMINO_LEND_PROGRAM_ID,
+            is_signer: false,
+            is_writable: false,
+        },
+        // Remaining accounts used for re initializing an obligation in case it was closed
+        // by a full withdrawal
+        AccountMeta {
+            pubkey: controller_authority, // payer
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: user_metadata,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: system_program::ID,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: rent::ID,
             is_signer: false,
             is_writable: false,
         },

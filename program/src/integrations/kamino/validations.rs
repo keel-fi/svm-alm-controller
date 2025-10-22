@@ -22,7 +22,9 @@ define_account_struct! {
     pub struct PushPullKaminoAccounts<'info> {
         // Pull = liquidity_destination, Push = liquidity_source
         reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        obligation: mut @owner(KAMINO_LEND_PROGRAM_ID);
+        // Pull: owner == KAMINO_LEND_PROGRAM_ID, Push: owner KAMINO_LEND_PROGRAM_ID OR system_program
+        // since full withdrawal can close an obligation. Therefore these validations are done inside each instruction.
+        obligation: mut;
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         kamino_reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -39,6 +41,8 @@ define_account_struct! {
         reserve_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
+        // Used for reinitializing an Obligation in Push
+        @remaining_accounts as remaining_accounts;
     }
 }
 
