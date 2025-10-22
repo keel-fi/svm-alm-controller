@@ -22,7 +22,6 @@ pub fn create_drift_push_instruction(
     spot_market_index: u16,
     sub_account_id: u16,
     amount: u64,
-    reduce_only: bool,
     inner_remaining_accounts: &[AccountMeta],
 ) -> Result<Instruction, Box<dyn std::error::Error>> {
     let controller_authority = derive_controller_authority_pda(controller);
@@ -85,7 +84,6 @@ pub fn create_drift_push_instruction(
         .push_args(PushArgs::Drift {
             market_index: spot_market_index,
             amount,
-            reduce_only,
         })
         .add_remaining_accounts(&remaining_accounts)
         .instruction();
