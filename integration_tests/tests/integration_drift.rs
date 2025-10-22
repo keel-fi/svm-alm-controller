@@ -353,7 +353,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -598,7 +597,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -780,7 +778,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -806,7 +803,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             u64::MAX,
-            true,
             &inner_remaining_accounts,
         )?;
 
