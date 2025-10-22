@@ -37,14 +37,11 @@ pub fn sync_drift_balance(
         .iter()
         .find(|pos| pos.market_index == market_index);
 
-    let (scaled_balance, balance_type) = if let Some(pos) = spot_position {
-        (pos.scaled_balance, pos.balance_type)
+    let new_balance = if let Some(pos) = spot_position {
+        spot_market_state.get_token_amount(pos.scaled_balance as u128, pos.balance_type)?
     } else {
-        // If the spot position is not found, return 0 bc it doesn't exist yet
-        (0, 0)
+        0
     };
-
-    let new_balance = spot_market_state.get_token_amount(scaled_balance as u128, balance_type)?;
 
     if balance != new_balance {
         let abs_delta = new_balance.abs_diff(balance);

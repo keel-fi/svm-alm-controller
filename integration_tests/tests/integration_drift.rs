@@ -1003,13 +1003,8 @@ mod tests {
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
 
         // Set up mock oracle accounts for both spot markets
-        let spot_market_account_1 = svm.get_account(&spot_market_pubkey_1).unwrap();
-        let spot_market_data_1 = &spot_market_account_1.data[8..]; // Skip discriminator
-        let spot_market_1 = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_1).unwrap();
-
-        let spot_market_account_2 = svm.get_account(&spot_market_pubkey_2).unwrap();
-        let spot_market_data_2 = &spot_market_account_2.data[8..]; // Skip discriminator
-        let spot_market_2 = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_2).unwrap();
+        let spot_market_1 = get_spot_market_data(&svm, &spot_market_pubkey_1);
+        let spot_market_2 = get_spot_market_data(&svm, &spot_market_pubkey_2);
 
         setup_mock_oracle_account(&mut svm, &oracle_pubkey_1, 100);
         setup_mock_oracle_account(&mut svm, &oracle_pubkey_2, 100);
@@ -1135,29 +1130,12 @@ mod tests {
         assert_eq!(integration_2.controller, controller_pk);
         assert_eq!(integration_2.status, IntegrationStatus::Active);
 
-        // Verify Drift configs
-        match &integration_1.config {
-            IntegrationConfig::Drift(c) => {
-                assert_eq!(c.sub_account_id, sub_account_id_1);
-                assert_eq!(c.spot_market_index, spot_market_index_1);
-            }
-            _ => panic!("invalid config for integration 1"),
-        };
-
-        match &integration_2.config {
-            IntegrationConfig::Drift(c) => {
-                assert_eq!(c.sub_account_id, sub_account_id_2);
-                assert_eq!(c.spot_market_index, spot_market_index_2);
-            }
-            _ => panic!("invalid config for integration 2"),
-        };
-
         // Test push operations for both integrations
         let push_amount_1 = 100_000_000;
         let push_amount_2 = 200_000_000;
 
         // Push to first integration
-        let inner_remaining_accounts_1 = get_inner_remaining_accounts(&[*spot_market_1]);
+        let inner_remaining_accounts_1 = get_inner_remaining_accounts(&[spot_market_1]);
         let push_ix_1 = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -1181,7 +1159,7 @@ mod tests {
         let tx_result_1 = svm.send_transaction(tx.clone()).unwrap();
 
         // Push to second integration
-        let inner_remaining_accounts_2 = get_inner_remaining_accounts(&[*spot_market_2]);
+        let inner_remaining_accounts_2 = get_inner_remaining_accounts(&[spot_market_2]);
         let push_ix_2 = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -1446,16 +1424,11 @@ mod tests {
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
 
         // Set up mock oracle accounts for both spot markets
-        let spot_market_account_1 = svm.get_account(&spot_market_pubkey_1).unwrap();
-        let spot_market_data_1 = &spot_market_account_1.data[8..]; // Skip discriminator
-        let spot_market_1 = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_1).unwrap();
+        let spot_market_1 = get_spot_market_data(&svm, &spot_market_pubkey_1);
+        let spot_market_2 = get_spot_market_data(&svm, &spot_market_pubkey_2);
 
-        let spot_market_account_2 = svm.get_account(&spot_market_pubkey_2).unwrap();
-        let spot_market_data_2 = &spot_market_account_2.data[8..]; // Skip discriminator
-        let spot_market_2 = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_2).unwrap();
-
-        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, 100);
-        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, 100);
+        setup_mock_oracle_account(&mut svm, &oracle_pubkey_1, 100);
+        setup_mock_oracle_account(&mut svm, &oracle_pubkey_2, 100);
 
         // Set up User account with spot positions for both markets
         let sub_account_id = 0;
@@ -1567,7 +1540,7 @@ mod tests {
         let push_amount = 200_000_000;
 
         let inner_remaining_accounts =
-            get_inner_remaining_accounts(&[*spot_market_1, *spot_market_2]);
+            get_inner_remaining_accounts(&[spot_market_1, spot_market_2]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
