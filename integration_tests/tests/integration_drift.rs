@@ -1128,7 +1128,6 @@ mod tests {
             spot_market_index_1,
             sub_account_id_1,
             push_amount_1,
-            false,
             &inner_remaining_accounts_1,
         )?;
 
@@ -1152,7 +1151,6 @@ mod tests {
             spot_market_index_2,
             sub_account_id_2,
             push_amount_2,
-            false,
             &inner_remaining_accounts_2,
         )?;
 
@@ -1531,7 +1529,6 @@ mod tests {
             spot_market_index_2,
             sub_account_id,
             push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -1724,7 +1721,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -1850,7 +1846,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             first_push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -1905,7 +1900,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             second_push_amount,
-            false,
             &inner_remaining_accounts_second,
         )?;
 
