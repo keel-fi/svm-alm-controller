@@ -15,9 +15,8 @@ mod tests {
             airdrop_lamports, derive_controller_authority_pda, edit_ata_amount,
             fetch_integration_account, fetch_kamino_obligation, fetch_kamino_reserve,
             fetch_reserve_account, get_liquidity_and_lp_amount, get_token_balance_or_zero,
-            initialize_ata, initialize_mint, initialize_reserve, manage_permission,
-            refresh_kamino_obligation, refresh_kamino_reserve,
-            set_kamino_reserve_liquidity_available_amount,
+            initialize_ata, initialize_mint, initialize_reserve, kamino_reserve_accrue_interest,
+            manage_permission, refresh_kamino_obligation, refresh_kamino_reserve,
             set_obligation_farm_rewards_issued_unclaimed, setup_additional_reserves,
             setup_kamino_state, transfer_tokens, KaminoTestContext, ReserveKeys,
         },
@@ -904,6 +903,8 @@ mod tests {
         let (liquidity_value_before, lp_amount_before) =
             get_liquidity_and_lp_amount(&svm, &kamino_config.reserve, &kamino_config.obligation)?;
 
+        // TODO how can i change the collateral/liquidity ratio to be not 1:1
+
         let pull_ix = get_pull_ix(
             &mut svm,
             &controller_pk,
@@ -1140,6 +1141,7 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
+        let deposit_amount = 100_000_000;
         // Deposit some amount into kamino
         let push_ix = get_push_ix(
             &mut svm,
@@ -1148,7 +1150,7 @@ mod tests {
             &integration_pk,
             &obligation,
             &kamino_config,
-            100_000_000,
+            deposit_amount,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
             &liquidity_mint_token_program,
@@ -1179,23 +1181,10 @@ mod tests {
             1_100_000_000_000,
         )?;
 
-        // increase the liquidity amount available in the kamino reserve
-        // in order to trigger liquidity value change event
-
-        let (liquidity_value_before, lp_amount_before) =
-            get_liquidity_and_lp_amount(&svm, &kamino_config.reserve, &kamino_config.obligation)?;
-
-        let kamino_reserve = fetch_kamino_reserve(&svm, &kamino_config.reserve)?;
-        let new_kamino_reserve_liq_available_amount =
-            kamino_reserve.liquidity.available_amount + 100_000_000_000;
-        set_kamino_reserve_liquidity_available_amount(
-            &mut svm,
-            &kamino_config.reserve,
-            new_kamino_reserve_liq_available_amount,
-        )?;
-
-        let (liquidity_value_after, lp_amount_after) =
-            get_liquidity_and_lp_amount(&svm, &kamino_config.reserve, &kamino_config.obligation)?;
+        // Accrue 1% interest
+        let interest_bps = 100;
+        kamino_reserve_accrue_interest(&mut svm, &kamino_config.reserve, interest_bps)?;
+        let interest_on_deposit = deposit_amount * interest_bps / 10_000;
 
         let integration_before = fetch_integration_account(&svm, &integration_pk)
             .unwrap()
@@ -1254,9 +1243,6 @@ mod tests {
             .unwrap();
 
         let reserve_after = fetch_reserve_account(&svm, &reserve_keys.pubkey)?.unwrap();
-
-        // assert lp amount didnt change
-        assert_eq!(lp_amount_after, lp_amount_before);
 
         // assert the reward ata delta is equal to the rewards unclaimed in obligation farm
         assert_eq!(rewards_unclaimed, reward_ata_balance_delta);
@@ -1337,14 +1323,13 @@ mod tests {
         );
 
         // assert liquidity_value change event was emitted
-        let liq_value_delta = liquidity_value_after.abs_diff(liquidity_value_before);
         let expected_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: controller_pk,
             integration: Some(integration_pk),
             reserve: None,
             mint: kamino_config.reserve_liquidity_mint,
             action: AccountingAction::Sync,
-            delta: liq_value_delta,
+            delta: interest_on_deposit,
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(
@@ -1364,7 +1349,7 @@ mod tests {
         };
 
         assert_eq!(
-            state_before.last_liquidity_value + liq_value_delta,
+            state_before.last_liquidity_value + interest_on_deposit,
             state_after.last_liquidity_value
         );
 
@@ -1708,15 +1693,8 @@ mod tests {
         );
 
         // sync ix
-        // increase kamino reserve liquidity to increase the integration liquidity value
-        let kamino_reserve = fetch_kamino_reserve(&svm, &kamino_config_2.reserve)?;
-        let new_kamino_reserve_liq_available_amount =
-            kamino_reserve.liquidity.available_amount + 100_000_000_000;
-        set_kamino_reserve_liquidity_available_amount(
-            &mut svm,
-            &kamino_config_2.reserve,
-            new_kamino_reserve_liq_available_amount,
-        )?;
+        // Accrue 1% interest
+        kamino_reserve_accrue_interest(&mut svm, &kamino_config_2.reserve, 100)?;
 
         let integration_before_sync = fetch_integration_account(&svm, &kamino_integration_pk_2)
             .unwrap()

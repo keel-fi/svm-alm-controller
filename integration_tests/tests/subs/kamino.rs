@@ -135,29 +135,26 @@ pub fn fetch_kamino_obligation(
     Ok(kamino_obligation)
 }
 
-pub fn set_kamino_reserve_liquidity_available_amount(
+/// Accrues interest on the KaminoReserve by the given basis points,
+/// such that all depositors' liquidity increases accordingly.
+pub fn kamino_reserve_accrue_interest(
     svm: &mut LiteSVM,
     kamino_reserve_pk: &Pubkey,
-    amount: u64,
+    interest_bps: u64,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let acc = svm
+    let mut acc = svm
         .get_account(kamino_reserve_pk)
         .expect("failed to get kamino reserve ");
-    let mut state = KaminoReserve::try_from(&acc.data)?.clone();
-    state.liquidity.available_amount = amount;
+    let reserve = bytemuck::try_from_bytes_mut::<KaminoReserve>(&mut acc.data[8..]).unwrap();
 
-    let mut state_data = Vec::with_capacity(std::mem::size_of::<KaminoReserve>() + 8);
-    state_data.extend_from_slice(&KaminoReserve::DISCRIMINATOR);
-    state_data.extend_from_slice(&bytemuck::bytes_of(&state));
+    reserve.liquidity.available_amount = reserve
+        .liquidity
+        .available_amount
+        .saturating_mul(10_000 + interest_bps)
+        .saturating_div(10_000);
 
-    svm.set_account(
-        *kamino_reserve_pk,
-        Account {
-            data: state_data,
-            ..acc
-        },
-    )
-    .expect("failed to set kamino reserve ");
+    svm.set_account(*kamino_reserve_pk, acc)
+        .expect("failed to set kamino reserve ");
 
     Ok(())
 }
