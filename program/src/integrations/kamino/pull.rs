@@ -12,8 +12,9 @@ use crate::{
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::kamino::{
-        cpi::WithdrawObligationCollateralV2, protocol_state::get_liquidity_and_lp_amount,
-        shared_sync::sync_kamino_liquidity_value, validations::PushPullKaminoAccounts,
+        cpi::WithdrawObligationCollateralAndRedeemReserveCollateralV2,
+        protocol_state::get_liquidity_and_lp_amount, shared_sync::sync_kamino_liquidity_value,
+        validations::PushPullKaminoAccounts,
     },
     processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -58,6 +59,15 @@ pub fn process_pull_kamino(
         reserve,
     )?;
 
+    if inner_ctx
+        .obligation
+        .owner()
+        .ne(inner_ctx.kamino_program.key())
+    {
+        msg! {"obligation: invalid owner"};
+        return Err(ProgramError::IllegalOwner);
+    }
+
     reserve.sync_balance(
         inner_ctx.reserve_vault,
         outer_ctx.controller_authority,
@@ -85,7 +95,7 @@ pub fn process_pull_kamino(
     let (liquidity_value_before, _) =
         get_liquidity_and_lp_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
 
-    WithdrawObligationCollateralV2 {
+    WithdrawObligationCollateralAndRedeemReserveCollateralV2 {
         owner: outer_ctx.controller_authority,
         obligation: inner_ctx.obligation,
         lending_market: inner_ctx.market,

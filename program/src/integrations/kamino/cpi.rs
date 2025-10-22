@@ -1,13 +1,9 @@
 use pinocchio::pubkey::Pubkey;
 
 use crate::{
+    constants::anchor_discriminator,
     cpi_instruction,
-    integrations::kamino::constants::{
-        DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR, HARVEST_REWARD_DISCRIMINATOR,
-        INIT_METADATA_DISCRIMINATOR, INIT_OBLIGATION_DISCRIMINATOR,
-        INIT_OBLIGATION_FARM_DISCRIMINATOR, KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID,
-        WITHDRAW_OBLIGATION_V2_DISCRIMINATOR,
-    },
+    integrations::kamino::constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
 };
 
 cpi_instruction! {
@@ -17,7 +13,7 @@ cpi_instruction! {
     /// An obligation has 8 slots for deposits and 5 slots for borrows.
     pub struct InitializeObligation<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
-        discriminator: INIT_OBLIGATION_DISCRIMINATOR,
+        discriminator: anchor_discriminator("global", "init_obligation"),
         accounts: {
             obligation_owner: Signer,
             payer: Writable<Signer>,
@@ -43,7 +39,7 @@ cpi_instruction! {
     /// This only needs to be called ONCE per controller.
     pub struct InitializeUserMetadata<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
-        discriminator: INIT_METADATA_DISCRIMINATOR,
+        discriminator: anchor_discriminator("global", "init_user_metadata"),
         accounts: {
             owner: Signer,
             payer: Writable<Signer>,
@@ -64,7 +60,7 @@ cpi_instruction! {
     /// Obligation farms are used for rewards harvesting.
     pub struct InitializeObligationFarmForReserve<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
-        discriminator: INIT_OBLIGATION_FARM_DISCRIMINATOR,
+        discriminator: anchor_discriminator("global", "init_obligation_farms_for_reserve"),
         accounts: {
             payer: Writable<Signer>,
             owner: Readonly,
@@ -87,9 +83,12 @@ cpi_instruction! {
 cpi_instruction! {
     /// Deposits liquidity into a kamino `Reserve`,
     /// increasing the obligation collateral.
-    pub struct DepositReserveLiquidityV2<'info> {
+    pub struct DepositReserveLiquidityAndObligationCollateralV2<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
-        discriminator: DEPOSIT_LIQUIDITY_V2_DISCRIMINATOR,
+        discriminator: anchor_discriminator(
+            "global",
+            "deposit_reserve_liquidity_and_obligation_collateral_v2",
+        ),
         accounts: {
             owner: Writable<Signer>,
             obligation: Writable,
@@ -118,9 +117,12 @@ cpi_instruction! {
 
 cpi_instruction! {
     /// Withdraws collateral from an `Obligation`.
-    pub struct WithdrawObligationCollateralV2<'info> {
+    pub struct WithdrawObligationCollateralAndRedeemReserveCollateralV2<'info> {
         program: KAMINO_LEND_PROGRAM_ID,
-        discriminator: WITHDRAW_OBLIGATION_V2_DISCRIMINATOR,
+        discriminator: anchor_discriminator(
+            "global",
+            "withdraw_obligation_collateral_and_redeem_reserve_collateral_v2",
+        ),
         accounts: {
             owner: Writable<Signer>,
             obligation: Writable,
@@ -152,7 +154,7 @@ cpi_instruction! {
     /// `farm_state.rewards_available` > 0
     pub struct HarvestReward<'info> {
         program: KAMINO_FARMS_PROGRAM_ID,
-        discriminator: HARVEST_REWARD_DISCRIMINATOR,
+        discriminator: anchor_discriminator("global", "harvest_reward"),
         accounts: {
             owner: Writable<Signer>,
             user_state: Writable,
@@ -168,6 +170,21 @@ cpi_instruction! {
         },
         args: {
             reward_index: u64,
+        }
+    }
+}
+
+cpi_instruction! {
+    /// Refreshes an `Obligation`.
+    /// Note: To be used after initialization, since it is assumed
+    /// that the `Obligation` has no associated deposits and borrows,
+    /// which would need to be passed as remaining accounts.
+    pub struct RefreshObligationAfterInit<'info> {
+        program: KAMINO_LEND_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "refresh_obligation"),
+        accounts: {
+            lending_market: Readonly,
+            obligation: Writable,
         }
     }
 }

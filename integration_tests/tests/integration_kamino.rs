@@ -31,6 +31,7 @@ mod tests {
         pubkey::Pubkey,
         signature::Keypair,
         signer::Signer,
+        system_program,
         transaction::{Transaction, TransactionError},
     };
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
@@ -160,17 +161,22 @@ mod tests {
             .get_account(obligation)
             .expect("Failed to fetch obligation");
 
-        let obligation_state = Obligation::try_from(&obligation_acc.data)?;
-        let obligation_reserves: Vec<&Pubkey> = obligation_state
-            .deposits
-            .iter()
-            .filter_map(|deposit| {
-                if deposit.deposit_reserve != Pubkey::default() {
-                    return Some(&deposit.deposit_reserve);
-                }
-                None
-            })
-            .collect();
+        let obligation_reserves: Vec<&Pubkey> =
+            if let Ok(obligation_state) = Obligation::try_from(&obligation_acc.data) {
+                obligation_state
+                    .deposits
+                    .iter()
+                    .filter_map(|deposit| {
+                        if deposit.deposit_reserve != Pubkey::default() {
+                            return Some(&deposit.deposit_reserve);
+                        }
+                        None
+                    })
+                    .collect()
+            } else {
+                // always refresh the current reserve in case we are re initializing an obligation
+                vec![&kamino_config.reserve]
+            };
 
         // refresh the reserve and the obligation (kamino)
         for reserve in &obligation_reserves {
@@ -183,13 +189,15 @@ mod tests {
             )?;
         }
 
-        refresh_kamino_obligation(
-            svm,
-            super_authority,
-            &kamino_config.market,
-            obligation,
-            obligation_reserves,
-        )?;
+        if obligation_acc.owner == KAMINO_LEND_PROGRAM_ID {
+            refresh_kamino_obligation(
+                svm,
+                super_authority,
+                &kamino_config.market,
+                obligation,
+                obligation_reserves,
+            )?;
+        }
 
         let push_ix = create_push_kamino_lend_ix(
             controller_pk,
@@ -2089,6 +2097,229 @@ mod tests {
                 TransactionError::InstructionError(1, InstructionError::IncorrectAuthority)
             ),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_kamino_obligation_closure() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let liquidity_mint_token_program = spl_token::ID;
+        let liquidity_mint_transfer_fee = None;
+        let reward_mint_token_program = spl_token::ID;
+        let reward_mint_transfer_fee = None;
+
+        let liquidity_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &liquidity_mint_token_program,
+            liquidity_mint_transfer_fee,
+        )?;
+
+        let reward_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &reward_mint_token_program,
+            reward_mint_transfer_fee,
+        )?;
+
+        let KaminoTestContext {
+            lending_market,
+            reserve_context,
+            farms_context: _,
+        } = setup_kamino_state(
+            &mut svm,
+            &liquidity_mint,
+            &liquidity_mint_token_program,
+            &reward_mint,
+            &reward_mint_token_program,
+        );
+
+        let obligation_id = 0;
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id,
+            &controller_authority,
+            &lending_market,
+        );
+
+        let kamino_config = KaminoConfig {
+            market: lending_market,
+            reserve: reserve_context.kamino_reserve_pk,
+            reserve_liquidity_mint: liquidity_mint,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
+        };
+
+        let description = "test";
+        let status = IntegrationStatus::Active;
+        let rate_limit_slope = 100_000_000_000;
+        let rate_limit_max_outflow = 100_000_000_000;
+        let permit_liquidation = true;
+
+        let (kamino_init_ix, integration_pk, reserve_keys) = setup_env_and_get_init_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            description,
+            status,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &kamino_config,
+            &reserve_context.reserve_farm_collateral,
+            &reserve_context.reserve_farm_debt,
+            &liquidity_mint,
+            obligation_id,
+            &liquidity_mint_token_program,
+        )
+        .unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        let push_ix = get_push_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            100_000_000,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+            &liquidity_mint_token_program,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx).unwrap();
+
+        // withdraw all liquidity deposited, which closes the Obligation
+        let pull_ix = get_pull_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            u64::MAX,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+            &liquidity_mint_token_program,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, pull_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
+        println!("pull successful");
+
+        svm.expire_blockhash();
+
+        // assert obligation was closed
+        let obligation_acc = svm
+            .get_account(&obligation)
+            .expect("Failed to fetch obligation");
+        assert_eq!(obligation_acc.owner, system_program::ID);
+
+        // deposit again in same integration
+        let reserve_liquidity_destination = derive_reserve_liquidity_supply(
+            &kamino_config.market,
+            &kamino_config.reserve_liquidity_mint,
+        );
+
+        let balance_before = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+
+        let reserve_liquidity_destination_balance_before =
+            get_token_balance_or_zero(&svm, &reserve_liquidity_destination);
+
+        let deposited_amount = 100_000_000;
+        let push_ix = get_push_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            deposited_amount,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+            &liquidity_mint_token_program,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let _tx_result = svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
+
+        // assert obligation was initialized
+        let obligation_acc = svm
+            .get_account(&obligation)
+            .expect("Failed to fetch obligation");
+        assert_eq!(obligation_acc.owner, KAMINO_LEND_PROGRAM_ID);
+
+        let reserve_liquidity_destination_balance_after =
+            get_token_balance_or_zero(&svm, &reserve_liquidity_destination);
+
+        let liquidity_amount_kamino_vault_delta = reserve_liquidity_destination_balance_after
+            - reserve_liquidity_destination_balance_before;
+
+        let balance_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+
+        let balance_delta = balance_before - balance_after;
+
+        let reserve_liquidity_destination_balance_after =
+            get_token_balance_or_zero(&svm, &reserve_liquidity_destination);
+
+        // Assert Reserve vault was debited exact amount
+        assert_eq!(
+            balance_after,
+            balance_before - liquidity_amount_kamino_vault_delta
+        );
+
+        // Assert kamino's token account received the tokens
+        assert_eq!(
+            reserve_liquidity_destination_balance_after,
+            reserve_liquidity_destination_balance_before + balance_delta
+        );
+
         Ok(())
     }
 }
