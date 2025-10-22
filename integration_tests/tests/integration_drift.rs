@@ -8,7 +8,6 @@ mod tests {
 
     use crate::helpers::drift::spot_market_accrue_cumulative_interest;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
-    use crate::helpers::drift::state::user::SpotPosition;
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_mint, get_token_balance_or_zero};
     use crate::{
@@ -23,21 +22,16 @@ mod tests {
         },
     };
     use borsh::BorshDeserialize;
-    use bytemuck;
-    use solana_sdk::program_pack::Pack;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
-        account::Account,
         clock::Clock,
         instruction::InstructionError,
         signer::Signer,
         transaction::{Transaction, TransactionError},
     };
     use spl_token;
-    use spl_token_2022::extension::transfer_fee;
     use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
-    use svm_alm_controller_client::integrations::drift::SpotMarket;
     use svm_alm_controller_client::pull::drift::create_drift_pull_instruction;
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
@@ -1146,7 +1140,6 @@ mod tests {
             spot_market_index_1,
             sub_account_id_1,
             push_amount_1,
-            false,
             &inner_remaining_accounts_1,
         )?;
 
@@ -1171,7 +1164,6 @@ mod tests {
             spot_market_index_2,
             sub_account_id_2,
             push_amount_2,
-            false,
             &inner_remaining_accounts_2,
         )?;
 
@@ -1551,7 +1543,6 @@ mod tests {
             spot_market_index_2,
             sub_account_id,
             push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -1745,7 +1736,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -1872,7 +1862,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             first_push_amount,
-            false,
             &inner_remaining_accounts,
         )?;
 
@@ -1928,7 +1917,6 @@ mod tests {
             spot_market_index,
             sub_account_id,
             second_push_amount,
-            false,
             &inner_remaining_accounts_second,
         )?;
 
