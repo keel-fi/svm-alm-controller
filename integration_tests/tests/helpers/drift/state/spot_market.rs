@@ -16,12 +16,12 @@ pub fn set_drift_spot_market(
     market_index: u16,
     mint: Option<Pubkey>,
     oracle_price: i64,
-) -> Pubkey {
-    let pubkey = derive_spot_market_pda(market_index);
+) -> SpotMarket {
+    let spot_market_pubkey = derive_spot_market_pda(market_index);
 
     let mut spot_market = SpotMarket::default();
     // -- Update state variables
-    spot_market.pubkey = pubkey; // Set the pubkey field to the actual PDA
+    spot_market.pubkey = spot_market_pubkey; // Set the pubkey field to the actual PDA
     spot_market.market_index = market_index;
     // Set TWAP oracle price to the provided oracle_price
     spot_market.historical_oracle_data.last_oracle_price_twap = oracle_price;
@@ -67,7 +67,7 @@ pub fn set_drift_spot_market(
     state_data.extend_from_slice(&bytemuck::bytes_of(&spot_market));
 
     svm.set_account(
-        pubkey,
+        spot_market_pubkey,
         Account {
             lamports: u64::MAX,
             rent_epoch: u64::MAX,
@@ -78,7 +78,7 @@ pub fn set_drift_spot_market(
     )
     .unwrap();
 
-    pubkey
+    spot_market
 }
 
 /// Setup Drift SpotMarket Vault token account in LiteSvm.

@@ -50,6 +50,8 @@ It's critical that all token outflows from `Push` actions or inflows from `Pull`
 | CctpBridge       | Yes        | No   | Yes  | No   | No            |
 | LzBridge         | Yes        | No   | Yes  | No   | No            |
 | AtomicSwap       | Yes        | Yes  | Yes  | No   | Borrow, Repay |
+| Kamino Lend      | Yes        | Yes  | Yes  | No   | No            |
+| Drift            | Yes        | Yes  | Yes  | No   | No            |
 
 #### Integration Token Extension Support
 
@@ -72,6 +74,14 @@ Enables the sending of tokens to other networks through LayerZero's OFT standard
 #### AtomicSwap
 
 Enables an atomic swap of a Controller's Reserve token to another token within a Controller Reserve. This integration is written such that it supports any external venue or aggregator by allowing an external wallet to temporarily borrow the tokens to execute the swap. During the Repay instruction, checks are performed to ensure that the external wallet met slippage thresholds as well as other safety checks.
+
+#### Kamino Lend (and farms)
+
+Enables the Controller to lend tokens from the Reserve to a specified Kamino market. This integration does NOT allow borrowing and any path to borrowing should be prevented. Events are emitted for accounting purposes when depositing and withdrawing in order to track the amount of interest accrued each time some action (Push, Pull, Sync) is taken.
+
+#### Drift
+
+Enables the Controller to lend tokens from the Reserve to a specified SpotMarket. This integration does NOT allow borrowing and any path to borrowing should be prevented. Events are emitted for accounting purposes when depositing and withdrawing in order to track the amount of interest accrued each time some action (Push, Pull, Sync) is taken.
 
 ### Future Integrations
 
@@ -100,18 +110,17 @@ Future integrations are likely to include interfaces with DeFi protocols across 
 
 #### Permission Matrix
 
-| Permission                                | Keel PauseProxy | Freezer Multisig  | Relayer (Primary) | Relayer (Backup) |
-| ----------------------------------------- | --------------- | ----------------- | ----------------- | ---------------- |
-| **can_freeze_controller**                 | ✅              | ✅                 | ❌                | ❌               |
-| **can_unfreeze_controller**               | ✅              | ❌                 | ❌                | ❌               |
-| **can_manage_permissions**                | ✅              | ❌                 | ❌                | ❌               |
-| **can_suspend_permissions**               | ✅              | ✅                 | ❌                | ❌               |
-| **can_manage_reserves_and_integrations**  | ✅              | ❌                 | ❌                | ❌               |
-| **can_invoke_external_transfer**          | ✅              | ❌                 | ❌                | ❌               |
-| **can_execute_swap**                      | ❌              | ❌                 | ✅                | ✅               |
-| **can_reallocate**                        | ❌              | ❌                 | ✅                | ✅               |
-| **can_liquidate**                         | ❌              | ✅                 | ❌                | ❌               |
-
+| Permission                               | Keel PauseProxy | Freezer Multisig | Relayer (Primary) | Relayer (Backup) |
+| ---------------------------------------- | --------------- | ---------------- | ----------------- | ---------------- |
+| **can_freeze_controller**                | ✅              | ✅               | ❌                | ❌               |
+| **can_unfreeze_controller**              | ✅              | ❌               | ❌                | ❌               |
+| **can_manage_permissions**               | ✅              | ❌               | ❌                | ❌               |
+| **can_suspend_permissions**              | ✅              | ✅               | ❌                | ❌               |
+| **can_manage_reserves_and_integrations** | ✅              | ❌               | ❌                | ❌               |
+| **can_invoke_external_transfer**         | ✅              | ❌               | ❌                | ❌               |
+| **can_execute_swap**                     | ❌              | ❌               | ✅                | ✅               |
+| **can_reallocate**                       | ❌              | ❌               | ✅                | ✅               |
+| **can_liquidate**                        | ❌              | ✅               | ❌                | ❌               |
 
 ## Build
 

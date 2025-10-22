@@ -2768,10 +2768,6 @@
               {
                 "name": "amount",
                 "type": "u64"
-              },
-              {
-                "name": "reduce_only",
-                "type": "bool"
               }
             ]
           },
@@ -2820,10 +2816,6 @@
               {
                 "name": "amount",
                 "type": "u64"
-              },
-              {
-                "name": "reduce_only",
-                "type": "bool"
               }
             ]
           }

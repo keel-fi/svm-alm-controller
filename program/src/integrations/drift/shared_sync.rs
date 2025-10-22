@@ -34,13 +34,13 @@ pub fn sync_drift_balance(
     let spot_position = user_state
         .spot_positions
         .iter()
-        .find(|pos| pos.market_index == market_index)
-        .ok_or(ProgramError::InvalidAccountData)?;
+        .find(|pos| pos.market_index == market_index);
 
-    let new_balance = spot_market_state.get_token_amount(
-        spot_position.scaled_balance as u128,
-        spot_position.balance_type,
-    )?;
+    let new_balance = if let Some(pos) = spot_position {
+        spot_market_state.get_token_amount(pos.scaled_balance as u128, pos.balance_type)?
+    } else {
+        0
+    };
 
     if balance != new_balance {
         let abs_delta = new_balance.abs_diff(balance);
