@@ -66,7 +66,6 @@ mod tests {
         permit_liquidation: bool,
         kamino_config: &KaminoConfig,
         reserve_farm_collateral: &Pubkey,
-        reserve_farm_debt: &Pubkey,
         mint: &Pubkey,
         obligation_id: u8,
         integration_reserve_token_program: &Pubkey,
@@ -94,7 +93,6 @@ mod tests {
             permit_liquidation,
             &IntegrationConfig::Kamino(kamino_config.clone()),
             reserve_farm_collateral,
-            reserve_farm_debt,
             obligation_id,
             &KAMINO_LEND_PROGRAM_ID,
         );
@@ -399,7 +397,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
@@ -460,14 +457,6 @@ mod tests {
             .owner
             .eq(&KAMINO_FARMS_PROGRAM_ID));
         assert!(obligation_farm_collateral.data.len() == 920);
-
-        // assert obligation farm debt was created
-        let obligation_farm_debt_pk =
-            derive_obligation_farm_address(&reserve_context.reserve_farm_debt, &obligation);
-
-        let obligation_farm_debt = svm.get_account(&obligation_farm_debt_pk).unwrap();
-        assert!(obligation_farm_debt.owner.eq(&KAMINO_FARMS_PROGRAM_ID));
-        assert!(obligation_farm_debt.data.len() == 920);
 
         Ok(())
     }
@@ -571,7 +560,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
@@ -861,7 +849,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
@@ -1138,7 +1125,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
@@ -1443,7 +1429,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
@@ -1542,7 +1527,6 @@ mod tests {
                 permit_liquidation,
                 &IntegrationConfig::Kamino(kamino_config_1.clone()),
                 &context_1.reserve_farm_collateral,
-                &context_1.reserve_farm_debt,
                 obligation_id,
                 &KAMINO_LEND_PROGRAM_ID,
             );
@@ -1559,7 +1543,6 @@ mod tests {
                 permit_liquidation,
                 &IntegrationConfig::Kamino(kamino_config_2.clone()),
                 &context_2.reserve_farm_collateral,
-                &context_2.reserve_farm_debt,
                 obligation_id,
                 &KAMINO_LEND_PROGRAM_ID,
             );
@@ -1865,7 +1848,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
@@ -2010,7 +1992,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
@@ -2182,7 +2163,6 @@ mod tests {
             permit_liquidation,
             &kamino_config,
             &reserve_context.reserve_farm_collateral,
-            &reserve_context.reserve_farm_debt,
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,

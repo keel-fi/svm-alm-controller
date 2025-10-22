@@ -16,7 +16,7 @@ use crate::{
         config::KaminoConfig,
         constants::{
             KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, OBLIGATION_FARM_COLLATERAL_MODE,
-            OBLIGATION_FARM_DEBT_MODE, VANILLA_OBLIGATION_TAG,
+            VANILLA_OBLIGATION_TAG,
         },
         cpi::{InitializeObligation, InitializeObligationFarmForReserve, InitializeUserMetadata},
         pdas::{
@@ -37,10 +37,8 @@ define_account_struct! {
         user_metadata: mut;
         referrer_metadata;
         obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
-        obligation_farm_debt: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         reserve_farm_collateral: mut;
-        reserve_farm_debt: mut;
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
@@ -57,14 +55,6 @@ impl<'info> InitializeKaminoAccounts<'info> {
         obligation_id: u8,
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
-
-        // reserve.farm_debt can either be pubkey::default or be owned by kamino_farms program
-        if ctx.reserve_farm_debt.key().ne(&Pubkey::default())
-            && !ctx.reserve_farm_debt.is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
-        {
-            msg! {"reserve_farm_debt: Invalid owner"}
-            return Err(ProgramError::IllegalOwner);
-        }
 
         // reserve.farm_collateral can either be pubkey::default or be owned by kamino_farms program
         if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
@@ -107,17 +97,6 @@ impl<'info> InitializeKaminoAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
-        // verify obligation farm debt is valid
-        let obligation_farm_debt_pda = derive_obligation_farm_address(
-            ctx.reserve_farm_debt.key(),
-            ctx.obligation.key(),
-            ctx.kamino_farms_program.key(),
-        )?;
-        if obligation_farm_debt_pda.ne(ctx.obligation_farm_debt.key()) {
-            msg! {"Obligation farm collateral: Invalid address"}
-            return Err(SvmAlmControllerErrors::InvalidPda.into());
-        }
-
         // verify market authority is valid
         let market_authority_pda =
             derive_market_authority_address(ctx.market.key(), ctx.kamino_program.key())?;
@@ -136,8 +115,8 @@ impl<'info> InitializeKaminoAccounts<'info> {
 /// - An `obligation` : The `obligation` is derived from the `obligation_id`,
 ///     the `market` and the `controller_authority`. An `obligation` can be shared accross many `KaminoIntegration`s,
 ///     but up to 8 can be active (see field `ObligationCollateral`).
-/// - An `obligation_farm`: derived from the `reserve.collateral_farm`/`reserve.collateral_debt` and `obligation`,
-///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm/collateral_debt.
+/// - An `obligation_farm`: derived from the `reserve.collateral_farm` and `obligation`,
+///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm.
 ///
 /// **Important**: This instruction initializes by default a "Vanilla" kamino Obligation.
 pub fn process_initialize_kamino(
@@ -158,14 +137,11 @@ pub fn process_initialize_kamino(
         obligation_id,
     )?;
 
-    let (kamino_reserve_has_collateral_farm, kamino_reserve_has_debt_farm) = {
+    let kamino_reserve_has_collateral_farm = {
         let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
         let kamino_reserve = KaminoReserve::load_checked(&kamino_reserve_data)?;
         kamino_reserve.check_from_init_accounts(&inner_ctx)?;
-        (
-            kamino_reserve.has_collateral_farm(),
-            kamino_reserve.has_debt_farm(),
-        )
+        kamino_reserve.has_collateral_farm()
     };
 
     // Initialize user metadata if owned by system program
@@ -238,31 +214,6 @@ pub fn process_initialize_kamino(
             rent: inner_ctx.rent,
             system_program: inner_ctx.system_program,
             mode: OBLIGATION_FARM_COLLATERAL_MODE,
-        }
-        .invoke()?;
-    }
-
-    // Initialize a debt farm, only if reserve has farm_debt
-    // only if the reserve has a debt_farm
-    // and the account is owned by system program
-    if kamino_reserve_has_debt_farm
-        && inner_ctx
-            .obligation_farm_debt
-            .is_owned_by(&pinocchio_system::ID)
-    {
-        InitializeObligationFarmForReserve {
-            payer: outer_ctx.payer,
-            owner: outer_ctx.controller_authority,
-            obligation: inner_ctx.obligation,
-            market_authority: inner_ctx.market_authority,
-            kamino_reserve: inner_ctx.kamino_reserve,
-            reserve_farm_state: inner_ctx.reserve_farm_debt,
-            obligation_farm: inner_ctx.obligation_farm_debt,
-            lending_market: inner_ctx.market,
-            farms_program: inner_ctx.kamino_farms_program,
-            rent: inner_ctx.rent,
-            system_program: inner_ctx.system_program,
-            mode: OBLIGATION_FARM_DEBT_MODE,
         }
         .invoke()?;
     }

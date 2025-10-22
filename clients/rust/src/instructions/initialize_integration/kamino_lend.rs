@@ -73,7 +73,6 @@ pub fn create_initialize_kamino_lend_integration_ix(
     permit_liquidation: bool,
     config: &IntegrationConfig,
     reserve_farm_collateral: &Pubkey,
-    reserve_farm_debt: &Pubkey,
     obligation_id: u8,
     referrer: &Pubkey,
 ) -> (Instruction, Pubkey) {
@@ -97,7 +96,6 @@ pub fn create_initialize_kamino_lend_integration_ix(
     let user_metadata = derive_user_metadata_address(&controller_authority);
     let obligation_farm_collateral =
         derive_obligation_farm_address(&reserve_farm_collateral, &obligation);
-    let obligation_farm_debt = derive_obligation_farm_address(&reserve_farm_debt, &obligation);
     let (market_authority, _) = derive_market_authority_address(&market);
 
     let remaining_accounts = &[
@@ -127,22 +125,12 @@ pub fn create_initialize_kamino_lend_integration_ix(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: obligation_farm_debt,
-            is_signer: false,
-            is_writable: true,
-        },
-        AccountMeta {
             pubkey: reserve,
             is_signer: false,
             is_writable: true,
         },
         AccountMeta {
             pubkey: *reserve_farm_collateral,
-            is_signer: false,
-            is_writable: true,
-        },
-        AccountMeta {
-            pubkey: *reserve_farm_debt,
             is_signer: false,
             is_writable: true,
         },
