@@ -290,7 +290,6 @@ impl KaminoReserve {
     /// - the `Reserve` belongs to the market
     /// - the `Reserve` `liquidity_mint` matches `reserve_liquidity_mint`
     /// - the `Reserve` `farm_collateral` matches `reserve_farm_collateral`
-    /// - the `Reserve` `farm debt` matches `reserve_farm_debt`
     pub fn check_from_init_accounts(
         &self,
         inner_ctx: &InitializeKaminoAccounts,
@@ -307,11 +306,6 @@ impl KaminoReserve {
 
         if &self.farm_collateral != inner_ctx.reserve_farm_collateral.key() {
             msg! {"reserve: farm collateral does not match reserve farm"}
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if &self.farm_debt != inner_ctx.reserve_farm_debt.key() {
-            msg! {"reserve: farm debt does not match reserve farm"}
             return Err(ProgramError::InvalidAccountData);
         }
 
