@@ -1,4 +1,5 @@
-use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio_log::log;
 
 use crate::{
     enums::IntegrationState,
@@ -34,13 +35,16 @@ pub fn sync_drift_balance(
     let spot_position = user_state
         .spot_positions
         .iter()
-        .find(|pos| pos.market_index == market_index)
-        .ok_or(ProgramError::InvalidAccountData)?;
+        .find(|pos| pos.market_index == market_index);
 
-    let new_balance = spot_market_state.get_token_amount(
-        spot_position.scaled_balance as u128,
-        spot_position.balance_type,
-    )?;
+    let (scaled_balance, balance_type) = if let Some(pos) = spot_position {
+        (pos.scaled_balance, pos.balance_type)
+    } else {
+        // If the spot position is not found, return 0 bc it doesn't exist yet
+        (0, 0)
+    };
+
+    let new_balance = spot_market_state.get_token_amount(scaled_balance as u128, balance_type)?;
 
     if balance != new_balance {
         let abs_delta = new_balance.abs_diff(balance);

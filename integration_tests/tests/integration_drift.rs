@@ -8,7 +8,7 @@ mod tests {
 
     use crate::helpers::drift::spot_market_accrue_cumulative_interest;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
-    use crate::helpers::drift::state::user::{set_drift_user_with_spot_positions, SpotPosition};
+    use crate::helpers::drift::state::user::SpotPosition;
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_token_balance_or_zero};
     use crate::{
@@ -1029,45 +1029,6 @@ mod tests {
         let sub_account_id_1 = 0;
         let sub_account_id_2 = 1;
 
-        // Create spot positions for both markets
-        let spot_position_1 = SpotPosition {
-            scaled_balance: 0,
-            open_bids: 0,
-            open_asks: 0,
-            cumulative_deposits: 0,
-            market_index: spot_market_index_1,
-            balance_type: 0, // Deposit
-            open_orders: 0,
-            padding: [0u8; 4],
-        };
-
-        let spot_position_2 = SpotPosition {
-            scaled_balance: 0,
-            open_bids: 0,
-            open_asks: 0,
-            cumulative_deposits: 0,
-            market_index: spot_market_index_2,
-            balance_type: 0, // Deposit
-            open_orders: 0,
-            padding: [0u8; 4],
-        };
-
-        // Set up User account for first integration
-        set_drift_user_with_spot_positions(
-            &mut svm,
-            &controller_authority,
-            sub_account_id_1,
-            &[spot_position_1],
-        );
-
-        // Set up User account for second integration
-        set_drift_user_with_spot_positions(
-            &mut svm,
-            &controller_authority,
-            sub_account_id_2,
-            &[spot_position_2],
-        );
-
         // Initialize Drift Integration for first spot market
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
@@ -1551,37 +1512,6 @@ mod tests {
         // Set up User account with spot positions for both markets
         let sub_account_id = 0;
 
-        // Create spot positions for both markets
-        let spot_position_1 = SpotPosition {
-            scaled_balance: 0,
-            open_bids: 0,
-            open_asks: 0,
-            cumulative_deposits: 0,
-            market_index: spot_market_index_1,
-            balance_type: 0, // Deposit
-            open_orders: 0,
-            padding: [0u8; 4],
-        };
-
-        let spot_position_2 = SpotPosition {
-            scaled_balance: 0,
-            open_bids: 0,
-            open_asks: 0,
-            cumulative_deposits: 0,
-            market_index: spot_market_index_2,
-            balance_type: 0, // Deposit
-            open_orders: 0,
-            padding: [0u8; 4],
-        };
-
-        // Set up User account with both spot positions
-        set_drift_user_with_spot_positions(
-            &mut svm,
-            &controller_authority,
-            sub_account_id,
-            &[spot_position_1, spot_position_2],
-        );
-
         // Initialize Drift Integration for first spot market
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
@@ -1964,25 +1894,6 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         let sub_account_id = 0;
 
-        // Create spot position for the market
-        let spot_position = SpotPosition {
-            scaled_balance: 0,
-            open_bids: 0,
-            open_asks: 0,
-            cumulative_deposits: 0,
-            market_index: spot_market_index,
-            balance_type: 0, // Deposit
-            open_orders: 0,
-            padding: [0u8; 4],
-        };
-
-        // Set up User account with spot position
-        set_drift_user_with_spot_positions(
-            &mut svm,
-            &controller_authority,
-            sub_account_id,
-            &[spot_position],
-        );
         // Initialize Drift Integration
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
