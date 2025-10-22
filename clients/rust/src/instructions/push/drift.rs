@@ -5,8 +5,8 @@ use crate::{
     derive_controller_authority_pda, derive_permission_pda,
     generated::{instructions::PushBuilder, types::PushArgs},
     integrations::drift::{
-        derive_spot_market_vault_pda, derive_state_pda, derive_user_pda, derive_user_stats_pda,
-        DRIFT_PROGRAM_ID,
+        derive_spot_market_pda, derive_spot_market_vault_pda, derive_state_pda, derive_user_pda,
+        derive_user_stats_pda, DRIFT_PROGRAM_ID,
     },
 };
 

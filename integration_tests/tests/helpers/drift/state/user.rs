@@ -104,7 +104,7 @@ impl UserStats {
     }
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct SpotPosition {
     /// The scaled balance of the position. To get the token amount, multiply by the cumulative deposit/borrow
@@ -131,7 +131,7 @@ pub struct SpotPosition {
     pub padding: [u8; 4],
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct PerpPosition {
     /// The perp market's last cumulative funding rate. Used to calculate the funding payment owed to user
@@ -183,7 +183,7 @@ pub struct PerpPosition {
     pub per_lp_base: i8,
 }
 
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]
 pub struct Order {
     /// The slot the order was placed

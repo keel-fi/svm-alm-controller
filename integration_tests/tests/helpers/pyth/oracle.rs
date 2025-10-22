@@ -59,10 +59,10 @@ pub fn setup_mock_oracle_account(svm: &mut LiteSVM, oracle_pubkey: &Pubkey, pric
             price,
             conf: 1,
             exponent: 6,
-            publish_time: 0,
-            prev_publish_time: 0,
-            ema_price: 0,
-            ema_conf: 0,
+            publish_time: 1640995200, // Valid timestamp
+            prev_publish_time: 1640995200,
+            ema_price: 1_000_000,
+            ema_conf: 1_000,
         },
         posted_slot: 0,
     };

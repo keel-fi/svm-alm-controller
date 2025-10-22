@@ -3,6 +3,7 @@ use pinocchio::{
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
+    pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
@@ -14,7 +15,10 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
-    integrations::drift::{constants::DRIFT_PROGRAM_ID, cpi::Deposit},
+    integrations::drift::{
+        constants::DRIFT_PROGRAM_ID, cpi::Deposit, shared_sync::sync_drift_balance,
+        utils::find_spot_market_account_info_by_id,
+    },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
@@ -93,7 +97,20 @@ pub fn process_push_drift(
         controller,
     )?;
 
-    // TODO Sync Drift Integration balance
+    let spot_market =
+        find_spot_market_account_info_by_id(&inner_ctx.remaining_accounts, market_index)?;
+
+    sync_drift_balance(
+        controller,
+        integration,
+        outer_ctx.integration.key(),
+        outer_ctx.controller.key(),
+        outer_ctx.controller_authority,
+        &reserve.mint,
+        spot_market,
+        inner_ctx.user,
+        market_index,
+    )?;
 
     // Track the user token account balance before the transfer
     let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;

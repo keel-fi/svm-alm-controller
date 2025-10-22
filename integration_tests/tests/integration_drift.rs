@@ -8,6 +8,7 @@ mod tests {
 
     use crate::helpers::drift::spot_market_accrue_cumulative_interest;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
+    use crate::helpers::drift::state::user::SpotPosition;
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_token_balance_or_zero};
     use crate::{
@@ -16,13 +17,17 @@ mod tests {
             drift::{set_drift_spot_market, setup_drift_state, User, UserStats},
             setup_test_controller, TestContext,
         },
-        subs::{fetch_integration_account, initialize_mint, initialize_reserve, mint_tokens},
+        subs::{
+            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve,
+            manage_permission, mint_tokens,
+        },
     };
     use borsh::BorshDeserialize;
     use bytemuck;
     use solana_sdk::program_pack::Pack;
     use solana_sdk::signer::keypair::Keypair;
     use solana_sdk::{
+        account::Account,
         clock::Clock,
         instruction::InstructionError,
         signer::Signer,
@@ -36,14 +41,15 @@ mod tests {
         derive_controller_authority_pda,
         generated::types::{
             AccountingAction, AccountingDirection, AccountingEvent, DriftConfig, IntegrationConfig,
-            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, ReserveStatus,
-            SvmAlmControllerEvent,
+            IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PermissionStatus,
+            ReserveStatus, SvmAlmControllerEvent,
         },
         initialize_integration::create_drift_initialize_integration_instruction,
         instructions::create_drift_push_instruction,
         integrations::drift::{derive_user_pda, derive_user_stats_pda},
         sync_integration::create_drift_sync_integration_instruction,
     };
+    use test_case::test_case;
 
     #[test]
     fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
@@ -187,12 +193,12 @@ mod tests {
 
         let spot_market_index = 0;
         let oracle_price = 100;
-        let spot_market_pubkey = set_drift_spot_market(&mut svm, 0, None, oracle_price);
+        let spot_market = set_drift_spot_market(&mut svm, 0, None, oracle_price);
 
         // overwrite with incorrect market ID
-        let mut market = svm.get_account(&spot_market_pubkey).unwrap();
+        let mut market = svm.get_account(&spot_market.pubkey).unwrap();
         market.data[684..686].copy_from_slice(&9u16.to_le_bytes());
-        svm.set_account(spot_market_pubkey, market).unwrap();
+        svm.set_account(spot_market.pubkey, market).unwrap();
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -254,16 +260,12 @@ mod tests {
             None,
         )?;
 
-        let spot_market_pubkey =
+        let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
         // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
-
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
         // Initialize Drift Integration
@@ -340,7 +342,7 @@ mod tests {
         let drift_user_acct_before = svm.get_account(&drift_user_pda).unwrap();
         let drift_user_before = User::try_from(&drift_user_acct_before.data).unwrap();
 
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -522,15 +524,10 @@ mod tests {
             None,
         )?;
 
-        let spot_market_pubkey =
+        let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
-
-        // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
@@ -588,15 +585,9 @@ mod tests {
             vault_start_amount,
         )?;
 
-        // Get the updated spot market data for the push instruction
-        let spot_market_account_updated = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data_updated = &spot_market_account_updated.data[8..]; // Skip discriminator
-        let spot_market_updated =
-            bytemuck::try_from_bytes::<SpotMarket>(spot_market_data_updated).unwrap();
-
         // Push some tokens to drift first to have something to sync
         let push_amount = 100_000_000;
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market_updated]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -715,15 +706,10 @@ mod tests {
             None,
         )?;
 
-        let spot_market_pubkey =
+        let spot_market =
             set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
-
-        // Set up mock oracle and insurance fund accounts
-        let spot_market_account = svm.get_account(&spot_market_pubkey).unwrap();
-        let spot_market_data = &spot_market_account.data[8..]; // Skip discriminator
-        let spot_market = bytemuck::try_from_bytes::<SpotMarket>(spot_market_data).unwrap();
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
 
@@ -783,7 +769,7 @@ mod tests {
 
         let amount = 100_000_000;
 
-        let inner_remaining_accounts = get_inner_remaining_accounts(&[*spot_market]);
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
         let push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -943,6 +929,1040 @@ mod tests {
                 action: AccountingAction::Withdrawal,
                 delta: amount_with_interest,
             })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn drift_push_multiple_spot_markets_and_sub_ids_success(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        setup_drift_state(&mut svm);
+
+        // Create two additional token mints for two additional reserves
+        let token_mint_1_kp = Keypair::new();
+        let token_mint_1 = token_mint_1_kp.pubkey();
+        let mint_authority_1 = Keypair::new();
+
+        let token_mint_2_kp = Keypair::new();
+        let token_mint_2 = token_mint_2_kp.pubkey();
+        let mint_authority_2 = Keypair::new();
+
+        // Initialize the first additional token mint
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority_1.pubkey(),
+            None,
+            6,
+            Some(token_mint_1_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        // Initialize the second additional token mint
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority_2.pubkey(),
+            None,
+            6,
+            Some(token_mint_2_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        // Set up spot markets for the additional tokens
+        let spot_market_index_1 = 0;
+        let spot_market_index_2 = 1;
+
+        let spot_market_1 =
+            set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1), 100);
+        let spot_market_2 =
+            set_drift_spot_market(&mut svm, spot_market_index_2, Some(token_mint_2), 100);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
+        setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
+
+        // Set up mock oracle accounts for both spot markets
+        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, 100);
+
+        // Set up User accounts with spot positions for both markets
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        // Define sub account IDs
+        let sub_account_id_1 = 0;
+        let sub_account_id_2 = 1;
+
+        // Initialize Drift Integration for first spot market
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+
+        let init_ix_1 = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend 1",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id_1,
+            spot_market_index_1,
+        );
+        let integration_pubkey_1 = init_ix_1.accounts[5].pubkey;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix_1],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize Drift Integration for second spot market
+        let init_ix_2 = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend 2",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id_2,
+            spot_market_index_2,
+        );
+        let integration_pubkey_2 = init_ix_2.accounts[5].pubkey;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix_2],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize reserves for both tokens
+        let reserve_keys_1 = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint_1,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        let reserve_keys_2 = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint_2,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Mint tokens to controller authority for both reserves
+        let vault_start_amount = 1_000_000_000;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority_1,
+            &token_mint_1,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority_2,
+            &token_mint_2,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        let _clock = svm.get_sysvar::<Clock>();
+
+        // Verify both integrations were created properly
+        let integration_1 = fetch_integration_account(&svm, &integration_pubkey_1)
+            .expect("integration 1 should exist")
+            .unwrap();
+
+        let integration_2 = fetch_integration_account(&svm, &integration_pubkey_2)
+            .expect("integration 2 should exist")
+            .unwrap();
+
+        assert_eq!(integration_1.controller, controller_pk);
+        assert_eq!(integration_1.status, IntegrationStatus::Active);
+        assert_eq!(integration_2.controller, controller_pk);
+        assert_eq!(integration_2.status, IntegrationStatus::Active);
+
+        // Test push operations for both integrations
+        let push_amount_1 = 100_000_000;
+        let push_amount_2 = 200_000_000;
+
+        // Push to first integration
+        let inner_remaining_accounts_1 = get_inner_remaining_accounts(&[spot_market_1]);
+        let push_ix_1 = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey_1,
+            &reserve_keys_1.pubkey,
+            &reserve_keys_1.vault,
+            &spl_token::ID,
+            spot_market_index_1,
+            sub_account_id_1,
+            push_amount_1,
+            false,
+            &inner_remaining_accounts_1,
+        )?;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix_1],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result_1 = svm.send_transaction(tx.clone()).unwrap();
+
+        // Push to second integration
+        let inner_remaining_accounts_2 = get_inner_remaining_accounts(&[spot_market_2]);
+        let push_ix_2 = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey_2,
+            &reserve_keys_2.pubkey,
+            &reserve_keys_2.vault,
+            &spl_token::ID,
+            spot_market_index_2,
+            sub_account_id_2,
+            push_amount_2,
+            false,
+            &inner_remaining_accounts_2,
+        )?;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix_2],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result_2 = svm.send_transaction(tx.clone());
+
+        let tx_result_2 = match tx_result_2 {
+            Ok(tx_result) => tx_result,
+            Err(e) => {
+                panic!("error: {}", e.meta.pretty_logs());
+            }
+        };
+
+        // Verify push operations worked correctly
+        let integration_after_push_1 = fetch_integration_account(&svm, &integration_pubkey_1)
+            .expect("integration 1 should exist")
+            .unwrap();
+
+        let integration_after_push_2 = fetch_integration_account(&svm, &integration_pubkey_2)
+            .expect("integration 2 should exist")
+            .unwrap();
+
+        assert_eq!(
+            integration_after_push_1.rate_limit_outflow_amount_available,
+            integration_1.rate_limit_outflow_amount_available - push_amount_1
+        );
+
+        assert_eq!(
+            integration_after_push_2.rate_limit_outflow_amount_available,
+            integration_2.rate_limit_outflow_amount_available - push_amount_2
+        );
+
+        // Verify spot market vault balances increased
+        let spot_market_vault_1_balance = get_token_balance_or_zero(&svm, &spot_market_1.vault);
+        let spot_market_vault_2_balance = get_token_balance_or_zero(&svm, &spot_market_2.vault);
+
+        assert_eq!(spot_market_vault_1_balance, push_amount_1);
+        assert_eq!(spot_market_vault_2_balance, push_amount_2);
+
+        // Verify reserve vault balances decreased
+        let reserve_vault_1_balance = get_token_balance_or_zero(&svm, &reserve_keys_1.vault);
+        let reserve_vault_2_balance = get_token_balance_or_zero(&svm, &reserve_keys_2.vault);
+
+        assert_eq!(reserve_vault_1_balance, vault_start_amount - push_amount_1);
+        assert_eq!(reserve_vault_2_balance, vault_start_amount - push_amount_2);
+
+        // Verify accounting events were emitted for both operations
+        assert_contains_controller_cpi_event!(
+            tx_result_1,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey_1),
+                mint: token_mint_1,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Deposit,
+                delta: push_amount_1,
+            })
+        );
+
+        assert_contains_controller_cpi_event!(
+            tx_result_2,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey_2),
+                mint: token_mint_2,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Deposit,
+                delta: push_amount_2,
+            })
+        );
+
+        // Test sync operations for both integrations
+        // Advance slots to simulate time passage for interest accrual
+        let current_slot = svm.get_sysvar::<Clock>().slot;
+        svm.warp_to_slot(current_slot + 1000);
+
+        // Update spot markets to simulate interest accrual using helper function
+        spot_market_accrue_cumulative_interest(&mut svm, spot_market_index_1, 100); // 1% interest
+        spot_market_accrue_cumulative_interest(&mut svm, spot_market_index_2, 200); // 2% interest
+
+        // Sync both integrations
+        let sync_ix_1 = create_drift_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey_1,
+            &reserve_keys_1.pubkey,
+            &reserve_keys_1.vault,
+            spot_market_index_1,
+            sub_account_id_1,
+        )?;
+
+        let sync_ix_2 = create_drift_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey_2,
+            &reserve_keys_2.pubkey,
+            &reserve_keys_2.vault,
+            spot_market_index_2,
+            sub_account_id_2,
+        )?;
+
+        let tx = Transaction::new_signed_with_payer(
+            &[sync_ix_1, sync_ix_2],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result_sync = svm.send_transaction(tx.clone()).unwrap();
+
+        // Verify sync operations updated integration states
+        let integration_after_sync_1 = fetch_integration_account(&svm, &integration_pubkey_1)
+            .expect("integration 1 should exist")
+            .unwrap();
+
+        let integration_after_sync_2 = fetch_integration_account(&svm, &integration_pubkey_2)
+            .expect("integration 2 should exist")
+            .unwrap();
+
+        // Verify integration states were updated with interest
+        match &integration_after_sync_1.state {
+            IntegrationState::Drift(drift_state) => {
+                let expected_balance_1 = (push_amount_1 as u128)
+                    .checked_mul(101)
+                    .unwrap()
+                    .checked_div(100)
+                    .unwrap();
+                assert_eq!(drift_state.balance, expected_balance_1 as u64);
+            }
+            _ => panic!("Expected Drift integration state for integration 1"),
+        }
+
+        match &integration_after_sync_2.state {
+            IntegrationState::Drift(drift_state) => {
+                let expected_balance_2 = (push_amount_2 as u128)
+                    .checked_mul(102)
+                    .unwrap()
+                    .checked_div(100)
+                    .unwrap();
+                assert_eq!(drift_state.balance, expected_balance_2 as u64);
+            }
+            _ => panic!("Expected Drift integration state for integration 2"),
+        }
+
+        // Verify sync events were emitted
+        let expected_interest_1 = (push_amount_1 as u128)
+            .checked_mul(1)
+            .unwrap()
+            .checked_div(100)
+            .unwrap();
+
+        let expected_interest_2 = (push_amount_2 as u128)
+            .checked_mul(2)
+            .unwrap()
+            .checked_div(100)
+            .unwrap();
+
+        assert_contains_controller_cpi_event!(
+            tx_result_sync,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey_1),
+                mint: token_mint_1,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Sync,
+                delta: expected_interest_1 as u64,
+            })
+        );
+
+        assert_contains_controller_cpi_event!(
+            tx_result_sync,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey_2),
+                mint: token_mint_2,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Sync,
+                delta: expected_interest_2 as u64,
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn drift_push_multiple_spot_positions_same_sub_id_success(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        setup_drift_state(&mut svm);
+
+        // Create two additional token mints for two additional spot markets
+        let token_mint_1_kp = Keypair::new();
+        let token_mint_1 = token_mint_1_kp.pubkey();
+        let mint_authority_1 = Keypair::new();
+
+        let token_mint_2_kp = Keypair::new();
+        let token_mint_2 = token_mint_2_kp.pubkey();
+        let mint_authority_2 = Keypair::new();
+
+        // Initialize the first additional token mint
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority_1.pubkey(),
+            None,
+            6,
+            Some(token_mint_1_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        // Initialize the second additional token mint
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority_2.pubkey(),
+            None,
+            6,
+            Some(token_mint_2_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        // Set up spot markets for the additional tokens
+        let spot_market_index_1 = 1;
+        let spot_market_index_2 = 2;
+
+        let spot_market_1 =
+            set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1), 100);
+        let spot_market_2 =
+            set_drift_spot_market(&mut svm, spot_market_index_2, Some(token_mint_2), 100);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
+        setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
+
+        // Set up mock oracle accounts for both spot markets
+        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, 100);
+
+        // Set up User account with spot positions for both markets
+        let sub_account_id = 0;
+
+        // Initialize Drift Integration for first spot market
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+
+        let init_ix_1 = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend 1",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index_1,
+        );
+        let integration_pubkey_1 = init_ix_1.accounts[5].pubkey;
+
+        // Initialize Drift Integration for second spot market
+        let init_ix_2 = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend 2",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index_2,
+        );
+        let integration_pubkey_2 = init_ix_2.accounts[5].pubkey;
+
+        // Initialize reserves for both tokens
+        let reserve_keys_1 = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint_1,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        let reserve_keys_2 = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint_2,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Mint tokens to controller authority for both reserves
+        let vault_start_amount = 1_000_000_000;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority_1,
+            &token_mint_1,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority_2,
+            &token_mint_2,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Initialize both integrations
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix_1, init_ix_2],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Verify both integrations were created properly
+        let integration_1 = fetch_integration_account(&svm, &integration_pubkey_1)
+            .expect("integration 1 should exist")
+            .unwrap();
+
+        let integration_2 = fetch_integration_account(&svm, &integration_pubkey_2)
+            .expect("integration 2 should exist")
+            .unwrap();
+
+        assert_eq!(integration_1.controller, controller_pk);
+        assert_eq!(integration_1.status, IntegrationStatus::Active);
+        assert_eq!(integration_2.controller, controller_pk);
+        assert_eq!(integration_2.status, IntegrationStatus::Active);
+
+        let push_amount = 200_000_000;
+
+        let inner_remaining_accounts =
+            get_inner_remaining_accounts(&[spot_market_1, spot_market_2]);
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey_2,
+            &reserve_keys_2.pubkey,
+            &reserve_keys_2.vault,
+            &spl_token::ID,
+            spot_market_index_2,
+            sub_account_id,
+            push_amount,
+            false,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute both push instructions in the same transaction
+        // This simulates handling multiple spot positions simultaneously
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        // Verify both push operations worked correctly
+        let integration_after_push_1 = fetch_integration_account(&svm, &integration_pubkey_1)
+            .expect("integration 1 should exist")
+            .unwrap();
+
+        let integration_after_push_2 = fetch_integration_account(&svm, &integration_pubkey_2)
+            .expect("integration 2 should exist")
+            .unwrap();
+
+        assert_eq!(
+            integration_after_push_1.rate_limit_outflow_amount_available,
+            integration_1.rate_limit_outflow_amount_available
+        );
+
+        assert_eq!(
+            integration_after_push_2.rate_limit_outflow_amount_available,
+            integration_2.rate_limit_outflow_amount_available - push_amount
+        );
+
+        // Verify spot market vault balances increased
+        let spot_market_vault_1_balance = get_token_balance_or_zero(&svm, &spot_market_1.vault);
+        let spot_market_vault_2_balance = get_token_balance_or_zero(&svm, &spot_market_2.vault);
+
+        assert_eq!(spot_market_vault_1_balance, 0);
+        assert_eq!(spot_market_vault_2_balance, push_amount);
+
+        // Verify reserve vault balances decreased
+        let reserve_vault_1_balance = get_token_balance_or_zero(&svm, &reserve_keys_1.vault);
+        let reserve_vault_2_balance = get_token_balance_or_zero(&svm, &reserve_keys_2.vault);
+
+        assert_eq!(reserve_vault_1_balance, vault_start_amount);
+        assert_eq!(reserve_vault_2_balance, vault_start_amount - push_amount);
+
+        Ok(())
+    }
+
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, false; "can_liquidate w/ permit_liquidation fails")]
+    fn test_drift_push_permissions(
+        can_manage_permissions: bool,
+        can_invoke_external_transfer: bool,
+        can_execute_swap: bool,
+        can_reallocate: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
+        can_manage_reserves_and_integrations: bool,
+        can_suspend_permissions: bool,
+        can_liquidate: bool,
+        permit_liquidation: bool,
+        result_ok: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+
+        // Set up mock oracle and insurance fund accounts
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Create associated token account for controller authority and mint tokens
+        let vault_start_amount = 1_000_000_000;
+
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        let push_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &push_authority.pubkey(), 1_000_000_000)?;
+
+        // Update the authority to have permissions
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &push_authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            can_execute_swap,                     // can_execute_swap,
+            can_manage_permissions,               // can_manage_permissions,
+            can_invoke_external_transfer,         // can_invoke_external_transfer,
+            can_reallocate,                       // can_reallocate,
+            can_freeze_controller,                // can_freeze,
+            can_unfreeze_controller,              // can_unfreeze,
+            can_manage_reserves_and_integrations, // can_manage_reserves_and_integrations
+            can_suspend_permissions,              // can_suspend_permissions
+            can_liquidate,                        // can_liquidate
+        )?;
+
+        // Create the push instruction
+        let push_amount = 100_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &push_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+            false,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute the push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&push_authority.pubkey()),
+            &[&push_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+
+        // Assert the expected result given the enabled privilege
+        match result_ok {
+            true => assert!(tx_result.is_ok()),
+            false => assert_eq!(
+                tx_result.err().unwrap().err,
+                TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
+            ),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn drift_push_with_interest_accrual_success() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
+        // Set up User account with spot position for the market
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let sub_account_id = 0;
+
+        // Initialize Drift Integration
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Create associated token account for controller authority and mint tokens
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let vault_start_amount = 1_000_000_000;
+
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // FIRST PUSH: Push some tokens to drift
+        let first_push_amount = 100_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let first_push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            first_push_amount,
+            false,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute the first push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[first_push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        // Fetch drift user state after first push to verify spot position was updated
+        let drift_user_pda = derive_user_pda(&controller_authority, sub_account_id);
+        let drift_user_acct_after_first_push = svm.get_account(&drift_user_pda).unwrap();
+        let drift_user_after_first_push =
+            User::try_from(&drift_user_acct_after_first_push.data).unwrap();
+
+        // Find the spot position for the market we're depositing into
+        let spot_position_index = drift_user_after_first_push
+            .spot_positions
+            .iter()
+            .position(|pos| pos.market_index == spot_market_index)
+            .expect("Spot position should exist for the market");
+
+        let spot_position_after_first_push =
+            drift_user_after_first_push.spot_positions[spot_position_index];
+
+        // Assert spot position cumulative_deposits increased by first push amount
+        assert_eq!(
+            spot_position_after_first_push.cumulative_deposits, first_push_amount as i64,
+            "Spot position cumulative_deposits should equal first push amount"
+        );
+
+        // Advance slots to simulate time passage for interest accrual
+        let current_slot = svm.get_sysvar::<Clock>().slot;
+        svm.warp_to_slot(current_slot + 1000); // Advance by 1000 slots
+
+        // Update the spot market to simulate interest accrual using helper function
+        spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 200); // 2% interest
+
+        // SECOND PUSH: This should trigger sync_drift_balance to accrue interest
+        let second_push_amount = 50_000_000;
+        let inner_remaining_accounts_second = get_inner_remaining_accounts(&[spot_market]);
+        let second_push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            second_push_amount,
+            false,
+            &inner_remaining_accounts_second,
+        )?;
+
+        // Execute the second push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[second_push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone()).unwrap();
+
+        // Fetch drift user state after second push to verify spot position was updated
+        let drift_user_acct_after_second_push = svm.get_account(&drift_user_pda).unwrap();
+        let drift_user_after_second_push =
+            User::try_from(&drift_user_acct_after_second_push.data).unwrap();
+
+        let spot_position_after_second_push =
+            drift_user_after_second_push.spot_positions[spot_position_index];
+
+        // Calculate expected cumulative deposits: first_push_amount + second_push_amount
+        let expected_cumulative_deposits = (first_push_amount + second_push_amount) as i64;
+
+        let interest_delta = first_push_amount * 102 / 100 - first_push_amount;
+
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            tx.message.account_keys.as_slice(),
+            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+                controller: controller_pk,
+                integration: Some(integration_pubkey),
+                mint: token_mint,
+                reserve: None,
+                direction: AccountingDirection::Credit,
+                action: AccountingAction::Sync,
+                delta: interest_delta as u64,
+            })
+        );
+
+        // Assert spot position cumulative_deposits increased by both push amounts
+        assert_eq!(
+            spot_position_after_second_push.cumulative_deposits, expected_cumulative_deposits,
+            "Spot position cumulative_deposits should equal both push amounts combined"
+        );
+
+        // Verify final token balances
+        let reserve_vault_final = get_token_balance_or_zero(&svm, &reserve_keys.vault);
+
+        let expected_total = vault_start_amount - first_push_amount - second_push_amount;
+
+        assert_eq!(
+            reserve_vault_final, expected_total,
+            "Reserve vault should have decreased by both push amounts plus interest accrual"
         );
 
         Ok(())
