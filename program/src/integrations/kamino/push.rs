@@ -147,6 +147,9 @@ pub fn process_push_kamino(
             Seed::from(&[controller.authority_bump]),
         ])])?;
 
+        // Since obligations are initialized in a Stale state,
+        // it has to be refreshed.
+        // See: https://github.com/Kamino-Finance/klend/blob/master/programs/klend/src/state/last_update.rs#L77
         RefreshObligationAfterInit {
             lending_market: inner_ctx.market,
             obligation: inner_ctx.obligation,
