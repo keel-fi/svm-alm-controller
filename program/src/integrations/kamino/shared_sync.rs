@@ -2,8 +2,10 @@ use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::
 
 use crate::{
     enums::IntegrationState,
-    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
-    integrations::kamino::protocol_state::get_liquidity_amount,
+    integrations::{
+        kamino::protocol_state::get_liquidity_amount,
+        shared::lending_markets::emit_lending_balance_sync_event,
+    },
     state::{Controller, Integration},
 };
 
@@ -27,31 +29,15 @@ pub fn sync_kamino_liquidity_value(
 
     let new_liquidity_value = get_liquidity_amount(kamino_reserve, obligation)?;
 
-    if last_liquidity_value != new_liquidity_value {
-        let abs_delta = new_liquidity_value.abs_diff(last_liquidity_value);
-
-        let direction = if new_liquidity_value > last_liquidity_value {
-            // value increased
-            AccountingDirection::Credit
-        } else {
-            // value decreased
-            AccountingDirection::Debit
-        };
-
-        controller.emit_event(
-            controller_authority,
-            controller_pubkey,
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *controller_pubkey,
-                integration: Some(*integration_pubkey),
-                reserve: None,
-                mint: *liquidity_mint,
-                action: AccountingAction::Sync,
-                delta: abs_delta,
-                direction,
-            }),
-        )?
-    }
+    emit_lending_balance_sync_event(
+        controller,
+        integration_pubkey,
+        controller_pubkey,
+        controller_authority,
+        liquidity_mint,
+        last_liquidity_value,
+        new_liquidity_value,
+    )?;
 
     Ok(new_liquidity_value)
 }

@@ -2,8 +2,10 @@ use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::
 
 use crate::{
     enums::IntegrationState,
-    events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
-    integrations::drift::protocol_state::{SpotMarket, User},
+    integrations::{
+        drift::protocol_state::{SpotMarket, User},
+        shared::lending_markets::emit_lending_balance_sync_event,
+    },
     state::{Controller, Integration},
 };
 
@@ -15,7 +17,7 @@ pub fn sync_drift_balance(
     integration_pubkey: &Pubkey,
     controller_pubkey: &Pubkey,
     controller_authority: &AccountInfo,
-    liquidity_mint: &Pubkey,
+    mint: &Pubkey,
     spot_market: &AccountInfo,
     user: &AccountInfo,
     market_index: u16,
@@ -42,31 +44,15 @@ pub fn sync_drift_balance(
         0
     };
 
-    if balance != new_balance {
-        let abs_delta = new_balance.abs_diff(balance);
-
-        let direction = if new_balance > balance {
-            // value increased
-            AccountingDirection::Credit
-        } else {
-            // value decreased
-            AccountingDirection::Debit
-        };
-
-        controller.emit_event(
-            controller_authority,
-            controller_pubkey,
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *controller_pubkey,
-                integration: Some(*integration_pubkey),
-                reserve: None,
-                mint: *liquidity_mint,
-                action: AccountingAction::Sync,
-                delta: abs_delta,
-                direction,
-            }),
-        )?
-    }
+    emit_lending_balance_sync_event(
+        controller,
+        integration_pubkey,
+        controller_pubkey,
+        controller_authority,
+        mint,
+        balance,
+        new_balance,
+    )?;
 
     Ok(new_balance)
 }
