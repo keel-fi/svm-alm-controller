@@ -202,6 +202,7 @@ pub fn setup_kamino_state(
     // 10_000 means 1:1 ratio, thus we skip setting the field values.
     // 1_000 means collateral is worth 10x liquidity.
     liquidity_collateral_ratio_bps: u64,
+    reserve_has_farms: bool,
 ) -> KaminoTestContext {
     // setup lending market (klend)
 
@@ -274,6 +275,7 @@ pub fn setup_kamino_state(
         reward_mint_token_program,
         &lending_market_pk,
         liquidity_collateral_ratio_bps,
+        reserve_has_farms,
     );
 
     let farms_context = KaminoFarmsContext {
@@ -299,82 +301,88 @@ fn setup_reserve(
     // 10_000 means 1:1 ratio, thus we skip setting the field values.
     // 1_000 means collateral is worth 10x liquidity.
     liquidity_collateral_ratio_bps: u64,
+    has_farms: bool,
 ) -> KaminoReserveContext {
     let (lending_market_authority, _market_auth_bump) =
         derive_market_authority_address(lending_market_pk);
 
-    let reserve_farm_collateral = Pubkey::new_unique();
-    let mut farm_collateral = FarmState::default();
-    farm_collateral.global_config = *global_config_pk;
-    // we make the farm delegated, must be the lending market authority
-    // the PDA signing the CPI into KFARMS
-    farm_collateral.delegate_authority = lending_market_authority;
-    farm_collateral.scope_oracle_price_id = u64::MAX;
-    farm_collateral.num_reward_tokens = 1;
-    // set reward info for harvesting rewards
-    // create the farm vault
-    let reward_vault = derive_rewards_vault(&reserve_farm_collateral, &reward_mint);
-    let (farm_vault_authority, farm_vault_authority_bump) =
-        derive_farm_vaults_authority(&reserve_farm_collateral);
-    farm_collateral.farm_vaults_authority = farm_vault_authority;
-    farm_collateral.farm_vaults_authority_bump = farm_vault_authority_bump as u64;
+    let (reserve_farm_collateral, reserve_farm_debt) = if has_farms {
+        let reserve_farm_collateral = Pubkey::new_unique();
+        let mut farm_collateral = FarmState::default();
+        farm_collateral.global_config = *global_config_pk;
+        // we make the farm delegated, must be the lending market authority
+        // the PDA signing the CPI into KFARMS
+        farm_collateral.delegate_authority = lending_market_authority;
+        farm_collateral.scope_oracle_price_id = u64::MAX;
+        farm_collateral.num_reward_tokens = 1;
+        // set reward info for harvesting rewards
+        // create the farm vault
+        let reward_vault = derive_rewards_vault(&reserve_farm_collateral, &reward_mint);
+        let (farm_vault_authority, farm_vault_authority_bump) =
+            derive_farm_vaults_authority(&reserve_farm_collateral);
+        farm_collateral.farm_vaults_authority = farm_vault_authority;
+        farm_collateral.farm_vaults_authority_bump = farm_vault_authority_bump as u64;
 
-    setup_token_account(
-        svm,
-        &reward_vault,
-        reward_mint,
-        &farm_vault_authority,
-        u64::MAX,
-        reward_mint_token_program,
-        None,
-    );
+        setup_token_account(
+            svm,
+            &reward_vault,
+            reward_mint,
+            &farm_vault_authority,
+            u64::MAX,
+            reward_mint_token_program,
+            None,
+        );
 
-    let mut reward_info = RewardInfo::default();
-    reward_info.token.decimals = 6;
-    reward_info.token.mint = *reward_mint;
-    reward_info.token.token_program = *reward_mint_token_program;
-    reward_info.rewards_available = u64::MAX;
-    reward_info.rewards_vault = reward_vault;
-    reward_info.rewards_issued_unclaimed = u64::MAX;
-    farm_collateral.reward_infos[0] = reward_info;
-    svm.set_account(
-        reserve_farm_collateral,
-        Account {
-            lamports: u64::MAX,
-            data: vec![
-                FarmState::DISCRIMINATOR.to_vec(),
-                bytemuck::bytes_of(&farm_collateral).to_vec(),
-            ]
-            .concat(),
-            owner: KAMINO_FARMS_PROGRAM_ID,
-            executable: false,
-            rent_epoch: u64::MAX,
-        },
-    )
-    .unwrap();
+        let mut reward_info = RewardInfo::default();
+        reward_info.token.decimals = 6;
+        reward_info.token.mint = *reward_mint;
+        reward_info.token.token_program = *reward_mint_token_program;
+        reward_info.rewards_available = u64::MAX;
+        reward_info.rewards_vault = reward_vault;
+        reward_info.rewards_issued_unclaimed = u64::MAX;
+        farm_collateral.reward_infos[0] = reward_info;
+        svm.set_account(
+            reserve_farm_collateral,
+            Account {
+                lamports: u64::MAX,
+                data: vec![
+                    FarmState::DISCRIMINATOR.to_vec(),
+                    bytemuck::bytes_of(&farm_collateral).to_vec(),
+                ]
+                .concat(),
+                owner: KAMINO_FARMS_PROGRAM_ID,
+                executable: false,
+                rent_epoch: u64::MAX,
+            },
+        )
+        .unwrap();
 
-    // set reserve_farm_debt (use TBD) (kfarms)
+        // set reserve_farm_debt (use TBD) (kfarms)
 
-    let reserve_farm_debt = Pubkey::new_unique();
-    let mut farm_debt = FarmState::default();
-    farm_debt.global_config = *global_config_pk;
-    farm_debt.delegate_authority = lending_market_authority;
-    farm_debt.scope_oracle_price_id = u64::MAX;
-    svm.set_account(
-        reserve_farm_debt,
-        Account {
-            lamports: u64::MAX,
-            data: vec![
-                FarmState::DISCRIMINATOR.to_vec(),
-                bytemuck::bytes_of(&farm_debt).to_vec(),
-            ]
-            .concat(),
-            owner: KAMINO_FARMS_PROGRAM_ID,
-            executable: false,
-            rent_epoch: u64::MAX,
-        },
-    )
-    .unwrap();
+        let reserve_farm_debt = Pubkey::new_unique();
+        let mut farm_debt = FarmState::default();
+        farm_debt.global_config = *global_config_pk;
+        farm_debt.delegate_authority = lending_market_authority;
+        farm_debt.scope_oracle_price_id = u64::MAX;
+        svm.set_account(
+            reserve_farm_debt,
+            Account {
+                lamports: u64::MAX,
+                data: vec![
+                    FarmState::DISCRIMINATOR.to_vec(),
+                    bytemuck::bytes_of(&farm_debt).to_vec(),
+                ]
+                .concat(),
+                owner: KAMINO_FARMS_PROGRAM_ID,
+                executable: false,
+                rent_epoch: u64::MAX,
+            },
+        )
+        .unwrap();
+        (reserve_farm_collateral, reserve_farm_debt)
+    } else {
+        (Pubkey::default(), Pubkey::default())
+    };
 
     // setup reserve (klend)
 
@@ -490,6 +498,7 @@ pub fn setup_additional_reserves(
             reward_mint_and_program.1,
             &lending_market_pk,
             10_000,
+            true,
         );
 
         reserves.push(reserve_context);

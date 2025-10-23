@@ -23,11 +23,11 @@ use crate::{
             cpi::{
                 InitializeObligation, InitializeObligationFarmForReserve, InitializeUserMetadata,
             },
+            klend_protocol_state::{KaminoReserve, Obligation},
             pdas::{
                 derive_market_authority_address, derive_obligation_farm_address,
                 derive_user_metadata_address, derive_vanilla_obligation_address,
             },
-            protocol_state::{KaminoReserve, Obligation},
         },
         shared::lending_markets::LendingState,
     },
@@ -68,7 +68,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
                 .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
         {
             msg! {"reserve_farm_collateral: Invalid owner"}
-            return Err(ProgramError::IllegalOwner);
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         // verify obligation pubkey is valid

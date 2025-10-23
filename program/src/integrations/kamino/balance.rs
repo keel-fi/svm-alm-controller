@@ -2,7 +2,7 @@ use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError};
 
 use crate::{
-    integrations::kamino::protocol_state::{KaminoReserve, Obligation},
+    integrations::kamino::klend_protocol_state::{KaminoReserve, Obligation},
     processor::shared::is_account_closed,
 };
 

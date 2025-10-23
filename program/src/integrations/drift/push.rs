@@ -1,5 +1,4 @@
 use pinocchio::{
-    account_info::AccountInfo,
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
@@ -38,21 +37,25 @@ define_account_struct! {
 impl<'info> PushDriftAccounts<'info> {
     pub fn checked_from_accounts(
         config: &IntegrationConfig,
-        accounts_infos: &'info [AccountInfo],
+        outer_ctx: &'info PushAccounts,
         spot_market_index: u16,
     ) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts_infos)?;
+        let ctx = Self::from_accounts(outer_ctx.remaining_accounts)?;
         let config = match config {
             IntegrationConfig::Drift(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
-        if spot_market_index != config.spot_market_index {
-            msg!("spot_market_index: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
+
+        config.check_accounts(
+            outer_ctx.controller_authority.key(),
+            ctx.user.key(),
+            spot_market_index,
+        )?;
+
         Ok(ctx)
     }
 }
+
 pub fn process_push_drift(
     controller: &Controller,
     permission: &Permission,
@@ -81,11 +84,8 @@ pub fn process_push_drift(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PushDriftAccounts::checked_from_accounts(
-        &integration.config,
-        &outer_ctx.remaining_accounts,
-        market_index,
-    )?;
+    let inner_ctx =
+        PushDriftAccounts::checked_from_accounts(&integration.config, &outer_ctx, market_index)?;
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
