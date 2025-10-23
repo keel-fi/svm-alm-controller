@@ -22,11 +22,11 @@ use crate::{
             cpi::{
                 InitializeObligation, InitializeObligationFarmForReserve, InitializeUserMetadata,
             },
+            klend_protocol_state::{KaminoReserve, Obligation},
             pdas::{
                 derive_market_authority_address, derive_obligation_farm_address,
                 derive_user_metadata_address, derive_vanilla_obligation_address,
             },
-            klend_protocol_state::{KaminoReserve, Obligation},
         },
         shared::lending_markets::LendingState,
     },

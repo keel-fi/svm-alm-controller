@@ -48,7 +48,6 @@ pub struct RewardPerTimeUnitPoint {
     pub reward_per_time_unit: u64,
 }
 
-
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct FarmState {
