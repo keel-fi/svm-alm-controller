@@ -2273,8 +2273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_kamino_reserve_with_farms_no_harvest_success() -> Result<(), Box<dyn std::error::Error>>
-    {
+    fn test_kamino_reserve_without_farms_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -2316,7 +2315,7 @@ mod tests {
             &reward_mint,
             &spl_token::ID,
             10_000,
-            true, // Enable farms
+            false,
         );
 
         let obligation_id = 0;
@@ -2507,7 +2506,7 @@ mod tests {
             &super_authority.pubkey(),
             &kamino_config,
             &spl_token::ID,
-            Some(harvest_accounts),
+            None,
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -2712,7 +2711,7 @@ mod tests {
                 // kamino_reserve: invalid owner
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve: invalid owner"),
                 // reserve_farm_collateral: invalid owner
-                14 => invalid_owner(InstructionError::IllegalOwner, "Reserve farm collateral: invalid owner"),
+                14 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve farm collateral: invalid owner"),
                 // market: invalid owner
                 16 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino market: invalid owner"),
                 // klend: modify program id
@@ -3424,7 +3423,7 @@ mod tests {
             sync_ix.clone(),
             {
                 // reserve_vault: invalid owner
-                5 => invalid_owner(InstructionError::IllegalOwner, "Reserve vault: invalid owner"),
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve vault: invalid owner"),
                 // kamino_reserve: invalid owner
                 6 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve: invalid owner"),
                 // obligation: invalid owner
@@ -3440,7 +3439,7 @@ mod tests {
                 // farms_global_config: invalid owner
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Farms global config: invalid owner"),
                 // rewards_ata: invalid owner
-                14 => invalid_owner(InstructionError::IllegalOwner, "Rewards ata: invalid owner"),
+                14 => invalid_owner(InstructionError::InvalidAccountOwner, "Rewards ata: invalid owner"),
                 // rewards_mint: invalid owner
                 15 => invalid_owner(InstructionError::InvalidAccountOwner, "Rewards mint: invalid owner"),
                 // rewards_token_program: modify program id
