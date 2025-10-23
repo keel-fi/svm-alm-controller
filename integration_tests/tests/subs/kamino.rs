@@ -244,7 +244,7 @@ pub fn setup_kamino_state(
     liquidity_mint_token_program: &Pubkey,
     reward_mint: &Pubkey,
     reward_mint_token_program: &Pubkey,
-    reserve_has_farms: bool
+    reserve_has_farms: bool,
 ) -> KaminoTestContext {
     // setup lending market (klend)
 
@@ -316,7 +316,7 @@ pub fn setup_kamino_state(
         reward_mint,
         reward_mint_token_program,
         &lending_market_pk,
-        reserve_has_farms
+        reserve_has_farms,
     );
 
     let farms_context = KaminoFarmsContext {
@@ -418,10 +418,7 @@ fn setup_reserve(
         .unwrap();
         (reserve_farm_collateral, reserve_farm_debt)
     } else {
-        (
-            Pubkey::default(),
-            Pubkey::default()
-        )
+        (Pubkey::default(), Pubkey::default())
     };
 
     // setup reserve (klend)
@@ -527,7 +524,7 @@ pub fn setup_additional_reserves(
             reward_mint_and_program.0,
             reward_mint_and_program.1,
             &lending_market_pk,
-            true
+            true,
         );
 
         reserves.push(reserve_context);

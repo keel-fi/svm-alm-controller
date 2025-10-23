@@ -39,7 +39,7 @@ define_account_struct! {
         instruction_sysvar_account: @pubkey(INSTRUCTIONS_ID);
         // This account has a custom check since it's an optional account.
         obligation_farm_collateral: mut;
-        // This account has a custom check since reserve_farm_collateral 
+        // This account has a custom check since reserve_farm_collateral
         // can be equal to Pubkey::default() if the kamino_reserve has no farm.
         reserve_farm_collateral: mut;
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
@@ -152,18 +152,29 @@ impl<'info> PushPullKaminoAccounts<'info> {
 
         // if the reserve_farm_collateral is not pubkey::default,
         // we verify it is owned by KFARMS
-        if ctx.reserve_farm_collateral.key().ne(&Pubkey::default()) 
-            && !ctx.reserve_farm_collateral.is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+        if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
+            && !ctx
+                .reserve_farm_collateral
+                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
         {
             msg! {"reserve_farm_collateral: invalid owner"};
             return Err(ProgramError::InvalidAccountOwner);
         }
 
-        // obligation_farm_collateral pubkey can be KLEND pubkey 
+        // obligation_farm_collateral pubkey can be KLEND pubkey
         // (None variant of Option account), else it must match the pda
         // and be owned by KFARMS.
-        if ctx.obligation_farm_collateral.key().ne(&KAMINO_LEND_PROGRAM_ID) {
-            if !ctx.obligation_farm_collateral.is_owned_by(&KAMINO_FARMS_PROGRAM_ID) {
+        // Note: In the case that a kamino_reserve farm is added after the obligation is created,
+        // the client will have to initialize the obligation farm before calling this instruction.
+        if ctx
+            .obligation_farm_collateral
+            .key()
+            .ne(&KAMINO_LEND_PROGRAM_ID)
+        {
+            if !ctx
+                .obligation_farm_collateral
+                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+            {
                 msg! {"obligation_farm_collateral: invalid owner"};
                 return Err(ProgramError::InvalidAccountOwner);
             }
