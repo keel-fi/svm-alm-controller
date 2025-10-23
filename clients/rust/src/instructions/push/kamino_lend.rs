@@ -79,8 +79,13 @@ pub fn create_push_kamino_lend_ix(
     let kamino_reserve_collateral_supply =
         derive_reserve_collateral_supply(&kamino_market, &kamino_reserve_liquidity_mint);
     let (market_authority, _) = derive_market_authority_address(&kamino_market);
-    let obligation_farm_collateral =
-        derive_obligation_farm_address(kamino_reserve_farm_collateral, &obligation);
+    // if reserve_farm_collateral is not set, we need to pass KAMINO_LEND_PROGRAM_ID (None in the Optional account)
+    let obligation_farm_collateral = if kamino_reserve_farm_collateral == &Pubkey::default() {
+        KAMINO_LEND_PROGRAM_ID
+    } else {
+        derive_obligation_farm_address(kamino_reserve_farm_collateral, &obligation)
+    };
+        
     let reserve_pda = derive_reserve_pda(controller, &kamino_reserve_liquidity_mint);
     let vault = get_associated_token_address_with_program_id(
         &controller_authority,

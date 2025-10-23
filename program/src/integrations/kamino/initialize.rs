@@ -63,7 +63,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
                 .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
         {
             msg! {"reserve_farm_collateral: Invalid owner"}
-            return Err(ProgramError::IllegalOwner);
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         // verify obligation pubkey is valid
