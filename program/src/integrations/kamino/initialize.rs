@@ -26,7 +26,7 @@ use crate::{
                 derive_market_authority_address, derive_obligation_farm_address,
                 derive_user_metadata_address, derive_vanilla_obligation_address,
             },
-            protocol_state::{KaminoReserve, Obligation},
+            klend_protocol_state::{KaminoReserve, Obligation},
         },
         shared::lending_markets::LendingState,
     },

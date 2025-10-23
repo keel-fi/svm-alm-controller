@@ -17,11 +17,12 @@ use crate::{
     integrations::kamino::{
         constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
         cpi::HarvestReward,
+        kfarms_protocol_state::FarmState,
+        klend_protocol_state::KaminoReserve,
         pdas::{
             derive_farm_vaults_authority, derive_obligation_farm_address,
             derive_rewards_treasury_vault, derive_rewards_vault,
         },
-        protocol_state::{FarmState, KaminoReserve},
         shared_sync::sync_kamino_liquidity_value,
     },
     processor::SyncIntegrationAccounts,

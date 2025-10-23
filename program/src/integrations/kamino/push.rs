@@ -22,7 +22,7 @@ use crate::{
             RefreshObligationAfterInit,
         },
         pdas::derive_user_metadata_address,
-        protocol_state::Obligation,
+        klend_protocol_state::Obligation,
         shared_sync::sync_kamino_liquidity_value,
         validations::PushPullKaminoAccounts,
     },
