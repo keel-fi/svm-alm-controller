@@ -322,7 +322,7 @@ mod tests {
         let vault_balance_before = vault_start_amount;
         let vault_balance_after = get_token_balance_or_zero(&svm, &reserve_keys.vault);
 
-        let check_delta = vault_balance_before
+        let vault_balance_delta = vault_balance_before
             .checked_sub(vault_balance_after)
             .unwrap();
         // Assert accounting events
@@ -332,7 +332,7 @@ mod tests {
             reserve: Some(reserve_keys.pubkey),
             mint: mint,
             action: AccountingAction::ExternalTransfer,
-            delta: check_delta,
+            delta: vault_balance_delta,
             direction: AccountingDirection::Debit,
         });
         assert_contains_controller_cpi_event!(
@@ -347,7 +347,7 @@ mod tests {
             reserve: None,
             mint: mint,
             action: AccountingAction::ExternalTransfer,
-            delta: check_delta,
+            delta: vault_balance_delta,
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(
