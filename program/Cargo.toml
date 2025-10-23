@@ -34,3 +34,4 @@ switchboard-on-demand = { workspace = true }
 bytemuck = { workspace = true }
 fixed = { workspace = true }
 uint = { workspace = true }
+bitflags = "2.10.0"
