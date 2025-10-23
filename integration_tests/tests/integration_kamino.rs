@@ -14,11 +14,11 @@ mod tests {
         subs::{
             airdrop_lamports, derive_controller_authority_pda, edit_ata_amount,
             fetch_integration_account, fetch_kamino_obligation, fetch_reserve_account,
-            get_liquidity_and_lp_amount, get_token_balance_or_zero, initialize_ata,
-            initialize_mint, initialize_reserve, kamino_reserve_accrue_interest, manage_permission,
-            refresh_kamino_obligation, refresh_kamino_reserve,
-            set_obligation_farm_rewards_issued_unclaimed, setup_additional_reserves,
-            setup_kamino_state, transfer_tokens, KaminoTestContext, ReserveKeys,
+            get_token_balance_or_zero, initialize_ata, initialize_mint, initialize_reserve,
+            kamino_reserve_accrue_interest, manage_permission, refresh_kamino_obligation,
+            refresh_kamino_reserve, set_obligation_farm_rewards_issued_unclaimed,
+            setup_additional_reserves, setup_kamino_state, transfer_tokens, KaminoTestContext,
+            ReserveKeys,
         },
     };
     use borsh::BorshDeserialize;
@@ -736,14 +736,14 @@ mod tests {
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    // #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    // #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    // #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    // #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    // #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    // #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    // #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    // #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_pull_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
@@ -851,7 +851,8 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        let deposit_amount = 100_000_000;
+        let push_amount = 100_000_000;
+        let lp_push_amount = 50_000_000; // 1:2 ratio set in `setup_kamino_state`
         let push_ix = get_push_ix(
             &mut svm,
             &controller_pk,
@@ -859,7 +860,7 @@ mod tests {
             &integration_pk,
             &obligation,
             &kamino_config,
-            deposit_amount,
+            push_amount,
             &Pubkey::default(),
             &reserve_context.reserve_farm_collateral,
             &liquidity_mint_token_program,
@@ -890,7 +891,7 @@ mod tests {
             get_token_balance_or_zero(&svm, &reserve_collateral_destination);
 
         let pull_amount = 100_000;
-        let lp_pull_amount = 50_000; // This is because of the 2:1 ratio set in kamino test context
+        let lp_pull_amount = 50_000; // 1:2 ratio set in `setup_kamino_state`
         let pull_ix = get_pull_ix(
             &mut svm,
             &controller_pk,
@@ -914,9 +915,6 @@ mod tests {
             println!("logs: {}", e.meta.pretty_logs());
             e.err.to_string()
         })?;
-
-        let (liquidity_value_after, lp_amount_after) =
-            get_liquidity_and_lp_amount(&svm, &kamino_config.reserve, &kamino_config.obligation)?;
 
         let reserve_liquidity_destination_balance_after =
             get_token_balance_or_zero(&svm, &reserve_liquidity_destination);
@@ -968,8 +966,8 @@ mod tests {
             IntegrationState::Kamino(kamino_state) => kamino_state,
             _ => panic!("invalid state"),
         };
-        assert_eq!(state_after.last_liquidity_value, liquidity_value_after);
-        assert_eq!(state_after.last_lp_amount, lp_amount_after);
+        assert_eq!(state_after.last_liquidity_value, push_amount - pull_amount);
+        assert_eq!(state_after.last_lp_amount, lp_push_amount - lp_pull_amount);
         assert_eq!(
             state_after.last_liquidity_value,
             state_before.last_liquidity_value - pull_amount,

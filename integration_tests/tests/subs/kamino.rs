@@ -28,49 +28,6 @@ use crate::helpers::{
     spl::{setup_token_account, setup_token_mint},
 };
 
-pub fn get_liquidity_and_lp_amount(
-    svm: &LiteSVM,
-    kamino_reserve_pk: &Pubkey,
-    obligation_pk: &Pubkey,
-) -> Result<(u64, u64), Box<dyn std::error::Error>> {
-    let obligation_acc = svm
-        .get_account(obligation_pk)
-        .expect("could not get obligation");
-
-    let obligation_state = Obligation::try_from(&obligation_acc.data)?;
-
-    // if the obligation is closed
-    // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
-    // then the lp_amount is 0
-    let is_obligation_closed = obligation_acc.lamports == 0;
-
-    let lp_amount = if is_obligation_closed {
-        0
-    } else {
-        // if it's not closed, then we read the state,
-        // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
-        // in that case lp_amount is also 0
-
-        // handles the case where no ObligationCollateral is found
-        obligation_state
-            .get_obligation_collateral_for_reserve(kamino_reserve_pk)
-            .map_or(0, |collateral| collateral.deposited_amount)
-    };
-
-    // avoids deserializing kamino_reserve if lp_amount is 0
-    let liquidity_value = if lp_amount == 0 {
-        0
-    } else {
-        let kamino_reserve_acc = svm
-            .get_account(kamino_reserve_pk)
-            .expect("could not get kamino reserve");
-        let kamino_reserve_state = KaminoReserve::try_from(&kamino_reserve_acc.data)?;
-        kamino_reserve_state.collateral_to_liquidity(lp_amount)
-    };
-
-    Ok((liquidity_value, lp_amount))
-}
-
 pub fn set_obligation_farm_rewards_issued_unclaimed(
     svm: &mut LiteSVM,
     obligation_farm: &Pubkey,
