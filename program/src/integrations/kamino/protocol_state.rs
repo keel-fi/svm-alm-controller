@@ -44,6 +44,25 @@ impl TryFrom<BigFraction> for Fraction {
     }
 }
 
+impl BigFraction {
+    pub fn to_bits(&self) -> [u64; 4] {
+        self.0 .0
+    }
+
+    pub fn from_bits(bits: [u64; 4]) -> Self {
+        Self(U256(bits))
+    }
+
+    pub fn from_num<T>(num: T) -> Self
+    where
+        T: Into<U256>,
+    {
+        let value: U256 = num.into();
+        let sf = value << Fraction::FRAC_NBITS;
+        Self(sf)
+    }
+}
+
 impl Mul for BigFraction {
     type Output = Self;
 
@@ -66,16 +85,31 @@ where
     }
 }
 
+impl Div<Fraction> for BigFraction {
+    type Output = Self;
+
+    fn div(self, rhs: Fraction) -> Self::Output {
+        let extra_scaled = self.0 << Fraction::FRAC_NBITS;
+        let res = extra_scaled / rhs.to_bits();
+        Self(res)
+    }
+}
+
 type Fraction = FixedU128<U60>;
 
 pub trait FractionExtra {
     fn to_floor<Dst: FromFixed>(&self) -> Dst;
+    fn try_to_floor<Dst: FromFixed>(&self) -> Option<Dst>;
 }
 
 impl FractionExtra for Fraction {
     #[inline]
     fn to_floor<Dst: FromFixed>(&self) -> Dst {
         self.floor().to_num()
+    }
+
+    fn try_to_floor<Dst: FromFixed>(&self) -> Option<Dst> {
+        self.floor().checked_to_num()
     }
 }
 
@@ -353,6 +387,23 @@ impl KaminoReserve {
     pub fn collateral_to_liquidity(&self, collateral_amount: u64) -> u64 {
         self.fraction_collateral_to_liquidity(collateral_amount.into())
             .to_floor()
+    }
+
+    pub fn liquidity_to_collateral_fraction(&self, liquidity_amount: u64) -> Fraction {
+        let (collateral_supply, liquidity) = self.collateral_exchange_rate();
+        (BigFraction::from_num(collateral_supply * u128::from(liquidity_amount)) / liquidity)
+            .try_into()
+            .expect("liquidity_to_collateral_fraction: collateral_amount overflow")
+    }
+
+    pub fn liquidity_to_collateral(&self, liquidity_amount: u64) -> u64 {
+        let collateral_f = self.liquidity_to_collateral_fraction(liquidity_amount);
+        collateral_f.try_to_floor().unwrap_or_else(|| {
+            panic!(
+                "liquidity_to_collateral: collateral_amount overflow, collateral_f_scaled: {}",
+                collateral_f.to_bits()
+            );
+        })
     }
 }
 

@@ -241,6 +241,10 @@ pub fn setup_kamino_state(
     liquidity_mint_token_program: &Pubkey,
     reward_mint: &Pubkey,
     reward_mint_token_program: &Pubkey,
+    // This is the exchange rate of liquidity to collateral in basis points.
+    // 10_000 means 1:1 ratio, thus we skip setting the field values.
+    // 1_000 means collateral is worth 10x liquidity.
+    liquidity_collateral_ratio_bps: u64,
 ) -> KaminoTestContext {
     // setup lending market (klend)
 
@@ -312,6 +316,7 @@ pub fn setup_kamino_state(
         reward_mint,
         reward_mint_token_program,
         &lending_market_pk,
+        liquidity_collateral_ratio_bps,
     );
 
     let farms_context = KaminoFarmsContext {
@@ -333,6 +338,10 @@ fn setup_reserve(
     reward_mint: &Pubkey,
     reward_mint_token_program: &Pubkey,
     lending_market_pk: &Pubkey,
+    // This is the exchange rate of liquidity to collateral in basis points.
+    // 10_000 means 1:1 ratio, thus we skip setting the field values.
+    // 1_000 means collateral is worth 10x liquidity.
+    liquidity_collateral_ratio_bps: u64,
 ) -> KaminoReserveContext {
     let (lending_market_authority, _market_auth_bump) =
         derive_market_authority_address(lending_market_pk);
@@ -428,6 +437,16 @@ fn setup_reserve(
     // increase deposit limit
     kamino_reserve.config.deposit_limit = u64::MAX;
 
+    let mut liquidity_supply = 0;
+    if liquidity_collateral_ratio_bps < 10_000 {
+        kamino_reserve.collateral.mint_total_supply = 1_000_000;
+        kamino_reserve.liquidity.available_amount =
+            (kamino_reserve.collateral.mint_total_supply as u128)
+                .saturating_mul(10_000)
+                .saturating_div(liquidity_collateral_ratio_bps as u128) as u64;
+        liquidity_supply = kamino_reserve.liquidity.available_amount;
+    }
+
     let liquidity_supply_vault =
         derive_reserve_liquidity_supply(&lending_market_pk, &liquidity_mint);
 
@@ -436,7 +455,7 @@ fn setup_reserve(
         &liquidity_supply_vault,
         liquidity_mint,
         &lending_market_authority,
-        0,
+        liquidity_supply,
         liquidity_mint_token_program,
         None,
     );
@@ -513,6 +532,7 @@ pub fn setup_additional_reserves(
             reward_mint_and_program.0,
             reward_mint_and_program.1,
             &lending_market_pk,
+            10_000,
         );
 
         reserves.push(reserve_context);

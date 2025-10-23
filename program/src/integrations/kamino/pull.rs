@@ -13,7 +13,8 @@ use crate::{
     instructions::PullArgs,
     integrations::kamino::{
         cpi::WithdrawObligationCollateralAndRedeemReserveCollateralV2,
-        protocol_state::get_liquidity_and_lp_amount, shared_sync::sync_kamino_liquidity_value,
+        protocol_state::{get_liquidity_and_lp_amount, KaminoReserve},
+        shared_sync::sync_kamino_liquidity_value,
         validations::PushPullKaminoAccounts,
     },
     processor::PullAccounts,
@@ -87,6 +88,15 @@ pub fn process_pull_kamino(
         inner_ctx.obligation,
     )?;
 
+    // Kamino Withdraw uses Collateral (aka shares) instead of
+    // the liquidity tokens directly. To maintain the same mechanics
+    // across other integrations, we convert from the liquidity amount
+    // to the collateral amount here.
+    let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
+    let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+    let collateral_amount = kamino_reserve_state.liquidity_to_collateral(amount);
+    drop(kamino_reserve_data);
+
     let liquidity_amount_before = {
         let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()
@@ -114,7 +124,7 @@ pub fn process_pull_kamino(
         obligation_farm_user_state: inner_ctx.obligation_farm_collateral,
         reserve_farm_state: inner_ctx.reserve_farm_collateral,
         farms_program: inner_ctx.kamino_farms_program,
-        collateral_amount: amount,
+        collateral_amount,
     }
     .invoke_signed(&[Signer::from(&[
         Seed::from(CONTROLLER_AUTHORITY_SEED),
