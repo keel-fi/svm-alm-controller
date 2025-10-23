@@ -1,10 +1,7 @@
 use core::ops::{Div, Mul};
 
 use crate::integrations::kamino::{
-    constants::{
-        FARMS_GLOBAL_CONFIG_DISCRIMINATOR, FARM_STATE_DISCRIMINATOR, OBLIGATION_DISCRIMINATOR,
-        RESERVE_DISCRIMINATOR,
-    },
+    constants::{FARM_STATE_DISCRIMINATOR, OBLIGATION_DISCRIMINATOR, RESERVE_DISCRIMINATOR},
     initialize::InitializeKaminoAccounts,
 };
 use bytemuck::{Pod, Zeroable};
@@ -667,35 +664,6 @@ impl FarmState {
                     None
                 }
             })
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C, packed)]
-pub struct GlobalConfig {
-    pub global_admin: Pubkey,
-    pub treasury_fee_bps: u64,
-    pub treasury_vaults_authority: Pubkey,
-    pub treasury_vaults_authority_bump: u64,
-    pub pending_global_admin: Pubkey,
-    // padding expanded into 4 chunks to be Pod (length 126)
-    pub _padding_1: [u128; 32],
-    pub _padding_2: [u128; 32],
-    pub _padding_3: [u128; 32],
-    pub _padding_4: [u128; 30],
-}
-
-impl GlobalConfig {
-    const DISCRIMINATOR: [u8; 8] = FARMS_GLOBAL_CONFIG_DISCRIMINATOR;
-
-    /// Load GlobalConfig account and check discriminator
-    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
-        if discriminator != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
     }
 }
 
