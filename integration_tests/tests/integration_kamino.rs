@@ -2492,14 +2492,6 @@ mod tests {
             &reward_mint,
         )?;
 
-        let harvest_accounts = HarvestRewardAccounts {
-            rewards_mint: &reward_mint,
-            global_config: &farms_context.global_config,
-            reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
-            scope_prices: &KAMINO_FARMS_PROGRAM_ID,
-            rewards_token_program: &spl_token::ID,
-        };
-
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &integration_pk,
