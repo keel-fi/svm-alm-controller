@@ -37,8 +37,11 @@ define_account_struct! {
         collateral_token_program: @pubkey(pinocchio_token::ID);
         liquidity_token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         instruction_sysvar_account: @pubkey(INSTRUCTIONS_ID);
-        obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
-        reserve_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID);
+        // This account has a custom check since it's an optional account.
+        obligation_farm_collateral: mut;
+        // This account has a custom check since reserve_farm_collateral
+        // can be equal to Pubkey::default() if the kamino_reserve has no farm.
+        reserve_farm_collateral: mut;
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
         // Used for reinitializing an Obligation in Push
@@ -53,6 +56,9 @@ impl<'info> PushPullKaminoAccounts<'info> {
     /// - reserve_vault: mint == reserve_liquidity_mint, owner == controller_authority, key == reserve.vault
     /// - reserve.mint == reserve_liquidity_mint
     /// - obligation_farm_collateral: matches PDA derived from reserve_farm_collateral and obligation
+    ///     and is owned by KFARMS if the pubkey is not KLEND (optional account).
+    /// - reserve_farm_collateral: is owned by KFARMS if the pubkey is not Pubkey::default
+    ///     since not all reserves have farms (default value).
     /// Returns ctx or `InvalidAccountData`/`InvalidPda`. Use for both push and pull.
     pub fn checked_from_accounts(
         controller_authority: &Pubkey,
@@ -144,15 +150,44 @@ impl<'info> PushPullKaminoAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        // Verify obligation farm collateral is valid
-        let obligation_farm_collateral_pda = derive_obligation_farm_address(
-            ctx.reserve_farm_collateral.key(),
-            ctx.obligation.key(),
-            ctx.kamino_farms_program.key(),
-        )?;
-        if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
-            msg! {"Obligation farm collateral: Invalid address"}
-            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        // if the reserve_farm_collateral is not pubkey::default,
+        // we verify it is owned by KFARMS
+        if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
+            && !ctx
+                .reserve_farm_collateral
+                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+        {
+            msg! {"reserve_farm_collateral: invalid owner"};
+            return Err(ProgramError::InvalidAccountOwner);
+        }
+
+        // obligation_farm_collateral pubkey can be KLEND pubkey
+        // (None variant of Option account), else it must match the pda
+        // and be owned by KFARMS.
+        // Note: In the case that a kamino_reserve farm is added after the obligation is created,
+        // the client will have to initialize the obligation farm before calling this instruction.
+        if ctx
+            .obligation_farm_collateral
+            .key()
+            .ne(&KAMINO_LEND_PROGRAM_ID)
+        {
+            if !ctx
+                .obligation_farm_collateral
+                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+            {
+                msg! {"obligation_farm_collateral: invalid owner"};
+                return Err(ProgramError::InvalidAccountOwner);
+            }
+
+            let obligation_farm_collateral_pda = derive_obligation_farm_address(
+                ctx.reserve_farm_collateral.key(),
+                ctx.obligation.key(),
+                ctx.kamino_farms_program.key(),
+            )?;
+            if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
+                msg! {"obligation_farm_collateral: Invalid address"}
+                return Err(SvmAlmControllerErrors::InvalidPda.into());
+            }
         }
 
         Ok(ctx)
