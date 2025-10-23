@@ -2484,14 +2484,6 @@ mod tests {
             &KAMINO_FARMS_PROGRAM_ID,
         )?;
 
-        // Initialize rewards ATA for harvesting
-        let _rewards_ata = initialize_ata(
-            &mut svm,
-            &super_authority,
-            &controller_authority,
-            &reward_mint,
-        )?;
-
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &integration_pk,
