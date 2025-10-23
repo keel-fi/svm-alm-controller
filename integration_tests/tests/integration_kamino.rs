@@ -54,7 +54,7 @@ mod tests {
         },
         pull::kamino_lend::create_pull_kamino_lend_ix,
         push::create_push_kamino_lend_ix,
-        sync_integration::create_sync_kamino_lend_ix,
+        sync_integration::{create_sync_kamino_lend_ix, HarvestRewardAccounts},
     };
     use test_case::test_case;
 
@@ -1178,21 +1178,21 @@ mod tests {
             rewards_unclaimed,
         )?;
 
+        let harvest_acounts = HarvestRewardAccounts {
+            rewards_mint: &reward_mint,
+            global_config: &farms_context.global_config,
+            reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
+            scope_prices: &KAMINO_FARMS_PROGRAM_ID,
+            rewards_token_program: &liquidity_mint_token_program
+        };
+
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &integration_pk,
             &super_authority.pubkey(),
             &kamino_config,
-            &reward_mint,
-            &farms_context.global_config,
-            &reserve_context.reserve_farm_collateral,
-            &rewards_ata,
-            // since we are setting farm_collateral.scope_oracle_price_id = u64::MAX,
-            // no scope_price is required, in order to pass None we need to pass
-            // KFARMS program ID.
-            &KAMINO_FARMS_PROGRAM_ID,
             &liquidity_mint_token_program,
-            &liquidity_mint_token_program,
+            Some(harvest_acounts)
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1672,22 +1672,21 @@ mod tests {
             .unwrap()
             .unwrap();
 
+        let harvest_acounts = HarvestRewardAccounts {
+            rewards_mint: &USDC_TOKEN_MINT_PUBKEY,
+            global_config: &farms_context.global_config,
+            reserve_farm_collateral: &context_2.reserve_farm_collateral,
+            scope_prices: &KAMINO_FARMS_PROGRAM_ID,
+            rewards_token_program: &SPL_TOKEN_PROGRAM_ID
+        };
+
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &kamino_integration_pk_2,
             &super_authority.pubkey(),
             &kamino_config_2,
-            &USDC_TOKEN_MINT_PUBKEY,
-            &farms_context.global_config,
-            &context_2.reserve_farm_collateral,
-            // rewards_ata set to default to skip harvesting rewards
-            &Pubkey::default(),
-            // since we are setting farm_collateral.scope_oracle_price_id = u64::MAX,
-            // no scope_price is required, in order to pass None we need to pass
-            // KFARMS program ID.
-            &KAMINO_FARMS_PROGRAM_ID,
             &SPL_TOKEN_PROGRAM_ID,
-            &SPL_TOKEN_PROGRAM_ID,
+            Some(harvest_acounts)
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -2290,7 +2289,7 @@ mod tests {
         let KaminoTestContext {
             lending_market,
             reserve_context,
-            farms_context,
+            farms_context: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2458,27 +2457,13 @@ mod tests {
             reserve_liquidity_destination_balance_before - balance_delta
         );
 
-        let rewards_ata = get_associated_token_address_with_program_id(
-            &controller_authority,
-            &reward_mint,
-            &spl_token::ID,
-        );
-
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &integration_pk,
             &super_authority.pubkey(),
             &kamino_config,
-            &reward_mint,
-            &farms_context.global_config,
-            &reserve_context.reserve_farm_collateral,
-            &rewards_ata,
-            // since we are setting farm_collateral.scope_oracle_price_id = u64::MAX,
-            // no scope_price is required, in order to pass None we need to pass
-            // KFARMS program ID.
-            &KAMINO_FARMS_PROGRAM_ID,
             &spl_token::ID,
-            &spl_token::ID,
+            None
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -3220,12 +3205,6 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        let rewards_ata = get_associated_token_address_with_program_id(
-            &controller_authority,
-            &reward_mint,
-            &spl_token::ID,
-        );
-
         edit_ata_amount(
             &mut svm,
             &controller_authority,
@@ -3246,21 +3225,21 @@ mod tests {
             rewards_unclaimed,
         )?;
 
+        let harvest_acounts = HarvestRewardAccounts {
+            rewards_mint: &reward_mint,
+            global_config: &farms_context.global_config,
+            reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
+            scope_prices: &KAMINO_FARMS_PROGRAM_ID,
+            rewards_token_program: &spl_token::ID
+        };
+
         let mut sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &integration_pk,
             &super_authority.pubkey(),
             &kamino_config,
-            &reward_mint,
-            &farms_context.global_config,
-            &reserve_context.reserve_farm_collateral,
-            &rewards_ata,
-            // since we are setting farm_collateral.scope_oracle_price_id = u64::MAX,
-            // no scope_price is required, in order to pass None we need to pass
-            // KFARMS program ID.
-            &KAMINO_FARMS_PROGRAM_ID,
             &spl_token::ID,
-            &spl_token::ID,
+            Some(harvest_acounts)
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
