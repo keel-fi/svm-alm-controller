@@ -139,6 +139,7 @@ pub fn process_pull_kamino(
     };
     let liquidity_amount_delta = liquidity_amount_after.saturating_sub(liquidity_amount_before);
 
+    // TODO remove LP
     let (liquidity_value_after, lp_amount_after) =
         get_liquidity_and_lp_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
     let liquidity_value_delta = liquidity_value_before.saturating_sub(liquidity_value_after);
@@ -176,9 +177,8 @@ pub fn process_pull_kamino(
 
     // Update the state
     match &mut integration.state {
-        IntegrationState::Kamino(kamino_state) => {
-            kamino_state.last_liquidity_value = liquidity_value_after;
-            kamino_state.last_lp_amount = lp_amount_after;
+        IntegrationState::Kamino(state) => {
+            state.balance = liquidity_value_after;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }

@@ -276,9 +276,8 @@ pub fn process_push_kamino(
 
     // Update the state
     match &mut integration.state {
-        IntegrationState::Kamino(kamino_state) => {
-            kamino_state.last_liquidity_value = liquidity_value_after;
-            kamino_state.last_lp_amount = lp_amount_after;
+        IntegrationState::Kamino(state) => {
+            state.balance = liquidity_value_after;
         }
         _ => return Err(ProgramError::InvalidAccountData),
     }

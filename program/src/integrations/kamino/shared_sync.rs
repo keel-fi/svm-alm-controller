@@ -21,7 +21,7 @@ pub fn sync_kamino_liquidity_value(
     obligation: &AccountInfo,
 ) -> Result<(u64, u64), ProgramError> {
     let last_liquidity_value = match &integration.state {
-        IntegrationState::Kamino(kamino_state) => kamino_state.last_liquidity_value,
+        IntegrationState::Kamino(state) => state.balance,
         _ => return Err(ProgramError::InvalidAccountData),
     };
 

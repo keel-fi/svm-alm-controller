@@ -302,9 +302,8 @@ pub fn process_sync_kamino(
 
     // Update the state
     match &mut integration.state {
-        IntegrationState::Kamino(kamino_state) => {
-            kamino_state.last_liquidity_value = new_liquidity_value;
-            kamino_state.last_lp_amount = new_lp_amount;
+        IntegrationState::Kamino(state) => {
+            state.balance = new_liquidity_value;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
