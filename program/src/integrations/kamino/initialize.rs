@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
@@ -192,7 +193,7 @@ pub fn process_initialize_kamino(
     } else {
         // Validate obligation is OK
         let obligation_data = inner_ctx.obligation.try_borrow_data()?;
-        let obligation = Obligation::load_checked(&obligation_data)?;
+        let obligation = Obligation::try_from_slice(&obligation_data)?;
 
         obligation.check_data(outer_ctx.controller_authority.key(), inner_ctx.market.key())?;
     }

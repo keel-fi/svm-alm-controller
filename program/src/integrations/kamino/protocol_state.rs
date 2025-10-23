@@ -7,6 +7,7 @@ use crate::integrations::kamino::{
     },
     initialize::InitializeKaminoAccounts,
 };
+use account_zerocopy_deserialize::{AccountZerocopyDeserialize, SizedDiscriminator};
 use bytemuck::{Pod, Zeroable};
 use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
@@ -497,17 +498,11 @@ pub struct Obligation {
     pub _padding_3: [u64; 29],
 }
 
+impl AccountZerocopyDeserialize<8> for Obligation {}
+impl SizedDiscriminator<8> for Obligation {
+    const DISCRIMINATOR: [u8; 8] = OBLIGATION_DISCRIMINATOR;
+}
 impl Obligation {
-    pub const DISCRIMINATOR: [u8; 8] = OBLIGATION_DISCRIMINATOR;
-
-    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
-        if discriminator != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
 
     /// Verifies that:
     /// - the `Obligation` `owner` field matches `controller_authority`

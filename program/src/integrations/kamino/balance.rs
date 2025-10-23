@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError};
 
 use crate::{
@@ -25,7 +26,7 @@ pub fn get_kamino_lending_balance(
     // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
     // in that case lp_amount is also 0
     let obligation_data = obligation.try_borrow_data()?;
-    let obligation_state = Obligation::load_checked(&obligation_data)?;
+    let obligation_state = Obligation::try_from_slice(&obligation_data)?;
 
     // handles the case where no ObligationCollateral is found
     let lp_amount = obligation_state
