@@ -1080,7 +1080,6 @@ mod tests {
             padding: [0; 95],
         };
 
-
         let description = "test";
         let status = IntegrationStatus::Active;
         let rate_limit_slope = 100_000_000_000;
@@ -3151,7 +3150,6 @@ mod tests {
             obligation_id,
             padding: [0; 95],
         };
-
 
         let description = "test";
         let status = IntegrationStatus::Active;

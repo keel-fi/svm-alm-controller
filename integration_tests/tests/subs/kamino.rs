@@ -117,17 +117,17 @@ pub fn kamino_reserve_accrue_interest(
     let stale_flag = 0u8;
     let price_status = 0u8;
     let padding = [0u8; 6];
-    
+
     // Create a new LastUpdate with current slot
     let mut last_update_bytes = Vec::new();
     last_update_bytes.extend_from_slice(&current_slot.to_le_bytes());
     last_update_bytes.extend_from_slice(&stale_flag.to_le_bytes());
     last_update_bytes.extend_from_slice(&price_status.to_le_bytes());
     last_update_bytes.extend_from_slice(&padding);
-    
+
     let fresh_last_update: LastUpdate = *bytemuck::try_from_bytes(&last_update_bytes)
         .expect("Failed to create LastUpdate from bytes");
-    
+
     reserve.last_update = fresh_last_update;
 
     svm.set_account(*kamino_reserve_pk, acc)
