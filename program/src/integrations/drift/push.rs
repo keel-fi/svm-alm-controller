@@ -3,7 +3,6 @@ use pinocchio::{
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
-    pubkey::{try_find_program_address, Pubkey},
     sysvars::{clock::Clock, Sysvar},
     ProgramResult,
 };
