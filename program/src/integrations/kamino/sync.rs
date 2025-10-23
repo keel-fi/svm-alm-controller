@@ -4,6 +4,7 @@ use pinocchio::{
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token_interface::TokenAccount;
@@ -21,7 +22,7 @@ use crate::{
             derive_farm_vaults_authority, derive_obligation_farm_address,
             derive_rewards_treasury_vault, derive_rewards_vault,
         },
-        protocol_state::{FarmState, KaminoReserve, UserState},
+        protocol_state::{FarmState, KaminoReserve, PriceStatusFlags, UserState},
         shared_sync::sync_kamino_liquidity_value,
     },
     processor::SyncIntegrationAccounts,
@@ -161,6 +162,18 @@ pub fn process_sync_kamino(
     // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
     let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+
+    let clock = Clock::get()?;
+    // PriceStatusFlags::NONE means that no price checks are required
+    // This is because we do not have borrows for this integration yet.
+    // If we have borrows, we will need to check the price status flags ie PriceStatusFlags::ALL_CHECKS.
+    if kamino_reserve_state
+        .last_update
+        .is_stale(clock.slot, PriceStatusFlags::NONE)?
+    {
+        msg! {"kamino_reserve: is stale and must be refreshed in the current slot"}
+        return Err(ProgramError::InvalidAccountData);
+    }
 
     // Claim farm rewards only if the reserve has a farm collateral
     // and rewards_available > 0
