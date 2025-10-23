@@ -3,6 +3,7 @@
 use std::{error::Error, u64};
 
 use litesvm::LiteSVM;
+use solana_program::sysvar::clock::Clock;
 use solana_sdk::{
     account::Account, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction,
 };
@@ -22,7 +23,7 @@ use crate::helpers::{
         math_utils::Fraction,
         state::{
             kfarms::{FarmState, GlobalConfig, RewardInfo, UserState},
-            klend::{KaminoReserve, LendingMarket, Obligation},
+            klend::{KaminoReserve, LastUpdate, LendingMarket, Obligation},
         },
     },
     spl::{setup_token_account, setup_token_mint},
@@ -109,6 +110,25 @@ pub fn kamino_reserve_accrue_interest(
         .available_amount
         .saturating_mul(10_000 + interest_bps)
         .saturating_div(10_000);
+
+    // Update the last_update field to prevent stale check failures
+    let clock = svm.get_sysvar::<Clock>();
+    let current_slot = clock.slot;
+    let stale_flag = 0u8;
+    let price_status = 0u8;
+    let padding = [0u8; 6];
+    
+    // Create a new LastUpdate with current slot
+    let mut last_update_bytes = Vec::new();
+    last_update_bytes.extend_from_slice(&current_slot.to_le_bytes());
+    last_update_bytes.extend_from_slice(&stale_flag.to_le_bytes());
+    last_update_bytes.extend_from_slice(&price_status.to_le_bytes());
+    last_update_bytes.extend_from_slice(&padding);
+    
+    let fresh_last_update: LastUpdate = *bytemuck::try_from_bytes(&last_update_bytes)
+        .expect("Failed to create LastUpdate from bytes");
+    
+    reserve.last_update = fresh_last_update;
 
     svm.set_account(*kamino_reserve_pk, acc)
         .expect("failed to set kamino reserve ");
