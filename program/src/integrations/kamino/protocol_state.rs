@@ -7,6 +7,7 @@ use crate::integrations::kamino::{
     },
     initialize::InitializeKaminoAccounts,
 };
+use bitflags::bitflags;
 use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
 use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
@@ -14,7 +15,6 @@ use pinocchio::{
     account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey,
     sysvars::clock::Slot,
 };
-use bitflags::bitflags;
 
 // --------- from KLEND program ---------
 
@@ -445,8 +445,6 @@ impl PriceStatusFlags {
 
     pub const NONE: PriceStatusFlags = PriceStatusFlags::empty();
 
-   
-
     pub const LIQUIDATION_CHECKS: PriceStatusFlags = PriceStatusFlags::PRICE_LOADED
         .union(PriceStatusFlags::PRICE_AGE_CHECKED)
         .union(PriceStatusFlags::PRICE_USAGE_ALLOWED);
@@ -471,7 +469,11 @@ impl LastUpdate {
         Ok(slots_elapsed)
     }
 
-    pub fn is_stale(&self, slot: Slot, min_price_status: PriceStatusFlags) -> Result<bool, ProgramError> {
+    pub fn is_stale(
+        &self,
+        slot: Slot,
+        min_price_status: PriceStatusFlags,
+    ) -> Result<bool, ProgramError> {
         let is_price_status_ok = self.get_price_status().contains(min_price_status);
         Ok(self.stale != (false as u8)
             || self.slots_elapsed(slot)? >= STALE_AFTER_SLOTS_ELAPSED
