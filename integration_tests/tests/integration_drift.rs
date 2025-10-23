@@ -20,6 +20,7 @@ mod tests {
             airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve,
             manage_permission, mint_tokens,
         },
+        test_invalid_accounts,
     };
     use borsh::BorshDeserialize;
     use solana_sdk::pubkey::Pubkey;
@@ -2165,6 +2166,56 @@ mod tests {
                 TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
             ),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn drift_initialize_invalid_inner_accounts() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+        setup_drift_state(&mut svm);
+
+        let spot_market_index = 0;
+        let oracle_price = 100;
+        set_drift_spot_market(&mut svm, spot_market_index, None, oracle_price);
+
+        // Create a valid drift initialize instruction
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+
+        // Test invalid accounts for the inner context accounts (remaining_accounts)
+        // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
+        // Inner accounts are: user(7), user_stats(8), state(9), spot_market(10), rent(11), drift_program(12)
+        test_invalid_accounts!(
+            svm,
+            super_authority.pubkey(),
+            vec![Box::new(&super_authority)],
+            init_ix,
+            {
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
+                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Rent sysvar: Invalid program id"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+            }
+        )?;
+
         Ok(())
     }
 }
