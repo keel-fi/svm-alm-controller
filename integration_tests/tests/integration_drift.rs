@@ -2218,4 +2218,288 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn drift_push_invalid_inner_accounts() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+        let oracle_price = 100;
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        let spot_market =
+            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+
+        // Set up mock oracle and insurance fund accounts
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Create associated token account for controller authority and mint tokens
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let vault_start_amount = 1_000_000_000;
+
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Create a valid drift push instruction
+        let push_amount = 100_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &token_mint,
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+            &inner_remaining_accounts,
+        )?;
+
+        // Test invalid accounts for the inner context accounts (remaining_accounts)
+        // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
+        // Inner accounts are: state(7), user(8), user_stats(9), spot_market_vault(10), reserve_vault(11), token_program(12), drift_program(13)
+        test_invalid_accounts!(
+            svm,
+            super_authority.pubkey(),
+            vec![Box::new(&super_authority)],
+            push_ix,
+            {
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user_stats: Invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
+                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve vault: Invalid owner"),
+                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+            }
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn drift_pull_invalid_inner_accounts() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+        let oracle_price = 100;
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        let spot_market =
+            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+
+        // Set up mock oracle and insurance fund accounts
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, oracle_price);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Create associated token account for controller authority and mint tokens
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let vault_start_amount = 1_000_000_000;
+
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Push some tokens to drift first to have something to pull
+        let push_amount = 100_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &token_mint,
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute the push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        // Create a valid drift pull instruction
+        let pull_amount = 50_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let pull_ix = create_drift_pull_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &token_mint,
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            pull_amount,
+            &inner_remaining_accounts,
+        )?;
+
+        // Test invalid accounts for the inner context accounts (remaining_accounts)
+        // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
+        // Inner accounts are: state(7), user(8), user_stats(9), spot_market_vault(10), drift_signer(11), reserve_vault(12), token_program(13), drift_program(14)
+        test_invalid_accounts!(
+            svm,
+            super_authority.pubkey(),
+            vec![Box::new(&super_authority)],
+            pull_ix,
+            {
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user_stats: Invalid owner"),
+                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
+                12 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve vault: Invalid owner"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
+                14 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+            }
+        )?;
+
+        Ok(())
+    }
 }
