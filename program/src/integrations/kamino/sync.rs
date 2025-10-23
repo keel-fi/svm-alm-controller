@@ -139,14 +139,12 @@ impl<'info> HarvestKaminoAccounts<'info> {
     }
 }
 
-
-
 /// This function syncs a `KaminoIntegration`. This can be divided into two actions:
 /// - If the kamino reserve associated with this integration has a `farm_collateral`,
-///     it harvests the rewards (through the `rewards_ata` account, created if needed).
+///     and the corresponding remaining accounts are included, it harvests the rewards
+///     through the `rewards_ata` account, created if needed.
 ///     If the `reward_mint` matches this integration mint, the corresponding accounting
-///     event is emitted. If a Pubkey::default() `reward_ata` is passed, this action
-///     is skipped.
+///     events are emitted.
 /// - It calculates the `current_liquidity_value` based on the lp tokens held by this integration,
 ///     and updates the integration state.
 pub fn process_sync_kamino(
@@ -176,14 +174,12 @@ pub fn process_sync_kamino(
     let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
 
     // Claim farm rewards only if the reserve has a farm collateral
-    // and rewards_available > 0
-    if kamino_reserve_state.has_collateral_farm()
-        && inner_ctx.remaining_accounts.len() > 0
-    {
+    // and the remaining accounts are included.
+    if kamino_reserve_state.has_collateral_farm() && inner_ctx.remaining_accounts.len() > 0 {
         // validate remaining accounts
         let harvest_ctx = HarvestKaminoAccounts::checked_from_accounts(
-            inner_ctx.obligation.key(), 
-            inner_ctx.remaining_accounts
+            inner_ctx.obligation.key(),
+            inner_ctx.remaining_accounts,
         )?;
 
         // Validate that the reserve farm_collateral matches the reserve farm

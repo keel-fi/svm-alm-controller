@@ -1183,7 +1183,7 @@ mod tests {
             global_config: &farms_context.global_config,
             reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
             scope_prices: &KAMINO_FARMS_PROGRAM_ID,
-            rewards_token_program: &liquidity_mint_token_program
+            rewards_token_program: &liquidity_mint_token_program,
         };
 
         let sync_ix = create_sync_kamino_lend_ix(
@@ -1192,7 +1192,7 @@ mod tests {
             &super_authority.pubkey(),
             &kamino_config,
             &liquidity_mint_token_program,
-            Some(harvest_acounts)
+            Some(harvest_acounts),
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -1677,7 +1677,7 @@ mod tests {
             global_config: &farms_context.global_config,
             reserve_farm_collateral: &context_2.reserve_farm_collateral,
             scope_prices: &KAMINO_FARMS_PROGRAM_ID,
-            rewards_token_program: &SPL_TOKEN_PROGRAM_ID
+            rewards_token_program: &SPL_TOKEN_PROGRAM_ID,
         };
 
         let sync_ix = create_sync_kamino_lend_ix(
@@ -1686,7 +1686,7 @@ mod tests {
             &super_authority.pubkey(),
             &kamino_config_2,
             &SPL_TOKEN_PROGRAM_ID,
-            Some(harvest_acounts)
+            Some(harvest_acounts),
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -2463,7 +2463,7 @@ mod tests {
             &super_authority.pubkey(),
             &kamino_config,
             &spl_token::ID,
-            None
+            None,
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         let tx = Transaction::new_signed_with_payer(
@@ -3230,7 +3230,7 @@ mod tests {
             global_config: &farms_context.global_config,
             reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
             scope_prices: &KAMINO_FARMS_PROGRAM_ID,
-            rewards_token_program: &spl_token::ID
+            rewards_token_program: &spl_token::ID,
         };
 
         let mut sync_ix = create_sync_kamino_lend_ix(
@@ -3239,7 +3239,7 @@ mod tests {
             &super_authority.pubkey(),
             &kamino_config,
             &spl_token::ID,
-            Some(harvest_acounts)
+            Some(harvest_acounts),
         );
         let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 

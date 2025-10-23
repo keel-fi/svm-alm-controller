@@ -26,30 +26,27 @@ pub struct HarvestRewardAccounts<'a> {
 /// Creates a `Sync` instruction for a **Kamino Lend integration** under the
 /// SVM ALM Controller program.
 ///
-/// This instruction synchronizes the controller’s accounting with Kamino and harvests rewards.
+/// This instruction synchronizes the controller’s accounting with Kamino and harvests rewards (optional).
 ///
 /// # Parameters
 ///
 /// - `controller`: The controller account that owns the integration.
 /// - `integration`: The integration PDA for this Kamino Lend integration
 /// - `authority`: The authority allowed to perform the pull.
-/// - `kamino_config`: Configuration object describing the Kamino market, reserve, and farm accounts.
-/// - `rewards_mint`: Mint of the reward token to claim.
-/// - `global_config`: Global config account from Kamino Farms.
-/// - `rewards_ata`: Recipient ATA for harvested rewards.
-/// - `scope_prices`: Scope price oracle account used for reward harvest.
-/// - `rewards_token_program`: Token program for `rewards_mint`.
+/// - `liquidity_token_program`: the token program of the integration and kamino_reserve mint.
+/// - `harvest_rewards_accounts`: Optional accounts used for harvesting rewards.
 ///
 /// # Derived Accounts
 ///
 /// Internally derives:
-/// - **Controller Authority PDA**.
-/// - **Vault ATA**.
-/// - **Reserve PDA**.
-/// - **Obligation Farm PDA**.
-/// - **Rewards Vault PDA**.
-/// - **Rewards Treasury Vault PDA**.
-/// - **Farms Vault Authority PDA**.
+/// - **Controller Authority PDA**
+/// - **Vault ATA**
+/// - **Reserve PDA**
+/// - **Obligation Farm PDA**
+/// - **Rewards Vault PDA**
+/// - **Rewards Treasury Vault PDA**
+/// - **Farms Vault Authority PDA**
+/// - **Rewards ATA**
 ///
 /// # Returns
 ///
@@ -61,7 +58,7 @@ pub fn create_sync_kamino_lend_ix(
     payer: &Pubkey,
     kamino_config: &KaminoConfig,
     liquidity_token_program: &Pubkey,
-    harvest_rewards_accounts: Option<HarvestRewardAccounts>
+    harvest_rewards_accounts: Option<HarvestRewardAccounts>,
 ) -> Instruction {
     let controller_authority = derive_controller_authority_pda(controller);
 
@@ -100,11 +97,13 @@ pub fn create_sync_kamino_lend_ix(
         reserve_farm_collateral,
         scope_prices,
         rewards_token_program,
-    }) = harvest_rewards_accounts {
+    }) = harvest_rewards_accounts
+    {
         let reserve_farm = reserve_farm_collateral;
         let obligation_farm_pda = derive_obligation_farm_address(reserve_farm, &obligation);
         let rewards_vault_pda = derive_rewards_vault(reserve_farm, &rewards_mint);
-        let rewards_treasury_vault_pda = derive_rewards_treasury_vault(&global_config, &rewards_mint);
+        let rewards_treasury_vault_pda =
+            derive_rewards_treasury_vault(&global_config, &rewards_mint);
         let (farms_vault_authority_pda, _) = derive_farm_vaults_authority(reserve_farm);
         let rewards_ata = get_associated_token_address_with_program_id(
             &controller_authority,
