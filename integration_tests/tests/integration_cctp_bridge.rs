@@ -320,7 +320,7 @@ mod tests {
         assert_eq!(usdc_supply_delta, amount);
 
         // Assert accounting events are emitted
-        let check_delta = usdc_vault_start_amount
+        let usdc_vault_delta = usdc_vault_start_amount
             .checked_sub(usdc_balance_after)
             .unwrap();
         let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
@@ -329,7 +329,7 @@ mod tests {
             reserve: Some(usdc_reserve_keys.pubkey),
             mint: USDC_TOKEN_MINT_PUBKEY,
             action: AccountingAction::BridgeSend,
-            delta: check_delta,
+            delta: usdc_vault_delta,
             direction: AccountingDirection::Debit,
         });
         assert_contains_controller_cpi_event!(
@@ -344,7 +344,7 @@ mod tests {
             reserve: None,
             mint: USDC_TOKEN_MINT_PUBKEY,
             action: AccountingAction::BridgeSend,
-            delta: check_delta,
+            delta: usdc_vault_delta,
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(

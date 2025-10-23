@@ -110,7 +110,6 @@ pub fn process_pull_drift(
         &reserve.mint,
         spot_market_info,
         inner_ctx.user,
-        market_index,
     )?;
 
     let reserve_balance_before = reserve.last_balance;

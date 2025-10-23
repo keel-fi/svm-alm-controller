@@ -12,9 +12,9 @@ use crate::{
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::kamino::{
+        balance::get_kamino_lending_balance,
         cpi::WithdrawObligationCollateralAndRedeemReserveCollateralV2,
-        protocol_state::{get_liquidity_amount, KaminoReserve},
-        shared_sync::sync_kamino_liquidity_value,
+        protocol_state::KaminoReserve, shared_sync::sync_kamino_liquidity_value,
         validations::PushPullKaminoAccounts,
     },
     processor::PullAccounts,
@@ -103,7 +103,7 @@ pub fn process_pull_kamino(
     };
 
     let liquidity_value_before =
-        get_liquidity_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
+        get_kamino_lending_balance(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
 
     WithdrawObligationCollateralAndRedeemReserveCollateralV2 {
         owner: outer_ctx.controller_authority,
@@ -140,7 +140,7 @@ pub fn process_pull_kamino(
     let liquidity_amount_delta = liquidity_amount_after.saturating_sub(liquidity_amount_before);
 
     let liquidity_value_after =
-        get_liquidity_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
+        get_kamino_lending_balance(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
     let liquidity_value_delta = liquidity_value_before.saturating_sub(liquidity_value_after);
 
     // Emit accounting event for debit integration
