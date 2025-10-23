@@ -3586,9 +3586,9 @@ mod tests {
             .expect("Failed to fetch kamino reserve");
 
         // Parse the current reserve data
-        let reserve_data = &kamino_reserve_account.data[8..]; // Skip discriminator
-        let kamino_reserve: &KaminoReserve =
-            bytemuck::try_from_bytes(reserve_data).map_err(|_| "Failed to parse KaminoReserve")?;
+        let mut reserve_data = kamino_reserve_account.data[8..].to_vec(); // Skip discriminator
+        let kamino_reserve: &mut KaminoReserve = bytemuck::try_from_bytes_mut(&mut reserve_data)
+            .map_err(|_| "Failed to parse KaminoReserve")?;
 
         // Create a new LastUpdate with stale data using bytemuck
         // Since LastUpdate fields are private, we'll create it from raw bytes
@@ -3608,13 +3608,12 @@ mod tests {
             .map_err(|_| "Failed to create LastUpdate from bytes")?;
 
         // Create a new KaminoReserve with the stale last_update
-        let mut modified_kamino_reserve = *kamino_reserve;
-        modified_kamino_reserve.last_update = stale_last_update;
+        kamino_reserve.last_update = stale_last_update;
 
         // Serialize the modified reserve data back
         let mut modified_data = Vec::new();
         modified_data.extend_from_slice(&KaminoReserve::DISCRIMINATOR);
-        modified_data.extend_from_slice(bytemuck::bytes_of(&modified_kamino_reserve));
+        modified_data.extend_from_slice(bytemuck::bytes_of(kamino_reserve));
 
         // Update the account with the modified data
         let mut modified_account = kamino_reserve_account.clone();

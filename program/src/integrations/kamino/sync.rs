@@ -180,6 +180,8 @@ pub fn process_sync_kamino(
     // Check if the reserve is stale
     // Use NONE as this is not a borrow
     // if we want to borrow we should use the PriceStatusFlags::ALL_CHECKS
+    // Note: we intentionally fail to ensure the accounting at the slot is correct
+    // and the client must prepend the refresh IX to prevent error.
     if kamino_reserve_state
         .last_update
         .is_stale(clock.slot, PriceStatusFlags::NONE)?
