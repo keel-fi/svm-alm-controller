@@ -56,13 +56,7 @@ pub fn process_sync_drift(
         outer_ctx.remaining_accounts,
     )?;
 
-    // Get the drift config to extract market index
-    let drift_config = match &integration.config {
-        IntegrationConfig::Drift(config) => config,
-        _ => return Err(ProgramError::InvalidAccountData),
-    };
-
-    // Sync liquidity value and update state
+    // Sync liquidity value
     let new_balance = sync_drift_balance(
         controller,
         integration,
@@ -72,7 +66,6 @@ pub fn process_sync_drift(
         &reserve.mint,
         inner_ctx.spot_market,
         inner_ctx.user,
-        drift_config.spot_market_index,
     )?;
 
     // Update the state
