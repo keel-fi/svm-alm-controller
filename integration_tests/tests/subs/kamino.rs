@@ -4,7 +4,8 @@ use std::{error::Error, u64};
 
 use litesvm::LiteSVM;
 use solana_sdk::{
-    account::Account, clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction,
+    account::Account, clock::Clock, pubkey::Pubkey, signature::Keypair, signer::Signer,
+    transaction::Transaction,
 };
 use svm_alm_controller_client::{
     create_refresh_kamino_obligation_instruction, create_refresh_kamino_reserve_instruction,
@@ -391,20 +392,20 @@ fn setup_reserve(
     kamino_reserve.lending_market = *lending_market_pk;
     kamino_reserve.liquidity.mint_pubkey = *liquidity_mint;
     kamino_reserve.liquidity.mint_decimals = 6;
-    
-        // Initialize last_update with current slot - 1 to prevent stale check failures
-        // This ensures that even if the slot advances by 1, the reserve won't be stale
-        let clock = svm.get_sysvar::<Clock>();
-        let safe_slot = clock.slot.saturating_sub(1); // Use saturating_sub to avoid underflow
-        let mut last_update_bytes = Vec::new();
-        last_update_bytes.extend_from_slice(&safe_slot.to_le_bytes());
-        last_update_bytes.extend_from_slice(&0u8.to_le_bytes()); // stale = false
-        last_update_bytes.extend_from_slice(&0u8.to_le_bytes()); // price_status = 0
-        last_update_bytes.extend_from_slice(&[0u8; 6]); // placeholder padding
 
-        let last_update: LastUpdate = *bytemuck::try_from_bytes(&last_update_bytes)
-            .expect("Failed to create LastUpdate from bytes");
-        kamino_reserve.last_update = last_update;
+    // Initialize last_update with current slot - 1 to prevent stale check failures
+    // This ensures that even if the slot advances by 1, the reserve won't be stale
+    let clock = svm.get_sysvar::<Clock>();
+    let safe_slot = clock.slot.saturating_sub(1); // Use saturating_sub to avoid underflow
+    let mut last_update_bytes = Vec::new();
+    last_update_bytes.extend_from_slice(&safe_slot.to_le_bytes());
+    last_update_bytes.extend_from_slice(&0u8.to_le_bytes()); // stale = false
+    last_update_bytes.extend_from_slice(&0u8.to_le_bytes()); // price_status = 0
+    last_update_bytes.extend_from_slice(&[0u8; 6]); // placeholder padding
+
+    let last_update: LastUpdate = *bytemuck::try_from_bytes(&last_update_bytes)
+        .expect("Failed to create LastUpdate from bytes");
+    kamino_reserve.last_update = last_update;
     kamino_reserve.liquidity.market_price_sf = Fraction::ONE.to_bits();
     kamino_reserve.liquidity.token_program = *liquidity_mint_token_program;
     kamino_reserve.farm_collateral = reserve_farm_collateral;

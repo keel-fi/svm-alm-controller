@@ -3,7 +3,8 @@ use pinocchio::{
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey, sysvars::{clock::Clock, Sysvar},
+    pubkey::Pubkey,
+    sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token_interface::TokenAccount;
@@ -175,11 +176,14 @@ pub fn process_sync_kamino(
     let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
 
     let clock = Clock::get()?;
-    
+
     // Check if the reserve is stale
     // Use NONE as this is not a borrow
     // if we want to borrow we should use the PriceStatusFlags::ALL_CHECKS
-    if kamino_reserve_state.last_update.is_stale(clock.slot, PriceStatusFlags::NONE)? {
+    if kamino_reserve_state
+        .last_update
+        .is_stale(clock.slot, PriceStatusFlags::NONE)?
+    {
         msg! {"reserve is stale"};
         return Err(ProgramError::InvalidAccountData);
     }
