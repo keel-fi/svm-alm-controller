@@ -17,11 +17,12 @@ use crate::{
     integrations::kamino::{
         constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
         cpi::HarvestReward,
+        kfarms_protocol_state::FarmState,
+        klend_protocol_state::KaminoReserve,
         pdas::{
             derive_farm_vaults_authority, derive_obligation_farm_address,
             derive_rewards_treasury_vault, derive_rewards_vault,
         },
-        protocol_state::{FarmState, KaminoReserve, UserState},
         shared_sync::sync_kamino_liquidity_value,
     },
     processor::SyncIntegrationAccounts,
@@ -205,15 +206,6 @@ pub fn process_sync_kamino(
 
         // Only harvest rewards if rewards_available > 0
         if rewards_available > 0 {
-            // Get available rewards in obligation farm before harvesting rewards
-            let user_rewards = {
-                UserState::get_rewards(
-                    harvest_ctx.obligation_farm,
-                    harvest_ctx.farms_global_config,
-                    reward_index as usize,
-                )?
-            };
-
             // Initialize ATA if needed
             CreateIdempotent {
                 funding_account: outer_ctx.payer,
@@ -248,11 +240,9 @@ pub fn process_sync_kamino(
 
             // If there is a match between the reward_mint and the integration mint, emit event
             if harvest_ctx.rewards_mint.key().eq(&reserve.mint) {
-                let reserve_vault_balance_after = {
-                    let vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
-                    vault.amount()
-                };
-
+                // Since the mints match, the reward_ata == reserve_vault
+                let vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
+                let reserve_vault_balance_after = vault.amount();
                 let reserve_vault_balance_delta =
                     reserve_vault_balance_after.saturating_sub(reserve_vault_balance_before);
 
@@ -267,7 +257,7 @@ pub fn process_sync_kamino(
                         direction: AccountingDirection::Credit,
                         mint: *harvest_ctx.rewards_mint.key(),
                         action: AccountingAction::Sync,
-                        delta: user_rewards,
+                        delta: reserve_vault_balance_delta,
                     }),
                 )?;
 
@@ -282,7 +272,12 @@ pub fn process_sync_kamino(
                         direction: AccountingDirection::Debit,
                         mint: *harvest_ctx.rewards_mint.key(),
                         action: AccountingAction::Withdrawal,
-                        delta: user_rewards,
+                        // NOTE: we use the Reserve vault delta rather then the
+                        // delta of the `rewards_vault`. This is because the kfarms
+                        // program sends rewards to both the User and the Treasury.
+                        // This is safe for accounting as Kamino does not allow tokens
+                        // that have TransferFees > 0.
+                        delta: reserve_vault_balance_delta,
                     }),
                 )?;
 

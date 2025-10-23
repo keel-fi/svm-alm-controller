@@ -13,6 +13,3 @@ pub const KAMINO_FARMS_PROGRAM_ID: Pubkey = pubkey!("FarmsPZpWu9i7Kky8tPN37rs2Tp
 pub const RESERVE_DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "Reserve");
 pub const OBLIGATION_DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "Obligation");
 pub const FARM_STATE_DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "FarmState");
-pub const USER_FARM_STATE_DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "UserState");
-pub const FARMS_GLOBAL_CONFIG_DISCRIMINATOR: [u8; 8] =
-    anchor_discriminator("account", "GlobalConfig");
