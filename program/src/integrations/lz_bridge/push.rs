@@ -265,21 +265,21 @@ pub fn process_push_lz_bridge(
     // Reload the vault account to check it's balance
     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
     let post_transfer_balance = vault.amount();
-    let check_delta = post_sync_balance
+    let reserve_vault_balance_delta = post_sync_balance
         .checked_sub(post_transfer_balance)
         .unwrap();
-    if check_delta != amount {
-        msg! {"check_delta: transfer did not match the vault balance change"};
+    if reserve_vault_balance_delta != amount {
+        msg! {"reserve_vault_balance_delta: transfer did not match the expected amount"};
         return Err(ProgramError::InvalidArgument);
     }
 
     // Update the rate limit for the outflow
-    integration.update_rate_limit_for_outflow(clock, check_delta)?;
+    integration.update_rate_limit_for_outflow(clock, reserve_vault_balance_delta)?;
 
     // No state transitions for LzBridge
 
     // Update the reserve for the outflow
-    reserve_a.update_for_outflow(clock, check_delta, false)?;
+    reserve_a.update_for_outflow(clock, reserve_vault_balance_delta, false)?;
 
     // Emit the accounting event
     controller.emit_event(
@@ -291,7 +291,7 @@ pub fn process_push_lz_bridge(
             reserve: Some(*outer_ctx.reserve_a.key()),
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
-            delta: check_delta,
+            delta: reserve_vault_balance_delta,
             direction: AccountingDirection::Debit,
         }),
     )?;
@@ -309,7 +309,7 @@ pub fn process_push_lz_bridge(
             reserve: None,
             mint: *inner_ctx.mint.key(),
             action: AccountingAction::BridgeSend,
-            delta: check_delta,
+            delta: reserve_vault_balance_delta,
             direction: AccountingDirection::Credit,
         }),
     )?;

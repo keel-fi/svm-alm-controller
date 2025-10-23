@@ -156,7 +156,7 @@ pub fn process_sync_kamino(
         outer_ctx.controller.key(),
         controller,
     )?;
-    let post_sync_reserve_balance = reserve.last_balance;
+    let reserve_vault_balance_before = reserve.last_balance;
 
     // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
@@ -233,12 +233,13 @@ pub fn process_sync_kamino(
 
             // If there is a match between the reward_mint and the integration mint, emit event
             if inner_ctx.rewards_mint.key().eq(&reserve.mint) {
-                let post_transfer_balance = {
+                let reserve_vault_balance_after = {
                     let vault = TokenAccount::from_account_info(&inner_ctx.vault)?;
                     vault.amount()
                 };
 
-                let check_delta = post_transfer_balance.saturating_sub(post_sync_reserve_balance);
+                let reserve_vault_balance_delta =
+                    reserve_vault_balance_after.saturating_sub(reserve_vault_balance_before);
 
                 // Emit sync accounting event for credit (inflow) integration
                 controller.emit_event(
@@ -281,15 +282,15 @@ pub fn process_sync_kamino(
                         direction: AccountingDirection::Credit,
                         mint: *inner_ctx.rewards_mint.key(),
                         action: AccountingAction::Withdrawal,
-                        delta: check_delta,
+                        delta: reserve_vault_balance_delta,
                     }),
                 )?
             }
         }
     }
 
-    // Sync liquidity value and update state
-    let new_liquidity_value = sync_kamino_liquidity_value(
+    // Sync Integration balance
+    let new_balance = sync_kamino_liquidity_value(
         controller,
         integration,
         outer_ctx.integration.key(),
@@ -303,7 +304,7 @@ pub fn process_sync_kamino(
     // Update the state
     match &mut integration.state {
         IntegrationState::Kamino(state) => {
-            state.balance = new_liquidity_value;
+            state.balance = new_balance;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }
