@@ -22,30 +22,30 @@ import {
   type ReadonlyUint8Array,
 } from '@solana/kit';
 
-export type DriftState = { balance: bigint; padding: ReadonlyUint8Array };
+export type LendingState = { balance: bigint; padding: ReadonlyUint8Array };
 
-export type DriftStateArgs = {
+export type LendingStateArgs = {
   balance: number | bigint;
   padding: ReadonlyUint8Array;
 };
 
-export function getDriftStateEncoder(): FixedSizeEncoder<DriftStateArgs> {
+export function getLendingStateEncoder(): FixedSizeEncoder<LendingStateArgs> {
   return getStructEncoder([
     ['balance', getU64Encoder()],
     ['padding', fixEncoderSize(getBytesEncoder(), 40)],
   ]);
 }
 
-export function getDriftStateDecoder(): FixedSizeDecoder<DriftState> {
+export function getLendingStateDecoder(): FixedSizeDecoder<LendingState> {
   return getStructDecoder([
     ['balance', getU64Decoder()],
     ['padding', fixDecoderSize(getBytesDecoder(), 40)],
   ]);
 }
 
-export function getDriftStateCodec(): FixedSizeCodec<
-  DriftStateArgs,
-  DriftState
+export function getLendingStateCodec(): FixedSizeCodec<
+  LendingStateArgs,
+  LendingState
 > {
-  return combineCodec(getDriftStateEncoder(), getDriftStateDecoder());
+  return combineCodec(getLendingStateEncoder(), getLendingStateDecoder());
 }

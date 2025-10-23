@@ -30,10 +30,8 @@ import {
   getAtomicSwapStateEncoder,
   getCctpBridgeStateDecoder,
   getCctpBridgeStateEncoder,
-  getDriftStateDecoder,
-  getDriftStateEncoder,
-  getKaminoStateDecoder,
-  getKaminoStateEncoder,
+  getLendingStateDecoder,
+  getLendingStateEncoder,
   getLzBridgeStateDecoder,
   getLzBridgeStateEncoder,
   getSplTokenExternalStateDecoder,
@@ -42,10 +40,8 @@ import {
   type AtomicSwapStateArgs,
   type CctpBridgeState,
   type CctpBridgeStateArgs,
-  type DriftState,
-  type DriftStateArgs,
-  type KaminoState,
-  type KaminoStateArgs,
+  type LendingState,
+  type LendingStateArgs,
   type LzBridgeState,
   type LzBridgeStateArgs,
   type SplTokenExternalState,
@@ -58,8 +54,8 @@ export type IntegrationState =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeState] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeState] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] }
-  | { __kind: 'Drift'; fields: readonly [DriftState] }
-  | { __kind: 'Kamino'; fields: readonly [KaminoState] };
+  | { __kind: 'Drift'; fields: readonly [LendingState] }
+  | { __kind: 'Kamino'; fields: readonly [LendingState] };
 
 export type IntegrationStateArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
@@ -67,8 +63,8 @@ export type IntegrationStateArgs =
   | { __kind: 'CctpBridge'; fields: readonly [CctpBridgeStateArgs] }
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeStateArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] }
-  | { __kind: 'Drift'; fields: readonly [DriftStateArgs] }
-  | { __kind: 'Kamino'; fields: readonly [KaminoStateArgs] };
+  | { __kind: 'Drift'; fields: readonly [LendingStateArgs] }
+  | { __kind: 'Kamino'; fields: readonly [LendingStateArgs] };
 
 export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateArgs> {
   return getDiscriminatedUnionEncoder([
@@ -102,12 +98,14 @@ export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateA
     ],
     [
       'Drift',
-      getStructEncoder([['fields', getTupleEncoder([getDriftStateEncoder()])]]),
+      getStructEncoder([
+        ['fields', getTupleEncoder([getLendingStateEncoder()])],
+      ]),
     ],
     [
       'Kamino',
       getStructEncoder([
-        ['fields', getTupleEncoder([getKaminoStateEncoder()])],
+        ['fields', getTupleEncoder([getLendingStateEncoder()])],
       ]),
     ],
   ]) as FixedSizeEncoder<IntegrationStateArgs>;
@@ -145,12 +143,14 @@ export function getIntegrationStateDecoder(): FixedSizeDecoder<IntegrationState>
     ],
     [
       'Drift',
-      getStructDecoder([['fields', getTupleDecoder([getDriftStateDecoder()])]]),
+      getStructDecoder([
+        ['fields', getTupleDecoder([getLendingStateDecoder()])],
+      ]),
     ],
     [
       'Kamino',
       getStructDecoder([
-        ['fields', getTupleDecoder([getKaminoStateDecoder()])],
+        ['fields', getTupleDecoder([getLendingStateDecoder()])],
       ]),
     ],
   ]) as FixedSizeDecoder<IntegrationState>;

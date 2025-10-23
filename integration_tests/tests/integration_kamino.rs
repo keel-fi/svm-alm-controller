@@ -302,8 +302,7 @@ mod tests {
             IntegrationState::Kamino(kamino_state) => kamino_state,
             _ => panic!("invalid state"),
         };
-        assert_eq!(kamino_state.last_liquidity_value, 0);
-        assert_eq!(kamino_state.last_lp_amount, 0);
+        assert_eq!(kamino_state.balance, 0);
     }
 
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
@@ -661,16 +660,8 @@ mod tests {
             IntegrationState::Kamino(kamino_state) => kamino_state,
             _ => panic!("invalid state"),
         };
-        assert_eq!(state_after.last_liquidity_value, push_amount);
-        assert_eq!(state_after.last_lp_amount, lp_push_amount);
-        assert_eq!(
-            state_after.last_liquidity_value,
-            state_before.last_liquidity_value + push_amount,
-        );
-        assert_eq!(
-            state_after.last_lp_amount,
-            state_before.last_lp_amount + lp_push_amount,
-        );
+        assert_eq!(state_after.balance, push_amount);
+        assert_eq!(state_after.balance, state_before.balance + push_amount,);
 
         // Assert LP Vault balance increased
         assert_eq!(
@@ -966,16 +957,8 @@ mod tests {
             IntegrationState::Kamino(kamino_state) => kamino_state,
             _ => panic!("invalid state"),
         };
-        assert_eq!(state_after.last_liquidity_value, push_amount - pull_amount);
-        assert_eq!(state_after.last_lp_amount, lp_push_amount - lp_pull_amount);
-        assert_eq!(
-            state_after.last_liquidity_value,
-            state_before.last_liquidity_value - pull_amount,
-        );
-        assert_eq!(
-            state_after.last_lp_amount,
-            state_before.last_lp_amount - lp_pull_amount,
-        );
+        assert_eq!(state_after.balance, push_amount - pull_amount);
+        assert_eq!(state_after.balance, state_before.balance - pull_amount,);
 
         // Assert expected accounting events
 
@@ -1323,12 +1306,9 @@ mod tests {
         };
 
         assert_eq!(
-            state_before.last_liquidity_value + interest_on_deposit,
-            state_after.last_liquidity_value
+            state_before.balance + interest_on_deposit,
+            state_after.balance
         );
-
-        //assert lp amount did not change
-        assert_eq!(state_after.last_lp_amount, state_before.last_lp_amount);
 
         Ok(())
     }
@@ -1718,10 +1698,7 @@ mod tests {
             _ => panic!("invalid state"),
         };
 
-        assert!(state_before.last_liquidity_value < state_after.last_liquidity_value);
-
-        //assert lp amount did not change
-        assert_eq!(state_after.last_lp_amount, state_before.last_lp_amount);
+        assert!(state_before.balance < state_after.balance);
 
         Ok(())
     }

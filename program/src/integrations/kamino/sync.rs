@@ -289,7 +289,7 @@ pub fn process_sync_kamino(
     }
 
     // Sync liquidity value and update state
-    let (new_liquidity_value, new_lp_amount) = sync_kamino_liquidity_value(
+    let new_liquidity_value = sync_kamino_liquidity_value(
         controller,
         integration,
         outer_ctx.integration.key(),
@@ -302,9 +302,8 @@ pub fn process_sync_kamino(
 
     // Update the state
     match &mut integration.state {
-        IntegrationState::Kamino(kamino_state) => {
-            kamino_state.last_liquidity_value = new_liquidity_value;
-            kamino_state.last_lp_amount = new_lp_amount;
+        IntegrationState::Kamino(state) => {
+            state.balance = new_liquidity_value;
         }
         _ => return Err(ProgramError::InvalidAccountData.into()),
     }

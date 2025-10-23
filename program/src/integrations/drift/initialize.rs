@@ -8,6 +8,7 @@ use crate::constants::CONTROLLER_AUTHORITY_SEED;
 use crate::instructions::InitializeArgs;
 use crate::integrations::drift::cpi::InitializeUser;
 use crate::integrations::drift::protocol_state::SpotMarket;
+use crate::integrations::shared::lending_markets::LendingState;
 use crate::state::Controller;
 use crate::{
     define_account_struct,
@@ -15,7 +16,6 @@ use crate::{
     instructions::InitializeIntegrationArgs,
     integrations::drift::{
         config::DriftConfig, constants::DRIFT_PROGRAM_ID, cpi::InitializeUserStats,
-        state::DriftState,
     },
     processor::InitializeIntegrationAccounts,
 };
@@ -102,7 +102,7 @@ pub fn process_initialize_drift(
         spot_market_index,
         _padding: [0u8; 220],
     });
-    let state = IntegrationState::Drift(DriftState {
+    let state = IntegrationState::Drift(LendingState {
         balance: 0,
         _padding: [0u8; 40],
     });

@@ -2012,27 +2012,6 @@
       }
     },
     {
-      "name": "DriftState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "balance",
-            "type": "u64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                40
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "KaminoConfig",
       "type": {
         "kind": "struct",
@@ -2063,31 +2042,6 @@
               "array": [
                 "u8",
                 95
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "KaminoState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "lastLiquidityValue",
-            "type": "u64"
-          },
-          {
-            "name": "lastLpAmount",
-            "type": "u64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                32
               ]
             }
           }
@@ -2244,6 +2198,27 @@
               "array": [
                 "u8",
                 47
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LendingState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "balance",
+            "type": "u64"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                40
               ]
             }
           }
@@ -2467,7 +2442,7 @@
             "name": "Drift",
             "fields": [
               {
-                "defined": "DriftState"
+                "defined": "LendingState"
               }
             ]
           },
@@ -2475,7 +2450,7 @@
             "name": "Kamino",
             "fields": [
               {
-                "defined": "KaminoState"
+                "defined": "LendingState"
               }
             ]
           }

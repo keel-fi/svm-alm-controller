@@ -12,19 +12,23 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     instructions::{InitializeArgs, InitializeIntegrationArgs},
-    integrations::kamino::{
-        config::KaminoConfig,
-        constants::{
-            KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, OBLIGATION_FARM_COLLATERAL_MODE,
-            VANILLA_OBLIGATION_TAG,
+    integrations::{
+        kamino::{
+            config::KaminoConfig,
+            constants::{
+                KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, OBLIGATION_FARM_COLLATERAL_MODE,
+                VANILLA_OBLIGATION_TAG,
+            },
+            cpi::{
+                InitializeObligation, InitializeObligationFarmForReserve, InitializeUserMetadata,
+            },
+            pdas::{
+                derive_market_authority_address, derive_obligation_farm_address,
+                derive_user_metadata_address, derive_vanilla_obligation_address,
+            },
+            protocol_state::{KaminoReserve, Obligation},
         },
-        cpi::{InitializeObligation, InitializeObligationFarmForReserve, InitializeUserMetadata},
-        pdas::{
-            derive_market_authority_address, derive_obligation_farm_address,
-            derive_user_metadata_address, derive_vanilla_obligation_address,
-        },
-        protocol_state::{KaminoReserve, Obligation},
-        state::KaminoState,
+        shared::lending_markets::LendingState,
     },
     processor::InitializeIntegrationAccounts,
     state::Controller,
@@ -230,12 +234,10 @@ pub fn process_initialize_kamino(
     let config = IntegrationConfig::Kamino(kamino_config);
 
     // Create the state
-    let kamino_state = KaminoState {
-        last_liquidity_value: 0,
-        last_lp_amount: 0,
-        _padding: [0; 32],
-    };
-    let state = IntegrationState::Kamino(kamino_state);
+    let state = IntegrationState::Kamino(LendingState {
+        balance: 0,
+        _padding: [0u8; 40],
+    });
 
     Ok((config, state))
 }
