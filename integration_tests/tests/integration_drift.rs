@@ -1974,4 +1974,197 @@ mod tests {
 
         Ok(())
     }
+
+    #[test_case(true, false, false, false, false, false, false, false, false, false, false; "can_manage_permissions fails")]
+    #[test_case(false, true, false, false, false, false, false, false, false, false, false; "can_invoke_external_transfer fails")]
+    #[test_case(false, false, true, false, false, false, false, false, false, false, false; "can_execute_swap fails")]
+    #[test_case(false, false, false, true, false, false, false, false, false, false, true; "can_reallocate passes")]
+    #[test_case(false, false, false, false, true, false, false, false, false, false, false; "can_freeze_controller fails")]
+    #[test_case(false, false, false, false, false, true, false, false, false, false, false; "can_unfreeze_controller fails")]
+    #[test_case(false, false, false, false, false, false, true, false, false, false, false; "can_manage_reserves_and_integrations fails")]
+    #[test_case(false, false, false, false, false, false, false, true, false, false, false; "can_suspend_permissions fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, false, false; "can_liquidate w/o permit_liquidation fails")]
+    #[test_case(false, false, false, false, false, false, false, false, true, true, true; "can_liquidate w/ permit_liquidation passes")]
+    fn test_drift_pull_permissions(
+        can_manage_permissions: bool,
+        can_invoke_external_transfer: bool,
+        can_execute_swap: bool,
+        can_reallocate: bool,
+        can_freeze_controller: bool,
+        can_unfreeze_controller: bool,
+        can_manage_reserves_and_integrations: bool,
+        can_suspend_permissions: bool,
+        can_liquidate: bool,
+        permit_liquidation: bool,
+        result_ok: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let spot_market_index = 0;
+        setup_drift_state(&mut svm);
+
+        // Initialize Token Mint
+        let token_mint_kp = Keypair::new();
+        let token_mint = token_mint_kp.pubkey();
+        let mint_authority = Keypair::new();
+
+        initialize_mint(
+            &mut svm,
+            &super_authority,
+            &mint_authority.pubkey(),
+            None,
+            6,
+            Some(token_mint_kp),
+            &spl_token::ID,
+            None,
+        )?;
+
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+
+        setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
+
+        // Set up mock oracle and insurance fund accounts
+        setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+        let integration_pubkey = init_ix.accounts[5].pubkey;
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone())
+            .map_err(|e| e.err.to_string())?;
+
+        // Initialize a reserve for the token
+        let reserve_keys = initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &token_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            1_000_000_000_000,
+            1_000_000_000_000,
+            &spl_token::ID,
+        )?;
+
+        // Create associated token account for controller authority and mint tokens
+        let vault_start_amount = 1_000_000_000;
+
+        // Mint tokens to controller authority
+        mint_tokens(
+            &mut svm,
+            &super_authority,
+            &mint_authority,
+            &token_mint,
+            &controller_authority,
+            vault_start_amount,
+        )?;
+
+        // Push some tokens to drift first to have something to pull
+        let push_amount = 100_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let push_ix = create_drift_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &token_mint,
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            push_amount,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute the push instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        let pull_authority = Keypair::new();
+        airdrop_lamports(&mut svm, &pull_authority.pubkey(), 1_000_000_000)?;
+
+        // Update the authority to have permissions
+        manage_permission(
+            &mut svm,
+            &controller_pk,
+            &super_authority,         // payer
+            &super_authority,         // calling authority
+            &pull_authority.pubkey(), // subject authority
+            PermissionStatus::Active,
+            can_execute_swap,                     // can_execute_swap,
+            can_manage_permissions,               // can_manage_permissions,
+            can_invoke_external_transfer,         // can_invoke_external_transfer,
+            can_reallocate,                       // can_reallocate,
+            can_freeze_controller,                // can_freeze,
+            can_unfreeze_controller,              // can_unfreeze,
+            can_manage_reserves_and_integrations, // can_manage_reserves_and_integrations
+            can_suspend_permissions,              // can_suspend_permissions
+            can_liquidate,                        // can_liquidate
+        )?;
+
+        // Create the pull instruction
+        let pull_amount = 50_000_000;
+        let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
+        let pull_ix = create_drift_pull_instruction(
+            &controller_pk,
+            &pull_authority.pubkey(),
+            &token_mint,
+            &integration_pubkey,
+            &reserve_keys.pubkey,
+            &reserve_keys.vault,
+            &spl_token::ID,
+            spot_market_index,
+            sub_account_id,
+            pull_amount,
+            &inner_remaining_accounts,
+        )?;
+
+        // Execute the pull instruction
+        let tx = Transaction::new_signed_with_payer(
+            &[pull_ix],
+            Some(&pull_authority.pubkey()),
+            &[&pull_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+
+        // Assert the expected result given the enabled privilege
+        match result_ok {
+            true => assert!(tx_result.is_ok()),
+            false => assert_eq!(
+                tx_result.err().unwrap().err,
+                TransactionError::InstructionError(0, InstructionError::IncorrectAuthority)
+            ),
+        }
+        Ok(())
+    }
 }

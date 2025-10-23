@@ -44,6 +44,25 @@ impl TryFrom<BigFraction> for Fraction {
     }
 }
 
+impl BigFraction {
+    pub fn to_bits(&self) -> [u64; 4] {
+        self.0 .0
+    }
+
+    pub fn from_bits(bits: [u64; 4]) -> Self {
+        Self(U256(bits))
+    }
+
+    pub fn from_num<T>(num: T) -> Self
+    where
+        T: Into<U256>,
+    {
+        let value: U256 = num.into();
+        let sf = value << Fraction::FRAC_NBITS;
+        Self(sf)
+    }
+}
+
 impl Mul for BigFraction {
     type Output = Self;
 
@@ -66,16 +85,31 @@ where
     }
 }
 
+impl Div<Fraction> for BigFraction {
+    type Output = Self;
+
+    fn div(self, rhs: Fraction) -> Self::Output {
+        let extra_scaled = self.0 << Fraction::FRAC_NBITS;
+        let res = extra_scaled / rhs.to_bits();
+        Self(res)
+    }
+}
+
 type Fraction = FixedU128<U60>;
 
 pub trait FractionExtra {
     fn to_floor<Dst: FromFixed>(&self) -> Dst;
+    fn try_to_floor<Dst: FromFixed>(&self) -> Option<Dst>;
 }
 
 impl FractionExtra for Fraction {
     #[inline]
     fn to_floor<Dst: FromFixed>(&self) -> Dst {
         self.floor().to_num()
+    }
+
+    fn try_to_floor<Dst: FromFixed>(&self) -> Option<Dst> {
+        self.floor().checked_to_num()
     }
 }
 
@@ -350,9 +384,28 @@ impl KaminoReserve {
             .expect("fraction_collateral_to_liquidity: liquidity_amount overflow")
     }
 
+    /// Convert the Collateral (aka shares) amount to Liquidity (aka tokens)
     pub fn collateral_to_liquidity(&self, collateral_amount: u64) -> u64 {
         self.fraction_collateral_to_liquidity(collateral_amount.into())
             .to_floor()
+    }
+
+    fn liquidity_to_collateral_fraction(&self, liquidity_amount: u64) -> Fraction {
+        let (collateral_supply, liquidity) = self.collateral_exchange_rate();
+        (BigFraction::from_num(collateral_supply * u128::from(liquidity_amount)) / liquidity)
+            .try_into()
+            .expect("liquidity_to_collateral_fraction: collateral_amount overflow")
+    }
+
+    /// Convert the Liquidity (aka tokens) amount to Collateral (aka shares)
+    pub fn liquidity_to_collateral(&self, liquidity_amount: u64) -> u64 {
+        let collateral_f = self.liquidity_to_collateral_fraction(liquidity_amount);
+        collateral_f.try_to_floor().unwrap_or_else(|| {
+            panic!(
+                "liquidity_to_collateral: collateral_amount overflow, collateral_f_scaled: {}",
+                collateral_f.to_bits()
+            );
+        })
     }
 }
 
@@ -361,40 +414,40 @@ impl KaminoReserve {
 ///     - The `Obligation` has been closed (full withdrawal).
 ///     - The `ObligationCollateral` doesn't exist yet (first deposit or full withdrawal).
 ///
-/// Returns (`liquidity_value`, `lp_amount`)
-pub fn get_liquidity_and_lp_amount(
+/// Returns `liquidity_value`
+pub fn get_liquidity_amount(
     kamino_reserve: &AccountInfo,
     obligation: &AccountInfo,
-) -> Result<(u64, u64), ProgramError> {
+) -> Result<u64, ProgramError> {
     // if the obligation is closed
     // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
     // then the lp_amount is 0
 
-    let lp_amount = if is_account_closed(obligation) {
-        0
-    } else {
-        // if it's not closed, then we read the state,
-        // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
-        // in that case lp_amount is also 0
-        let obligation_data = obligation.try_borrow_data()?;
-        let obligation_state = Obligation::load_checked(&obligation_data)?;
+    if is_account_closed(obligation) {
+        return Ok(0);
+    }
 
-        // handles the case where no ObligationCollateral is found
-        obligation_state
-            .get_obligation_collateral_for_reserve(kamino_reserve.key())
-            .map_or(0, |collateral| collateral.deposited_amount)
-    };
+    // if it's not closed, then we read the state,
+    // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
+    // in that case lp_amount is also 0
+    let obligation_data = obligation.try_borrow_data()?;
+    let obligation_state = Obligation::load_checked(&obligation_data)?;
+
+    // handles the case where no ObligationCollateral is found
+    let lp_amount = obligation_state
+        .get_obligation_collateral_for_reserve(kamino_reserve.key())
+        .map_or(0, |collateral| collateral.deposited_amount);
 
     // avoids deserializing kamino_reserve if lp_amount is 0
-    let liquidity_value = if lp_amount == 0 {
-        0
-    } else {
-        let kamino_reserve_data = kamino_reserve.try_borrow_data()?;
-        let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
-        kamino_reserve_state.collateral_to_liquidity(lp_amount)
-    };
+    if lp_amount == 0 {
+        return Ok(0);
+    }
 
-    Ok((liquidity_value, lp_amount))
+    let kamino_reserve_data = kamino_reserve.try_borrow_data()?;
+    let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+    let liquidity_value = kamino_reserve_state.collateral_to_liquidity(lp_amount);
+
+    Ok(liquidity_value)
 }
 
 // --------- Obligation ----------
@@ -832,5 +885,63 @@ mod tests {
         reserve.liquidity.available_amount = 0;
         reserve.collateral.mint_total_supply = 1_000_000;
         assert_eq!(reserve.collateral_to_liquidity(1_000), 1_000);
+    }
+
+    #[test]
+    fn liquidity_to_collateral_works() {
+        let base_reserve = KaminoReserve::default();
+
+        // 1:2 ratio -> 0.5x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.collateral.mint_total_supply = 2_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(500), 1_000);
+
+        // 1:1 ratio -> 1x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.collateral.mint_total_supply = 1_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(1_000), 1_000);
+
+        // borrowed liquidity adds up (1M + 3M) / 2M = 2x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.liquidity.borrowed_amount_sf = sf_u64(3_000_000);
+        reserve.collateral.mint_total_supply = 2_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(2_000), 1_000);
+
+        // fees reduce total (1M + 3M - 0.1M - 0.05M - 0.05M) / 2M = 1.9x
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 1_000_000;
+        reserve.liquidity.borrowed_amount_sf = sf_u64(3_000_000);
+        reserve.liquidity.accumulated_protocol_fees_sf = sf_u64(100_000);
+        reserve.liquidity.accumulated_referrer_fees_sf = sf_u64(50_000);
+        reserve.liquidity.pending_referrer_fees_sf = sf_u64(50_000);
+        reserve.collateral.mint_total_supply = 2_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(1_900), 1_000);
+
+        // small ratio (0.05x)
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 500_000;
+        reserve.collateral.mint_total_supply = 10_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(50), 1_000);
+
+        // rounding down (1_000_001 / 1_000_000 = 0.999999 -> floor -> 999)
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 1_000_001;
+        reserve.collateral.mint_total_supply = 1_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(1_000), 999);
+
+        // zero supply guard
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 0;
+        reserve.collateral.mint_total_supply = 0;
+        assert_eq!(reserve.liquidity_to_collateral(1), 1);
+
+        // zero liquidity, nonzero collateral (guard path gives 1:1)
+        let mut reserve = base_reserve.clone();
+        reserve.liquidity.available_amount = 0;
+        reserve.collateral.mint_total_supply = 1_000_000;
+        assert_eq!(reserve.liquidity_to_collateral(1_000), 1_000);
     }
 }

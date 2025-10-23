@@ -28,49 +28,6 @@ use crate::helpers::{
     spl::{setup_token_account, setup_token_mint},
 };
 
-pub fn get_liquidity_and_lp_amount(
-    svm: &LiteSVM,
-    kamino_reserve_pk: &Pubkey,
-    obligation_pk: &Pubkey,
-) -> Result<(u64, u64), Box<dyn std::error::Error>> {
-    let obligation_acc = svm
-        .get_account(obligation_pk)
-        .expect("could not get obligation");
-
-    let obligation_state = Obligation::try_from(&obligation_acc.data)?;
-
-    // if the obligation is closed
-    // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
-    // then the lp_amount is 0
-    let is_obligation_closed = obligation_acc.lamports == 0;
-
-    let lp_amount = if is_obligation_closed {
-        0
-    } else {
-        // if it's not closed, then we read the state,
-        // but its possible that the ObligationCollateral hasn't been created yet (first deposit)
-        // in that case lp_amount is also 0
-
-        // handles the case where no ObligationCollateral is found
-        obligation_state
-            .get_obligation_collateral_for_reserve(kamino_reserve_pk)
-            .map_or(0, |collateral| collateral.deposited_amount)
-    };
-
-    // avoids deserializing kamino_reserve if lp_amount is 0
-    let liquidity_value = if lp_amount == 0 {
-        0
-    } else {
-        let kamino_reserve_acc = svm
-            .get_account(kamino_reserve_pk)
-            .expect("could not get kamino reserve");
-        let kamino_reserve_state = KaminoReserve::try_from(&kamino_reserve_acc.data)?;
-        kamino_reserve_state.collateral_to_liquidity(lp_amount)
-    };
-
-    Ok((liquidity_value, lp_amount))
-}
-
 pub fn set_obligation_farm_rewards_issued_unclaimed(
     svm: &mut LiteSVM,
     obligation_farm: &Pubkey,
@@ -135,29 +92,26 @@ pub fn fetch_kamino_obligation(
     Ok(kamino_obligation)
 }
 
-pub fn set_kamino_reserve_liquidity_available_amount(
+/// Accrues interest on the KaminoReserve by the given basis points,
+/// such that all depositors' liquidity increases accordingly.
+pub fn kamino_reserve_accrue_interest(
     svm: &mut LiteSVM,
     kamino_reserve_pk: &Pubkey,
-    amount: u64,
+    interest_bps: u64,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let acc = svm
+    let mut acc = svm
         .get_account(kamino_reserve_pk)
         .expect("failed to get kamino reserve ");
-    let mut state = KaminoReserve::try_from(&acc.data)?.clone();
-    state.liquidity.available_amount = amount;
+    let reserve = bytemuck::try_from_bytes_mut::<KaminoReserve>(&mut acc.data[8..]).unwrap();
 
-    let mut state_data = Vec::with_capacity(std::mem::size_of::<KaminoReserve>() + 8);
-    state_data.extend_from_slice(&KaminoReserve::DISCRIMINATOR);
-    state_data.extend_from_slice(&bytemuck::bytes_of(&state));
+    reserve.liquidity.available_amount = reserve
+        .liquidity
+        .available_amount
+        .saturating_mul(10_000 + interest_bps)
+        .saturating_div(10_000);
 
-    svm.set_account(
-        *kamino_reserve_pk,
-        Account {
-            data: state_data,
-            ..acc
-        },
-    )
-    .expect("failed to set kamino reserve ");
+    svm.set_account(*kamino_reserve_pk, acc)
+        .expect("failed to set kamino reserve ");
 
     Ok(())
 }
@@ -244,6 +198,10 @@ pub fn setup_kamino_state(
     liquidity_mint_token_program: &Pubkey,
     reward_mint: &Pubkey,
     reward_mint_token_program: &Pubkey,
+    // This is the exchange rate of liquidity to collateral in basis points.
+    // 10_000 means 1:1 ratio, thus we skip setting the field values.
+    // 1_000 means collateral is worth 10x liquidity.
+    liquidity_collateral_ratio_bps: u64,
     reserve_has_farms: bool,
 ) -> KaminoTestContext {
     // setup lending market (klend)
@@ -316,6 +274,7 @@ pub fn setup_kamino_state(
         reward_mint,
         reward_mint_token_program,
         &lending_market_pk,
+        liquidity_collateral_ratio_bps,
         reserve_has_farms,
     );
 
@@ -338,6 +297,10 @@ fn setup_reserve(
     reward_mint: &Pubkey,
     reward_mint_token_program: &Pubkey,
     lending_market_pk: &Pubkey,
+    // This is the exchange rate of liquidity to collateral in basis points.
+    // 10_000 means 1:1 ratio, thus we skip setting the field values.
+    // 1_000 means collateral is worth 10x liquidity.
+    liquidity_collateral_ratio_bps: u64,
     has_farms: bool,
 ) -> KaminoReserveContext {
     let (lending_market_authority, _market_auth_bump) =
@@ -439,6 +402,16 @@ fn setup_reserve(
     // increase deposit limit
     kamino_reserve.config.deposit_limit = u64::MAX;
 
+    let mut liquidity_supply = 0;
+    if liquidity_collateral_ratio_bps < 10_000 {
+        kamino_reserve.collateral.mint_total_supply = 1_000_000;
+        kamino_reserve.liquidity.available_amount =
+            (kamino_reserve.collateral.mint_total_supply as u128)
+                .saturating_mul(10_000)
+                .saturating_div(liquidity_collateral_ratio_bps as u128) as u64;
+        liquidity_supply = kamino_reserve.liquidity.available_amount;
+    }
+
     let liquidity_supply_vault =
         derive_reserve_liquidity_supply(&lending_market_pk, &liquidity_mint);
 
@@ -447,7 +420,7 @@ fn setup_reserve(
         &liquidity_supply_vault,
         liquidity_mint,
         &lending_market_authority,
-        0,
+        liquidity_supply,
         liquidity_mint_token_program,
         None,
     );
@@ -524,6 +497,7 @@ pub fn setup_additional_reserves(
             reward_mint_and_program.0,
             reward_mint_and_program.1,
             &lending_market_pk,
+            10_000,
             true,
         );
 
