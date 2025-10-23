@@ -3,7 +3,7 @@ use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::
 use crate::{
     enums::IntegrationState,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
-    integrations::kamino::protocol_state::get_liquidity_and_lp_amount,
+    integrations::kamino::protocol_state::get_liquidity_amount,
     state::{Controller, Integration},
 };
 
@@ -19,14 +19,13 @@ pub fn sync_kamino_liquidity_value(
     liquidity_mint: &Pubkey,
     kamino_reserve: &AccountInfo,
     obligation: &AccountInfo,
-) -> Result<(u64, u64), ProgramError> {
+) -> Result<u64, ProgramError> {
     let last_liquidity_value = match &integration.state {
         IntegrationState::Kamino(state) => state.balance,
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
-    let (new_liquidity_value, new_lp_amount) =
-        get_liquidity_and_lp_amount(kamino_reserve, obligation)?;
+    let new_liquidity_value = get_liquidity_amount(kamino_reserve, obligation)?;
 
     if last_liquidity_value != new_liquidity_value {
         let abs_delta = new_liquidity_value.abs_diff(last_liquidity_value);
@@ -54,5 +53,5 @@ pub fn sync_kamino_liquidity_value(
         )?
     }
 
-    Ok((new_liquidity_value, new_lp_amount))
+    Ok(new_liquidity_value)
 }

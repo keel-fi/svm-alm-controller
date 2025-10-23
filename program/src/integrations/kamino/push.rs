@@ -21,7 +21,7 @@ use crate::{
             RefreshObligationAfterInit,
         },
         pdas::derive_user_metadata_address,
-        protocol_state::{get_liquidity_and_lp_amount, Obligation},
+        protocol_state::{get_liquidity_amount, Obligation},
         shared_sync::sync_kamino_liquidity_value,
         validations::PushPullKaminoAccounts,
     },
@@ -198,8 +198,8 @@ pub fn process_push_kamino(
         vault.amount()
     };
 
-    let (liquidity_value_before, _) =
-        get_liquidity_and_lp_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
+    let liquidity_value_before =
+        get_liquidity_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
 
     // Perform kamino deposit liquidity cpi
     DepositReserveLiquidityAndObligationCollateralV2 {
@@ -236,8 +236,8 @@ pub fn process_push_kamino(
     };
     let liquidity_amount_delta = liquidity_amount_before.saturating_sub(liquidity_amount_after);
 
-    let (liquidity_value_after, lp_amount_after) =
-        get_liquidity_and_lp_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
+    let liquidity_value_after =
+        get_liquidity_amount(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
     let liquidity_value_delta = liquidity_value_after.saturating_sub(liquidity_value_before);
 
     // In order to reflect the actual value of the liquidity deposit,
