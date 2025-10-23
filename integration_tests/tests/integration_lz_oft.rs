@@ -501,7 +501,6 @@ mod tests {
         assert_eq!(oft_receipt.amount_sent_ld, amount);
         assert_eq!(oft_receipt.amount_received_ld, amount);
 
-        let check_delta = vault_balance_delta;
         // Assert accounting events
         let expected_debit_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: controller_pk,
@@ -509,7 +508,7 @@ mod tests {
             reserve: Some(reserve_keys.pubkey),
             mint: USDS_TOKEN_MINT_PUBKEY,
             action: AccountingAction::BridgeSend,
-            delta: check_delta,
+            delta: vault_balance_delta,
             direction: AccountingDirection::Debit,
         });
         assert_contains_controller_cpi_event!(
@@ -524,7 +523,7 @@ mod tests {
             reserve: None,
             mint: USDS_TOKEN_MINT_PUBKEY,
             action: AccountingAction::BridgeSend,
-            delta: check_delta,
+            delta: vault_balance_delta,
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(

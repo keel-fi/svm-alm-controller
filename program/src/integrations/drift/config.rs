@@ -25,10 +25,12 @@ impl DriftConfig {
         spot_market_index: u16,
     ) -> Result<(), ProgramError> {
         let drift_user_pda = derive_drift_user_pda(controller_authority, self.sub_account_id)?;
+
         if drift_user_pda.ne(drift_user) {
             msg!("drift_user: does not match config");
             return Err(ProgramError::InvalidAccountData);
         }
+
         if spot_market_index.ne(&self.spot_market_index) {
             msg!("spot_market_index: does not match config");
             return Err(ProgramError::InvalidAccountData);

@@ -38,21 +38,25 @@ define_account_struct! {
 impl<'info> PushDriftAccounts<'info> {
     pub fn checked_from_accounts(
         config: &IntegrationConfig,
-        accounts_infos: &'info [AccountInfo],
+        outer_ctx: &'info PushAccounts,
         spot_market_index: u16,
     ) -> Result<Self, ProgramError> {
-        let ctx = Self::from_accounts(accounts_infos)?;
+        let ctx = Self::from_accounts(outer_ctx.remaining_accounts)?;
         let config = match config {
             IntegrationConfig::Drift(config) => config,
             _ => return Err(ProgramError::InvalidAccountData),
         };
-        if spot_market_index != config.spot_market_index {
-            msg!("spot_market_index: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
+
+        config.check_accounts(
+            outer_ctx.controller_authority.key(),
+            ctx.user.key(),
+            spot_market_index,
+        )?;
+
         Ok(ctx)
     }
 }
+
 pub fn process_push_drift(
     controller: &Controller,
     permission: &Permission,
@@ -81,11 +85,8 @@ pub fn process_push_drift(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PushDriftAccounts::checked_from_accounts(
-        &integration.config,
-        &outer_ctx.remaining_accounts,
-        market_index,
-    )?;
+    let inner_ctx =
+        PushDriftAccounts::checked_from_accounts(&integration.config, &outer_ctx, market_index)?;
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
@@ -111,12 +112,12 @@ pub fn process_push_drift(
 
     // Track the user token account balance before the transfer
     let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
-    let user_token_balance_before = reserve_vault.amount();
+    let reserve_vault_balance_before = reserve_vault.amount();
     drop(reserve_vault);
 
-    let liquidity_value_account = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let liquidity_value_balance_before = liquidity_value_account.amount();
-    drop(liquidity_value_account);
+    let spot_market_vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
+    let spot_market_vault_balance_before = spot_market_vault.amount();
+    drop(spot_market_vault);
 
     Deposit {
         state: &inner_ctx.state,
@@ -147,19 +148,19 @@ pub fn process_push_drift(
     // Reload the user token account to check its balance
     let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
     let reserve_mint = reserve_vault.mint();
-    let user_token_balance_after = reserve_vault.amount();
-    let check_delta = user_token_balance_before
-        .checked_sub(user_token_balance_after)
+    let reserve_vault_balance_after = reserve_vault.amount();
+    let reserve_vault_balance_delta = reserve_vault_balance_before
+        .checked_sub(reserve_vault_balance_after)
         .unwrap();
-    if check_delta != amount {
-        msg! {"check_delta: transfer did not match the user token account balance change"};
+    if reserve_vault_balance_delta != amount {
+        msg! {"reserve_vault_delta: transfer did not match the expected amount"};
         return Err(ProgramError::InvalidArgument);
     }
 
-    let liquidity_value_account = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let liquidity_value_balance_after = liquidity_value_account.amount();
-    let liquidity_value_delta = liquidity_value_balance_after
-        .checked_sub(liquidity_value_balance_before)
+    let spot_market_vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
+    let spot_market_vault_balance_after = spot_market_vault.amount();
+    let liquidity_value_delta = spot_market_vault_balance_after
+        .checked_sub(spot_market_vault_balance_before)
         .unwrap();
 
     // Emit accounting event for credit Integration
@@ -189,7 +190,7 @@ pub fn process_push_drift(
             reserve: Some(*outer_ctx.reserve_a.key()),
             direction: AccountingDirection::Debit,
             action: AccountingAction::Deposit,
-            delta: check_delta,
+            delta: reserve_vault_balance_delta,
         }),
     )?;
 
@@ -204,8 +205,8 @@ pub fn process_push_drift(
 
     let clock = Clock::get()?;
 
-    integration.update_rate_limit_for_outflow(clock, check_delta)?;
-    reserve.update_for_outflow(clock, check_delta, false)?;
+    integration.update_rate_limit_for_outflow(clock, reserve_vault_balance_delta)?;
+    reserve.update_for_outflow(clock, reserve_vault_balance_delta, false)?;
 
     Ok(())
 }
