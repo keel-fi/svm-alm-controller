@@ -2669,6 +2669,8 @@ mod tests {
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
         kamino_init_ix.accounts[15].pubkey = market_authority_pk;
 
+        svm.expire_blockhash();
+
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
         test_invalid_accounts!(
             svm.clone(),
