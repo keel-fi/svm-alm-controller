@@ -3,13 +3,13 @@ use core::ops::{Div, Mul};
 use crate::integrations::kamino::{
     constants::{
         FARMS_GLOBAL_CONFIG_DISCRIMINATOR, FARM_STATE_DISCRIMINATOR, OBLIGATION_DISCRIMINATOR,
-        RESERVE_DISCRIMINATOR, USER_FARM_STATE_DISCRIMINATOR,
+        RESERVE_DISCRIMINATOR,
     },
     initialize::InitializeKaminoAccounts,
 };
 use bytemuck::{Pod, Zeroable};
 use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
-use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
 
 // --------- from KLEND program ---------
 
@@ -696,84 +696,6 @@ impl GlobalConfig {
         }
 
         bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
-#[repr(C, packed)]
-pub struct UserState {
-    pub user_id: u64,
-    pub farm_state: Pubkey,
-    pub owner: Pubkey,
-    pub is_farm_delegated: u8,
-    pub _padding_0: [u8; 7],
-    pub rewards_tally_scaled: [u128; 10],
-    pub rewards_issued_unclaimed: [u64; 10],
-    pub last_claim_ts: [u64; 10],
-    pub active_stake_scaled: u128,
-    pub pending_deposit_stake_scaled: u128,
-    pub pending_deposit_stake_ts: u64,
-    pub pending_withdrawal_unstake_scaled: u128,
-    pub pending_withdrawal_unstake_ts: u64,
-    pub bump: u64,
-    pub delegatee: Pubkey,
-    pub last_stake_ts: u64,
-    // padding expanded into 2 chunks to be Pod (length 50)
-    pub _padding_1: [u64; 32],
-    pub _padding_2: [u64; 18],
-}
-
-impl UserState {
-    const DISCRIMINATOR: [u8; 8] = USER_FARM_STATE_DISCRIMINATOR;
-
-    /// Load GlobalConfig account and check discriminator
-    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
-        if discriminator != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
-    pub fn get_rewards(
-        user_state: &AccountInfo,
-        global_config: &AccountInfo,
-        reward_index: usize,
-    ) -> Result<u64, ProgramError> {
-        let user_state_data = user_state.try_borrow_data()?;
-        let user_state = Self::load_checked(&user_state_data)?;
-
-        let reward = user_state.rewards_issued_unclaimed[reward_index];
-        if reward == 0 {
-            return Ok(0);
-        }
-
-        let global_config_data = global_config.try_borrow_data()?;
-        let global_config_state = GlobalConfig::load_checked(&global_config_data)?;
-        let reward_treasury =
-            Self::u64_mul_div(reward, global_config_state.treasury_fee_bps, 10000)?;
-        let reward_user = reward
-            .checked_sub(reward_treasury)
-            .ok_or_else(|| ProgramError::ArithmeticOverflow)?;
-
-        Ok(reward_user)
-    }
-
-    fn u64_mul_div(a: u64, b: u64, c: u64) -> Result<u64, ProgramError> {
-        let a: u128 = a.into();
-        let b: u128 = b.into();
-        let c: u128 = c.into();
-
-        let numerator = a.checked_mul(b).ok_or(ProgramError::ArithmeticOverflow)?;
-
-        let result = numerator
-            .checked_div(c)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-
-        result
-            .try_into()
-            .map_err(|_| ProgramError::ArithmeticOverflow)
     }
 }
 

@@ -1,5 +1,4 @@
 use pinocchio::{
-    account_info::AccountInfo,
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
