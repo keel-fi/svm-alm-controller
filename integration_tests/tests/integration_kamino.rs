@@ -1178,6 +1178,15 @@ mod tests {
             rewards_unclaimed,
         )?;
 
+        // Refresh the kamino reserve to ensure it's not stale before sync
+        refresh_kamino_reserve(
+            &mut svm,
+            &super_authority,
+            &kamino_config.reserve,
+            &kamino_config.market,
+            &KAMINO_FARMS_PROGRAM_ID,
+        )?;
+
         let harvest_acounts = HarvestRewardAccounts {
             rewards_mint: &reward_mint,
             global_config: &farms_context.global_config,
