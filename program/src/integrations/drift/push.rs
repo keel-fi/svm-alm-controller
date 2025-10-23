@@ -85,11 +85,8 @@ pub fn process_push_drift(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PushDriftAccounts::checked_from_accounts(
-        &integration.config,
-        &outer_ctx,
-        market_index,
-    )?;
+    let inner_ctx =
+        PushDriftAccounts::checked_from_accounts(&integration.config, &outer_ctx, market_index)?;
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
