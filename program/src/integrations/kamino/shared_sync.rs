@@ -3,7 +3,7 @@ use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::
 use crate::{
     enums::IntegrationState,
     integrations::{
-        kamino::protocol_state::get_liquidity_amount,
+        kamino::balance::get_kamino_lending_balance,
         shared::lending_markets::emit_lending_balance_sync_event,
     },
     state::{Controller, Integration},
@@ -27,7 +27,7 @@ pub fn sync_kamino_liquidity_value(
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
-    let new_liquidity_value = get_liquidity_amount(kamino_reserve, obligation)?;
+    let new_liquidity_value = get_kamino_lending_balance(kamino_reserve, obligation)?;
 
     emit_lending_balance_sync_event(
         controller,

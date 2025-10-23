@@ -107,7 +107,6 @@ pub fn process_push_drift(
         &reserve.mint,
         spot_market,
         inner_ctx.user,
-        market_index,
     )?;
 
     // Track the user token account balance before the transfer
