@@ -11,10 +11,16 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
+    error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::drift::{
-        constants::DRIFT_PROGRAM_ID, cpi::Deposit, shared_sync::sync_drift_balance,
+        constants::DRIFT_PROGRAM_ID,
+        cpi::Deposit,
+        pdas::{
+            derive_drift_spot_market_vault_pda, derive_drift_state_pda, derive_drift_user_stats_pda,
+        },
+        shared_sync::sync_drift_balance,
         utils::find_spot_market_account_info_by_id,
     },
     processor::PushAccounts,
@@ -27,6 +33,7 @@ define_account_struct! {
         user: mut @owner(DRIFT_PROGRAM_ID);
         user_stats: mut @owner(DRIFT_PROGRAM_ID);
         spot_market_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // this account is checked inside reserve.sync_balance
         reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
@@ -51,6 +58,25 @@ impl<'info> PushDriftAccounts<'info> {
             ctx.user.key(),
             spot_market_index,
         )?;
+
+        let drift_state_pda = derive_drift_state_pda()?;
+        if drift_state_pda.ne(ctx.state.key()) {
+            msg! {"drift state: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        let drift_user_stats_pda =
+            derive_drift_user_stats_pda(outer_ctx.controller_authority.key())?;
+        if drift_user_stats_pda.ne(ctx.user_stats.key()) {
+            msg! {"drift user stats: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        let spot_market_vault_pda = derive_drift_spot_market_vault_pda(spot_market_index)?;
+        if spot_market_vault_pda.ne(ctx.spot_market_vault.key()) {
+            msg! {"drift spot market vault: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
 
         Ok(ctx)
     }

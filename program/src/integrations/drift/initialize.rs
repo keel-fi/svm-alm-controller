@@ -1,13 +1,18 @@
 use account_zerocopy_deserialize::AccountZerocopyDeserialize;
+use pinocchio::account_info::AccountInfo;
 use pinocchio::instruction::Seed;
 use pinocchio::msg;
 use pinocchio::sysvars::rent::RENT_ID;
 use pinocchio::{instruction::Signer, program_error::ProgramError};
 
-use crate::account_utils::account_is_uninitialized;
 use crate::constants::CONTROLLER_AUTHORITY_SEED;
+use crate::error::SvmAlmControllerErrors;
 use crate::instructions::InitializeArgs;
 use crate::integrations::drift::cpi::InitializeUser;
+use crate::integrations::drift::pdas::{
+    derive_drift_spot_market_pda, derive_drift_state_pda, derive_drift_user_pda,
+    derive_drift_user_stats_pda,
+};
 use crate::integrations::drift::protocol_state::SpotMarket;
 use crate::integrations::shared::lending_markets::LendingState;
 use crate::state::Controller;
@@ -26,14 +31,51 @@ Initialize a Drift Integration. Each integration is for a specific
 Mint under a specific subaccount (aka User).
  */
 define_account_struct! {
-  pub struct InitializeDriftAccounts<'info> {
-      drift_user: mut;
-      drift_user_stats: mut;
-      drift_state: mut, @owner(DRIFT_PROGRAM_ID);
-      drift_spot_market: @owner(DRIFT_PROGRAM_ID);
-      rent: @pubkey(RENT_ID);
-      drift_program: @pubkey(DRIFT_PROGRAM_ID);
-  }
+    pub struct InitializeDriftAccounts<'info> {
+        drift_user: mut;
+        drift_user_stats: mut;
+        drift_state: mut, @owner(DRIFT_PROGRAM_ID);
+        drift_spot_market: @owner(DRIFT_PROGRAM_ID);
+        rent: @pubkey(RENT_ID);
+        drift_program: @pubkey(DRIFT_PROGRAM_ID);
+    }
+}
+
+impl<'info> InitializeDriftAccounts<'info> {
+    pub fn checked_from_accounts(
+        account_infos: &'info [AccountInfo],
+        controller_authority: &'info AccountInfo,
+        sub_account_id: u16,
+        spot_market_index: u16,
+    ) -> Result<Self, ProgramError> {
+        let ctx = InitializeDriftAccounts::from_accounts(account_infos)?;
+
+        let drift_user_pda = derive_drift_user_pda(controller_authority.key(), sub_account_id)?;
+        if drift_user_pda.ne(ctx.drift_user.key()) {
+            msg! {"drift user: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        let drift_user_stats_pda = derive_drift_user_stats_pda(controller_authority.key())?;
+        if drift_user_stats_pda.ne(ctx.drift_user_stats.key()) {
+            msg! {"drift user stats: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        let drift_state_pda = derive_drift_state_pda()?;
+        if drift_state_pda.ne(ctx.drift_state.key()) {
+            msg! {"drift state: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        let drift_spot_market_pda = derive_drift_spot_market_pda(spot_market_index)?;
+        if drift_spot_market_pda.ne(ctx.drift_spot_market.key()) {
+            msg! {"drift spot market: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        Ok(ctx)
+    }
 }
 
 pub fn process_initialize_drift(
@@ -41,7 +83,6 @@ pub fn process_initialize_drift(
     outer_args: &InitializeIntegrationArgs,
     controller: &Controller,
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
-    let inner_ctx = InitializeDriftAccounts::from_accounts(outer_ctx.remaining_accounts)?;
     let (sub_account_id, spot_market_index) = match outer_args.inner_args {
         InitializeArgs::Drift {
             sub_account_id,
@@ -49,6 +90,13 @@ pub fn process_initialize_drift(
         } => (sub_account_id, spot_market_index),
         _ => return Err(ProgramError::InvalidArgument),
     };
+
+    let inner_ctx = InitializeDriftAccounts::checked_from_accounts(
+        outer_ctx.remaining_accounts,
+        outer_ctx.controller_authority,
+        sub_account_id,
+        spot_market_index,
+    )?;
 
     // Check that the spot_market_index is valid and matches a Drift SpotMarket
     let spot_market_data = inner_ctx.drift_spot_market.try_borrow_data()?;
@@ -58,8 +106,11 @@ pub fn process_initialize_drift(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Initialize UserStats when it does not exist
-    if account_is_uninitialized(inner_ctx.drift_user_stats) {
+    // Initialize UserStats if owned by system program
+    if inner_ctx
+        .drift_user_stats
+        .is_owned_by(&pinocchio_system::ID)
+    {
         InitializeUserStats {
             user_stats: inner_ctx.drift_user_stats,
             state: inner_ctx.drift_state,
@@ -75,8 +126,8 @@ pub fn process_initialize_drift(
         ])])?;
     }
 
-    // Initialize Drift User when it does not exist
-    if account_is_uninitialized(inner_ctx.drift_user) {
+    // Initialize Drift User if owned by system program
+    if inner_ctx.drift_user.is_owned_by(&pinocchio_system::ID) {
         InitializeUser {
             user: inner_ctx.drift_user,
             user_stats: inner_ctx.drift_user_stats,

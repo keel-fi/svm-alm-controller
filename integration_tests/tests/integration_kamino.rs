@@ -7,9 +7,10 @@ mod tests {
         helpers::{
             assert::assert_custom_error,
             constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY},
-            kamino::state::klend::{KaminoReserve, LastUpdate, Obligation},
+            kamino::state::klend::{KaminoReserve, Obligation},
             setup_test_controller,
             spl::SPL_TOKEN_PROGRAM_ID,
+            utils::create_account_clone_w_new_pk,
             TestContext,
         },
         subs::{
@@ -142,14 +143,6 @@ mod tests {
         )?;
 
         Ok(reserve_keys)
-    }
-
-    fn create_account_clone_w_new_pk(svm: &mut LiteSVM, acc_pk: &Pubkey) -> Pubkey {
-        let acc_data = svm.get_account(&acc_pk).expect("failed to fetch account");
-        let new_acc_pk = Pubkey::new_unique();
-        svm.set_account(new_acc_pk, acc_data)
-            .expect("failed to set account");
-        new_acc_pk
     }
 
     fn get_push_ix(
@@ -2307,7 +2300,7 @@ mod tests {
         let KaminoTestContext {
             lending_market,
             reserve_context,
-            farms_context,
+            farms_context: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,

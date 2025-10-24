@@ -6,9 +6,11 @@ mod tests {
 
     use std::u64;
 
+    use crate::helpers::assert::assert_custom_error;
     use crate::helpers::drift::spot_market_accrue_cumulative_interest;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
+    use crate::helpers::utils::create_account_clone_w_new_pk;
     use crate::subs::{fetch_reserve_account, get_mint, get_token_balance_or_zero};
     use crate::{
         assert_contains_controller_cpi_event,
@@ -32,6 +34,7 @@ mod tests {
         transaction::{Transaction, TransactionError},
     };
     use spl_token;
+    use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
     use svm_alm_controller_client::pull::drift::create_drift_pull_instruction;
     use svm_alm_controller_client::{
@@ -615,18 +618,12 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        // Get integration state before sync (not used in this test but kept for completeness)
-        let _integration_before = fetch_integration_account(&svm, &integration_pubkey)
-            .expect("integration should exist")
-            .unwrap();
-
         // Create the sync instruction
         let sync_ix = create_drift_sync_integration_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
-            &reserve_keys.vault,
             spot_market_index,
             sub_account_id,
         )?;
@@ -951,7 +948,6 @@ mod tests {
             super_authority,
         } = setup_test_controller()?;
 
-        let controller_authority = derive_controller_authority_pda(&controller_pk);
         setup_drift_state(&mut svm);
 
         // Create two additional token mints for two additional reserves
@@ -1108,8 +1104,6 @@ mod tests {
             vault_start_amount,
         )?;
 
-        let _clock = svm.get_sysvar::<Clock>();
-
         // Verify both integrations were created properly
         let integration_1 = fetch_integration_account(&svm, &integration_pubkey_1)
             .expect("integration 1 should exist")
@@ -1260,7 +1254,6 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey_1,
             &reserve_keys_1.pubkey,
-            &reserve_keys_1.vault,
             spot_market_index_1,
             sub_account_id_1,
         )?;
@@ -1270,7 +1263,6 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey_2,
             &reserve_keys_2.pubkey,
-            &reserve_keys_2.vault,
             spot_market_index_2,
             sub_account_id_2,
         )?;
@@ -1793,7 +1785,6 @@ mod tests {
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
         // Set up User account with spot position for the market
-        let controller_authority = derive_controller_authority_pda(&controller_pk);
         let sub_account_id = 0;
 
         // Initialize Drift Integration
@@ -2187,7 +2178,7 @@ mod tests {
         let rate_limit_slope = 1_000_000_000_000;
         let rate_limit_max_outflow = 2_000_000_000_000;
         let permit_liquidation = true;
-        let init_ix = create_drift_initialize_integration_instruction(
+        let mut init_ix = create_drift_initialize_integration_instruction(
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
@@ -2199,6 +2190,55 @@ mod tests {
             sub_account_id,
             spot_market_index,
         );
+
+        // invalid drift_user pubkey
+        let drift_user_pk = init_ix.accounts[8].pubkey;
+        init_ix.accounts[8].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        init_ix.accounts[8].pubkey = drift_user_pk;
+
+        // invalid drift_user_stats pubkey
+        let drift_user_stats_pk = init_ix.accounts[9].pubkey;
+        init_ix.accounts[9].pubkey = Pubkey::new_unique();
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        init_ix.accounts[9].pubkey = drift_user_stats_pk;
+
+        // invalid drift_state pubkey
+        let drift_state_pk = init_ix.accounts[10].pubkey;
+        init_ix.accounts[10].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_state_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        init_ix.accounts[10].pubkey = drift_state_pk;
+
+        // invalid drift_spot_market pubkey
+        let drift_spot_market_pk = init_ix.accounts[11].pubkey;
+        init_ix.accounts[11].pubkey =
+            create_account_clone_w_new_pk(&mut svm, &drift_spot_market_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        init_ix.accounts[11].pubkey = drift_spot_market_pk;
 
         // Test invalid accounts for the inner context accounts (remaining_accounts)
         // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
@@ -2312,7 +2352,7 @@ mod tests {
         // Create a valid drift push instruction
         let push_amount = 100_000_000;
         let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
-        let push_ix = create_drift_push_instruction(
+        let mut push_ix = create_drift_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &token_mint,
@@ -2325,6 +2365,73 @@ mod tests {
             push_amount,
             &inner_remaining_accounts,
         )?;
+
+        // invalid state pubkey
+        let drift_state_pk = push_ix.accounts[7].pubkey;
+        push_ix.accounts[7].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_state_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        push_ix.accounts[7].pubkey = drift_state_pk;
+
+        // invalid user pubkey
+        let user_pk = push_ix.accounts[8].pubkey;
+        push_ix.accounts[8].pubkey = create_account_clone_w_new_pk(&mut svm, &user_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        push_ix.accounts[8].pubkey = user_pk;
+
+        // invalid user_stats pubkey
+        let drift_user_stats_pk = push_ix.accounts[9].pubkey;
+        push_ix.accounts[9].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_user_stats_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        push_ix.accounts[9].pubkey = drift_user_stats_pk;
+
+        // invalid spot_market_vault pubkey
+        let drift_spot_market_vault_pk = push_ix.accounts[10].pubkey;
+        push_ix.accounts[10].pubkey =
+            create_account_clone_w_new_pk(&mut svm, &drift_spot_market_vault_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        push_ix.accounts[10].pubkey = drift_spot_market_vault_pk;
+
+        // invalid reserve_vault pubkey
+        let reserve_vault_pk = push_ix.accounts[11].pubkey;
+        push_ix.accounts[11].pubkey = create_account_clone_w_new_pk(&mut svm, &reserve_vault_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[push_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        push_ix.accounts[11].pubkey = reserve_vault_pk;
 
         // Test invalid accounts for the inner context accounts (remaining_accounts)
         // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
@@ -2467,7 +2574,7 @@ mod tests {
         // Create a valid drift pull instruction
         let pull_amount = 50_000_000;
         let inner_remaining_accounts = get_inner_remaining_accounts(&[spot_market]);
-        let pull_ix = create_drift_pull_instruction(
+        let mut pull_ix = create_drift_pull_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &token_mint,
@@ -2480,6 +2587,73 @@ mod tests {
             pull_amount,
             &inner_remaining_accounts,
         )?;
+
+        // invalid state pubkey
+        let drift_state_pk = pull_ix.accounts[7].pubkey;
+        pull_ix.accounts[7].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_state_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[pull_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        pull_ix.accounts[7].pubkey = drift_state_pk;
+
+        // invalid user pubkey
+        let user_pk = pull_ix.accounts[8].pubkey;
+        pull_ix.accounts[8].pubkey = create_account_clone_w_new_pk(&mut svm, &user_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[pull_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        pull_ix.accounts[8].pubkey = user_pk;
+
+        // invalid user_stats pubkey
+        let drift_user_stats_pk = pull_ix.accounts[9].pubkey;
+        pull_ix.accounts[9].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_user_stats_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[pull_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        pull_ix.accounts[9].pubkey = drift_user_stats_pk;
+
+        // invalid spot_market_vault pubkey
+        let drift_spot_market_vault_pk = pull_ix.accounts[10].pubkey;
+        pull_ix.accounts[10].pubkey =
+            create_account_clone_w_new_pk(&mut svm, &drift_spot_market_vault_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[pull_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        pull_ix.accounts[10].pubkey = drift_spot_market_vault_pk;
+
+        // invalid reserve_vault pubkey
+        let reserve_vault_pk = pull_ix.accounts[12].pubkey;
+        pull_ix.accounts[12].pubkey = create_account_clone_w_new_pk(&mut svm, &reserve_vault_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[pull_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        pull_ix.accounts[12].pubkey = reserve_vault_pk;
 
         // Test invalid accounts for the inner context accounts (remaining_accounts)
         // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
@@ -2579,19 +2753,55 @@ mod tests {
         )?;
 
         // Create the sync instruction
-        let sync_ix = create_drift_sync_integration_instruction(
+        let mut sync_ix = create_drift_sync_integration_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
-            &reserve_keys.vault,
             spot_market_index,
             sub_account_id,
         )?;
 
+        // invalid spot_market_vault pubkey
+        let drift_spot_market_vault_pk = sync_ix.accounts[5].pubkey;
+        sync_ix.accounts[5].pubkey =
+            create_account_clone_w_new_pk(&mut svm, &drift_spot_market_vault_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[sync_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        sync_ix.accounts[5].pubkey = drift_spot_market_vault_pk;
+
+        // invalid spot_market pubkey
+        let drift_spot_market_pk = sync_ix.accounts[6].pubkey;
+        sync_ix.accounts[6].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_spot_market_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[sync_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        sync_ix.accounts[6].pubkey = drift_spot_market_pk;
+
+        // invalid drift_user pubkey
+        let drift_user_pk = sync_ix.accounts[7].pubkey;
+        sync_ix.accounts[7].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_user_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[sync_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        sync_ix.accounts[7].pubkey = drift_user_pk;
+
         // Test invalid accounts for the inner context accounts (remaining_accounts)
         // The remaining_accounts start at index 5 (after controller, controller_authority, payer, integration, reserve)
-        // Inner accounts are: spot_market_vault(5), spot_market(6), user(7), reserve_vault(8), drift_program(9)
+        // Inner accounts are: spot_market_vault(5), spot_market(6), user(7), drift_program(8)
         test_invalid_accounts!(
             svm,
             super_authority.pubkey(),
@@ -2601,8 +2811,7 @@ mod tests {
                 5 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
                 6 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
                 7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
-                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve vault: Invalid owner"),
-                9 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+                8 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
             }
         )?;
 
