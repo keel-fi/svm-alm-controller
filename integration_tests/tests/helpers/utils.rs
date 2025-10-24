@@ -1,4 +1,3 @@
-use litesvm::LiteSVM;
 use solana_sdk::pubkey::Pubkey;
 
 /// Get the encoded Program return data from a list of log messages.
@@ -13,12 +12,4 @@ pub fn get_program_return_data(logs: Vec<String>, program_id: &Pubkey) -> Option
         }
     }
     None
-}
-
-pub fn create_account_clone_w_new_pk(svm: &mut LiteSVM, acc_pk: &Pubkey) -> Pubkey {
-    let acc_data = svm.get_account(&acc_pk).expect("failed to fetch account");
-    let new_acc_pk = Pubkey::new_unique();
-    svm.set_account(new_acc_pk, acc_data)
-        .expect("failed to set account");
-    new_acc_pk
 }
