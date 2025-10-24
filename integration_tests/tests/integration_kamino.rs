@@ -3581,7 +3581,7 @@ mod tests {
 
         // Now manipulate the Kamino reserve to make it stale AFTER refresh
         // We need to modify the last_update field to make it stale
-        let kamino_reserve_account = svm
+        let mut kamino_reserve_account = svm
             .get_account(&kamino_config.reserve)
             .expect("Failed to fetch kamino reserve");
 
@@ -3592,33 +3592,13 @@ mod tests {
 
         // Create a new LastUpdate with stale data using bytemuck
         // Since LastUpdate fields are private, we'll create it from raw bytes
-        let stale_slot = 0u64; // Set to 0, but we'll make current_slot higher
-        let stale_flag = 1u8; // Set stale flag to true
-        let price_status = 0u8; // Set price status to 0 (no flags set)
-        let padding = [0u8; 6];
+        kamino_reserve.last_update.slot = 0u64; // Set to 0, but we'll make current_slot higher
+        kamino_reserve.last_update.stale = 1u8; // Set stale flag to true
+        kamino_reserve.last_update.price_status = 0u8; // Set price status to 0 (no flags set)
+        kamino_reserve.last_update.placeholder = [0u8; 6];
 
-        // Create the LastUpdate struct from raw bytes
-        let mut last_update_bytes = Vec::new();
-        last_update_bytes.extend_from_slice(&stale_slot.to_le_bytes());
-        last_update_bytes.extend_from_slice(&stale_flag.to_le_bytes());
-        last_update_bytes.extend_from_slice(&price_status.to_le_bytes());
-        last_update_bytes.extend_from_slice(&padding);
-
-        let stale_last_update: LastUpdate = *bytemuck::try_from_bytes(&last_update_bytes)
-            .map_err(|_| "Failed to create LastUpdate from bytes")?;
-
-        // Create a new KaminoReserve with the stale last_update
-        kamino_reserve.last_update = stale_last_update;
-
-        // Serialize the modified reserve data back
-        let mut modified_data = Vec::new();
-        modified_data.extend_from_slice(&KaminoReserve::DISCRIMINATOR);
-        modified_data.extend_from_slice(bytemuck::bytes_of(kamino_reserve));
-
-        // Update the account with the modified data
-        let mut modified_account = kamino_reserve_account.clone();
-        modified_account.data = modified_data;
-        svm.set_account(kamino_config.reserve, modified_account)?;
+        kamino_reserve_account.data = bytemuck::bytes_of(kamino_reserve).to_vec();
+        svm.set_account(kamino_config.reserve, kamino_reserve_account)?;
 
         // Initialize rewards ATA for harvesting
         let _rewards_ata = initialize_ata(
