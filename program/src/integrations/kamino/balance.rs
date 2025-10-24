@@ -39,7 +39,7 @@ pub fn get_kamino_lending_balance(
     }
 
     let kamino_reserve_data = kamino_reserve.try_borrow_data()?;
-    let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+    let kamino_reserve_state = KaminoReserve::try_from_slice(&kamino_reserve_data)?;
     let liquidity_value = kamino_reserve_state.collateral_to_liquidity(lp_amount);
 
     Ok(liquidity_value)

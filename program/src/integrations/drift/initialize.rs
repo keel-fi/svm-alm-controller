@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::instruction::Seed;
 use pinocchio::msg;
 use pinocchio::sysvars::rent::RENT_ID;
@@ -51,7 +52,7 @@ pub fn process_initialize_drift(
 
     // Check that the spot_market_index is valid and matches a Drift SpotMarket
     let spot_market_data = inner_ctx.drift_spot_market.try_borrow_data()?;
-    let spot_market = SpotMarket::load_checked(&spot_market_data)?;
+    let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
     if spot_market.market_index != spot_market_index {
         msg!("spot_market: Invalid market index");
         return Err(ProgramError::InvalidAccountData);

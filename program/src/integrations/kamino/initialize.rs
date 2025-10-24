@@ -144,7 +144,7 @@ pub fn process_initialize_kamino(
 
     let kamino_reserve_has_collateral_farm = {
         let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
-        let kamino_reserve = KaminoReserve::load_checked(&kamino_reserve_data)?;
+        let kamino_reserve = KaminoReserve::try_from_slice(&kamino_reserve_data)?;
         kamino_reserve.check_from_init_accounts(&inner_ctx)?;
         kamino_reserve.has_collateral_farm()
     };

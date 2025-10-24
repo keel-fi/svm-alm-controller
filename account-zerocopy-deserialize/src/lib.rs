@@ -1,14 +1,12 @@
 use bytemuck::Pod;
 use pinocchio::program_error::ProgramError;
 
-pub trait SizedDiscriminator<const N: usize> {
-    const DISCRIMINATOR: [u8; N];
-}
-
 /// Trait to deserialize accounts that are bytemuck compatible with a
 /// sized discriminator. This will work for anchor generated 8-byte
 /// discriminators as well as custom sized discriminators.
-pub trait AccountZerocopyDeserialize<const N: usize>: Sized + Pod + SizedDiscriminator<N> {
+pub trait AccountZerocopyDeserialize<const N: usize>: Sized + Pod {
+    const DISCRIMINATOR: [u8; N];
+
     /// Deserialize account into immutable struct.
     fn try_from_slice(data: &[u8]) -> Result<&Self, ProgramError> {
         let disc_len = Self::DISCRIMINATOR.len();

@@ -1,7 +1,8 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use bytemuck::{Pod, Zeroable};
-use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::pubkey::Pubkey;
 
-use crate::integrations::kamino::constants::FARM_STATE_DISCRIMINATOR;
+use crate::constants::anchor_discriminator;
 
 // --------- State copied from kfarms program ---------
 // Note: we make slight modifications such as changing
@@ -94,18 +95,11 @@ pub struct FarmState {
     pub _padding_3: [u64; 10],
 }
 
+impl AccountZerocopyDeserialize<8> for FarmState {
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "FarmState");
+}
+
 impl FarmState {
-    const DISCRIMINATOR: [u8; 8] = FARM_STATE_DISCRIMINATOR;
-
-    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
-        if discriminator != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     pub fn find_reward_index_and_rewards_available(
         &self,
         reward_mint: &Pubkey,

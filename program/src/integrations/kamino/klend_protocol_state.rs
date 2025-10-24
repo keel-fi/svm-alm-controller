@@ -1,10 +1,9 @@
 use core::ops::{Div, Mul};
 
-use crate::integrations::kamino::{
-    constants::{OBLIGATION_DISCRIMINATOR, RESERVE_DISCRIMINATOR},
-    initialize::InitializeKaminoAccounts,
+use crate::{
+    constants::anchor_discriminator, integrations::kamino::initialize::InitializeKaminoAccounts,
 };
-use account_zerocopy_deserialize::{AccountZerocopyDeserialize, SizedDiscriminator};
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use bytemuck::{Pod, Zeroable};
 use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
 use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
@@ -305,18 +304,11 @@ pub struct KaminoReserve {
     pub _padding_7: [u64; 15],
 }
 
+impl AccountZerocopyDeserialize<8> for KaminoReserve {
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "Reserve");
+}
+
 impl KaminoReserve {
-    pub const DISCRIMINATOR: [u8; 8] = RESERVE_DISCRIMINATOR;
-
-    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        let discriminator = data.get(..8).ok_or(ProgramError::InvalidAccountData)?;
-        if discriminator != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     /// Verifies that:
     /// - the `Reserve` belongs to the market
     /// - the `Reserve` `liquidity_mint` matches `reserve_liquidity_mint`
@@ -497,12 +489,11 @@ pub struct Obligation {
     pub _padding_3: [u64; 29],
 }
 
-impl AccountZerocopyDeserialize<8> for Obligation {}
-impl SizedDiscriminator<8> for Obligation {
-    const DISCRIMINATOR: [u8; 8] = OBLIGATION_DISCRIMINATOR;
+impl AccountZerocopyDeserialize<8> for Obligation {
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "Obligation");
 }
-impl Obligation {
 
+impl Obligation {
     /// Verifies that:
     /// - the `Obligation` `owner` field matches `controller_authority`
     /// - the `Obligation` `lending_market` matches `market`

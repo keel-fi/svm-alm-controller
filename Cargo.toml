@@ -17,7 +17,10 @@ package.edition = "2021"
 [workspace.dependencies]
 account-zerocopy-deserialize = { path = "account-zerocopy-deserialize" }
 arrayref = "0.3.9"
+base64 = "0.22.1"
+bs58 = "0.4"
 borsh = "1.5.5"
+bytemuck = { version = "1.14", features = ["derive"] }
 byteorder = "1.5.0"
 litesvm = "0.6.0"
 pinocchio = "0.9.2"
@@ -29,6 +32,7 @@ pinocchio-token-2022 = "0.1.0"
 pinocchio-token-interface = { path = "pinocchio-token-interface" }
 pinocchio-token2022 = { path = "pinocchio-token2022" }
 pinocchio-associated-token-account = "0.2.0"
+proc-macro2 = "1.0.102"
 sha2-const-stable = "0.1.0"
 shank = "0.4.2"
 svm-alm-controller = { path = "program" }
@@ -42,8 +46,6 @@ solana-pubkey = "2.1.1"
 solana-sdk = "2.1.13"
 solana-sysvar = "2.1.21"
 solana-client = "2.1.13"
-bs58 = "0.4"
-bytemuck = { version = "1.14", features = ["derive"] }
 num-derive = "0.4.2"
 num-traits = "0.2"
 net-sdk = "2.3.1"
@@ -56,13 +58,14 @@ solana-system-interface = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 static_assertions = "1.1.0"
-base64 = "0.22.1"
+syn = "2.0.108"
+quote = "1.0.41"
 hex = "0.4"
 switchboard-on-demand = "0.3.8"
+
 oft-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "oft-client" }
 endpoint-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "endpoint-client" }
 uln-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "uln-client" }
-
 test-case = "3.3.1"
 fixed = "1.23.1"
 uint = "0.9.5"
