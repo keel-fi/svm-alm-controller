@@ -4,6 +4,7 @@ use pinocchio::{
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_associated_token_account::instructions::CreateIdempotent;
 use pinocchio_token_interface::TokenAccount;
@@ -18,7 +19,7 @@ use crate::{
         constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
         cpi::HarvestReward,
         kfarms_protocol_state::FarmState,
-        klend_protocol_state::KaminoReserve,
+        klend_protocol_state::{KaminoReserve, PriceStatusFlags},
         pdas::{
             derive_farm_vaults_authority, derive_obligation_farm_address,
             derive_rewards_treasury_vault, derive_rewards_vault,
@@ -173,6 +174,21 @@ pub fn process_sync_kamino(
     // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
     let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+
+    let clock = Clock::get()?;
+
+    // Check if the reserve is stale
+    // Use NONE as this is not a borrow
+    // if we want to borrow we should use the PriceStatusFlags::ALL_CHECKS
+    // Note: we intentionally fail to ensure the accounting at the slot is correct
+    // and the client must prepend the refresh IX to prevent error.
+    if kamino_reserve_state
+        .last_update
+        .is_stale(clock.slot, PriceStatusFlags::NONE)?
+    {
+        msg! {"reserve is stale"};
+        return Err(ProgramError::InvalidAccountData);
+    }
 
     // Claim farm rewards only if the reserve has a farm collateral
     // and the remaining accounts are included.
