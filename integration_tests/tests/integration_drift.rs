@@ -618,11 +618,6 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        // Get integration state before sync (not used in this test but kept for completeness)
-        let _integration_before = fetch_integration_account(&svm, &integration_pubkey)
-            .expect("integration should exist")
-            .unwrap();
-
         // Create the sync instruction
         let sync_ix = create_drift_sync_integration_instruction(
             &controller_pk,
@@ -953,7 +948,6 @@ mod tests {
             super_authority,
         } = setup_test_controller()?;
 
-        let _controller_authority = derive_controller_authority_pda(&controller_pk);
         setup_drift_state(&mut svm);
 
         // Create two additional token mints for two additional reserves
@@ -1109,8 +1103,6 @@ mod tests {
             &controller_authority,
             vault_start_amount,
         )?;
-
-        let _clock = svm.get_sysvar::<Clock>();
 
         // Verify both integrations were created properly
         let integration_1 = fetch_integration_account(&svm, &integration_pubkey_1)
@@ -1793,7 +1785,6 @@ mod tests {
 
         setup_mock_oracle_account(&mut svm, &spot_market.oracle, 100);
         // Set up User account with spot position for the market
-        let _controller_authority = derive_controller_authority_pda(&controller_pk);
         let sub_account_id = 0;
 
         // Initialize Drift Integration
