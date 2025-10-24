@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
@@ -163,7 +164,7 @@ pub fn process_push_kamino(
         // is not included in one of the 8 slots.
         // Use of an inner scope to avoid borrowing issues.
         let obligation_data = inner_ctx.obligation.try_borrow_data()?;
-        let obligation = Obligation::load_checked(&obligation_data)?;
+        let obligation = Obligation::try_from_slice(&obligation_data)?;
         if obligation.is_deposits_full()
             && obligation
                 .get_obligation_collateral_for_reserve(inner_ctx.kamino_reserve.key())

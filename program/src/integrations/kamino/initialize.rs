@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
@@ -143,7 +144,7 @@ pub fn process_initialize_kamino(
 
     let kamino_reserve_has_collateral_farm = {
         let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
-        let kamino_reserve = KaminoReserve::load_checked(&kamino_reserve_data)?;
+        let kamino_reserve = KaminoReserve::try_from_slice(&kamino_reserve_data)?;
         kamino_reserve.check_from_init_accounts(&inner_ctx)?;
         kamino_reserve.has_collateral_farm()
     };
@@ -192,7 +193,7 @@ pub fn process_initialize_kamino(
     } else {
         // Validate obligation is OK
         let obligation_data = inner_ctx.obligation.try_borrow_data()?;
-        let obligation = Obligation::load_checked(&obligation_data)?;
+        let obligation = Obligation::try_from_slice(&obligation_data)?;
 
         obligation.check_data(outer_ctx.controller_authority.key(), inner_ctx.market.key())?;
     }

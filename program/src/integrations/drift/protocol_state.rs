@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
@@ -246,18 +247,11 @@ pub struct SpotMarket {
     pub padding_5: [u8; 8],
 }
 
+impl AccountZerocopyDeserialize<8> for SpotMarket {
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
+}
+
 impl SpotMarket {
-    pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "SpotMarket");
-
-    /// Load SpotMarket account and check the discriminator
-    pub fn load_checked(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
-
     /// Get the balance of the spot market for a given balance type
     /// 0: deposit balance
     /// 1: borrow balance
@@ -388,14 +382,8 @@ pub struct UserStats {
     pub padding: [u8; 12],
 }
 
-impl UserStats {
-    pub const DISCRIMINATOR: [u8; 8] = [176, 223, 136, 27, 122, 79, 32, 227];
-    pub fn try_from(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
+impl AccountZerocopyDeserialize<8> for UserStats {
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "UserStats");
 }
 
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -616,12 +604,6 @@ pub struct User {
     pub padding: [u8; 12],
 }
 
-impl User {
-    pub const DISCRIMINATOR: [u8; 8] = [159, 117, 95, 227, 239, 151, 58, 236];
-    pub fn try_from(data: &[u8]) -> Result<&Self, ProgramError> {
-        if data[..8] != Self::DISCRIMINATOR {
-            return Err(ProgramError::InvalidAccountData);
-        }
-        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
-    }
+impl AccountZerocopyDeserialize<8> for User {
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "User");
 }

@@ -68,7 +68,6 @@ pub fn process_initialize_integration(
         IntegrationType::Drift => process_initialize_drift(&ctx, &args, &controller)?,
         IntegrationType::Kamino => process_initialize_kamino(&controller, &ctx, &args)?,
         // More integration types to be supported
-        _ => return Err(ProgramError::InvalidArgument),
     };
 
     // Initialize the integration account

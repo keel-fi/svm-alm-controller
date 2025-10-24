@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     instruction::{Seed, Signer},
     msg,
@@ -93,7 +94,7 @@ pub fn process_pull_kamino(
     // across other integrations, we convert from the liquidity amount
     // to the collateral amount here.
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
-    let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+    let kamino_reserve_state = KaminoReserve::try_from_slice(&kamino_reserve_data)?;
     let collateral_amount = kamino_reserve_state.liquidity_to_collateral(amount);
     drop(kamino_reserve_data);
 

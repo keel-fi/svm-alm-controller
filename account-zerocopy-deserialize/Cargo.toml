@@ -1,0 +1,9 @@
+[package]
+name = "account-zerocopy-deserialize"
+version = { workspace = true }
+edition = { workspace = true }
+description = "Shared logic for deserializing accounts that are bytemuck compatible."
+
+[dependencies]
+bytemuck = { workspace = true }
+pinocchio = { workspace = true }
