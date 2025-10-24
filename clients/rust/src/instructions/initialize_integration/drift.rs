@@ -22,6 +22,7 @@ pub fn create_drift_initialize_integration_instruction(
     payer: &Pubkey,
     controller: &Pubkey,
     authority: &Pubkey,
+    mint: &Pubkey,
     description: &str,
     status: IntegrationStatus,
     rate_limit_slope: u64,
@@ -56,6 +57,11 @@ pub fn create_drift_initialize_integration_instruction(
     let spot_market = derive_spot_market_pda(spot_market_index);
 
     let remaining_accounts = [
+        AccountMeta {
+            pubkey: *mint,
+            is_signer: false,
+            is_writable: false,
+        },
         AccountMeta {
             pubkey: user,
             is_signer: false,

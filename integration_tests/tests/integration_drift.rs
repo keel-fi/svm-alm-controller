@@ -58,11 +58,24 @@ mod tests {
             controller_pk,
             super_authority,
         } = setup_test_controller()?;
+
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+            None,
+        )?;
+
         let spot_market_index = 0;
         let oracle_price = 100;
         setup_drift_state(&mut svm);
-        set_drift_spot_market(&mut svm, spot_market_index, None, oracle_price);
-        set_drift_spot_market(&mut svm, spot_market_index + 1, None, oracle_price);
+        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price);
+        set_drift_spot_market(&mut svm, spot_market_index + 1, &mint, oracle_price);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -73,6 +86,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -161,6 +175,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -189,16 +204,24 @@ mod tests {
             controller_pk,
             super_authority,
         } = setup_test_controller()?;
+
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+            None,
+        )?;
+
         setup_drift_state(&mut svm);
 
         let spot_market_index = 0;
         let oracle_price = 100;
-        let spot_market = set_drift_spot_market(&mut svm, 0, None, oracle_price);
-
-        // overwrite with incorrect market ID
-        let mut market = svm.get_account(&spot_market.pubkey).unwrap();
-        market.data[684..686].copy_from_slice(&9u16.to_le_bytes());
-        svm.set_account(spot_market.pubkey, market).unwrap();
+        let spot_market = set_drift_spot_market(&mut svm, 0, &mint, oracle_price);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -209,6 +232,92 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &mint,
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+        );
+
+        let valid_market = svm.get_account(&spot_market.pubkey).unwrap();
+
+        // overwrite with incorrect market ID
+        let mut invalid_market = valid_market.clone();
+        invalid_market.data[684..686].copy_from_slice(&9u16.to_le_bytes());
+        svm.set_account(spot_market.pubkey, invalid_market).unwrap();
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone());
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(spot_market.pubkey, valid_market.clone()).unwrap();
+        svm.expire_blockhash();
+
+        // overwrite with incorrect mint
+        let mut invalid_market = valid_market.clone();
+        invalid_market.data[72..104].copy_from_slice(Pubkey::new_unique().as_ref());
+        svm.set_account(spot_market.pubkey, invalid_market).unwrap();
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone());
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
+        svm.set_account(spot_market.pubkey, valid_market).unwrap();
+        svm.expire_blockhash();
+
+        Ok(())
+    }
+
+    #[test]
+    fn initiailize_drift_bad_token_extension_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token_2022::ID,
+            None,
+            Some(true),
+        )?;
+
+        setup_drift_state(&mut svm);
+
+        let spot_market_index = 0;
+        let oracle_price = 100;
+        set_drift_spot_market(&mut svm, 0, &mint, oracle_price);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            &mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -224,9 +333,10 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(tx.clone());
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::InvalidTokenMintExtension,
         );
 
         Ok(())
@@ -266,7 +376,7 @@ mod tests {
         )?;
 
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
@@ -282,6 +392,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -534,7 +645,7 @@ mod tests {
         )?;
 
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
@@ -549,6 +660,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -715,7 +827,7 @@ mod tests {
         )?;
 
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
@@ -730,6 +842,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -993,9 +1106,9 @@ mod tests {
         let spot_market_index_2 = 1;
 
         let spot_market_1 =
-            set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1), 100);
+            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100);
         let spot_market_2 =
-            set_drift_spot_market(&mut svm, spot_market_index_2, Some(token_mint_2), 100);
+            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
@@ -1020,6 +1133,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_1,
             "Drift Lend 1",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -1044,6 +1158,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_2,
             "Drift Lend 2",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -1410,9 +1525,9 @@ mod tests {
         let spot_market_index_2 = 2;
 
         let spot_market_1 =
-            set_drift_spot_market(&mut svm, spot_market_index_1, Some(token_mint_1), 100);
+            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100);
         let spot_market_2 =
-            set_drift_spot_market(&mut svm, spot_market_index_2, Some(token_mint_2), 100);
+            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
@@ -1433,6 +1548,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_1,
             "Drift Lend 1",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -1448,6 +1564,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint_2,
             "Drift Lend 2",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -1642,7 +1759,7 @@ mod tests {
             None,
         )?;
 
-        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -1657,6 +1774,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -1788,7 +1906,7 @@ mod tests {
             None,
         )?;
 
-        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -1804,6 +1922,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -2026,7 +2145,7 @@ mod tests {
             None,
         )?;
 
-        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2041,6 +2160,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -2177,11 +2297,24 @@ mod tests {
             controller_pk,
             super_authority,
         } = setup_test_controller()?;
+
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+            None,
+        )?;
+
         setup_drift_state(&mut svm);
 
         let spot_market_index = 0;
         let oracle_price = 100;
-        set_drift_spot_market(&mut svm, spot_market_index, None, oracle_price);
+        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price);
 
         // Create a valid drift initialize instruction
         let sub_account_id = 0;
@@ -2192,6 +2325,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -2202,19 +2336,7 @@ mod tests {
         );
 
         // invalid drift_user pubkey
-        let drift_user_pk = init_ix.accounts[8].pubkey;
-        init_ix.accounts[8].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[init_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        init_ix.accounts[8].pubkey = drift_user_pk;
-
-        // invalid drift_user_stats pubkey
-        let drift_user_stats_pk = init_ix.accounts[9].pubkey;
+        let drift_user_pk = init_ix.accounts[9].pubkey;
         init_ix.accounts[9].pubkey = Pubkey::new_unique();
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_ix.clone()],
@@ -2223,11 +2345,11 @@ mod tests {
             svm.latest_blockhash(),
         ));
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        init_ix.accounts[9].pubkey = drift_user_stats_pk;
+        init_ix.accounts[9].pubkey = drift_user_pk;
 
-        // invalid drift_state pubkey
-        let drift_state_pk = init_ix.accounts[10].pubkey;
-        init_ix.accounts[10].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_state_pk);
+        // invalid drift_user_stats pubkey
+        let drift_user_stats_pk = init_ix.accounts[10].pubkey;
+        init_ix.accounts[10].pubkey = Pubkey::new_unique();
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_ix.clone()],
             Some(&super_authority.pubkey()),
@@ -2235,11 +2357,23 @@ mod tests {
             svm.latest_blockhash(),
         ));
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        init_ix.accounts[10].pubkey = drift_state_pk;
+        init_ix.accounts[10].pubkey = drift_user_stats_pk;
+
+        // invalid drift_state pubkey
+        let drift_state_pk = init_ix.accounts[11].pubkey;
+        init_ix.accounts[11].pubkey = create_account_clone_w_new_pk(&mut svm, &drift_state_pk);
+        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
+            &[init_ix.clone()],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        ));
+        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
+        init_ix.accounts[11].pubkey = drift_state_pk;
 
         // invalid drift_spot_market pubkey
-        let drift_spot_market_pk = init_ix.accounts[11].pubkey;
-        init_ix.accounts[11].pubkey =
+        let drift_spot_market_pk = init_ix.accounts[12].pubkey;
+        init_ix.accounts[12].pubkey =
             create_account_clone_w_new_pk(&mut svm, &drift_spot_market_pk);
         let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
             &[init_ix.clone()],
@@ -2248,21 +2382,22 @@ mod tests {
             svm.latest_blockhash(),
         ));
         assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        init_ix.accounts[11].pubkey = drift_spot_market_pk;
+        init_ix.accounts[12].pubkey = drift_spot_market_pk;
 
         // Test invalid accounts for the inner context accounts (remaining_accounts)
         // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
-        // Inner accounts are: user(7), user_stats(8), state(9), spot_market(10), rent(11), drift_program(12)
+        // Inner accounts are: mint, user, user_stats, state, spot_market, rent, drift_program
         test_invalid_accounts!(
             svm,
             super_authority.pubkey(),
             vec![Box::new(&super_authority)],
             init_ix,
             {
-                10 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
-                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
-                12 => invalid_program_id(InstructionError::IncorrectProgramId, "Rent sysvar: Invalid program id"),
-                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "mint: Invalid owner"),
+                11 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
+                12 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
+                13 => invalid_program_id(InstructionError::IncorrectProgramId, "Rent sysvar: Invalid program id"),
+                14 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
             }
         )?;
 
@@ -2299,7 +2434,7 @@ mod tests {
         )?;
 
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2315,6 +2450,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -2496,7 +2632,7 @@ mod tests {
         )?;
 
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2512,6 +2648,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,
@@ -2719,7 +2856,7 @@ mod tests {
         )?;
 
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2734,6 +2871,7 @@ mod tests {
             &super_authority.pubkey(),
             &controller_pk,
             &super_authority.pubkey(),
+            &token_mint,
             "Drift Lend",
             IntegrationStatus::Active,
             rate_limit_slope,

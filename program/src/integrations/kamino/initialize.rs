@@ -61,6 +61,9 @@ impl<'info> InitializeKaminoAccounts<'info> {
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
 
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.reserve_liquidity_mint, &[])?;
+
         // reserve.farm_collateral can either be pubkey::default or be owned by kamino_farms program
         if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
             && !ctx
@@ -141,9 +144,6 @@ pub fn process_initialize_kamino(
         outer_ctx.controller_authority,
         obligation_id,
     )?;
-
-    // Ensure the mint has valid T22 extensions.
-    validate_mint_extensions(inner_ctx.reserve_liquidity_mint, &[])?;
 
     let kamino_reserve_has_collateral_farm = {
         let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;

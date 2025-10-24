@@ -17,7 +17,7 @@ use svm_alm_controller_client::integrations::drift::{
 pub fn set_drift_spot_market(
     svm: &mut LiteSVM,
     market_index: u16,
-    mint: Option<Pubkey>,
+    mint: &Pubkey,
     oracle_price: i64,
 ) -> SpotMarket {
     let spot_market_pubkey = derive_spot_market_pda(market_index);
@@ -31,13 +31,9 @@ pub fn set_drift_spot_market(
     spot_market
         .historical_oracle_data
         .last_oracle_price_twap_5min = oracle_price;
-    if let Some(mint) = mint {
-        spot_market.mint = mint;
-        let mint_account = get_mint(svm, &spot_market.mint);
-        spot_market.decimals = mint_account.decimals as u32;
-    } else {
-        spot_market.decimals = 6;
-    }
+    spot_market.mint = *mint;
+    let mint_account = get_mint(svm, &spot_market.mint);
+    spot_market.decimals = mint_account.decimals as u32;
 
     // Set up vault account (the spot market vault PDA)
     let vault_pubkey =

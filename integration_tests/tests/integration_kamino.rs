@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn test_kamino_init_bad_extenstions_fail() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_kamino_init_bad_token_extenstion_fails() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
