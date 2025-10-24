@@ -22,6 +22,8 @@ use pinocchio::{
 define_account_struct! {
     pub struct PullAccounts<'info> {
         controller: @owner(crate::ID);
+        // controller_authority must to be mutable since Kamino requires the `owner`
+        // to be `mut` for depositing
         controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
@@ -35,6 +37,10 @@ define_account_struct! {
     }
 }
 
+/// "Pull" tokens out of a downstream protocol and back into a Reserve.
+/// This may be to withdraw tokens from a lending protocol. We handle 
+/// checks across all integrations in the outer context, but leave
+/// the integration specific logic to the internal processors.
 pub fn process_pull(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],

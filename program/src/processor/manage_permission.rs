@@ -116,6 +116,12 @@ fn suspend_permission(
     Ok((permission, Some(old_state)))
 }
 
+
+/// Change or create a Permission. This may only be called
+/// by a Super Permission (i.e. has `can_manage_permissions` privilege)
+/// OR a Permission with `can_suspend_permissions` privilege. The
+/// latter may not modify any privileges except for suspending the 
+/// Permission in question.
 pub fn process_manage_permission(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],

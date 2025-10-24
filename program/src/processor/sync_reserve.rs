@@ -14,6 +14,8 @@ define_account_struct! {
     }
 }
 
+/// Sync a Reserve, updating it's balance and emitting an event
+/// for accounting if the balance changed.
 pub fn process_sync_reserve(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],

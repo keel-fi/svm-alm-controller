@@ -22,6 +22,9 @@ define_account_struct! {
     }
 }
 
+/// Initialize a Controller.
+/// This is permissionless and sets up
+/// a Controller with a new Super Permission.
 pub fn process_initialize_controller(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
