@@ -250,11 +250,11 @@ impl KaminoReserve {
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
 pub struct LastUpdate {
-    slot: u64,
-    stale: u8,
-    price_status: u8,
+    pub slot: u64,
+    pub stale: u8,
+    pub price_status: u8,
 
-    placeholder: [u8; 6],
+    pub placeholder: [u8; 6],
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]

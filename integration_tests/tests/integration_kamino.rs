@@ -7,7 +7,7 @@ mod tests {
         helpers::{
             assert::assert_custom_error,
             constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID, USDC_TOKEN_MINT_PUBKEY},
-            kamino::state::klend::Obligation,
+            kamino::state::klend::{KaminoReserve, LastUpdate, Obligation},
             setup_test_controller,
             spl::SPL_TOKEN_PROGRAM_ID,
             TestContext,
@@ -1178,6 +1178,15 @@ mod tests {
             rewards_unclaimed,
         )?;
 
+        // Refresh the kamino reserve to ensure it's not stale before sync
+        refresh_kamino_reserve(
+            &mut svm,
+            &super_authority,
+            &kamino_config.reserve,
+            &kamino_config.market,
+            &KAMINO_FARMS_PROGRAM_ID,
+        )?;
+
         let harvest_acounts = HarvestRewardAccounts {
             rewards_mint: &reward_mint,
             global_config: &farms_context.global_config,
@@ -1671,6 +1680,15 @@ mod tests {
         let integration_before_sync = fetch_integration_account(&svm, &kamino_integration_pk_2)
             .unwrap()
             .unwrap();
+
+        // Refresh the kamino reserve to ensure it's not stale before sync
+        refresh_kamino_reserve(
+            &mut svm,
+            &super_authority,
+            &kamino_config_2.reserve,
+            &kamino_config_2.market,
+            &KAMINO_FARMS_PROGRAM_ID,
+        )?;
 
         let harvest_acounts = HarvestRewardAccounts {
             rewards_mint: &USDC_TOKEN_MINT_PUBKEY,
@@ -2289,7 +2307,7 @@ mod tests {
         let KaminoTestContext {
             lending_market,
             reserve_context,
-            farms_context: _,
+            farms_context,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2456,6 +2474,15 @@ mod tests {
             reserve_liquidity_destination_balance_after,
             reserve_liquidity_destination_balance_before - balance_delta
         );
+
+        // Refresh the kamino reserve to ensure it's not stale before sync
+        refresh_kamino_reserve(
+            &mut svm,
+            &super_authority,
+            &kamino_config.reserve,
+            &kamino_config.market,
+            &KAMINO_FARMS_PROGRAM_ID,
+        )?;
 
         let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
@@ -3225,6 +3252,14 @@ mod tests {
             rewards_unclaimed,
         )?;
 
+        refresh_kamino_reserve(
+            &mut svm,
+            &super_authority,
+            &kamino_config.reserve,
+            &kamino_config.market,
+            &KAMINO_FARMS_PROGRAM_ID,
+        )?;
+
         let harvest_acounts = HarvestRewardAccounts {
             rewards_mint: &reward_mint,
             global_config: &farms_context.global_config,
@@ -3408,6 +3443,203 @@ mod tests {
                 // associated_token_program: modify program id
                 20 => invalid_program_id(InstructionError::IncorrectProgramId, "Associated token program: Invalid program id"),
             }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_kamino_sync_fails_on_stale_reserve() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let liquidity_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+        )?;
+
+        let KaminoTestContext {
+            lending_market,
+            reserve_context,
+            farms_context,
+        } = setup_kamino_state(
+            &mut svm,
+            &liquidity_mint,
+            &spl_token::ID,
+            &liquidity_mint,
+            &spl_token::ID,
+            10_000,
+            true,
+        );
+
+        let obligation_id = 0;
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id,
+            &controller_authority,
+            &lending_market,
+        );
+
+        let kamino_config = KaminoConfig {
+            market: lending_market,
+            reserve: reserve_context.kamino_reserve_pk,
+            reserve_liquidity_mint: liquidity_mint,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
+        };
+
+        let description = "test";
+        let status = IntegrationStatus::Active;
+        let rate_limit_slope = 100_000_000_000;
+        let rate_limit_max_outflow = 100_000_000_000;
+        let permit_liquidation = true;
+
+        let (kamino_init_ix, integration_pk, _reserve_keys) = setup_env_and_get_init_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            description,
+            status,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &kamino_config,
+            &reserve_context.reserve_farm_collateral,
+            &liquidity_mint,
+            obligation_id,
+            &spl_token::ID,
+        )
+        .unwrap();
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        // Deposit some amount into kamino
+        let push_amount = 100_000_000;
+        let push_ix = get_push_ix(
+            &mut svm,
+            &controller_pk,
+            &super_authority,
+            &integration_pk,
+            &obligation,
+            &kamino_config,
+            push_amount,
+            &Pubkey::default(),
+            &reserve_context.reserve_farm_collateral,
+            &spl_token::ID,
+        )?;
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, push_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).unwrap();
+
+        // Advance the slot to make the reserve stale
+        let clock = svm.get_sysvar::<Clock>();
+        svm.warp_to_slot(clock.slot + 2); // Advance by 2 slots to make slots_elapsed >= STALE_AFTER_SLOTS_ELAPSED
+
+        // Debug: Check the new slot
+        let new_clock = svm.get_sysvar::<Clock>();
+        println!("New slot after warp: {}", new_clock.slot);
+
+        // Refresh the kamino reserve and obligation before sync (like other tests do)
+        refresh_kamino_reserve(
+            &mut svm,
+            &super_authority,
+            &kamino_config.reserve,
+            &kamino_config.market,
+            &KAMINO_FARMS_PROGRAM_ID,
+        )?;
+
+        refresh_kamino_obligation(
+            &mut svm,
+            &super_authority,
+            &kamino_config.market,
+            &obligation,
+            vec![&kamino_config.reserve],
+        )?;
+
+        // Now manipulate the Kamino reserve to make it stale AFTER refresh
+        // We need to modify the last_update field to make it stale
+        let mut kamino_reserve_account = svm
+            .get_account(&kamino_config.reserve)
+            .expect("Failed to fetch kamino reserve");
+
+        // Parse the current reserve data
+        let mut reserve_data = kamino_reserve_account.data[8..].to_vec(); // Skip discriminator
+        let kamino_reserve: &mut KaminoReserve = bytemuck::try_from_bytes_mut(&mut reserve_data)
+            .map_err(|_| "Failed to parse KaminoReserve")?;
+
+        // Create a new LastUpdate with stale data using bytemuck
+        // Since LastUpdate fields are private, we'll create it from raw bytes
+        kamino_reserve.last_update.slot = 0u64; // Set to 0, but we'll make current_slot higher
+        kamino_reserve.last_update.stale = 1u8; // Set stale flag to true
+        kamino_reserve.last_update.price_status = 0u8; // Set price status to 0 (no flags set)
+        kamino_reserve.last_update.placeholder = [0u8; 6];
+
+        kamino_reserve_account.data = bytemuck::bytes_of(kamino_reserve).to_vec();
+        svm.set_account(kamino_config.reserve, kamino_reserve_account)?;
+
+        // Initialize rewards ATA for harvesting
+        let _rewards_ata = initialize_ata(
+            &mut svm,
+            &super_authority,
+            &controller_authority,
+            &liquidity_mint,
+        )?;
+
+        let harvest_accounts = HarvestRewardAccounts {
+            rewards_mint: &liquidity_mint,
+            global_config: &farms_context.global_config,
+            reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
+            scope_prices: &KAMINO_FARMS_PROGRAM_ID,
+            rewards_token_program: &spl_token::ID,
+        };
+
+        // Now try to sync - it should fail because the reserve is stale
+        let sync_ix = create_sync_kamino_lend_ix(
+            &controller_pk,
+            &integration_pk,
+            &super_authority.pubkey(),
+            &kamino_config,
+            &spl_token::ID,
+            Some(harvest_accounts),
+        );
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, sync_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+
+        // Verify that the transaction failed with the expected error
+        assert!(tx_result.is_err());
+        let error = tx_result.err().unwrap();
+        assert_eq!(
+            error.err,
+            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
         );
 
         Ok(())

@@ -4,9 +4,10 @@ use crate::{
     constants::anchor_discriminator, integrations::kamino::initialize::InitializeKaminoAccounts,
 };
 use account_zerocopy_deserialize::AccountZerocopyDeserialize;
+use bitflags::bitflags;
 use bytemuck::{Pod, Zeroable};
 use fixed::{traits::FromFixed, types::extra::U60, FixedU128};
-use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey, sysvars::clock::Slot};
 
 pub use uint_types::U256;
 
@@ -398,6 +399,34 @@ impl KaminoReserve {
     }
 }
 
+pub const STALE_AFTER_SLOTS_ELAPSED: u64 = 1;
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Zeroable, Pod)]
+#[repr(transparent)]
+pub struct PriceStatusFlags(pub u8);
+
+#[rustfmt::skip]
+bitflags! {
+    impl PriceStatusFlags: u8 {
+        const PRICE_LOADED =        0b_0000_0001;
+        const PRICE_AGE_CHECKED =   0b_0000_0010;
+        const TWAP_CHECKED =        0b_0000_0100;
+        const TWAP_AGE_CHECKED =    0b_0000_1000;
+        const HEURISTIC_CHECKED =   0b_0001_0000;
+        const PRICE_USAGE_ALLOWED = 0b_0010_0000;
+    }
+}
+
+impl PriceStatusFlags {
+    pub const ALL_CHECKS: PriceStatusFlags = PriceStatusFlags::all();
+
+    pub const NONE: PriceStatusFlags = PriceStatusFlags::empty();
+
+    pub const LIQUIDATION_CHECKS: PriceStatusFlags = PriceStatusFlags::PRICE_LOADED
+        .union(PriceStatusFlags::PRICE_AGE_CHECKED)
+        .union(PriceStatusFlags::PRICE_USAGE_ALLOWED);
+}
+
 // --------- Obligation ----------
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C, packed)]
@@ -407,6 +436,30 @@ pub struct LastUpdate {
     price_status: u8,
 
     placeholder: [u8; 6],
+}
+
+impl LastUpdate {
+    pub fn slots_elapsed(&self, slot: Slot) -> Result<u64, ProgramError> {
+        let slots_elapsed = slot
+            .checked_sub(self.slot)
+            .ok_or_else(|| ProgramError::ArithmeticOverflow)?;
+        Ok(slots_elapsed)
+    }
+
+    pub fn is_stale(
+        &self,
+        slot: Slot,
+        min_price_status: PriceStatusFlags,
+    ) -> Result<bool, ProgramError> {
+        let is_price_status_ok = self.get_price_status().contains(min_price_status);
+        Ok(self.stale != (false as u8)
+            || self.slots_elapsed(slot)? >= STALE_AFTER_SLOTS_ELAPSED
+            || !is_price_status_ok)
+    }
+
+    pub fn get_price_status(&self) -> PriceStatusFlags {
+        PriceStatusFlags::from_bits_truncate(self.price_status)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]

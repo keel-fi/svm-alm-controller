@@ -19,6 +19,7 @@ account-zerocopy-deserialize = { path = "account-zerocopy-deserialize" }
 arrayref = "0.3.9"
 base64 = "0.22.1"
 bs58 = "0.4"
+bitflags = "2.10.0"
 borsh = "1.5.5"
 bytemuck = { version = "1.14", features = ["derive"] }
 byteorder = "1.5.0"
