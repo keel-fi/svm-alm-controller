@@ -51,6 +51,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )
         .unwrap();
         let external = Pubkey::new_unique();
@@ -105,6 +106,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )
         .unwrap();
@@ -400,6 +402,7 @@ mod tests {
                 None,
                 &spl_token::ID,
                 None,
+                None,
             ).unwrap(),
             &Pubkey::new_unique(),
             &spl_associated_token_account_client::address::get_associated_token_address_with_program_id(
@@ -412,6 +415,7 @@ mod tests {
                     6,
                     None,
                     &spl_token::ID,
+                    None,
                     None,
                 ).unwrap(),
                 &spl_token::ID,
@@ -527,6 +531,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )
         .unwrap();

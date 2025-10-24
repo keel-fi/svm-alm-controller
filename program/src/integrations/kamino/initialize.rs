@@ -31,7 +31,7 @@ use crate::{
         },
         shared::lending_markets::LendingState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
     state::Controller,
 };
 
@@ -141,6 +141,9 @@ pub fn process_initialize_kamino(
         outer_ctx.controller_authority,
         obligation_id,
     )?;
+
+    // Ensure the mint has valid T22 extensions.
+    validate_mint_extensions(inner_ctx.reserve_liquidity_mint, &[])?;
 
     let kamino_reserve_has_collateral_farm = {
         let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;

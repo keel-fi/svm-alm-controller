@@ -13,15 +13,16 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     ExtensionType::InterestBearingConfig,
     /* Purely UI, so no negative impact on Controller */
     ExtensionType::ScaledUiAmount,
-    /* Tested for AtomicSwap and SplTokenExternal integrations */
+    /* Tested for integrations */
     ExtensionType::TransferFeeConfig,
     ExtensionType::MintCloseAuthority,
     /*
-        Could transfer/burn Controller tokens.
-        Necessary for a lot of RWAs. Requires
-        trusting of the issuer.
+    Could transfer/burn Controller tokens.
+    Necessary for a lot of RWAs. Requires
+    trusting of the issuer.
     */
     ExtensionType::PermanentDelegate,
+    ExtensionType::DefaultAccountState,
     ExtensionType::ConfidentialTransferMint,
     ExtensionType::ConfidentialMintBurn,
     ExtensionType::MetadataPointer,

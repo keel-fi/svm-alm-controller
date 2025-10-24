@@ -126,6 +126,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let _authority_usdc_ata = initialize_ata(
@@ -314,6 +315,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -505,6 +507,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 

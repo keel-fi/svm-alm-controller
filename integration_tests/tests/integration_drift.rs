@@ -262,6 +262,7 @@ mod tests {
             Some(token_mint_kp),
             &token_program,
             transfer_fee_bps,
+            None,
         )?;
 
         let spot_market =
@@ -529,6 +530,7 @@ mod tests {
             Some(token_mint_kp),
             &token_program,
             transfer_fee_bps,
+            None,
         )?;
 
         let spot_market =
@@ -709,6 +711,7 @@ mod tests {
             Some(token_mint_kp),
             &token_program,
             transfer_fee_bps,
+            None,
         )?;
 
         let spot_market =
@@ -969,6 +972,7 @@ mod tests {
             Some(token_mint_1_kp),
             &spl_token::ID,
             None,
+            None,
         )?;
 
         // Initialize the second additional token mint
@@ -980,6 +984,7 @@ mod tests {
             6,
             Some(token_mint_2_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -1384,6 +1389,7 @@ mod tests {
             Some(token_mint_1_kp),
             &spl_token::ID,
             None,
+            None,
         )?;
 
         // Initialize the second additional token mint
@@ -1395,6 +1401,7 @@ mod tests {
             6,
             Some(token_mint_2_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -1632,6 +1639,7 @@ mod tests {
             Some(token_mint_kp),
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let spot_market = set_drift_spot_market(&mut svm, spot_market_index, Some(token_mint), 100);
@@ -1776,6 +1784,7 @@ mod tests {
             6,
             Some(token_mint_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -2013,6 +2022,7 @@ mod tests {
             6,
             Some(token_mint_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -2285,6 +2295,7 @@ mod tests {
             Some(token_mint_kp),
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let spot_market =
@@ -2480,6 +2491,7 @@ mod tests {
             6,
             Some(token_mint_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -2702,6 +2714,7 @@ mod tests {
             6,
             Some(token_mint_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 

@@ -388,6 +388,7 @@ mod tests {
             None,
             &spl_token_2022::ID,
             Some(10),
+            None,
         )?;
 
         // Serialize the destination address appropriately

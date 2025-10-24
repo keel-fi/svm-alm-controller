@@ -342,6 +342,7 @@ mod tests {
             None,
             &liquidity_mint_token_program,
             liquidity_mint_transfer_fee,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -353,6 +354,7 @@ mod tests {
             None,
             &reward_mint_token_program,
             reward_mint_transfer_fee,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -466,6 +468,97 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_kamino_init_bad_extenstions_fail() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let liquidity_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token_2022::ID,
+            None,
+            Some(true),
+        )?;
+
+        let KaminoTestContext {
+            lending_market,
+            reserve_context,
+            farms_context: _,
+        } = setup_kamino_state(
+            &mut svm,
+            &liquidity_mint,
+            &spl_token_2022::ID,
+            &liquidity_mint,
+            &spl_token_2022::ID,
+            10_000,
+            false,
+        );
+
+        let obligation_id = 0;
+        let obligation = derive_vanilla_obligation_address(
+            obligation_id,
+            &controller_authority,
+            &lending_market,
+        );
+
+        let kamino_config = KaminoConfig {
+            market: lending_market,
+            reserve: reserve_context.kamino_reserve_pk,
+            reserve_liquidity_mint: liquidity_mint,
+            obligation,
+            obligation_id,
+            padding: [0; 95],
+        };
+
+        let description = "test";
+        let status = IntegrationStatus::Active;
+        let rate_limit_slope = 100_000_000_000;
+        let rate_limit_max_outflow = 100_000_000_000;
+        let permit_liquidation = true;
+
+        let (kamino_init_ix, _) = create_initialize_kamino_lend_integration_ix(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &super_authority.pubkey(),
+            &description,
+            status,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            &IntegrationConfig::Kamino(kamino_config.clone()),
+            &Pubkey::default(),
+            obligation_id,
+            &KAMINO_LEND_PROGRAM_ID,
+        );
+
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+        let tx = Transaction::new_signed_with_payer(
+            &[cu_ix, kamino_init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx.clone());
+
+        assert_custom_error(
+            &tx_result,
+            1,
+            SvmAlmControllerErrors::InvalidTokenMintExtension,
+        );
+
+        Ok(())
+    }
+
     #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
     #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
     #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
@@ -498,6 +591,7 @@ mod tests {
             None,
             &liquidity_mint_token_program,
             liquidity_mint_transfer_fee,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -509,6 +603,7 @@ mod tests {
             None,
             &reward_mint_token_program,
             reward_mint_transfer_fee,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -765,6 +860,7 @@ mod tests {
             None,
             &liquidity_mint_token_program,
             liquidity_mint_transfer_fee,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -776,6 +872,7 @@ mod tests {
             None,
             &reward_mint_token_program,
             reward_mint_transfer_fee,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -1039,6 +1136,7 @@ mod tests {
             None,
             &liquidity_mint_token_program,
             liquidity_mint_transfer_fee,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -1413,6 +1511,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
         let mint_2 = initialize_mint(
             &mut svm,
@@ -1422,6 +1521,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -2066,6 +2166,7 @@ mod tests {
             None,
             &liquidity_mint_token_program,
             liquidity_mint_transfer_fee,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -2077,6 +2178,7 @@ mod tests {
             None,
             &reward_mint_token_program,
             reward_mint_transfer_fee,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -2284,6 +2386,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -2294,6 +2397,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -2520,6 +2624,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -2530,6 +2635,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -2732,6 +2838,7 @@ mod tests {
             None,
             &liquidity_mint_token_program,
             liquidity_mint_transfer_fee,
+            None,
         )?;
 
         let reward_mint = initialize_mint(
@@ -2743,6 +2850,7 @@ mod tests {
             None,
             &reward_mint_token_program,
             reward_mint_transfer_fee,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -3135,6 +3243,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let KaminoTestContext {
@@ -3459,6 +3568,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 
