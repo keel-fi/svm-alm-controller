@@ -7,7 +7,15 @@ use pinocchio_token_interface::get_all_extensions_for_mint;
 use crate::error::SvmAlmControllerErrors;
 
 /// List of valid Mint extensions that can be used with
-/// Integrations.
+/// Integrations. We validate these during initialization of
+/// Reserve to prevent the usage of tokens that may have harmful
+/// token extensions. We also validate during the initialization of
+/// Integrations as we do not necessarily need a Reserve to initialize
+/// an Integration.
+/// NOTE: it's ok to omit the validation check during push|pull|sync as the
+/// extensions that could change configuration would simply error on transfer
+/// due to being paused (Pausable) or not handling of
+/// ExtraAccountMetas (TransferHooks).
 pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     /* Purely UI, so no negative impact on Controller */
     ExtensionType::InterestBearingConfig,
@@ -19,7 +27,9 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     /*
     Could transfer/burn Controller tokens.
     Necessary for a lot of RWAs. Requires
-    trusting of the issuer.
+    trusting of the issuer and this is deemed
+    the responsibility of the Permission creating
+    Reserves/Integrations.
     */
     ExtensionType::PermanentDelegate,
     ExtensionType::DefaultAccountState,
