@@ -5,6 +5,7 @@ pub mod cpi;
 pub mod initialize;
 pub mod kfarms_protocol_state;
 pub mod klend_protocol_state;
+pub mod lending_processor;
 pub mod pdas;
 pub mod pull;
 pub mod push;
