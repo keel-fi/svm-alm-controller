@@ -10,7 +10,11 @@ pub trait AccountZerocopyDeserialize<const N: usize>: Sized + Pod {
     /// Deserialize account into immutable struct.
     fn try_from_slice(data: &[u8]) -> Result<&Self, ProgramError> {
         let disc_len = Self::DISCRIMINATOR.len();
-        if data.len() < disc_len || &data[..disc_len] != Self::DISCRIMINATOR {
+        if data
+            .get(..disc_len)
+            .ok_or(ProgramError::InvalidAccountData)?
+            .ne(&Self::DISCRIMINATOR)
+        {
             return Err(ProgramError::InvalidAccountData);
         }
         bytemuck::try_from_bytes(&data[disc_len..]).map_err(|_| ProgramError::InvalidAccountData)
@@ -18,7 +22,11 @@ pub trait AccountZerocopyDeserialize<const N: usize>: Sized + Pod {
 
     fn try_from_slice_mut(data: &mut [u8]) -> Result<&mut Self, ProgramError> {
         let disc_len = Self::DISCRIMINATOR.len();
-        if data.len() < disc_len || &data[..disc_len] != Self::DISCRIMINATOR {
+        if data
+            .get(..disc_len)
+            .ok_or(ProgramError::InvalidAccountData)?
+            .ne(&Self::DISCRIMINATOR)
+        {
             return Err(ProgramError::InvalidAccountData);
         }
         bytemuck::try_from_bytes_mut(&mut data[disc_len..])
