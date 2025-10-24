@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError};
 
 use crate::integrations::drift::protocol_state::{SpotMarket, User};
@@ -10,10 +11,10 @@ pub fn get_drift_lending_balance(
     user: &AccountInfo,
 ) -> Result<u64, ProgramError> {
     let spot_market_data = spot_market.try_borrow_data()?;
-    let spot_market_state = SpotMarket::load_checked(&spot_market_data)?;
+    let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
 
     let user_data = user.try_borrow_data()?;
-    let user_state = User::try_from(&user_data)?;
+    let user_state = User::try_from_slice(&user_data)?;
 
     let spot_position = user_state
         .spot_positions

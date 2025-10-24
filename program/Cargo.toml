@@ -13,6 +13,7 @@ idl = []
 verbose = []
 
 [dependencies]
+account-zerocopy-deserialize = { workspace = true }
 byteorder = { workspace = true }
 pinocchio = { workspace = true }
 pinocchio-log = { workspace = true }

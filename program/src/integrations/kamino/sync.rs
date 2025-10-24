@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     account_info::AccountInfo,
     instruction::{Seed, Signer},
@@ -173,7 +174,7 @@ pub fn process_sync_kamino(
 
     // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
-    let kamino_reserve_state = KaminoReserve::load_checked(&kamino_reserve_data)?;
+    let kamino_reserve_state = KaminoReserve::try_from_slice(&kamino_reserve_data)?;
 
     let clock = Clock::get()?;
 
@@ -211,7 +212,7 @@ pub fn process_sync_kamino(
         // Find the reward index in the FarmState of this kamino_reserve
         let (reward_index, rewards_available) = {
             let reserve_farm_data = harvest_ctx.kamino_reserve_farm.try_borrow_data()?;
-            let reserve_farm_state = FarmState::load_checked(&reserve_farm_data)?;
+            let reserve_farm_state = FarmState::try_from_slice(&reserve_farm_data)?;
             reserve_farm_state
                 .find_reward_index_and_rewards_available(
                     harvest_ctx.rewards_mint.key(),

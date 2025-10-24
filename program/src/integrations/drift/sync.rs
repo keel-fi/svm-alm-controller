@@ -7,6 +7,7 @@ use crate::{
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
 };
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, ProgramResult};
 
 define_account_struct! {
@@ -32,7 +33,7 @@ impl<'info> SyncDriftAccounts<'info> {
 
         // Validate spot market matches config
         let spot_market_data = ctx.spot_market.try_borrow_data()?;
-        let spot_market_state = SpotMarket::load_checked(&spot_market_data)?;
+        let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
 
         if spot_market_state.market_index != config.spot_market_index {
             msg!("spot_market_index: does not match config");
