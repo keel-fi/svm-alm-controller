@@ -14,7 +14,6 @@ pub fn create_drift_sync_integration_instruction(
     payer: &Pubkey,
     integration: &Pubkey,
     reserve: &Pubkey,
-    reserve_vault: &Pubkey,
     spot_market_index: u16,
     sub_account_id: u16,
 ) -> Result<Instruction, Box<dyn std::error::Error>> {
@@ -40,11 +39,6 @@ pub fn create_drift_sync_integration_instruction(
             pubkey: user,
             is_signer: false,
             is_writable: false,
-        },
-        AccountMeta {
-            pubkey: *reserve_vault,
-            is_signer: false,
-            is_writable: true,
         },
         AccountMeta {
             pubkey: DRIFT_PROGRAM_ID,

@@ -1,8 +1,13 @@
 use crate::{
     define_account_struct,
     enums::IntegrationConfig,
+    error::SvmAlmControllerErrors,
     integrations::drift::{
-        constants::DRIFT_PROGRAM_ID, protocol_state::SpotMarket, shared_sync::sync_drift_balance,
+        constants::DRIFT_PROGRAM_ID,
+        pdas::{
+            derive_drift_spot_market_pda, derive_drift_spot_market_vault_pda, derive_drift_user_pda,
+        },
+        shared_sync::sync_drift_balance,
     },
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
@@ -14,7 +19,6 @@ define_account_struct! {
         spot_market_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         spot_market: @owner(DRIFT_PROGRAM_ID);
         user: @owner(DRIFT_PROGRAM_ID);
-        reserve_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
     }
 }
@@ -22,6 +26,7 @@ define_account_struct! {
 impl<'info> SyncDriftAccounts<'info> {
     pub fn checked_from_accounts(
         config: &IntegrationConfig,
+        controller_authority: &'info AccountInfo,
         accounts_infos: &'info [AccountInfo],
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(accounts_infos)?;
@@ -30,13 +35,23 @@ impl<'info> SyncDriftAccounts<'info> {
             _ => return Err(ProgramError::InvalidAccountData),
         };
 
-        // Validate spot market matches config
-        let spot_market_data = ctx.spot_market.try_borrow_data()?;
-        let spot_market_state = SpotMarket::load_checked(&spot_market_data)?;
+        let spot_market_vault_pda = derive_drift_spot_market_vault_pda(config.spot_market_index)?;
+        if spot_market_vault_pda.ne(ctx.spot_market_vault.key()) {
+            msg! {"drift spot market vault: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
 
-        if spot_market_state.market_index != config.spot_market_index {
-            msg!("spot_market_index: does not match config");
-            return Err(ProgramError::InvalidAccountData);
+        let drift_spot_market_pda = derive_drift_spot_market_pda(config.spot_market_index)?;
+        if drift_spot_market_pda.ne(ctx.spot_market.key()) {
+            msg! {"drift spot market: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        let drift_user_pda =
+            derive_drift_user_pda(controller_authority.key(), config.sub_account_id)?;
+        if drift_user_pda.ne(ctx.user.key()) {
+            msg! {"drift user: Invalid address"}
+            return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         Ok(ctx)
@@ -53,6 +68,7 @@ pub fn process_sync_drift(
 
     let inner_ctx = SyncDriftAccounts::checked_from_accounts(
         &integration.config,
+        outer_ctx.controller_authority,
         outer_ctx.remaining_accounts,
     )?;
 
