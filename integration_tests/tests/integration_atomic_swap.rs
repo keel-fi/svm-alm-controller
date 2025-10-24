@@ -105,6 +105,7 @@ mod tests {
             Some(coin_token_mint_kp),
             coin_token_program,
             coin_token_transfer_fee,
+            None,
         )?;
         initialize_mint(
             svm,
@@ -115,6 +116,7 @@ mod tests {
             Some(pc_token_mint_kp),
             pc_token_program,
             pc_token_transfer_fee,
+            None,
         )?;
 
         // Set up a controller and relayer with swap capabilities.
@@ -1326,6 +1328,7 @@ mod tests {
             Some(mint_1_kp),
             &spl_token::ID,
             None,
+            None,
         )?;
         initialize_mint(
             &mut svm,
@@ -1335,6 +1338,7 @@ mod tests {
             6,
             Some(mint_2_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -1768,6 +1772,7 @@ mod tests {
             Some(coin_token_mint_kp),
             &spl_token::ID,
             None,
+            None,
         )?;
         initialize_mint(
             &mut svm,
@@ -1777,6 +1782,7 @@ mod tests {
             6,
             Some(pc_token_mint_kp),
             &spl_token::ID,
+            None,
             None,
         )?;
 

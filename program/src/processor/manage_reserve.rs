@@ -21,6 +21,10 @@ define_account_struct! {
     }
 }
 
+/// Change a Reserve's status or rate limit parameters.
+/// Only authorities with a Permission that has the
+/// `can_manage_reserves_and_integrations` privilege may
+/// execute this instruction.
 pub fn process_manage_reserve(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],

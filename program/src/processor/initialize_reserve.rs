@@ -30,6 +30,10 @@ define_account_struct! {
   }
 }
 
+/// Initialize a Controller's Reserve for a given token.
+/// Only authorities with a Permission
+/// that has the `can_manage_reserves_and_integrations`
+/// privilege may execute this instruction.
 pub fn process_initialize_reserve(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],

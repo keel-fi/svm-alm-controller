@@ -60,6 +60,7 @@ mod tests {
             None,
             &token_program,
             None,
+            None,
         )?;
 
         let external = Keypair::new();
@@ -191,6 +192,7 @@ mod tests {
             None,
             &token_program,
             token_transfer_fee,
+            None,
         )?;
 
         let _authority_ata =
@@ -403,6 +405,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let controller_authority = derive_controller_authority_pda(&controller_pk);
@@ -529,6 +532,7 @@ mod tests {
             None,
             &spl_token::ID,
             None,
+            None,
         )?;
 
         let external_ata =
@@ -616,6 +620,7 @@ mod tests {
             6,
             None,
             &spl_token::ID,
+            None,
             None,
         )?;
 
@@ -728,6 +733,7 @@ mod tests {
             6,
             None,
             &token_program,
+            None,
             None,
         )?;
 
@@ -859,6 +865,7 @@ mod tests {
             6,
             None,
             &token_program,
+            None,
             None,
         )?;
 
@@ -996,6 +1003,7 @@ mod tests {
             6,
             None,
             &token_program,
+            None,
             None,
         )?;
 

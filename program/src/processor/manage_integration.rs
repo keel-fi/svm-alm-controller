@@ -21,6 +21,10 @@ define_account_struct! {
     }
 }
 
+/// Change a Integration's status,rate limit parameters,
+/// or description. Only authorities with a Permission
+/// that has the `can_manage_reserves_and_integrations`
+/// privilege may execute this instruction.
 pub fn process_manage_integration(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
