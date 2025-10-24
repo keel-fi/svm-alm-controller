@@ -4,6 +4,7 @@ use pinocchio::{
 
 use crate::{error::SvmAlmControllerErrors, state::Controller};
 
+/// Emit CPI events.
 pub fn process_emit_event(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],

@@ -17,14 +17,24 @@ use pinocchio::{
 define_account_struct! {
     pub struct SyncIntegrationAccounts<'info> {
         controller: @owner(crate::ID);
+        // controller_authority must to be mutable since Kamino requires the `owner`
+        // to be `mut` for depositing
         controller_authority: mut, empty, @owner(pinocchio_system::ID);
         payer: mut, signer;
         integration: mut, @owner(crate::ID);
+        // Reserve required for Kamino integration sync where
+        // rewards are harvested. We must "sync" the Reserve
+        // prior to receiving rewards to ensure accurate accounting.
         reserve: mut, @owner(crate::ID);
         @remaining_accounts as remaining_accounts;
     }
 }
 
+/// Sync an Integration's state with the downstream protocol.
+/// For a lending integration (i.e. Kamino), we calculate
+/// the amount of tokens that are held as a result of previous
+/// deposits and interest accrued over time. Other Integration types
+/// may have different state.
 pub fn process_sync_integration(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
