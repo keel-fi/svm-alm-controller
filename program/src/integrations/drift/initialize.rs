@@ -8,12 +8,12 @@ use pinocchio::{instruction::Signer, program_error::ProgramError};
 use crate::constants::CONTROLLER_AUTHORITY_SEED;
 use crate::error::SvmAlmControllerErrors;
 use crate::instructions::InitializeArgs;
-use crate::integrations::drift::cpi::InitializeUser;
+use crate::integrations::drift::cpi::{InitializeUser, UpdateUserPoolId};
 use crate::integrations::drift::pdas::{
     derive_drift_spot_market_pda, derive_drift_state_pda, derive_drift_user_pda,
     derive_drift_user_stats_pda,
 };
-use crate::integrations::drift::protocol_state::SpotMarket;
+use crate::integrations::drift::protocol_state::{SpotMarket, User};
 use crate::integrations::shared::lending_markets::LendingState;
 use crate::processor::shared::validate_mint_extensions;
 use crate::state::Controller;
@@ -83,18 +83,6 @@ impl<'info> InitializeDriftAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
-        // Check that the spot_market_index is valid and matches a Drift SpotMarket
-        let spot_market_data = ctx.drift_spot_market.try_borrow_data()?;
-        let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
-        if spot_market.market_index != spot_market_index {
-            msg!("spot_market: Invalid market index");
-            return Err(ProgramError::InvalidAccountData);
-        }
-        if spot_market.mint.ne(ctx.mint.key()) {
-            msg!("spot_market: mint does not match");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
         Ok(ctx)
     }
 }
@@ -118,6 +106,18 @@ pub fn process_initialize_drift(
         sub_account_id,
         spot_market_index,
     )?;
+
+    // Check that the spot_market_index is valid and matches a Drift SpotMarket
+    let spot_market_data = inner_ctx.drift_spot_market.try_borrow_data()?;
+    let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
+    if spot_market.market_index != spot_market_index {
+        msg!("spot_market: Invalid market index");
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if spot_market.mint.ne(inner_ctx.mint.key()) {
+        msg!("spot_market: mint does not match");
+        return Err(ProgramError::InvalidAccountData);
+    }
 
     // Initialize UserStats if owned by system program
     if inner_ctx
@@ -160,12 +160,37 @@ pub fn process_initialize_drift(
             Seed::from(outer_ctx.controller.key()),
             Seed::from(&[controller.authority_bump]),
         ])])?;
+
+        // if pool_id is not 0, we update the Drift User account
+        if spot_market.pool_id != 0 {
+            UpdateUserPoolId {
+                user: inner_ctx.drift_user,
+                authority: outer_ctx.controller_authority,
+                sub_account_id,
+                pool_id: spot_market.pool_id,
+            }
+            .invoke_signed(&[Signer::from(&[
+                Seed::from(CONTROLLER_AUTHORITY_SEED),
+                Seed::from(outer_ctx.controller.key()),
+                Seed::from(&[controller.authority_bump]),
+            ])])?;
+        }
+    } else {
+        // Validate User.pool_id == SpotMarket.pool_id
+        let user_data = inner_ctx.drift_user.try_borrow_data()?;
+        let user = User::try_from_slice(&user_data)?;
+
+        if user.pool_id != spot_market.pool_id {
+            msg!("user: pool_id does not match spot_market pool id");
+            return Err(ProgramError::InvalidAccountData);
+        }
     }
 
     let config = IntegrationConfig::Drift(DriftConfig {
         sub_account_id,
         spot_market_index,
-        _padding: [0u8; 220],
+        pool_id: spot_market.pool_id,
+        _padding: [0u8; 219],
     });
     let state = IntegrationState::Drift(LendingState {
         balance: 0,

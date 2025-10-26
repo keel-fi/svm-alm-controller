@@ -19,10 +19,12 @@ pub fn set_drift_spot_market(
     market_index: u16,
     mint: &Pubkey,
     oracle_price: i64,
+    pool_id: u8,
 ) -> SpotMarket {
     let spot_market_pubkey = derive_spot_market_pda(market_index);
 
     let mut spot_market = SpotMarket::default();
+    spot_market.pool_id = pool_id;
     // -- Update state variables
     spot_market.pubkey = spot_market_pubkey; // Set the pubkey field to the actual PDA
     spot_market.market_index = market_index;
@@ -77,6 +79,29 @@ pub fn set_drift_spot_market(
     .unwrap();
 
     spot_market
+}
+
+pub fn set_drift_spot_market_pool_id(svm: &mut LiteSVM, spot_market_pk: &Pubkey, new_pool_id: u8) {
+    let mut spot_market_account = svm.get_account(spot_market_pk).unwrap();
+    let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
+    let spot_market = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
+    spot_market.pool_id = new_pool_id;
+
+    svm.set_account(
+        *spot_market_pk,
+        Account {
+            lamports: u64::MAX,
+            rent_epoch: u64::MAX,
+            data: vec![
+                SpotMarket::DISCRIMINATOR.to_vec(),
+                bytemuck::bytes_of(spot_market).to_vec(),
+            ]
+            .concat(),
+            owner: DRIFT_PROGRAM_ID,
+            executable: false,
+        },
+    )
+    .unwrap();
 }
 
 /// Setup Drift SpotMarket Vault token account in LiteSvm.

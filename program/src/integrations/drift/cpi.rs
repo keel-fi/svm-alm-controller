@@ -20,6 +20,24 @@ cpi_instruction! {
 }
 
 cpi_instruction! {
+    /// Updates a Drift user pool_id.
+    /// Note: called when the pool_id of the user being initialized
+    /// is != 0.
+    pub struct UpdateUserPoolId<'info> {
+        program: DRIFT_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "update_user_pool_id"),
+        accounts: {
+            user: Writable,
+            authority: Signer,
+        },
+        args: {
+            sub_account_id: u16,
+            pool_id: u8,
+        }
+    }
+}
+
+cpi_instruction! {
     /// Initialize Drift User account.
     /// This must be called per subaccount.
     /// NOTE: the Name on the User will simply be the Subaccount ID since
