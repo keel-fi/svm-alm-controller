@@ -10,7 +10,6 @@ mod tests {
             kamino::state::klend::{KaminoReserve, Obligation},
             setup_test_controller,
             spl::SPL_TOKEN_PROGRAM_ID,
-            utils::create_account_clone_w_new_pk,
             TestContext,
         },
         subs::{
@@ -2674,7 +2673,7 @@ mod tests {
         let rate_limit_slope = 100_000_000_000;
         let rate_limit_max_outflow = 100_000_000_000;
         let permit_liquidation = true;
-        let (mut kamino_init_ix, _integration_pk, _) = setup_env_and_get_init_ix(
+        let (kamino_init_ix, _integration_pk, _) = setup_env_and_get_init_ix(
             &mut svm,
             &controller_pk,
             &super_authority,
@@ -2693,56 +2692,6 @@ mod tests {
             println!("error in setup_env_and_get_init_ix: {}", e);
             e
         })?;
-
-        // Checks for inner_ctx accounts:
-        // (index 8) obligation
-        //      pubkey matches PDA
-        // (index 9) reserve_liquidity_mint
-        //      owned by spl token or token2022
-        // (index 10) user_metadata
-        //      pubkey matches PDA
-        // (index 12) obligation_farm_collateral
-        //      owned by KFARMS or system_program
-        // (index 13) kamino_reserve
-        //      owned by KLEND
-        // (index 14) reserve_farm_collateral
-        //      owned by KLEND OR pubkey == pubkey::default
-        // (index 15) market_authority
-        //      pubkey matches PDA
-        // (index 16) market
-        //      owned by KLEND
-        // (index 17) kamino_program
-        //      pubkey == KLEND
-        // (index 18) kamino_farms_program
-        //      pubkey == KFARMS
-        // (index 19) system_program
-        //      pubkey == system_program
-        // (index 20) rent
-        //      pubkey == sysvars rent
-
-        // change obligation pubkey
-        let obligation_account_pk = kamino_init_ix.accounts[8].pubkey;
-        kamino_init_ix.accounts[8].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[kamino_init_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        kamino_init_ix.accounts[8].pubkey = obligation_account_pk;
-
-        // change user_metadata pubkey
-        let user_metadata_pk = kamino_init_ix.accounts[10].pubkey;
-        kamino_init_ix.accounts[10].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[kamino_init_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        kamino_init_ix.accounts[10].pubkey = user_metadata_pk;
 
         // initialize obligation_farm_collateral with a different owner
         let obligation_farm_collateral_pk = kamino_init_ix.accounts[12].pubkey;
@@ -2768,42 +2717,29 @@ mod tests {
         );
         svm.set_account(obligation_farm_collateral_pk, Account::default())?;
 
-        // modify market_authority pubkey
-        let market_authority_pk = kamino_init_ix.accounts[15].pubkey;
-        kamino_init_ix.accounts[15].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[kamino_init_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::InvalidPda);
-        kamino_init_ix.accounts[15].pubkey = market_authority_pk;
-
         svm.expire_blockhash();
 
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
+        // Test invalid accounts for the inner context accounts (remaining_accounts)
+        // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
+        // Inner accounts are: obligation(8), reserve_liquidity_mint(9), user_metadata(10), kamino_reserve(13),
+        // reserve_farm_collateral(14), reserve_farm_collateral_pubkey(15), kamino_market(16),
+        // kamino_program(17), kamino_farms_program(18), system_program(19), rent(20)
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
-            signers,
+            vec![Box::new(&super_authority)],
             kamino_init_ix.clone(),
             {
-                // reserve_liquidity_mint: invalid owner
+                8 => invalid_pubkey(InstructionError::Custom(1), "Obligation: invalid pubkey"),
                 9 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve liquidity mint: invalid owner"),
-                // kamino_reserve: invalid owner
+                10 => invalid_pubkey(InstructionError::Custom(1), "user metadata: invalid pubkey"),
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve: invalid owner"),
-                // reserve_farm_collateral: invalid owner
                 14 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve farm collateral: invalid owner"),
-                // market: invalid owner
+                15 => invalid_pubkey(InstructionError::Custom(1), "Reserve farm collateral: invalid pubkey"),
                 16 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino market: invalid owner"),
-                // klend: modify program id
                 17 => invalid_program_id(InstructionError::IncorrectProgramId, "Klend: Invalid program id"),
-                // kfarms: modify program id
                 18 => invalid_program_id(InstructionError::IncorrectProgramId, "Kfarms: Invalid program id"),
-                // system_program: modify program id
                 19 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
-                // rent: modify program id
                 20 => invalid_program_id(InstructionError::IncorrectProgramId, "Rent sysvar: Invalid program id"),
             }
         );
@@ -2964,7 +2900,7 @@ mod tests {
         svm.expire_blockhash();
 
         let deposited_amount = 100_000_000;
-        let mut push_ix = get_push_ix(
+        let push_ix = get_push_ix(
             &mut svm,
             &controller_pk,
             &super_authority,
@@ -2977,246 +2913,45 @@ mod tests {
             &liquidity_mint_token_program,
         )?;
 
-        // Checks for inner_ctx accounts:
-        // (index 7) reserve_vault:
-        //      owned by spl_token or token22, pubkey matches integration reserve vault
-        // (index 8) obligation:
-        //      pubkey matches the integration config
-        // (index 9) kamino_reserve:
-        //      pubkey matches the integration config and is owned by KLEND
-        // (index 10) kamino_reserve_liquidity_mint
-        //      pubkey matches the integration config and is owned by spl_token or Token2022
-        // (index 11) kamino_reserve_liquidity_supply
-        //      pubkey matches PDA and is owned by spl_token or Token2022
-        // (index 12) kamino_reserve_collateral_mint:
-        //      pubkey matches PDA and is owned by spl_token or Token2022
-        // (index 13) kamino_reserve_collateral_supply:
-        //      pubkey matches PDA and is owned by spl_token or Token2022
-        // (index 14) market_authority:
-        //      pubkey matches PDA
-        // (index 15) kamino_market:
-        //      pubkey matches the integration config and is owned by KLEND
-        // (index 16) collateral_token_program:
-        //      pubkey == spl_token
-        // (index 17) liquidity_token_program:
-        //      pubkey == spl_token/Token2022
-        // (index 18) instruction_sysvar_account:
-        //      pubkey == instruction sysvar acc
-        // (index 19) obligation_farm_collateral:
-        //      pubkey matches PDA and is owned by KFARMS or system program
-        // (index 20) reserve_farm_collateral:
-        //      owned by KFARMS if pubkey != pubkey::default
-        // (index 21) kamino_farms_program:
-        //      pubkey == KFARMS
-        // (index 22) kamino_program:
-        //      pubkey == KLEND
-        // remaining_accounts, only for push
-        // (index 24) user_metadata:
-        //      pubkey matches PDA
-        // (index 25) system_program:
-        //      pubkey == system_program
-        // (index 26) rent:
-        //      pubkey == rent
-
-        // change reserve_vault pubkey
-        let reserve_vault_pk = push_ix.accounts[7].pubkey;
-        let fake_reserve_vault_pk = create_account_clone_w_new_pk(&mut svm, &reserve_vault_pk);
-        push_ix.accounts[7].pubkey = fake_reserve_vault_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[7].pubkey = reserve_vault_pk;
-
-        // change obligation pubkey
-        let obligation_account_pk = push_ix.accounts[8].pubkey;
-        push_ix.accounts[8].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[8].pubkey = obligation_account_pk;
-
-        // change kamino_reserve pubkey
-        let kamino_reserve_pk = push_ix.accounts[9].pubkey;
-        let fake_kamino_reserve_pk = create_account_clone_w_new_pk(&mut svm, &kamino_reserve_pk);
-        push_ix.accounts[9].pubkey = fake_kamino_reserve_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[9].pubkey = kamino_reserve_pk;
-
-        // change kamino_reserve_liquidity_mint pubkey
-        let kamino_reserve_liq_mint_pk = push_ix.accounts[10].pubkey;
-        let fake_kamino_reserve_liq_mint_pk =
-            create_account_clone_w_new_pk(&mut svm, &kamino_reserve_liq_mint_pk);
-        push_ix.accounts[10].pubkey = fake_kamino_reserve_liq_mint_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[10].pubkey = kamino_reserve_liq_mint_pk;
-
-        // change kamino_reserve_liquidity_supply pubkey
-        let kamino_reserve_liq_supply_pk = push_ix.accounts[11].pubkey;
-        let fake_kamino_reserve_liq_supply_pk =
-            create_account_clone_w_new_pk(&mut svm, &kamino_reserve_liq_supply_pk);
-        push_ix.accounts[11].pubkey = fake_kamino_reserve_liq_supply_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        push_ix.accounts[11].pubkey = kamino_reserve_liq_supply_pk;
-
-        // change kamino_reserve_collateral_mint pubkey
-        let kamino_reserve_collateral_mint_pk = push_ix.accounts[12].pubkey;
-        let fake_kamino_reserve_collateral_mint_pk =
-            create_account_clone_w_new_pk(&mut svm, &kamino_reserve_collateral_mint_pk);
-        push_ix.accounts[12].pubkey = fake_kamino_reserve_collateral_mint_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        push_ix.accounts[12].pubkey = kamino_reserve_collateral_mint_pk;
-
-        // change kamino_reserve_collateral_supply pubkey
-        let kamino_reserve_collateral_supply_pk = push_ix.accounts[13].pubkey;
-        let fake_kamino_reserve_collateral_supply_pk =
-            create_account_clone_w_new_pk(&mut svm, &kamino_reserve_collateral_supply_pk);
-        push_ix.accounts[13].pubkey = fake_kamino_reserve_collateral_supply_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        push_ix.accounts[13].pubkey = kamino_reserve_collateral_supply_pk;
-
-        // change market_authority pubkey
-        let market_authority_pk = push_ix.accounts[14].pubkey;
-        push_ix.accounts[14].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        push_ix.accounts[14].pubkey = market_authority_pk;
-
-        // change kamino market pubkey
-        let kamino_market_pk = push_ix.accounts[15].pubkey;
-        let fake_kamino_market_pk = create_account_clone_w_new_pk(&mut svm, &kamino_market_pk);
-        push_ix.accounts[15].pubkey = fake_kamino_market_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[15].pubkey = kamino_market_pk;
-
-        // change obligation_farm_collateral pubkey
-        let obligation_farm_collateral_pk = push_ix.accounts[19].pubkey;
-        let fake_obligation_farm_collateral_pk =
-            create_account_clone_w_new_pk(&mut svm, &obligation_farm_collateral_pk);
-        push_ix.accounts[19].pubkey = fake_obligation_farm_collateral_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        push_ix.accounts[19].pubkey = obligation_farm_collateral_pk;
-
-        // change user_metadata pubkey
-        let user_metadata_pk = push_ix.accounts[24].pubkey;
-        let fake_user_metadata_pk = create_account_clone_w_new_pk(&mut svm, &user_metadata_pk);
-        push_ix.accounts[24].pubkey = fake_user_metadata_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), push_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        push_ix.accounts[24].pubkey = user_metadata_pk;
-
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
+        // Test invalid accounts for the inner context accounts (remaining_accounts)
+        // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
+        // Inner accounts are: reserve_vault(7), obligation (8), kamino_reserve(9), kamino_reserve_liquidity_mint(10), kamino_reserve_liquidity_supply(11),
+        // kamino_reserve_collateral_mint(12), kamino_reserve_collateral_supply(13), kamino_market_authority (14), kamino_market(15),
+        // collateral_token_program(16), liquidity_token_program(17), instruction_sysvar_account(18),
+        // obligation_farm_collateral(19), reserve_farm_collateral(20), kamino_farms_program(21),
+        // kamino_program(22), user_metadata(24), system_program(25), rent(26)
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
-            signers,
+            vec![Box::new(&super_authority)],
             push_ix.clone(),
             {
-                // reserve_vault: invalid owner
                 7 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve vault: invalid owner"),
-                // kamino_reserve: invalid owner
+                7 => invalid_pubkey(InstructionError::InvalidAccountData, "Reserve vault: invalid pubkey"),
+                8 => invalid_pubkey(InstructionError::InvalidAccountData, "Obligation: invalid pubkey"),
                 9 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve: invalid owner"),
-                // kamino_reserve_liquidity_mint: invalid owner
+                9 => invalid_pubkey(InstructionError::InvalidAccountData, "Kamino reserve: invalid pubkey"),
                 10 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve liquidity mint: invalid owner"),
-                // kamino_reserve_liquidity_supply: invalid owner
+                10 => invalid_pubkey(InstructionError::InvalidAccountData, "Kamino reserve liquidity mint: invalid pubkey"),
                 11 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve liquidity supply: invalid owner"),
-                // kamino_reserve_collateral_mint: invalid owner
+                11 => invalid_pubkey(InstructionError::Custom(1), "Kamino reserve liquidity supply: invalid pubkey"),
                 12 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve collateral mint: invalid owner"),
-                // kamino_reserve_collateral_supply: invalid owner
+                12 => invalid_pubkey(InstructionError::Custom(1), "Kamino reserve collateral mint: invalid pubkey"),
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve collateral supply: invalid owner"),
-                // kamino_market: invalid owner
+                13 => invalid_pubkey(InstructionError::Custom(1), "Kamino reserve collateral supply: invalid pubkey"),
+                14 => invalid_pubkey(InstructionError::Custom(1), "Kamino market authority: invalid pubkey"),
                 15 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino market: invalid owner"),
-                // collateral_token_program: modify program id
+                15 => invalid_pubkey(InstructionError::InvalidAccountData, "Kamino market: invalid pubkey"),
                 16 => invalid_program_id(InstructionError::IncorrectProgramId, "Collateral token program: Invalid program id"),
-                // liquidity_token_program: modify program id
                 17 => invalid_program_id(InstructionError::IncorrectProgramId, "Liquidity token program: Invalid program id"),
-                // instruction_sysvar_account: modify program id
                 18 => invalid_program_id(InstructionError::IncorrectProgramId, "Instruction sysvar: Invalid program id"),
-                // obligation_farm_collateral: invalid owned
                 19 => invalid_owner(InstructionError::InvalidAccountOwner, "Obligation farm collateral: invalid owner"),
-                // reserve_farm_collateral: invalid owner
+                19 => invalid_pubkey(InstructionError::Custom(1), "Obligation farm collateral: invalid pubkey"),
                 20 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve farm collateral: invalid owner"),
-                // kamino_farms_program: modify program id
                 21 => invalid_program_id(InstructionError::IncorrectProgramId, "Kfarms: Invalid program id"),
-                // kamino_program: modify program id
                 22 => invalid_program_id(InstructionError::IncorrectProgramId, "Klend: Invalid program id"),
-                // system_program: modify program id
+                24 => invalid_pubkey(InstructionError::Custom(1), "user metadata: invalid pubkey"),
                 25 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
-                // rent: modify program id
                 26 => invalid_program_id(InstructionError::IncorrectProgramId, "Rent sysvar: Invalid program id"),
             }
         );
@@ -3370,7 +3105,7 @@ mod tests {
             rewards_token_program: &spl_token::ID,
         };
 
-        let mut sync_ix = create_sync_kamino_lend_ix(
+        let sync_ix = create_sync_kamino_lend_ix(
             &controller_pk,
             &integration_pk,
             &super_authority.pubkey(),
@@ -3378,171 +3113,39 @@ mod tests {
             &spl_token::ID,
             Some(harvest_acounts),
         );
-        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
-        // Checks for inner_ctx accounts:
-        // (index 5) reserve_vault:
-        //      owned by spl_token or token22, pubkey matches integration config
-        // (index 6) kamino_reserve:
-        //      owned by klend, pubkey matches integration config
-        // (index 7) obligation:
-        //      owned by klend, pubkey matches integration config
-        // (index 8) obligation farm:
-        //      pubkey matches PDA and is owned by KFARMS IF kamino_reserve_farm is not Pubkey::default()
-        // (index 9) kamino_reserve_farm:
-        //      if not Pubkey::default(), owned by KFARMS
-        // (index 10) rewards_vault
-        //      pubkey matches PDA and is owned by spl_token or Token2022 IF kamino_reserve_farm is not Pubkey::default()
-        // (index 11) rewards_treasury_vault
-        //      same as rewards_vault
-        // (index 12) farm_vaults_authority
-        //      pubkey matches PDA IF kamino_reserve_farm is not Pubkey::default()
-        // (index 13) farms_global_config:
-        //      owned by KFARMS
-        // (index 14) rewards_ata:
-        //      owned by spl_token or token2022 if not Pubkey::default() and IF kamino_reserve_farm is not Pubkey::default()
-        // (index 15) rewards_mint:
-        //      owned by spl_token or token2022 IF kamino_reserve_farm is not Pubkey::default()
-        // (index 17) rewards_token_program:
-        //      pubkey == spl_token or token2022
-        // (index 18) kamino_farms_program:
-        //      pubkey == spl_token or token2022
-        // (index 19) system_program:
-        //      pubkey == associated_token_program
-        // (index 20) associated_token_program:
-        //      pubkey == associated_token_program program
-
-        // change reserve_vault pubkey
-        let reserve_vault_pk = sync_ix.accounts[5].pubkey;
-        let fake_reserve_vault_pk = create_account_clone_w_new_pk(&mut svm, &reserve_vault_pk);
-        sync_ix.accounts[5].pubkey = fake_reserve_vault_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        sync_ix.accounts[5].pubkey = reserve_vault_pk;
-
-        // change kamino_reserve pubkey
-        let kamino_reserve_pk = sync_ix.accounts[6].pubkey;
-        let fake_kamino_reserve_pk = create_account_clone_w_new_pk(&mut svm, &kamino_reserve_pk);
-        sync_ix.accounts[6].pubkey = fake_kamino_reserve_pk;
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        sync_ix.accounts[6].pubkey = kamino_reserve_pk;
-
-        // change obligation pubkey
-        let obligation_account_pk = sync_ix.accounts[7].pubkey;
-        sync_ix.accounts[7].pubkey =
-            create_account_clone_w_new_pk(&mut svm, &obligation_account_pk);
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-        sync_ix.accounts[7].pubkey = obligation_account_pk;
-
-        // change obligation_farm pubkey
-        let obligation_farm_pk = sync_ix.accounts[8].pubkey;
-        sync_ix.accounts[8].pubkey = create_account_clone_w_new_pk(&mut svm, &obligation_farm_pk);
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        sync_ix.accounts[8].pubkey = obligation_farm_pk;
-
-        // change rewards_vault pubkey
-        let rewards_vault_pk = sync_ix.accounts[10].pubkey;
-        sync_ix.accounts[10].pubkey = create_account_clone_w_new_pk(&mut svm, &rewards_vault_pk);
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        sync_ix.accounts[10].pubkey = rewards_vault_pk;
-
-        // change rewards_treasury_vault pubkey
-        let rewards_treasury_vault_pk = sync_ix.accounts[11].pubkey;
-        sync_ix.accounts[11].pubkey =
-            create_account_clone_w_new_pk(&mut svm, &rewards_treasury_vault_pk);
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        sync_ix.accounts[11].pubkey = rewards_treasury_vault_pk;
-
-        // change farm_vaults_authority pubkey
-        let farm_vaults_authority_pk = sync_ix.accounts[12].pubkey;
-        sync_ix.accounts[12].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[cu_ix.clone(), sync_ix.clone()],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        ));
-        assert_custom_error(&tx_result, 1, SvmAlmControllerErrors::InvalidPda);
-        sync_ix.accounts[12].pubkey = farm_vaults_authority_pk;
-
-        let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&super_authority)];
+        // Test invalid accounts for the inner context accounts (remaining_accounts)
+        // The remaining_accounts start at index 5 (after controller, controller_authority, payer, integration, reserve)
+        // Inner accounts are: reserve_vault(5), kamino_reserve(6), obligation(7), obligation_farm(8), kamino_reserve_farm(9),
+        // rewards_vault(10), rewards_treasury_vault(11), farm_vaults_authority(12), farms_global_config(13),
+        // rewards_ata(14), rewards_mint(15), rewards_token_program(17), kamino_farms_program(18),
+        // system_program(19), associated_token_program(20)
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
-            signers,
+            vec![Box::new(&super_authority)],
             sync_ix.clone(),
             {
-                // reserve_vault: invalid owner
                 5 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve vault: invalid owner"),
-                // kamino_reserve: invalid owner
+                5 => invalid_pubkey(InstructionError::InvalidAccountData, "Reserve vault: Invalid pubkey"),
                 6 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve: invalid owner"),
-                // obligation: invalid owner
+                6 => invalid_pubkey(InstructionError::InvalidAccountData, "Kamino reserve: Invalid pubkey"),
                 7 => invalid_owner(InstructionError::InvalidAccountOwner, "Obligation: invalid owner"),
-                // obligation_farm: invalid owner
+                7 => invalid_pubkey(InstructionError::InvalidAccountData, "Obligation: Invalid pubkey"),
                 8 => invalid_owner(InstructionError::InvalidAccountOwner, "Obligation farm: invalid owner"),
-                // kamino_reserve_farm: invalid owner
+                8 => invalid_pubkey(InstructionError::Custom(1), "Obligation farm: Invalid pubkey"),
                 9 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve farm: invalid owner"),
-                // rewards vault: invalid owner
                 10 => invalid_owner(InstructionError::InvalidAccountOwner, "Rewards vault: invalid owner"),
-                // rewards_treasury_vault: invalid owner
+                10 => invalid_pubkey(InstructionError::Custom(1), "Rewards vault: Invalid pubkey"),
                 11 => invalid_owner(InstructionError::InvalidAccountOwner, "Rewards treasury vault: invalid owner"),
-                // farms_global_config: invalid owner
+                11 => invalid_pubkey(InstructionError::Custom(1), "Rewards treasury vault: Invalid pubkey"),
+                12 => invalid_pubkey(InstructionError::Custom(1), "Farm vaults authority: Invalid pubkey"),
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Farms global config: invalid owner"),
-                // rewards_ata: invalid owner
                 14 => invalid_owner(InstructionError::InvalidAccountOwner, "Rewards ata: invalid owner"),
-                // rewards_mint: invalid owner
                 15 => invalid_owner(InstructionError::InvalidAccountOwner, "Rewards mint: invalid owner"),
-                // rewards_token_program: modify program id
                 17 => invalid_program_id(InstructionError::IncorrectProgramId, "Rewards token program: Invalid program id"),
-                // kamino_farms_program: modify program id
                 18 => invalid_program_id(InstructionError::IncorrectProgramId, "kamino farms program: Invalid program id"),
-                // system_program: modify program id
                 19 => invalid_program_id(InstructionError::IncorrectProgramId, "System program: Invalid program id"),
-                // associated_token_program: modify program id
                 20 => invalid_program_id(InstructionError::IncorrectProgramId, "Associated token program: Invalid program id"),
             }
         );

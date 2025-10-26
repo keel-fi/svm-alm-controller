@@ -17,6 +17,9 @@ pub enum InvalidAccountType {
     InvalidData,
     /// Account is not initialized
     Uninitialized,
+    /// Invalid pubkey - account has a different pubkey than expected.
+    /// keeps the account identical (if there is any)
+    InvalidPubkey,
 }
 
 /// Configuration for testing invalid accounts
@@ -145,6 +148,23 @@ impl<'a> InvalidAccountTestBuilder<'a> {
         self
     }
 
+    /// Add a test case with invalid pubkey
+    pub fn with_invalid_pubkey(
+        mut self,
+        account_index: usize,
+        expected_error: solana_sdk::instruction::InstructionError,
+        description: &str,
+    ) -> Self {
+        self.test_configs.push(InvalidAccountTestConfig {
+            account_index,
+            invalid_type: InvalidAccountType::InvalidPubkey,
+            expected_error,
+            description: description.to_string(),
+            custom_invalid_account: None,
+        });
+        self
+    }
+
     /// Run all the configured invalid account tests
     pub fn run_tests(mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Backup all accounts that will be modified and track original account keys
@@ -157,6 +177,7 @@ impl<'a> InvalidAccountTestBuilder<'a> {
                 InvalidAccountType::InvalidProgramId
                     | InvalidAccountType::AccountNotFound
                     | InvalidAccountType::InvalidData
+                    | InvalidAccountType::InvalidPubkey
             ) {
                 self.original_account_keys
                     .insert(config.account_index, account_pubkey);
@@ -267,6 +288,17 @@ impl<'a> InvalidAccountTestBuilder<'a> {
                 };
                 self.svm
                     .set_account(account_pubkey, uninitialized_account)?;
+            }
+            InvalidAccountType::InvalidPubkey => {
+                let original_pubkey = self.valid_instruction.accounts[config.account_index].pubkey;
+                let new_pubkey = Pubkey::new_unique();
+
+                // if the account exists, we create a clone with a different pubkey
+                if let Some(existing_acc) = self.svm.get_account(&original_pubkey) {
+                    self.svm.set_account(new_pubkey, existing_acc)?;
+                }
+
+                self.valid_instruction.accounts[config.account_index].pubkey = new_pubkey;
             }
         }
 
@@ -390,6 +422,7 @@ macro_rules! test_invalid_accounts {
             "invalid_program_id" => $builder.with_invalid_program_id($account_index, $expected_error, $description),
             "account_not_found" => $builder.with_account_not_found($account_index, $expected_error, $description),
             "invalid_data" => $builder.with_invalid_data($account_index, $expected_error, $description),
+            "invalid_pubkey" => $builder.with_invalid_pubkey($account_index, $expected_error, $description),
             _ => panic!("Unknown invalid account type: {}", stringify!($invalid_type)),
         }
     };
