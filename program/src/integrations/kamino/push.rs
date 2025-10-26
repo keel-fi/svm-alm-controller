@@ -50,7 +50,7 @@ impl<'info> InitializeObligationAccounts<'info> {
         // verify metadata pubkey is valid
         let user_metadata_pda = derive_user_metadata_address(
             controller_authority.key(),
-            &KAMINO_LEND_PROGRAM_ID,
+            inner_ctx.kamino_program.key(),
         )?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}

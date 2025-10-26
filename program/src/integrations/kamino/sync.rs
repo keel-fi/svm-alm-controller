@@ -99,7 +99,7 @@ impl<'info> HarvestKaminoAccounts<'info> {
         let obligation_farm_pda = derive_obligation_farm_address(
             ctx.kamino_reserve_farm.key(),
             obligation,
-            &KAMINO_FARMS_PROGRAM_ID,
+            ctx.kamino_farms_program.key(),
         )?;
         if obligation_farm_pda.ne(ctx.obligation_farm.key()) {
             msg! {"obligation_farm: Invalid address"}
@@ -110,7 +110,7 @@ impl<'info> HarvestKaminoAccounts<'info> {
         let rewards_vault_pda = derive_rewards_vault(
             ctx.kamino_reserve_farm.key(),
             ctx.rewards_mint.key(),
-            &KAMINO_FARMS_PROGRAM_ID,
+            ctx.kamino_farms_program.key(),
         )?;
         if rewards_vault_pda.ne(ctx.rewards_vault.key()) {
             msg! {"rewards_vault: Invalid address"}
@@ -121,7 +121,7 @@ impl<'info> HarvestKaminoAccounts<'info> {
         let rewards_treasury_vault_pda = derive_rewards_treasury_vault(
             ctx.farms_global_config.key(),
             ctx.rewards_mint.key(),
-            &KAMINO_FARMS_PROGRAM_ID,
+            ctx.kamino_farms_program.key(),
         )?;
         if rewards_treasury_vault_pda.ne(ctx.rewards_treasury_vault.key()) {
             msg! {"rewards_treasury_vault: Invalid address"}
@@ -131,7 +131,7 @@ impl<'info> HarvestKaminoAccounts<'info> {
         // Validate farm vaults authority
         let farm_vaults_authority_pda = derive_farm_vaults_authority(
             ctx.kamino_reserve_farm.key(),
-            &KAMINO_FARMS_PROGRAM_ID,
+            ctx.kamino_farms_program.key(),
         )?;
         if farm_vaults_authority_pda.ne(ctx.farm_vaults_authority.key()) {
             msg! {"farm_vaults_authority: Invalid address"}

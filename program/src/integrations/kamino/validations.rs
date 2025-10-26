@@ -84,7 +84,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
             &ctx.market.key(),
             &ctx.kamino_reserve_liquidity_mint.key(),
-            &KAMINO_LEND_PROGRAM_ID,
+            ctx.kamino_program.key(),
         )?;
         if ctx
             .kamino_reserve_collateral_mint
@@ -98,7 +98,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         let reserve_collateral_supply_pda = derive_reserve_collateral_supply(
             &ctx.market.key(),
             &ctx.kamino_reserve_liquidity_mint.key(),
-            &KAMINO_LEND_PROGRAM_ID,
+            ctx.kamino_program.key(),
         )?;
         if ctx
             .kamino_reserve_collateral_supply
@@ -112,7 +112,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         let reserve_liquidity_supply_pda = derive_reserve_liquidity_supply(
             &ctx.market.key(),
             &ctx.kamino_reserve_liquidity_mint.key(),
-            &KAMINO_LEND_PROGRAM_ID,
+            ctx.kamino_program.key(),
         )?;
         if ctx
             .kamino_reserve_liquidity_supply
@@ -124,7 +124,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         }
 
         let market_authority_pda =
-            derive_market_authority_address(ctx.market.key(), &KAMINO_LEND_PROGRAM_ID)?;
+            derive_market_authority_address(ctx.market.key(), ctx.kamino_program.key())?;
         if ctx.market_authority.key().ne(&market_authority_pda) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -155,7 +155,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
             && !ctx
                 .reserve_farm_collateral
-                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+                .is_owned_by(ctx.kamino_farms_program.key())
         {
             msg! {"reserve_farm_collateral: invalid owner"};
             return Err(ProgramError::InvalidAccountOwner);
@@ -169,11 +169,11 @@ impl<'info> PushPullKaminoAccounts<'info> {
         if ctx
             .obligation_farm_collateral
             .key()
-            .ne(&KAMINO_LEND_PROGRAM_ID)
+            .ne(ctx.kamino_program.key())
         {
             if !ctx
                 .obligation_farm_collateral
-                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+                .is_owned_by(ctx.kamino_farms_program.key())
             {
                 msg! {"obligation_farm_collateral: invalid owner"};
                 return Err(ProgramError::InvalidAccountOwner);
@@ -182,7 +182,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
             let obligation_farm_collateral_pda = derive_obligation_farm_address(
                 ctx.reserve_farm_collateral.key(),
                 ctx.obligation.key(),
-                &KAMINO_FARMS_PROGRAM_ID,
+                ctx.kamino_farms_program.key(),
             )?;
             if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
                 msg! {"obligation_farm_collateral: Invalid address"}

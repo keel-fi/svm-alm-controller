@@ -310,20 +310,22 @@ mod tests {
         assert_eq!(kamino_state.balance, 0);
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps without referrer")]
     fn test_kamino_init_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -361,7 +363,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -371,6 +373,12 @@ mod tests {
             10_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -408,7 +416,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &KAMINO_LEND_PROGRAM_ID
+            &referrer
         )
         .map_err(|e| {
             println!("error in setup_env_and_get_init_ix: {}", e);
@@ -562,20 +570,22 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps without referrer")]
     fn test_kamino_push_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -613,7 +623,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -624,6 +634,12 @@ mod tests {
             5_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -670,7 +686,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &KAMINO_LEND_PROGRAM_ID
+            &referrer
         )
         .unwrap();
 
@@ -833,20 +849,22 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps without referrer")]
     fn test_kamino_pull_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -884,7 +902,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -895,6 +913,12 @@ mod tests {
             5_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -941,7 +965,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &KAMINO_LEND_PROGRAM_ID
+            &referrer
         )
         .unwrap();
 
@@ -1111,20 +1135,22 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_sync_success(
         liquidity_mint_token_program: Pubkey,
         _reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         _reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -1150,7 +1176,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
-            referrer_metadata: _
+            referrer_metadata
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -1160,6 +1186,12 @@ mod tests {
             10_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -1201,7 +1233,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &KAMINO_LEND_PROGRAM_ID
+            &referrer
         )
         .unwrap();
 
@@ -3375,342 +3407,6 @@ mod tests {
         assert_eq!(
             error.err,
             TransactionError::InstructionError(1, InstructionError::InvalidAccountData)
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_kamino_with_referrer_success() -> Result<(), Box<dyn std::error::Error>> {
-        let TestContext {
-            mut svm,
-            controller_pk,
-            super_authority,
-        } = setup_test_controller()?;
-
-        let controller_authority = derive_controller_authority_pda(&controller_pk);
-
-        let liquidity_mint = initialize_mint(
-            &mut svm,
-            &super_authority,
-            &super_authority.pubkey(),
-            None,
-            6,
-            None,
-            &spl_token::ID,
-            None,
-            None,
-        )?;
-
-        let KaminoTestContext {
-            lending_market,
-            reserve_context,
-            farms_context,
-            referrer_metadata
-        } = setup_kamino_state(
-            &mut svm,
-            &liquidity_mint,
-            &spl_token::ID,
-            &liquidity_mint,
-            &spl_token::ID,
-            10_000,
-            true,
-        );
-
-        let obligation_id = 0;
-        let obligation = derive_vanilla_obligation_address(
-            obligation_id,
-            &controller_authority,
-            &lending_market,
-        );
-
-        let kamino_config = KaminoConfig {
-            market: lending_market,
-            reserve: reserve_context.kamino_reserve_pk,
-            reserve_liquidity_mint: liquidity_mint,
-            obligation,
-            obligation_id,
-            padding: [0; 95],
-        };
-
-        // in order to trigger all accounting events in sync, we set the reward mint
-        // to equal the reserve mint
-        let reward_mint = kamino_config.reserve_liquidity_mint;
-
-        let description = "test";
-        let status = IntegrationStatus::Active;
-        let rate_limit_slope = 100_000_000_000;
-        let rate_limit_max_outflow = 100_000_000_000;
-        let permit_liquidation = true;
-
-        let (kamino_init_ix, integration_pk, reserve_keys) = setup_env_and_get_init_ix(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            description,
-            status,
-            rate_limit_slope,
-            rate_limit_max_outflow,
-            permit_liquidation,
-            &kamino_config,
-            &reserve_context.reserve_farm_collateral,
-            &liquidity_mint,
-            obligation_id,
-            &spl_token::ID,
-            &referrer_metadata.1
-        )
-        .unwrap();
-
-        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
-        let tx = Transaction::new_signed_with_payer(
-            &[cu_ix, kamino_init_ix],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        );
-        svm.send_transaction(tx.clone()).unwrap();
-
-        let deposit_amount = 100_000_000;
-        // Deposit some amount into kamino
-        let push_ix = get_push_ix(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &integration_pk,
-            &obligation,
-            &kamino_config,
-            deposit_amount,
-            &Pubkey::default(),
-            &reserve_context.reserve_farm_collateral,
-            &spl_token::ID,
-        )?;
-        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
-        let tx = Transaction::new_signed_with_payer(
-            &[cu_ix, push_ix],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        );
-        svm.send_transaction(tx.clone()).unwrap();
-
-        let withdraw_amount = 100_000;
-        let pull_ix = get_pull_ix(
-            &mut svm,
-            &controller_pk,
-            &super_authority,
-            &integration_pk,
-            &obligation,
-            &kamino_config,
-            withdraw_amount,
-            &Pubkey::default(),
-            &reserve_context.reserve_farm_collateral,
-            &spl_token::ID,
-        )?;
-        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
-        let tx = Transaction::new_signed_with_payer(
-            &[cu_ix, pull_ix],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        );
-        svm.send_transaction(tx).unwrap();
-
-        let rewards_ata = get_associated_token_address_with_program_id(
-            &controller_authority,
-            &reward_mint,
-            &spl_token::ID,
-        );
-
-        // increase the amount in the integration reserve in order to
-        // trigger the first event in reserve.sync_balance
-        let reserve_before = fetch_reserve_account(&svm, &reserve_keys.pubkey)?.unwrap();
-
-        edit_ata_amount(
-            &mut svm,
-            &controller_authority,
-            &kamino_config.reserve_liquidity_mint,
-            1_100_000_000_000,
-        )?;
-
-        // Accrue 1% interest
-        let interest_bps = 100;
-        kamino_reserve_accrue_interest(&mut svm, &kamino_config.reserve, interest_bps)?;
-        let interest_on_deposit = (deposit_amount - withdraw_amount) * interest_bps / 10_000;
-
-        let integration_before = fetch_integration_account(&svm, &integration_pk)
-            .unwrap()
-            .unwrap();
-
-        let reward_ata_balance_before = get_token_balance_or_zero(&svm, &rewards_ata);
-
-        let obligation_collateral_farm =
-            derive_obligation_farm_address(&reserve_context.reserve_farm_collateral, &obligation);
-
-        // increase unclaimed rewards of obligation farm
-        let rewards_unclaimed = 100_000_000;
-        set_obligation_farm_rewards_issued_unclaimed(
-            &mut svm,
-            &obligation_collateral_farm,
-            &reward_mint,
-            &spl_token::ID,
-            rewards_unclaimed,
-        )?;
-
-        // Refresh the kamino reserve to ensure it's not stale before sync
-        refresh_kamino_reserve(
-            &mut svm,
-            &super_authority,
-            &kamino_config.reserve,
-            &kamino_config.market,
-            &KAMINO_FARMS_PROGRAM_ID,
-        )?;
-
-        let harvest_acounts = HarvestRewardAccounts {
-            rewards_mint: &reward_mint,
-            global_config: &farms_context.global_config,
-            reserve_farm_collateral: &reserve_context.reserve_farm_collateral,
-            scope_prices: &KAMINO_FARMS_PROGRAM_ID,
-            rewards_token_program: &spl_token::ID,
-        };
-
-        let sync_ix = create_sync_kamino_lend_ix(
-            &controller_pk,
-            &integration_pk,
-            &super_authority.pubkey(),
-            &kamino_config,
-            &spl_token::ID,
-            Some(harvest_acounts),
-        );
-        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
-        let tx = Transaction::new_signed_with_payer(
-            &[cu_ix, sync_ix],
-            Some(&super_authority.pubkey()),
-            &[&super_authority],
-            svm.latest_blockhash(),
-        );
-        let tx_result = svm.send_transaction(tx.clone()).map_err(|e| {
-            println!("logs: {}", e.meta.pretty_logs());
-            e.err.to_string()
-        })?;
-
-        let reward_ata_balance_after = get_token_balance_or_zero(&svm, &rewards_ata);
-
-        let reward_ata_balance_delta =
-            reward_ata_balance_after.saturating_sub(reward_ata_balance_before);
-
-        let integration_after = fetch_integration_account(&svm, &integration_pk)
-            .unwrap()
-            .unwrap();
-
-        let reserve_after = fetch_reserve_account(&svm, &reserve_keys.pubkey)?.unwrap();
-
-        // assert the reward ata delta is equal to the rewards unclaimed in obligation farm
-        assert_eq!(rewards_unclaimed, reward_ata_balance_delta);
-
-        // Assert emitted events
-
-        let liq_value_delta = reserve_after
-            .last_balance
-            .abs_diff(reserve_before.last_balance);
-        // assert reserve sync
-        let expected_reserve_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-            controller: controller_pk,
-            integration: None,
-            reserve: Some(reserve_keys.pubkey),
-            mint: kamino_config.reserve_liquidity_mint,
-            action: AccountingAction::Sync,
-            delta: liq_value_delta,
-            direction: AccountingDirection::Credit,
-        });
-        assert_contains_controller_cpi_event!(
-            tx_result,
-            tx.message.account_keys.as_slice(),
-            expected_reserve_event
-        );
-
-        // assert sync event for credit (inflow) integration
-        // emitted since harvest mint matches the integration reserve mint
-        let expected_credit_integration_event =
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: controller_pk,
-                integration: Some(integration_pk),
-                reserve: None,
-                direction: AccountingDirection::Credit,
-                mint: kamino_config.reserve_liquidity_mint,
-                action: AccountingAction::Sync,
-                delta: rewards_unclaimed,
-            });
-        assert_contains_controller_cpi_event!(
-            tx_result,
-            tx.message.account_keys.as_slice(),
-            expected_credit_integration_event
-        );
-
-        // assert accounting event for debit (outflow) integration
-        // emitted since harvest mint matches the integration reserve mint
-        let expected_debit_integration_event =
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: controller_pk,
-                integration: Some(integration_pk),
-                reserve: None,
-                direction: AccountingDirection::Debit,
-                mint: kamino_config.reserve_liquidity_mint,
-                action: AccountingAction::Withdrawal,
-                delta: rewards_unclaimed,
-            });
-        assert_contains_controller_cpi_event!(
-            tx_result,
-            tx.message.account_keys.as_slice(),
-            expected_debit_integration_event
-        );
-
-        // assert accounting event for credit (inflow) reserve
-        // emitted since harvest mint matches the integration reserve mint
-        let expected_credit_reserve_event =
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: controller_pk,
-                integration: None,
-                reserve: Some(reserve_keys.pubkey),
-                direction: AccountingDirection::Credit,
-                mint: kamino_config.reserve_liquidity_mint,
-                action: AccountingAction::Withdrawal,
-                delta: reward_ata_balance_delta,
-            });
-        assert_contains_controller_cpi_event!(
-            tx_result,
-            tx.message.account_keys.as_slice(),
-            expected_credit_reserve_event
-        );
-
-        // assert liquidity_value change event was emitted
-        let expected_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-            controller: controller_pk,
-            integration: Some(integration_pk),
-            reserve: None,
-            mint: kamino_config.reserve_liquidity_mint,
-            action: AccountingAction::Sync,
-            delta: interest_on_deposit,
-            direction: AccountingDirection::Credit,
-        });
-        assert_contains_controller_cpi_event!(
-            tx_result,
-            tx.message.account_keys.as_slice(),
-            expected_event
-        );
-
-        // assert integration state changed
-        let state_before = match integration_before.clone().state {
-            IntegrationState::Kamino(kamino_state) => kamino_state,
-            _ => panic!("invalid state"),
-        };
-        let state_after = match integration_after.clone().state {
-            IntegrationState::Kamino(kamino_state) => kamino_state,
-            _ => panic!("invalid state"),
-        };
-
-        assert_eq!(
-            state_before.balance + interest_on_deposit,
-            state_after.balance
         );
 
         Ok(())
