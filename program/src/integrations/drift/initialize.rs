@@ -165,7 +165,7 @@ pub fn process_initialize_drift(
                 user: inner_ctx.drift_user,
                 authority: outer_ctx.controller_authority,
                 sub_account_id,
-                pool_id: spot_market.pool_id
+                pool_id: spot_market.pool_id,
             }
             .invoke_signed(&[Signer::from(&[
                 Seed::from(CONTROLLER_AUTHORITY_SEED),

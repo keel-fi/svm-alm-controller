@@ -81,11 +81,7 @@ pub fn set_drift_spot_market(
     spot_market
 }
 
-pub fn set_drift_spot_market_pool_id(
-    svm: &mut LiteSVM,
-    spot_market_pk: &Pubkey,
-    new_pool_id: u8,
-) {
+pub fn set_drift_spot_market_pool_id(svm: &mut LiteSVM, spot_market_pk: &Pubkey, new_pool_id: u8) {
     let mut spot_market_account = svm.get_account(spot_market_pk).unwrap();
     let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
     let spot_market = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
@@ -98,8 +94,9 @@ pub fn set_drift_spot_market_pool_id(
             rent_epoch: u64::MAX,
             data: vec![
                 SpotMarket::DISCRIMINATOR.to_vec(),
-                bytemuck::bytes_of(spot_market).to_vec()
-            ].concat(),
+                bytemuck::bytes_of(spot_market).to_vec(),
+            ]
+            .concat(),
             owner: DRIFT_PROGRAM_ID,
             executable: false,
         },
