@@ -20,7 +20,7 @@ cpi_instruction! {
 }
 
 cpi_instruction! {
-    /// Updated a Drift user pool_id.
+    /// Updates a Drift user pool_id.
     /// Note: called when the pool_id of the user being initialized
     /// is != 0.
     pub struct UpdateUserPoolId<'info> {
