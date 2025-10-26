@@ -25,7 +25,7 @@ use crate::{
         klend_protocol_state::Obligation,
         pdas::derive_user_metadata_address,
         shared_sync::sync_kamino_liquidity_value,
-        validations::PushPullKaminoAccounts,
+        push_pull_accounts::PushPullKaminoAccounts,
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},

@@ -16,6 +16,8 @@ import {
   getStructEncoder,
   getU16Decoder,
   getU16Encoder,
+  getU8Decoder,
+  getU8Encoder,
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
@@ -25,6 +27,7 @@ import {
 export type DriftConfig = {
   subAccountId: number;
   spotMarketIndex: number;
+  poolId: number;
   padding: ReadonlyUint8Array;
 };
 
@@ -34,7 +37,8 @@ export function getDriftConfigEncoder(): FixedSizeEncoder<DriftConfigArgs> {
   return getStructEncoder([
     ['subAccountId', getU16Encoder()],
     ['spotMarketIndex', getU16Encoder()],
-    ['padding', fixEncoderSize(getBytesEncoder(), 220)],
+    ['poolId', getU8Encoder()],
+    ['padding', fixEncoderSize(getBytesEncoder(), 219)],
   ]);
 }
 
@@ -42,7 +46,8 @@ export function getDriftConfigDecoder(): FixedSizeDecoder<DriftConfig> {
   return getStructDecoder([
     ['subAccountId', getU16Decoder()],
     ['spotMarketIndex', getU16Decoder()],
-    ['padding', fixDecoderSize(getBytesDecoder(), 220)],
+    ['poolId', getU8Decoder()],
+    ['padding', fixDecoderSize(getBytesDecoder(), 219)],
   ]);
 }
 

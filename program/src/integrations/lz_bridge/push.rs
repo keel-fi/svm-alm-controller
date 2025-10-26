@@ -29,8 +29,8 @@ use pinocchio_token_interface::{Mint, TokenAccount};
 
 define_account_struct! {
     pub struct PushLzBridgeAccounts<'info> {
-        mint;
-        vault;
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         authority_token_account;
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
@@ -208,14 +208,6 @@ pub fn process_push_lz_bridge(
         _ => return Err(ProgramError::InvalidAccountData),
     }
 
-    verify_send_ix_in_tx(
-        outer_ctx.authority.key(),
-        &inner_ctx,
-        &config,
-        outer_ctx.integration.key(),
-        amount,
-    )?;
-
     // Check against reserve data
     if inner_ctx.vault.key().ne(&reserve_a.vault) {
         msg! {"vault: mismatch with reserve"};
@@ -225,6 +217,14 @@ pub fn process_push_lz_bridge(
         msg! {"mint: mismatch with reserve"};
         return Err(ProgramError::InvalidAccountData);
     }
+
+    verify_send_ix_in_tx(
+        outer_ctx.authority.key(),
+        &inner_ctx,
+        &config,
+        outer_ctx.integration.key(),
+        amount,
+    )?;
 
     // Sync the balance before doing anything else
     reserve_a.sync_balance(

@@ -11,7 +11,9 @@ pub struct DriftConfig {
     // Spot market to deposit into (mint specific)
     // Indexes can be seen here: https://github.com/drift-labs/protocol-v2/blob/master/sdk/src/constants/spotMarkets.ts
     pub spot_market_index: u16,
-    pub _padding: [u8; 220],
+    // the Pool of the spot market
+    pub pool_id: u8,
+    pub _padding: [u8; 219],
 }
 
 impl DriftConfig {

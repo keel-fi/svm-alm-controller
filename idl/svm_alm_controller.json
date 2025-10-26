@@ -2000,11 +2000,15 @@
             "type": "u16"
           },
           {
+            "name": "poolId",
+            "type": "u8"
+          },
+          {
             "name": "padding",
             "type": {
               "array": [
                 "u8",
-                220
+                219
               ]
             }
           }

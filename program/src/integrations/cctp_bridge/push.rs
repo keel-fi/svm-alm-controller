@@ -1,5 +1,5 @@
 use crate::{
-    constants::CONTROLLER_AUTHORITY_SEED,
+    constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID, CONTROLLER_AUTHORITY_SEED},
     define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
@@ -23,7 +23,7 @@ use pinocchio_token_interface::TokenAccount;
 define_account_struct! {
     pub struct PushCctpBridgeAccounts<'info> {
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        vault;
+        vault: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         sender_authority_pda;
         message_transmitter;
         token_messenger;
@@ -31,8 +31,8 @@ define_account_struct! {
         token_minter;
         local_token;
         message_sent_event_data: signer;
-        cctp_message_transmitter;
-        cctp_token_messenger_minter;
+        cctp_message_transmitter: @pubkey(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID);
+        cctp_token_messenger_minter: @pubkey(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
         event_authority;
         token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
         system_program: @pubkey(pinocchio_system::ID);
