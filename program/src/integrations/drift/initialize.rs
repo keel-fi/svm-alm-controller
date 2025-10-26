@@ -104,8 +104,6 @@ pub fn process_initialize_drift(
     )?;
 
     // Check that the spot_market_index is valid and matches a Drift SpotMarket
-    // and that the pool_id matches the user.pool_id (if already initialized), or
-    // update the user pool_id (CPI) (if being initialized)
     let spot_market_data = inner_ctx.drift_spot_market.try_borrow_data()?;
     let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
     if spot_market.market_index != spot_market_index {
