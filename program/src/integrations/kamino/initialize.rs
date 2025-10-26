@@ -37,8 +37,12 @@ use crate::{
 
 define_account_struct! {
     pub struct InitializeKaminoAccounts<'info> {
+        // May or may not be owned by Kamino program. Check performed
+        // in processor.
         obligation: mut;
         reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // May or may not be owned by Kamino program. Check performed
+        // in processor.
         user_metadata: mut;
         referrer_metadata;
         obligation_farm_collateral: mut @owner(KAMINO_FARMS_PROGRAM_ID, pinocchio_system::ID);

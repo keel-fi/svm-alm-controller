@@ -34,7 +34,11 @@ Mint under a specific subaccount (aka User).
 define_account_struct! {
     pub struct InitializeDriftAccounts<'info> {
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // May or may not be owned by Drift program. Check performed
+        // in processor.
         drift_user: mut;
+        // May or may not be owned by Drift program. Check performed
+        // in processor.
         drift_user_stats: mut;
         drift_state: mut, @owner(DRIFT_PROGRAM_ID);
         drift_spot_market: @owner(DRIFT_PROGRAM_ID);

@@ -16,7 +16,7 @@ use crate::{
         balance::get_kamino_lending_balance,
         cpi::WithdrawObligationCollateralAndRedeemReserveCollateralV2,
         klend_protocol_state::KaminoReserve, shared_sync::sync_kamino_liquidity_value,
-        validations::PushPullKaminoAccounts,
+        push_pull_accounts::PushPullKaminoAccounts,
     },
     processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
