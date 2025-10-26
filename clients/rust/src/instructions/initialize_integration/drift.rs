@@ -30,11 +30,13 @@ pub fn create_drift_initialize_integration_instruction(
     permit_liquidation: bool,
     sub_account_id: u16,
     spot_market_index: u16,
+    pool_id: u8,
 ) -> Instruction {
     let config = IntegrationConfig::Drift(DriftConfig {
         sub_account_id,
         spot_market_index,
-        padding: [0u8; 220],
+        pool_id,
+        padding: [0u8; 219],
     });
 
     let inner_args = InitializeArgs::Drift {

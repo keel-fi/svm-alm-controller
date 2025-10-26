@@ -7,7 +7,7 @@ mod tests {
     use std::u64;
 
     use crate::helpers::assert::assert_custom_error;
-    use crate::helpers::drift::spot_market_accrue_cumulative_interest;
+    use crate::helpers::drift::{set_drift_spot_market_pool_id, spot_market_accrue_cumulative_interest};
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_mint, get_token_balance_or_zero};
@@ -34,7 +34,7 @@ mod tests {
     };
     use spl_token;
     use svm_alm_controller::error::SvmAlmControllerErrors;
-    use svm_alm_controller_client::integrations::drift::get_inner_remaining_accounts;
+    use svm_alm_controller_client::integrations::drift::{derive_spot_market_pda, get_inner_remaining_accounts};
     use svm_alm_controller_client::pull::drift::create_drift_pull_instruction;
     use svm_alm_controller_client::{
         derive_controller_authority_pda,
@@ -51,7 +51,7 @@ mod tests {
     use test_case::test_case;
 
     #[test]
-    fn initiailize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
+    fn initialize_drift_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -72,9 +72,10 @@ mod tests {
 
         let spot_market_index = 0;
         let oracle_price = 100;
+        let pool_id = 1;
         setup_drift_state(&mut svm);
-        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price);
-        set_drift_spot_market(&mut svm, spot_market_index + 1, &mint, oracle_price);
+        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price, pool_id);
+        set_drift_spot_market(&mut svm, spot_market_index + 1, &mint, oracle_price, pool_id);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -93,6 +94,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -103,7 +105,7 @@ mod tests {
         );
         let tx_result = svm
             .send_transaction(tx.clone())
-            .map_err(|e| e.err.to_string())?;
+            .map_err(|e| e.meta.pretty_logs())?;
 
         let clock = svm.get_sysvar::<Clock>();
 
@@ -131,7 +133,8 @@ mod tests {
                     &DriftConfig {
                         sub_account_id,
                         spot_market_index,
-                        padding: [0u8; 220]
+                        pool_id,
+                        padding: [0u8; 219]
                     }
                 )
             }
@@ -183,6 +186,7 @@ mod tests {
             sub_account_id,
             // Increment spot market index so integration key is different
             spot_market_index + 1,
+            pool_id
         );
         let tx = Transaction::new_signed_with_payer(
             &[init_ix],
@@ -192,6 +196,101 @@ mod tests {
         );
         let tx_result = svm.send_transaction(tx);
         assert!(tx_result.is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn initialize_drift_invalid_pool_id_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+            None,
+        )?;
+
+        let spot_market_index = 0;
+        let oracle_price = 100;
+        let pool_id = 1;
+        setup_drift_state(&mut svm);
+        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price, pool_id);
+        set_drift_spot_market(&mut svm, spot_market_index + 1, &mint, oracle_price, pool_id);
+
+        // Initialize Drift Integration
+        let sub_account_id = 0;
+        let rate_limit_slope = 1_000_000_000_000;
+        let rate_limit_max_outflow = 2_000_000_000_000;
+        let permit_liquidation = true;
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            &mint,
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            spot_market_index,
+            pool_id
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm
+            .send_transaction(tx.clone());
+        assert!(tx_result.is_ok());
+
+        // Creation of a second Integraton should error if the spot_market pool_id is changed
+        // to a different value. Same drift user since sub_account_id is unchanged.
+
+        set_drift_spot_market_pool_id(
+            &mut svm,
+            &derive_spot_market_pda(spot_market_index + 1),
+            2
+        );
+
+        let init_ix = create_drift_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            &mint,
+            "Drift Lend",
+            IntegrationStatus::Active,
+            rate_limit_slope,
+            rate_limit_max_outflow,
+            permit_liquidation,
+            sub_account_id,
+            // Increment spot market index so integration key is different
+            spot_market_index + 1,
+            pool_id
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(tx);
+        assert_eq!(
+            tx_result.err().unwrap().err,
+            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+        );
 
         Ok(())
     }
@@ -220,7 +319,8 @@ mod tests {
 
         let spot_market_index = 0;
         let oracle_price = 100;
-        let spot_market = set_drift_spot_market(&mut svm, 0, &mint, oracle_price);
+        let pool_id = 0;
+        let spot_market = set_drift_spot_market(&mut svm, 0, &mint, oracle_price, pool_id);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -239,6 +339,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
 
         let valid_market = svm.get_account(&spot_market.pubkey).unwrap();
@@ -306,7 +407,8 @@ mod tests {
 
         let spot_market_index = 0;
         let oracle_price = 100;
-        set_drift_spot_market(&mut svm, 0, &mint, oracle_price);
+        let pool_id = 0;
+        set_drift_spot_market(&mut svm, 0, &mint, oracle_price, pool_id);
 
         // Initialize Drift Integration
         let sub_account_id = 0;
@@ -325,6 +427,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let tx = Transaction::new_signed_with_payer(
             &[init_ix],
@@ -374,9 +477,9 @@ mod tests {
             transfer_fee_bps,
             None,
         )?;
-
+        let pool_id = 0;
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
@@ -400,6 +503,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -644,8 +748,9 @@ mod tests {
             None,
         )?;
 
+        let pool_id = 0;
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
@@ -668,6 +773,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -826,8 +932,9 @@ mod tests {
             None,
         )?;
 
+        let pool_id = 0;
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &token_program);
 
@@ -850,6 +957,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -1104,11 +1212,12 @@ mod tests {
         // Set up spot markets for the additional tokens
         let spot_market_index_1 = 0;
         let spot_market_index_2 = 1;
+        let pool_id = 0;
 
         let spot_market_1 =
-            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100);
+            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100, pool_id);
         let spot_market_2 =
-            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100);
+            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
@@ -1119,6 +1228,8 @@ mod tests {
 
         // Set up User accounts with spot positions for both markets
         let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let pool_id = 0;
 
         // Define sub account IDs
         let sub_account_id_1 = 0;
@@ -1141,6 +1252,7 @@ mod tests {
             permit_liquidation,
             sub_account_id_1,
             spot_market_index_1,
+            pool_id
         );
         let integration_pubkey_1 = init_ix_1.accounts[5].pubkey;
 
@@ -1166,6 +1278,7 @@ mod tests {
             permit_liquidation,
             sub_account_id_2,
             spot_market_index_2,
+            pool_id
         );
         let integration_pubkey_2 = init_ix_2.accounts[5].pubkey;
 
@@ -1520,14 +1633,16 @@ mod tests {
             None,
         )?;
 
+        let pool_id = 0;
+
         // Set up spot markets for the additional tokens
         let spot_market_index_1 = 1;
         let spot_market_index_2 = 2;
 
         let spot_market_1 =
-            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100);
+            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100, pool_id);
         let spot_market_2 =
-            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100);
+            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
@@ -1556,6 +1671,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index_1,
+            pool_id
         );
         let integration_pubkey_1 = init_ix_1.accounts[5].pubkey;
 
@@ -1572,6 +1688,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index_2,
+            pool_id
         );
         let integration_pubkey_2 = init_ix_2.accounts[5].pubkey;
 
@@ -1759,7 +1876,9 @@ mod tests {
             None,
         )?;
 
-        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100);
+        let pool_id = 0;
+
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -1782,6 +1901,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -1906,7 +2026,9 @@ mod tests {
             None,
         )?;
 
-        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100);
+        let pool_id = 0;
+
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -1930,6 +2052,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -2145,7 +2268,9 @@ mod tests {
             None,
         )?;
 
-        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100);
+        let pool_id = 0;
+
+        let spot_market = set_drift_spot_market(&mut svm, spot_market_index, &token_mint, 100, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2168,6 +2293,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -2312,9 +2438,10 @@ mod tests {
 
         setup_drift_state(&mut svm);
 
+        let pool_id = 0;
         let spot_market_index = 0;
         let oracle_price = 100;
-        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price);
+        set_drift_spot_market(&mut svm, spot_market_index, &mint, oracle_price, pool_id);
 
         // Create a valid drift initialize instruction
         let sub_account_id = 0;
@@ -2333,6 +2460,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
 
         // Test invalid accounts for the inner context accounts (remaining_accounts)
@@ -2388,8 +2516,9 @@ mod tests {
             None,
         )?;
 
+        let pool_id = 0;
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2413,6 +2542,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -2524,8 +2654,10 @@ mod tests {
             None,
         )?;
 
+        let pool_id = 0;
+
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2549,6 +2681,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
@@ -2686,8 +2819,10 @@ mod tests {
             None,
         )?;
 
+        let pool_id = 0;
+
         let spot_market =
-            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price);
+            set_drift_spot_market(&mut svm, spot_market_index, &token_mint, oracle_price, pool_id);
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index, &token_mint, &spl_token::ID);
 
@@ -2710,6 +2845,7 @@ mod tests {
             permit_liquidation,
             sub_account_id,
             spot_market_index,
+            pool_id
         );
         let integration_pubkey = init_ix.accounts[5].pubkey;
         let tx = Transaction::new_signed_with_payer(
