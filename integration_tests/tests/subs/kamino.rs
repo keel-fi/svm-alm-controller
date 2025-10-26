@@ -13,7 +13,7 @@ use svm_alm_controller_client::{
         derive_farm_vaults_authority, derive_kfarms_treasury_vault_authority,
         derive_market_authority_address, derive_reserve_collateral_mint,
         derive_reserve_collateral_supply, derive_reserve_liquidity_supply,
-        derive_rewards_treasury_vault, derive_rewards_vault,
+        derive_rewards_treasury_vault, derive_rewards_vault, derive_user_metadata_address,
     },
 };
 
@@ -23,7 +23,7 @@ use crate::helpers::{
         math_utils::Fraction,
         state::{
             kfarms::{FarmState, GlobalConfig, RewardInfo, UserState},
-            klend::{KaminoReserve, LastUpdate, LendingMarket, Obligation},
+            klend::{KaminoReserve, LastUpdate, LendingMarket, Obligation, UserMetadata},
         },
     },
     spl::{setup_token_account, setup_token_mint},
@@ -189,6 +189,7 @@ pub struct KaminoTestContext {
     pub lending_market: Pubkey,
     pub reserve_context: KaminoReserveContext,
     pub farms_context: KaminoFarmsContext,
+    pub referrer_metadata: (Pubkey, Pubkey),
 }
 
 /// sets all account required by kamino integration
@@ -283,10 +284,13 @@ pub fn setup_kamino_state(
         global_config: global_config_pk,
     };
 
+    let referrer = setup_user_metadata(svm);
+
     KaminoTestContext {
         lending_market: lending_market_pk,
         reserve_context,
         farms_context,
+        referrer_metadata: referrer,
     }
 }
 
@@ -491,6 +495,32 @@ fn setup_reserve(
         reserve_farm_collateral,
         reserve_farm_debt,
     }
+}
+
+fn setup_user_metadata(svm: &mut LiteSVM) -> (Pubkey, Pubkey) {
+    let user_pk = Pubkey::new_unique();
+    let (metadata_pda, metadata_bump) = derive_user_metadata_address(&user_pk);
+
+    let mut metadata = UserMetadata::default();
+    metadata.bump = metadata_bump as u64;
+    metadata.owner = user_pk;
+    svm.set_account(
+        metadata_pda,
+        Account {
+            lamports: u64::MAX,
+            data: vec![
+                UserMetadata::DISCRIMINATOR.to_vec(),
+                bytemuck::bytes_of(&metadata).to_vec(),
+            ]
+            .concat(),
+            owner: KAMINO_LEND_PROGRAM_ID,
+            executable: false,
+            rent_epoch: u64::MAX,
+        },
+    )
+    .unwrap();
+
+    (user_pk, metadata_pda)
 }
 
 // /// setups additional reserves given the liquidity_mints provided.

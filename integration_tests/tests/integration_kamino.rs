@@ -72,6 +72,7 @@ mod tests {
         mint: &Pubkey,
         obligation_id: u8,
         integration_reserve_token_program: &Pubkey,
+        referrer_metadata: &Pubkey,
     ) -> Result<(Instruction, Pubkey, ReserveKeys), Box<dyn std::error::Error>> {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
@@ -97,7 +98,7 @@ mod tests {
             &IntegrationConfig::Kamino(kamino_config.clone()),
             reserve_farm_collateral,
             obligation_id,
-            &KAMINO_LEND_PROGRAM_ID,
+            referrer_metadata,
         );
 
         Ok((kamino_init_ix, kamino_integration_pk, reserve_pk))
@@ -309,20 +310,22 @@ mod tests {
         assert_eq!(kamino_state.balance, 0);
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps without referrer")]
     fn test_kamino_init_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -360,6 +363,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -369,6 +373,12 @@ mod tests {
             10_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -406,6 +416,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
+            &referrer,
         )
         .map_err(|e| {
             println!("error in setup_env_and_get_init_ix: {}", e);
@@ -493,6 +504,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -558,20 +570,22 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps without referrer")]
     fn test_kamino_push_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -609,6 +623,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -619,6 +634,12 @@ mod tests {
             5_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -665,6 +686,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
+            &referrer,
         )
         .unwrap();
 
@@ -827,20 +849,22 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps without referrer")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps without referrer")]
     fn test_kamino_pull_success(
         liquidity_mint_token_program: Pubkey,
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -878,6 +902,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -888,6 +913,12 @@ mod tests {
             5_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -934,6 +965,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
+            &referrer,
         )
         .unwrap();
 
@@ -1103,20 +1135,22 @@ mod tests {
         Ok(())
     }
 
-    #[test_case( spl_token::ID, spl_token::ID, None, None ; "Liquidity mint Token, Reward mint Token")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None ; "Liquidity mint T2022, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, None, None ; "Liquidity mint T2022, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, None ; "Liquidity mint Token, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
-    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0) ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
-    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
-    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0) ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, false ; "Liquidity mint Token, Reward mint Token without referrer")]
+    #[test_case( spl_token::ID, spl_token::ID, None, None, true ; "Liquidity mint Token, Reward mint Token with referrer")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint T2022, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, None, None, false ; "Liquidity mint T2022, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, None, false ; "Liquidity mint Token, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint T2022, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022")]
+    #[test_case( spl_token_2022::ID, spl_token_2022::ID, Some(0), Some(0), false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint T2022 TransferFee 0 bps")]
+    #[test_case( spl_token_2022::ID, spl_token::ID, Some(0), None, false ; "Liquidity mint T2022 TransferFee 0 bps, Reward mint Token")]
+    #[test_case( spl_token::ID, spl_token_2022::ID, None, Some(0), false ; "Liquidity mint Token, Reward mint T2022 TransferFee 0 bps")]
     fn test_kamino_sync_success(
         liquidity_mint_token_program: Pubkey,
         _reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         _reward_mint_transfer_fee: Option<u16>,
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -1142,6 +1176,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -1151,6 +1186,12 @@ mod tests {
             10_000,
             true,
         );
+
+        let referrer = if with_referrer {
+            referrer_metadata.1
+        } else {
+            KAMINO_LEND_PROGRAM_ID
+        };
 
         let obligation_id = 0;
         let obligation = derive_vanilla_obligation_address(
@@ -1192,6 +1233,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
+            &referrer,
         )
         .unwrap();
 
@@ -1442,6 +1484,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1488,6 +1531,7 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -1864,6 +1908,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1909,6 +1954,7 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2010,6 +2056,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -2055,6 +2102,7 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2184,6 +2232,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2230,6 +2279,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2404,6 +2454,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2455,6 +2506,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2642,6 +2694,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2687,6 +2740,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .map_err(|e| {
             println!("error in setup_env_and_get_init_ix: {}", e);
@@ -2721,7 +2775,7 @@ mod tests {
 
         // Test invalid accounts for the inner context accounts (remaining_accounts)
         // The remaining_accounts start at index 7 (after payer, controller, controller_authority, authority, permission, integration, system_program)
-        // Inner accounts are: obligation(8), reserve_liquidity_mint(9), user_metadata(10), kamino_reserve(13),
+        // Inner accounts are: obligation(8), reserve_liquidity_mint(9), user_metadata(10), referrer_metadata(11), kamino_reserve(13),
         // reserve_farm_collateral(14), reserve_farm_collateral_pubkey(15), kamino_market(16),
         // kamino_program(17), kamino_farms_program(18), system_program(19), rent(20)
         test_invalid_accounts!(
@@ -2733,6 +2787,7 @@ mod tests {
                 8 => invalid_pubkey(InstructionError::Custom(1), "Obligation: invalid pubkey"),
                 9 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve liquidity mint: invalid owner"),
                 10 => invalid_pubkey(InstructionError::Custom(1), "user metadata: invalid pubkey"),
+                11 => invalid_owner(InstructionError::InvalidAccountOwner, "referrer metadata: invalid owner"),
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve: invalid owner"),
                 14 => invalid_owner(InstructionError::InvalidAccountOwner, "Reserve farm collateral: invalid owner"),
                 15 => invalid_pubkey(InstructionError::Custom(1), "Reserve farm collateral: invalid pubkey"),
@@ -2793,6 +2848,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2839,6 +2895,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2985,6 +3042,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -3035,6 +3093,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -3179,6 +3238,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -3225,6 +3285,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 

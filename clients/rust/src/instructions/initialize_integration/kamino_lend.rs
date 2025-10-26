@@ -93,7 +93,7 @@ pub fn create_initialize_kamino_lend_integration_ix(
     let market = kamino_config.market;
     let reserve_liquidity_mint = kamino_config.reserve_liquidity_mint;
     let reserve = kamino_config.reserve;
-    let user_metadata = derive_user_metadata_address(&controller_authority);
+    let (user_metadata, _) = derive_user_metadata_address(&controller_authority);
     let obligation_farm_collateral =
         derive_obligation_farm_address(&reserve_farm_collateral, &obligation);
     let (market_authority, _) = derive_market_authority_address(&market);

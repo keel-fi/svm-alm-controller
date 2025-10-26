@@ -72,7 +72,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
         if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())
             && !ctx
                 .reserve_farm_collateral
-                .is_owned_by(&KAMINO_FARMS_PROGRAM_ID)
+                .is_owned_by(ctx.kamino_farms_program.key())
         {
             msg! {"reserve_farm_collateral: Invalid owner"}
             return Err(ProgramError::InvalidAccountOwner);
@@ -115,6 +115,15 @@ impl<'info> InitializeKaminoAccounts<'info> {
         if market_authority_pda.ne(ctx.market_authority.key()) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
+        }
+
+        // referrer_metadata can be either pubkey == KLEND (None variant of Optional)
+        // or be owned by KLEND.
+        if ctx.referrer_metadata.key().ne(ctx.kamino_program.key())
+            && !ctx.referrer_metadata.is_owned_by(ctx.kamino_program.key())
+        {
+            msg! {"referrer_metadata: Invalid owner"}
+            return Err(ProgramError::InvalidAccountOwner);
         }
 
         Ok(ctx)
