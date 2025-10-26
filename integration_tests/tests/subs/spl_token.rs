@@ -12,10 +12,14 @@ use spl_associated_token_account_client::{
     address::get_associated_token_address_with_program_id,
     instruction::create_associated_token_account_idempotent,
 };
-use spl_token_2022::extension::transfer_fee::instruction::initialize_transfer_fee_config;
-use spl_token_2022::extension::ExtensionType;
+// use spl_token_2022::extension::pausable::instruction::pause;
+use spl_token_2022::extension::transfer_hook::instruction::initialize as initialize_transfer_hook;
 use spl_token_2022::{
-    extension::StateWithExtensions,
+    extension::{
+        pausable::instruction::initialize as initialize_pausable,
+        transfer_fee::instruction::initialize_transfer_fee_config, ExtensionType,
+        StateWithExtensions,
+    },
     instruction::{initialize_mint2, mint_to},
     state::{Account, Mint},
 };
@@ -42,6 +46,7 @@ pub fn initialize_mint(
     mint_kp: Option<Keypair>,
     token_program: &Pubkey,
     transfer_fee_bps: Option<u16>,
+    transfer_hook_enabled: Option<bool>,
 ) -> Result<Pubkey, Box<dyn Error>> {
     let mint_kp = if mint_kp.is_some() {
         mint_kp.unwrap()
@@ -71,6 +76,22 @@ pub fn initialize_mint(
         instructions.push(init_transfer_fee_ix);
     }
 
+    if let Some(transfer_program) = transfer_hook_enabled {
+        extension_types.push(ExtensionType::TransferHook);
+        let init_transfer_hook = initialize_transfer_hook(
+            token_program,
+            &mint_pubkey,
+            Some(payer.pubkey()),
+            if transfer_program {
+                Some(Pubkey::new_unique())
+            } else {
+                None
+            },
+        )
+        .unwrap();
+        instructions.push(init_transfer_hook);
+    }
+
     let space = ExtensionType::try_calculate_account_len::<Mint>(&extension_types).unwrap();
 
     let create_acc_ins = solana_system_interface::instruction::create_account(
@@ -98,7 +119,13 @@ pub fn initialize_mint(
         &[&payer, &mint_kp],
         svm.latest_blockhash(),
     ));
-    assert!(tx_result.is_ok(), "Transaction failed to execute");
+    match tx_result.clone() {
+        Ok(_res) => {}
+        Err(e) => {
+            panic!("Transaction errored\n{:?}", e.meta.logs);
+        }
+    }
+    // assert!(tx_result.is_ok(), "Transaction failed to execute");
 
     let mint_acc = svm.get_account(&mint_kp.pubkey());
     let mint_data = mint_acc.unwrap().data;

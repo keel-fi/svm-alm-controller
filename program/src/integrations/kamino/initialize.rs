@@ -31,7 +31,7 @@ use crate::{
         },
         shared::lending_markets::LendingState,
     },
-    processor::InitializeIntegrationAccounts,
+    processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},
     state::Controller,
 };
 
@@ -60,6 +60,9 @@ impl<'info> InitializeKaminoAccounts<'info> {
         obligation_id: u8,
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(account_infos)?;
+
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.reserve_liquidity_mint, &[])?;
 
         // reserve.farm_collateral can either be pubkey::default or be owned by kamino_farms program
         if ctx.reserve_farm_collateral.key().ne(&Pubkey::default())

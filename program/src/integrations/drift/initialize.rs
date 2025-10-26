@@ -15,6 +15,7 @@ use crate::integrations::drift::pdas::{
 };
 use crate::integrations::drift::protocol_state::SpotMarket;
 use crate::integrations::shared::lending_markets::LendingState;
+use crate::processor::shared::validate_mint_extensions;
 use crate::state::Controller;
 use crate::{
     define_account_struct,
@@ -32,6 +33,7 @@ Mint under a specific subaccount (aka User).
  */
 define_account_struct! {
     pub struct InitializeDriftAccounts<'info> {
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         drift_user: mut;
         drift_user_stats: mut;
         drift_state: mut, @owner(DRIFT_PROGRAM_ID);
@@ -49,6 +51,9 @@ impl<'info> InitializeDriftAccounts<'info> {
         spot_market_index: u16,
     ) -> Result<Self, ProgramError> {
         let ctx = InitializeDriftAccounts::from_accounts(account_infos)?;
+
+        // Ensure the mint has valid T22 extensions.
+        validate_mint_extensions(ctx.mint, &[])?;
 
         let drift_user_pda = derive_drift_user_pda(controller_authority.key(), sub_account_id)?;
         if drift_user_pda.ne(ctx.drift_user.key()) {
@@ -74,6 +79,18 @@ impl<'info> InitializeDriftAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
+        // Check that the spot_market_index is valid and matches a Drift SpotMarket
+        let spot_market_data = ctx.drift_spot_market.try_borrow_data()?;
+        let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
+        if spot_market.market_index != spot_market_index {
+            msg!("spot_market: Invalid market index");
+            return Err(ProgramError::InvalidAccountData);
+        }
+        if spot_market.mint.ne(ctx.mint.key()) {
+            msg!("spot_market: mint does not match");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
         Ok(ctx)
     }
 }
@@ -97,14 +114,6 @@ pub fn process_initialize_drift(
         sub_account_id,
         spot_market_index,
     )?;
-
-    // Check that the spot_market_index is valid and matches a Drift SpotMarket
-    let spot_market_data = inner_ctx.drift_spot_market.try_borrow_data()?;
-    let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
-    if spot_market.market_index != spot_market_index {
-        msg!("spot_market: Invalid market index");
-        return Err(ProgramError::InvalidAccountData);
-    }
 
     // Initialize UserStats if owned by system program
     if inner_ctx

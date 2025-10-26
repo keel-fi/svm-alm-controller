@@ -23,7 +23,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct PushAccounts<'info> {
         controller: @owner(crate::ID);
-        // Needs to be mutable since Kamino requires the `owner`
+        // controller_authority must to be mutable since Kamino requires the `owner`
         // to be `mut` for depositing
         controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;
@@ -38,6 +38,11 @@ define_account_struct! {
     }
 }
 
+/// "Push" tokens out of a Reserve and into some downstream
+/// protocol. This may be to bridge to another chain OR deposit
+/// tokens into a lending protocol. We handle checks across all
+/// integrations in the outer context, but leave the integration
+/// specific logic to the internal processors.
 pub fn process_push(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
