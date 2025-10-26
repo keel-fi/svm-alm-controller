@@ -28,8 +28,8 @@ define_account_struct! {
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         kamino_reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        kamino_reserve_collateral_mint: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        kamino_reserve_collateral_mint: mut @owner(pinocchio_token::ID);
+        kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
         // KLEND only supports spl token program for collateral_token_program
@@ -162,10 +162,12 @@ impl<'info> PushPullKaminoAccounts<'info> {
         }
 
         // obligation_farm_collateral pubkey can be KLEND pubkey
-        // (None variant of Option account), else it must match the pda
+        // (Kamino's None variant of Option account), else it must match the pda
         // and be owned by KFARMS.
         // Note: In the case that a kamino_reserve farm is added after the obligation is created,
         // the client will have to initialize the obligation farm before calling this instruction.
+        // `InitObligationFarmsForReserve` is a permissionless instruction, so an EOA may invoke
+        // it for the Controller's Obligation.
         if ctx
             .obligation_farm_collateral
             .key()

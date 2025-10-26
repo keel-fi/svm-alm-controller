@@ -38,7 +38,7 @@ define_account_struct! {
 }
 
 /// "Pull" tokens out of a downstream protocol and back into a Reserve.
-/// This may be to withdraw tokens from a lending protocol. We handle 
+/// This may be to withdraw tokens from a lending protocol. We handle
 /// checks across all integrations in the outer context, but leave
 /// the integration specific logic to the internal processors.
 pub fn process_pull(

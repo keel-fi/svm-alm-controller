@@ -134,7 +134,6 @@ pub fn process_push(
                 &args,
             )?;
         }
-        _ => return Err(ProgramError::InvalidArgument),
     }
 
     // Save the reserve and integration accounts
