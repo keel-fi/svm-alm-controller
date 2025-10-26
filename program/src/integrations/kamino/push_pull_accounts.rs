@@ -162,10 +162,12 @@ impl<'info> PushPullKaminoAccounts<'info> {
         }
 
         // obligation_farm_collateral pubkey can be KLEND pubkey
-        // (None variant of Option account), else it must match the pda
+        // (Kamino's None variant of Option account), else it must match the pda
         // and be owned by KFARMS.
         // Note: In the case that a kamino_reserve farm is added after the obligation is created,
         // the client will have to initialize the obligation farm before calling this instruction.
+        // `InitObligationFarmsForReserve` is a permissionless instruction, so an EOA may invoke
+        // it for the Controller's Obligation.
         if ctx
             .obligation_farm_collateral
             .key()

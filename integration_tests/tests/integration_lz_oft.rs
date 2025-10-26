@@ -1033,7 +1033,7 @@ mod tests {
 
         // Push the integration -- i.e. bridge using LZ OFT
         let amount = 2000;
-        let [mut push_ix, send_ix, reset_ix] = create_lz_push_and_send_ixs(
+        let [push_ix, _send_ix, _reset_ix] = create_lz_push_and_send_ixs(
             &controller_pk,
             &authority.pubkey(),
             &lz_usds_eth_bridge_integration_pk,
@@ -1048,35 +1048,19 @@ mod tests {
         .await?;
 
         // Checks for inner_ctx accounts:
-        // (index 7) mint
+        // mint
         //      pubkey == config.mint
         //      pubkey == reserve_a.mint
-        // (index 8) vault
+        // vault
         //      pubkey == reserve_a.vault
-        // (index 10) token program
+        // token program
         //      pubkey == spl token or token2022
-        // (index 11) associated token program
+        // associated token program
         //      pubkey == AT program
-        // (index 12) system program
+        // system program
         //      pubkey == system program id
-        // (index 13) sysvar instruction
+        // sysvar instruction
         //      pubkey == sysvar instructions id
-
-        // modify vault pubkey so it doesnt match integration config
-        let vault_pk_before = push_ix.accounts[8].pubkey;
-        push_ix.accounts[8].pubkey = Pubkey::new_unique();
-        let tx_result = svm.send_transaction(Transaction::new_signed_with_payer(
-            &[push_ix.clone(), send_ix.clone(), reset_ix.clone()],
-            Some(&authority.pubkey()),
-            &[&authority],
-            svm.latest_blockhash(),
-        ));
-        assert_eq!(
-            tx_result.err().unwrap().err,
-            TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
-        );
-        push_ix.accounts[8].pubkey = vault_pk_before;
-        svm.expire_blockhash();
 
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> = vec![Box::new(&authority)];
         test_invalid_accounts!(
@@ -1087,6 +1071,8 @@ mod tests {
             {
                 // modify mint pubkey (wont match config)
                 7 => invalid_program_id(InstructionError::InvalidAccountData, "Mint: Invalid pubkey"),
+                // modify vault
+                8 => invalid_pubkey(InstructionError::InvalidAccountData, "Vault: Invalid pubkey"),
                 // modify token program pubkey
                 10 => invalid_program_id(InstructionError::IncorrectProgramId, "Token program: Invalid program id"),
                 // modify associated token program pubkey
