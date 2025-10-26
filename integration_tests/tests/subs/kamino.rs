@@ -189,7 +189,7 @@ pub struct KaminoTestContext {
     pub lending_market: Pubkey,
     pub reserve_context: KaminoReserveContext,
     pub farms_context: KaminoFarmsContext,
-    pub referrer_metadata: (Pubkey, Pubkey)
+    pub referrer_metadata: (Pubkey, Pubkey),
 }
 
 /// sets all account required by kamino integration
@@ -290,7 +290,7 @@ pub fn setup_kamino_state(
         lending_market: lending_market_pk,
         reserve_context,
         farms_context,
-        referrer_metadata: referrer
+        referrer_metadata: referrer,
     }
 }
 

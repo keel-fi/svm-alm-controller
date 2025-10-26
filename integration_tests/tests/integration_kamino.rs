@@ -72,7 +72,7 @@ mod tests {
         mint: &Pubkey,
         obligation_id: u8,
         integration_reserve_token_program: &Pubkey,
-        referrer_metadata: &Pubkey
+        referrer_metadata: &Pubkey,
     ) -> Result<(Instruction, Pubkey, ReserveKeys), Box<dyn std::error::Error>> {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
 
@@ -363,7 +363,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -416,7 +416,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &referrer
+            &referrer,
         )
         .map_err(|e| {
             println!("error in setup_env_and_get_init_ix: {}", e);
@@ -504,7 +504,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -585,7 +585,7 @@ mod tests {
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
-        with_referrer: bool
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -623,7 +623,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -686,7 +686,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &referrer
+            &referrer,
         )
         .unwrap();
 
@@ -864,7 +864,7 @@ mod tests {
         reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         reward_mint_transfer_fee: Option<u16>,
-        with_referrer: bool
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -902,7 +902,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -965,7 +965,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &referrer
+            &referrer,
         )
         .unwrap();
 
@@ -1150,7 +1150,7 @@ mod tests {
         _reward_mint_token_program: Pubkey,
         liquidity_mint_transfer_fee: Option<u16>,
         _reward_mint_transfer_fee: Option<u16>,
-        with_referrer: bool
+        with_referrer: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -1176,7 +1176,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
-            referrer_metadata
+            referrer_metadata,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -1233,7 +1233,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &referrer
+            &referrer,
         )
         .unwrap();
 
@@ -1484,7 +1484,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1531,7 +1531,7 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -1908,7 +1908,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -1954,7 +1954,7 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2056,7 +2056,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &USDC_TOKEN_MINT_PUBKEY,
@@ -2102,7 +2102,7 @@ mod tests {
             &USDC_TOKEN_MINT_PUBKEY,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2232,7 +2232,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2279,7 +2279,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2454,7 +2454,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2506,7 +2506,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -2694,7 +2694,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2740,7 +2740,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .map_err(|e| {
             println!("error in setup_env_and_get_init_ix: {}", e);
@@ -2848,7 +2848,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context: _,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -2895,7 +2895,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &liquidity_mint_token_program,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -3042,7 +3042,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -3093,7 +3093,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
@@ -3238,7 +3238,7 @@ mod tests {
             lending_market,
             reserve_context,
             farms_context,
-            referrer_metadata: _
+            referrer_metadata: _,
         } = setup_kamino_state(
             &mut svm,
             &liquidity_mint,
@@ -3285,7 +3285,7 @@ mod tests {
             &liquidity_mint,
             obligation_id,
             &spl_token::ID,
-            &KAMINO_LEND_PROGRAM_ID
+            &KAMINO_LEND_PROGRAM_ID,
         )
         .unwrap();
 
