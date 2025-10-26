@@ -182,7 +182,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
             let obligation_farm_collateral_pda = derive_obligation_farm_address(
                 ctx.reserve_farm_collateral.key(),
                 ctx.obligation.key(),
-                ctx.kamino_farms_program.key(),
+                &KAMINO_FARMS_PROGRAM_ID,
             )?;
             if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
                 msg! {"obligation_farm_collateral: Invalid address"}

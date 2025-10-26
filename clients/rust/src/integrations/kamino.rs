@@ -86,11 +86,11 @@ pub fn derive_obligation_farm_address(reserve_farm: &Pubkey, obligation: &Pubkey
     address
 }
 
-pub fn derive_user_metadata_address(user: &Pubkey) -> Pubkey {
-    let (address, _) =
+pub fn derive_user_metadata_address(user: &Pubkey) -> (Pubkey, u8) {
+    let (address, bump) =
         Pubkey::find_program_address(&[b"user_meta", &user.as_ref()], &KAMINO_LEND_PROGRAM_ID);
 
-    address
+    (address, bump)
 }
 
 pub fn derive_rewards_vault(farm_state: &Pubkey, rewards_vault_mint: &Pubkey) -> Pubkey {

@@ -17,7 +17,7 @@ use crate::{
     instructions::PushArgs,
     integrations::kamino::{
         balance::get_kamino_lending_balance,
-        constants::VANILLA_OBLIGATION_TAG,
+        constants::{KAMINO_LEND_PROGRAM_ID, VANILLA_OBLIGATION_TAG},
         cpi::{
             DepositReserveLiquidityAndObligationCollateralV2, InitializeObligation,
             RefreshObligationAfterInit,
@@ -34,7 +34,7 @@ use crate::{
 define_account_struct! {
     pub struct InitializeObligationAccounts<'info> {
         payer: mut;
-        user_metadata;
+        user_metadata: @owner(KAMINO_LEND_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
         rent: @pubkey(pinocchio::sysvars::rent::RENT_ID);
     }
@@ -50,7 +50,7 @@ impl<'info> InitializeObligationAccounts<'info> {
         // verify metadata pubkey is valid
         let user_metadata_pda = derive_user_metadata_address(
             controller_authority.key(),
-            inner_ctx.kamino_program.key(),
+            &KAMINO_LEND_PROGRAM_ID,
         )?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}

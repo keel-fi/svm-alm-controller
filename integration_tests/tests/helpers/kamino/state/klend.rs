@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
-use litesvm::LiteSVM;
 use solana_sdk::{program_error::ProgramError, pubkey::Pubkey};
 use svm_alm_controller::constants::anchor_discriminator;
 
@@ -434,4 +433,28 @@ pub struct ElevationGroup {
     pub padding_0: u8,
     pub debt_reserve: Pubkey,
     pub padding_1: [u64; 4],
+}
+
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
+#[repr(C, packed)]
+pub struct UserMetadata {
+    pub referrer: Pubkey,
+    pub bump: u64,
+    pub user_lookup_table: Pubkey,
+    pub owner: Pubkey,
+    pub padding_1: [u64; 32],
+    pub padding_2: [u64; 19],
+    pub padding_3: [u64; 32],
+    pub padding_4: [u64; 32],
+}
+
+impl UserMetadata {
+    pub const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "UserMetadata");
+
+    pub fn try_from(data: &[u8]) -> Result<&Self, ProgramError> {
+        if data[..8] != Self::DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        bytemuck::try_from_bytes(&data[8..]).map_err(|_| ProgramError::InvalidAccountData)
+    }
 }

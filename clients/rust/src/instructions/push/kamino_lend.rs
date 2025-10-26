@@ -92,7 +92,7 @@ pub fn create_push_kamino_lend_ix(
         &kamino_reserve_liquidity_mint,
         liquidity_token_program,
     );
-    let user_metadata = derive_user_metadata_address(&controller_authority);
+    let (user_metadata, _) = derive_user_metadata_address(&controller_authority);
 
     let remaining_accounts = &[
         AccountMeta {
