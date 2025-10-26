@@ -28,8 +28,8 @@ define_account_struct! {
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         kamino_reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        kamino_reserve_collateral_mint: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        kamino_reserve_collateral_mint: mut @owner(pinocchio_token::ID);
+        kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
         // KLEND only supports spl token program for collateral_token_program
