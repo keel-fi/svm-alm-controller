@@ -865,6 +865,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
+            &spot_market.oracle,
             spot_market_index,
             sub_account_id,
         )?;
@@ -1513,6 +1514,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey_1,
             &reserve_keys_1.pubkey,
+            &spot_market_1.oracle,
             spot_market_index_1,
             sub_account_id_1,
         )?;
@@ -1522,6 +1524,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey_2,
             &reserve_keys_2.pubkey,
+            &spot_market_2.oracle,
             spot_market_index_2,
             sub_account_id_2,
         )?;
@@ -2920,6 +2923,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
+            &spot_market.oracle,
             spot_market_index,
             sub_account_id,
         )?;
@@ -2933,13 +2937,15 @@ mod tests {
             vec![Box::new(&super_authority)],
             sync_ix,
             {
-                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
-                5 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market vault: Invalid pubkey"),
-                6 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
-                6 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market: Invalid pubkey"),
-                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
-                7 => invalid_pubkey(InstructionError::Custom(1), "Drift user: Invalid pubkey"),
-                8 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
+                6 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
+                6 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market vault: Invalid pubkey"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
+                7 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market: Invalid pubkey"),
+                8 => invalid_pubkey(InstructionError::Custom(2), "Drift oracle: Did not match SpotMarket oracle"),
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
+                9 => invalid_pubkey(InstructionError::Custom(1), "Drift user: Invalid pubkey"),
+                10 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
             }
         )?;
 
