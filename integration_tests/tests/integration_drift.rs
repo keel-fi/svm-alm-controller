@@ -1111,6 +1111,14 @@ mod tests {
             integration_before.rate_limit_outflow_amount_available + amount
         );
 
+        // Verify that the integration state was updated with interest
+        match &integration_after.state {
+            IntegrationState::Drift(drift_state) => {
+                assert_eq!(drift_state.balance, 0);
+            }
+            _ => panic!("Expected Drift integration state"),
+        }
+
         assert_eq!(
             reserve_after.rate_limit_outflow_amount_available,
             reserve_before.rate_limit_outflow_amount_available + amount
