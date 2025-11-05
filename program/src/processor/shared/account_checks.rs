@@ -109,10 +109,9 @@ pub fn verify_owner_mutability(
     Ok(())
 }
 
-/// Checks whether an account has been closed.
+/// Checks whether an account is empty.
 ///
-/// An account is considered closed if:
-/// - Its lamports balance is `0`.
+/// An account is considered empty if:
 /// - Its data field is empty.
 /// - Its owned by system_program
 ///
@@ -120,8 +119,8 @@ pub fn verify_owner_mutability(
 /// * `account_info` - The account to verify.
 ///
 /// # Returns
-/// * `true` if the account is closed, otherwise `false`.
-pub fn is_account_closed(account_info: &AccountInfo) -> bool {
+/// * `true` if the account is empty, otherwise `false`.
+pub fn is_account_empty(account_info: &AccountInfo) -> bool {
     account_info.lamports() == 0
         && account_info.data_is_empty()
         && account_info.is_owned_by(&pinocchio_system::ID)

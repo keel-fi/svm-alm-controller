@@ -3,7 +3,7 @@ use pinocchio::{account_info::AccountInfo, program_error::ProgramError};
 
 use crate::{
     integrations::kamino::klend_protocol_state::{KaminoReserve, Obligation},
-    processor::shared::is_account_closed,
+    processor::shared::is_account_empty,
 };
 
 /// This function gets the Kamino lending balance (liquidity_value) from protocol state.
@@ -18,7 +18,7 @@ pub fn get_kamino_lending_balance(
     // (there has been a full withdrawal and it only had one ObligationCollateral slot used),
     // then the lp_amount is 0
 
-    if is_account_closed(obligation) {
+    if is_account_empty(obligation) {
         return Ok(0);
     }
 
