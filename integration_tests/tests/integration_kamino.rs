@@ -1372,6 +1372,12 @@ mod tests {
             reserve_before.rate_limit_outflow_amount_available + rewards_unclaimed
         );
 
+        // Assert Integration handled inflows from harvested rewards
+        assert_eq!(
+            integration_after.rate_limit_outflow_amount_available,
+            integration_before.rate_limit_outflow_amount_available + rewards_unclaimed
+        );
+
         // assert the reward ata delta is equal to the rewards unclaimed in obligation farm
         assert_eq!(
             rewards_unclaimed,

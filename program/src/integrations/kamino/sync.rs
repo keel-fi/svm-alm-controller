@@ -315,6 +315,7 @@ pub fn process_sync_kamino(
 
                 let clock = Clock::get()?;
                 reserve.update_for_inflow(clock, reserve_vault_balance_delta)?;
+                integration.update_rate_limit_for_inflow(clock, reserve_vault_balance_delta)?;
             }
         }
     }
