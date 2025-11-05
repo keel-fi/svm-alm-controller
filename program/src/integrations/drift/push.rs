@@ -218,7 +218,7 @@ pub fn process_push_drift(
     // Update the state
     match &mut integration.state {
         IntegrationState::Drift(state) => {
-            // Add the deposited amount to the Drift balance
+            // Update amount to the Drift balance
             state.balance = get_drift_lending_balance(spot_market, inner_ctx.user)?;
         }
         _ => return Err(ProgramError::InvalidAccountData),
