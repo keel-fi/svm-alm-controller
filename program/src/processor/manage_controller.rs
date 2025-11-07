@@ -23,8 +23,9 @@ define_account_struct! {
 
 /// Change a Controller's status.
 /// Only authorities with a Permission
-/// that has the `can_manage_reserves_and_integrations`
-/// privilege may execute this instruction.
+/// that has the `can_freeze_controller`
+/// or `can_unfreeze_controller` privilege may
+/// execute this instruction.
 pub fn process_manage_controller(
     _program_id: &Pubkey,
     accounts: &[AccountInfo],
