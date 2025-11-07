@@ -134,7 +134,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
 /// In order to do so it initializes (if needed):
 /// - A `user_metadata_account` (initialized only once at the `controller` level).
 /// - An `obligation` : The `obligation` is derived from the `obligation_id`,
-///     the `market` and the `controller_authority`. An `obligation` can be shared accross many `KaminoIntegration`s,
+///     the `market` and the `controller_authority`. An `obligation` can be shared across many `KaminoIntegration`s,
 ///     but up to 8 can be active (see field `ObligationCollateral`).
 /// - An `obligation_farm`: derived from the `reserve.collateral_farm` and `obligation`,
 ///     so every `KaminoIntegration` has its own `obligation_farm` IF the reserve has a collateral_farm.
