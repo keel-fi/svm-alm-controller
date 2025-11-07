@@ -243,7 +243,7 @@ pub fn process_sync_kamino(
                 reward_mint: harvest_ctx.rewards_mint,
                 user_reward_ata: harvest_ctx.rewards_ata,
                 rewards_vault: harvest_ctx.rewards_vault,
-                rewards_treasure_vault: harvest_ctx.rewards_treasury_vault,
+                rewards_treasury_vault: harvest_ctx.rewards_treasury_vault,
                 farm_vaults_authority: harvest_ctx.farm_vaults_authority,
                 scope_prices: harvest_ctx.scope_prices,
                 token_program: harvest_ctx.rewards_token_program,

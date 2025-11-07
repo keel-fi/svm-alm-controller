@@ -141,9 +141,9 @@ impl<'info> InitializeKaminoAccounts<'info> {
 ///
 /// **Important**: This instruction initializes by default a "Vanilla" kamino Obligation.
 pub fn process_initialize_kamino(
-    controller: &Controller,
     outer_ctx: &InitializeIntegrationAccounts,
     outer_args: &InitializeIntegrationArgs,
+    controller: &Controller,
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_kamino");
 

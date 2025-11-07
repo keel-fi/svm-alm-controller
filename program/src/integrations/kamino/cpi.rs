@@ -163,7 +163,7 @@ cpi_instruction! {
             reward_mint: Readonly,
             user_reward_ata: Writable,
             rewards_vault: Writable,
-            rewards_treasure_vault: Writable,
+            rewards_treasury_vault: Writable,
             farm_vaults_authority: Readonly,
             scope_prices: Readonly,
             token_program: Readonly

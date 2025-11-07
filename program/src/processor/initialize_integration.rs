@@ -70,7 +70,7 @@ pub fn process_initialize_integration(
         IntegrationType::LzBridge => process_initialize_lz_bridge(&ctx, &args)?,
         IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
         IntegrationType::Drift => process_initialize_drift(&ctx, &args, &controller)?,
-        IntegrationType::Kamino => process_initialize_kamino(&controller, &ctx, &args)?,
+        IntegrationType::Kamino => process_initialize_kamino(&ctx, &args, &controller)?,
         // More integration types to be supported
     };
 
