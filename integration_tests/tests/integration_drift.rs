@@ -9,7 +9,8 @@ mod tests {
     use crate::helpers::assert::assert_custom_error;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
     use crate::helpers::drift::{
-        set_drift_spot_market_pool_id, spot_market_accrue_cumulative_interest,
+        advance_clock_1_drift_year_to_accumulate_interest, set_drift_spot_market_pool_id,
+        spot_market_accrue_cumulative_interest,
     };
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_mint, get_token_balance_or_zero};
@@ -872,6 +873,7 @@ mod tests {
 
         // Accrue 1% of interest for deposits
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 100);
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         // Execute the sync instruction
         let tx = Transaction::new_signed_with_payer(
@@ -1047,6 +1049,7 @@ mod tests {
 
         // Accrue 1% of interest for deposits
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 100);
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         let pull_ix = create_drift_pull_instruction(
             &controller_pk,
@@ -1082,6 +1085,8 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(tx.clone()).unwrap();
+
+        println!("LOGS {:?}", tx_result.logs);
 
         let integration_after = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
@@ -1509,6 +1514,7 @@ mod tests {
         // Update spot markets to simulate interest accrual using helper function
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index_1, 100); // 1% interest
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index_2, 200); // 2% interest
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         // Sync both integrations
         let sync_ix_1 = create_drift_sync_integration_instruction(
@@ -1538,6 +1544,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result_sync = svm.send_transaction(tx.clone()).unwrap();
+        println!("LOGS {:?}", tx_result_sync.logs);
 
         // Verify sync operations updated integration states
         let integration_after_sync_1 = fetch_integration_account(&svm, &integration_pubkey_1)
@@ -2174,6 +2181,7 @@ mod tests {
 
         // Update the spot market to simulate interest accrual using helper function
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 200); // 2% interest
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         // SECOND PUSH: This should trigger sync_drift_balance to accrue interest
         let second_push_amount = 50_000_000;

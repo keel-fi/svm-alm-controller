@@ -131,6 +131,20 @@ pub fn setup_drift_spot_market_vault(
     vault_pubkey
 }
 
+/// Advances the SVM Clock by 1 year, which allows the exact amount of interest
+/// in `spot_market_accrue_cumulative_interest` to accrue.
+/// NOTE: this must be called ONLY ONCE before the next TX
+pub fn advance_clock_1_drift_year_to_accumulate_interest(svm: &mut LiteSVM) {
+    let drift_one_year = 31536000;
+
+    // set clock 1 year in the future to accrue interest.
+    // This makes calculatons easier and shouldn't have impact
+    // on tests.
+    let mut clock = svm.get_sysvar::<Clock>();
+    clock.unix_timestamp += drift_one_year;
+    svm.set_sysvar(&clock);
+}
+
 /// Increments the SpotMarket's cumulative_deposit_interest by the given basis points.
 pub fn spot_market_accrue_cumulative_interest(
     svm: &mut LiteSVM,
@@ -146,7 +160,6 @@ pub fn spot_market_accrue_cumulative_interest(
     spot_market.withdraw_guard_threshold = u64::MAX;
     // known as `SPOT_UTILIZATION_PRECISION` & `SPOT_RATE_PRECISION`
     let drift_scale_factor: u128 = 1_000_000;
-    let drift_one_year = 31536000;
 
     // set utilization and rate parameters
     let scale_u32: u32 = drift_scale_factor.try_into().unwrap();
@@ -163,13 +176,6 @@ pub fn spot_market_accrue_cumulative_interest(
     // Set borrow rate to quarter of deposit to match optimal rate.
     // This makes calculations easier
     spot_market.borrow_balance = spot_market.deposit_balance / 4;
-
-    // set clock 1 year in the future to accrue interest.
-    // This makes calculatons easier and shouldn't have impact
-    // on tests.
-    let mut clock = svm.get_sysvar::<Clock>();
-    clock.unix_timestamp += drift_one_year;
-    svm.set_sysvar(&clock);
 
     // Add more tokens to the SpotMarket vault
     edit_token_amount(
