@@ -53,7 +53,7 @@ export type PushInstruction<
   TAccountReserveA extends string | AccountMeta<string> = string,
   TAccountProgramId extends
     | string
-    | AccountMeta<string> = 'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9',
+    | AccountMeta<string> = 'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd',
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &

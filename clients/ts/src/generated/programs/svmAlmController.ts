@@ -34,7 +34,7 @@ import {
 } from '../instructions';
 
 export const SVM_ALM_CONTROLLER_PROGRAM_ADDRESS =
-  'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9' as Address<'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9'>;
+  'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd' as Address<'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd'>;
 
 export enum SvmAlmControllerAccount {
   Controller,
@@ -129,7 +129,7 @@ export function identifySvmAlmControllerInstruction(
 }
 
 export type ParsedSvmAlmControllerInstruction<
-  TProgram extends string = 'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9',
+  TProgram extends string = 'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd',
 > =
   | ({
       instructionType: SvmAlmControllerInstruction.EmitEvent;
