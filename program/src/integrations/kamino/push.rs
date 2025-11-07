@@ -194,7 +194,7 @@ pub fn process_push_kamino(
         inner_ctx.obligation,
     )?;
 
-    // This is for calculating the exact amount leaving our vault during reposit
+    // This is for calculating the exact amount leaving our vault during deposit
     let liquidity_amount_before = {
         let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()
@@ -231,7 +231,7 @@ pub fn process_push_kamino(
         Seed::from(&[controller.authority_bump]),
     ])])?;
 
-    // This is for calculating the exact amount leaving our vault during reposit
+    // This is for calculating the exact amount leaving our vault during deposit
     let liquidity_amount_after = {
         let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()

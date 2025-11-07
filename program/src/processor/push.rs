@@ -53,7 +53,7 @@ pub fn process_push(
     let clock = Clock::get()?;
 
     let ctx = PushAccounts::from_accounts(accounts)?;
-    // // Deserialize the args
+    // Deserialize the args
     let args = PushArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

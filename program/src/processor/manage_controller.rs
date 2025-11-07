@@ -34,7 +34,7 @@ pub fn process_manage_controller(
     msg!("manage_controller");
 
     let ctx = ManageControllerAccounts::from_accounts(accounts)?;
-    // // Deserialize the args
+    // Deserialize the args
     let args = ManageControllerArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

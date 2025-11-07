@@ -50,7 +50,7 @@ pub fn process_pull(
 
     let clock = Clock::get()?;
     let ctx = PullAccounts::from_accounts(accounts)?;
-    // // Deserialize the args
+    // Deserialize the args
     let args = PullArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

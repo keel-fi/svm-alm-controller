@@ -209,7 +209,7 @@ macro_rules! define_account_struct {
 ///     }
 /// }
 ///
-/// // Usage:
+/// Usage:
 /// Transfer {
 ///     from: source_account,
 ///     to: dest_account,
@@ -217,7 +217,7 @@ macro_rules! define_account_struct {
 /// }
 /// .invoke()?;  // No signers needed
 ///
-/// // Or with PDA signer:
+/// Or with PDA signer:
 /// Transfer { from, to, authority }
 ///     .invoke_signed(&[authority_seeds])?;
 /// ```
