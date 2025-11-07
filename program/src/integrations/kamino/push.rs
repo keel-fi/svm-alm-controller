@@ -24,8 +24,8 @@ use crate::{
         },
         klend_protocol_state::Obligation,
         pdas::derive_user_metadata_address,
-        shared_sync::sync_kamino_liquidity_value,
         push_pull_accounts::PushPullKaminoAccounts,
+        shared_sync::sync_kamino_liquidity_value,
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -33,6 +33,8 @@ use crate::{
 
 define_account_struct! {
     pub struct InitializeObligationAccounts<'info> {
+        // NOTE: this cannot be annotated as a `signer` if the Controller Authority
+        // is used.
         payer: mut;
         user_metadata: @owner(KAMINO_LEND_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
