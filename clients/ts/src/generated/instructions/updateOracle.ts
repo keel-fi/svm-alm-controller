@@ -77,8 +77,7 @@ export type UpdateOracleInstruction<
         ? WritableAccount<TAccountOracle>
         : TAccountOracle,
       TAccountNewAuthority extends string
-        ? ReadonlySignerAccount<TAccountNewAuthority> &
-            AccountSignerMeta<TAccountNewAuthority>
+        ? ReadonlyAccount<TAccountNewAuthority>
         : TAccountNewAuthority,
       ...TRemainingAccounts,
     ]
@@ -133,7 +132,7 @@ export type UpdateOracleInput<
   authority: TransactionSigner<TAccountAuthority>;
   priceFeed: Address<TAccountPriceFeed>;
   oracle: Address<TAccountOracle>;
-  newAuthority?: TransactionSigner<TAccountNewAuthority>;
+  newAuthority?: Address<TAccountNewAuthority>;
   feedArgs: UpdateOracleInstructionDataArgs['feedArgs'];
 };
 

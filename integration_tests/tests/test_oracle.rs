@@ -130,7 +130,7 @@ mod tests {
             &oracle_pda,
             &new_feed,
             None, // keep oracle_type unchanged.
-            Some(&authority2),
+            Some(&authority2.pubkey()),
         );
 
         let meta = tx_result.map_err(|e| e.err.to_string())?;
@@ -371,7 +371,7 @@ mod tests {
         let txn = Transaction::new_signed_with_payer(
             &[ixn],
             Some(&authority.pubkey()),
-            &[&authority, &authority2],
+            &[&authority],
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);

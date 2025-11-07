@@ -674,7 +674,7 @@
         {
           "name": "newAuthority",
           "isMut": false,
-          "isSigner": true,
+          "isSigner": false,
           "isOptional": true
         }
       ],

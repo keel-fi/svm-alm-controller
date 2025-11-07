@@ -62,7 +62,7 @@ impl UpdateOracle {
         if let Some(new_authority) = self.new_authority {
             accounts.push(solana_instruction::AccountMeta::new_readonly(
                 new_authority,
-                true,
+                false,
             ));
         } else {
             accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -71,8 +71,8 @@ impl UpdateOracle {
             ));
         }
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&UpdateOracleInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&args).unwrap();
+        let mut data = UpdateOracleInstructionData::new().try_to_vec().unwrap();
+        let mut args = args.try_to_vec().unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -93,6 +93,10 @@ impl UpdateOracleInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 13 }
     }
+
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 impl Default for UpdateOracleInstructionData {
@@ -107,6 +111,12 @@ pub struct UpdateOracleInstructionArgs {
     pub feed_args: Option<FeedArgs>,
 }
 
+impl UpdateOracleInstructionArgs {
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
+}
+
 /// Instruction builder for `UpdateOracle`.
 ///
 /// ### Accounts:
@@ -116,7 +126,7 @@ pub struct UpdateOracleInstructionArgs {
 ///   2. `[signer]` authority
 ///   3. `[]` price_feed
 ///   4. `[writable]` oracle
-///   5. `[signer, optional]` new_authority
+///   5. `[optional]` new_authority
 #[derive(Clone, Debug, Default)]
 pub struct UpdateOracleBuilder {
     controller: Option<solana_pubkey::Pubkey>,
@@ -307,7 +317,7 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
         if let Some(new_authority) = self.new_authority {
             accounts.push(solana_instruction::AccountMeta::new_readonly(
                 *new_authority.key,
-                true,
+                false,
             ));
         } else {
             accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -322,8 +332,8 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&UpdateOracleInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&self.__args).unwrap();
+        let mut data = UpdateOracleInstructionData::new().try_to_vec().unwrap();
+        let mut args = self.__args.try_to_vec().unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {
@@ -362,7 +372,7 @@ impl<'a, 'b> UpdateOracleCpi<'a, 'b> {
 ///   2. `[signer]` authority
 ///   3. `[]` price_feed
 ///   4. `[writable]` oracle
-///   5. `[signer, optional]` new_authority
+///   5. `[optional]` new_authority
 #[derive(Clone, Debug)]
 pub struct UpdateOracleCpiBuilder<'a, 'b> {
     instruction: Box<UpdateOracleCpiBuilderInstruction<'a, 'b>>,
