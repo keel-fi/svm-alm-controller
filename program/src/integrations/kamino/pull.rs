@@ -64,7 +64,7 @@ pub fn process_pull_kamino(
     if inner_ctx
         .obligation
         .owner()
-        .ne(inner_ctx.kamino_program.key())
+        .ne(inner_ctx.kamino_lend_program.key())
     {
         msg! {"obligation: invalid owner"};
         return Err(ProgramError::IllegalOwner);
@@ -118,7 +118,7 @@ pub fn process_pull_kamino(
         reserve_liquidity_supply: inner_ctx.kamino_reserve_liquidity_supply,
         user_liquidity_destination: inner_ctx.reserve_vault,
         // placeholder AccountInfo
-        placeholder_user_destination_collateral: inner_ctx.kamino_program,
+        placeholder_user_destination_collateral: inner_ctx.kamino_lend_program,
         collateral_token_program: inner_ctx.collateral_token_program,
         liquidity_token_program: inner_ctx.liquidity_token_program,
         instruction_sysvar: inner_ctx.instruction_sysvar_account,

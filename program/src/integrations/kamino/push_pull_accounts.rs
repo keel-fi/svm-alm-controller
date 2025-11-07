@@ -43,7 +43,7 @@ define_account_struct! {
         // can be equal to Pubkey::default() if the kamino_reserve has no farm.
         reserve_farm_collateral: mut;
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
-        kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
+        kamino_lend_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
         // Used for reinitializing an Obligation in Push
         @remaining_accounts as remaining_accounts;
     }
@@ -84,7 +84,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
             &ctx.market.key(),
             &ctx.kamino_reserve_liquidity_mint.key(),
-            ctx.kamino_program.key(),
+            ctx.kamino_lend_program.key(),
         )?;
         if ctx
             .kamino_reserve_collateral_mint
@@ -98,7 +98,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         let reserve_collateral_supply_pda = derive_reserve_collateral_supply(
             &ctx.market.key(),
             &ctx.kamino_reserve_liquidity_mint.key(),
-            ctx.kamino_program.key(),
+            ctx.kamino_lend_program.key(),
         )?;
         if ctx
             .kamino_reserve_collateral_supply
@@ -112,7 +112,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         let reserve_liquidity_supply_pda = derive_reserve_liquidity_supply(
             &ctx.market.key(),
             &ctx.kamino_reserve_liquidity_mint.key(),
-            ctx.kamino_program.key(),
+            ctx.kamino_lend_program.key(),
         )?;
         if ctx
             .kamino_reserve_liquidity_supply
@@ -124,7 +124,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         }
 
         let market_authority_pda =
-            derive_market_authority_address(ctx.market.key(), ctx.kamino_program.key())?;
+            derive_market_authority_address(ctx.market.key(), ctx.kamino_lend_program.key())?;
         if ctx.market_authority.key().ne(&market_authority_pda) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -171,7 +171,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
         if ctx
             .obligation_farm_collateral
             .key()
-            .ne(ctx.kamino_program.key())
+            .ne(ctx.kamino_lend_program.key())
         {
             if !ctx
                 .obligation_farm_collateral

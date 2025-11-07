@@ -50,7 +50,7 @@ impl<'info> InitializeObligationAccounts<'info> {
         // verify metadata pubkey is valid
         let user_metadata_pda = derive_user_metadata_address(
             controller_authority.key(),
-            inner_ctx.kamino_program.key(),
+            inner_ctx.kamino_lend_program.key(),
         )?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
@@ -108,7 +108,7 @@ pub fn process_push_kamino(
     if inner_ctx
         .obligation
         .owner()
-        .ne(inner_ctx.kamino_program.key())
+        .ne(inner_ctx.kamino_lend_program.key())
         && inner_ctx.obligation.owner().ne(&pinocchio_system::ID)
     {
         msg! {"obligation: invalid owner"};
@@ -216,7 +216,7 @@ pub fn process_push_kamino(
         reserve_collateral_supply: inner_ctx.kamino_reserve_collateral_supply,
         user_source_liquidity: inner_ctx.reserve_vault,
         // placeholder AccountInfo
-        placeholder_user_destination_collateral: inner_ctx.kamino_program,
+        placeholder_user_destination_collateral: inner_ctx.kamino_lend_program,
         collateral_token_program: inner_ctx.collateral_token_program,
         liquidity_token_program: inner_ctx.liquidity_token_program,
         instruction_sysvar: inner_ctx.instruction_sysvar_account,

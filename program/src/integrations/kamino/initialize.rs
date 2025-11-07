@@ -50,7 +50,7 @@ define_account_struct! {
         reserve_farm_collateral: mut;
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
-        kamino_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
+        kamino_lend_program: @pubkey(KAMINO_LEND_PROGRAM_ID);
         kamino_farms_program: @pubkey(KAMINO_FARMS_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
         rent: @pubkey(pinocchio::sysvars::rent::RENT_ID);
@@ -83,7 +83,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
             obligation_id,
             controller_authority.key(),
             ctx.market.key(),
-            ctx.kamino_program.key(),
+            ctx.kamino_lend_program.key(),
         )?;
         if obligation_pda.ne(ctx.obligation.key()) {
             msg! {"kamino obligation: Invalid address"}
@@ -92,7 +92,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
 
         // verify metadata pubkey is valid
         let user_metadata_pda =
-            derive_user_metadata_address(controller_authority.key(), ctx.kamino_program.key())?;
+            derive_user_metadata_address(controller_authority.key(), ctx.kamino_lend_program.key())?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -111,7 +111,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
 
         // verify market authority is valid
         let market_authority_pda =
-            derive_market_authority_address(ctx.market.key(), ctx.kamino_program.key())?;
+            derive_market_authority_address(ctx.market.key(), ctx.kamino_lend_program.key())?;
         if market_authority_pda.ne(ctx.market_authority.key()) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -119,8 +119,8 @@ impl<'info> InitializeKaminoAccounts<'info> {
 
         // referrer_metadata can be either pubkey == KLEND (None variant of Optional)
         // or be owned by KLEND.
-        if ctx.referrer_metadata.key().ne(ctx.kamino_program.key())
-            && !ctx.referrer_metadata.is_owned_by(ctx.kamino_program.key())
+        if ctx.referrer_metadata.key().ne(ctx.kamino_lend_program.key())
+            && !ctx.referrer_metadata.is_owned_by(ctx.kamino_lend_program.key())
         {
             msg! {"referrer_metadata: Invalid owner"}
             return Err(ProgramError::InvalidAccountOwner);
