@@ -7,13 +7,11 @@ use crate::{
         pdas::{
             derive_drift_spot_market_pda, derive_drift_spot_market_vault_pda, derive_drift_user_pda,
         },
-        protocol_state::SpotMarket,
         shared_sync::sync_drift_balance,
     },
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration},
 };
-use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, ProgramResult};
 
 define_account_struct! {
@@ -73,9 +71,6 @@ pub fn process_sync_drift(
         outer_ctx.remaining_accounts,
     )?;
 
-    let spot_market_data = inner_ctx.spot_market.try_borrow_data()?;
-    let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
-
     // Sync liquidity value
     let new_balance = sync_drift_balance(
         controller,
@@ -83,7 +78,6 @@ pub fn process_sync_drift(
         outer_ctx.integration.key(),
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
-        &spot_market_state.mint,
         inner_ctx.spot_market,
         inner_ctx.user,
     )?;

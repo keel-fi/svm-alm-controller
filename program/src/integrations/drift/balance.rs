@@ -7,12 +7,9 @@ use crate::integrations::drift::protocol_state::{SpotMarket, User};
 /// This is used to update Integration state and accounts for
 /// accrued interest.
 pub fn get_drift_lending_balance(
-    spot_market: &AccountInfo,
+    spot_market_state: &SpotMarket,
     user: &AccountInfo,
 ) -> Result<u64, ProgramError> {
-    let spot_market_data = spot_market.try_borrow_data()?;
-    let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
-
     let user_data = user.try_borrow_data()?;
     let user_state = User::try_from_slice(&user_data)?;
 

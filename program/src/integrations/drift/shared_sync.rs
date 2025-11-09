@@ -1,9 +1,10 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
 use crate::{
     enums::IntegrationState,
     integrations::{
-        drift::balance::get_drift_lending_balance,
+        drift::{balance::get_drift_lending_balance, protocol_state::SpotMarket},
         shared::lending_markets::emit_lending_balance_sync_event,
     },
     state::{Controller, Integration},
@@ -17,7 +18,6 @@ pub fn sync_drift_balance(
     integration_pubkey: &Pubkey,
     controller_pubkey: &Pubkey,
     controller_authority: &AccountInfo,
-    mint: &Pubkey,
     spot_market: &AccountInfo,
     user: &AccountInfo,
 ) -> Result<u64, ProgramError> {
@@ -26,14 +26,17 @@ pub fn sync_drift_balance(
         _ => return Err(ProgramError::InvalidAccountData),
     };
 
-    let new_balance = get_drift_lending_balance(spot_market, user)?;
+    let spot_market_data = spot_market.try_borrow_data()?;
+    let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
+
+    let new_balance = get_drift_lending_balance(&spot_market_state, user)?;
 
     emit_lending_balance_sync_event(
         controller,
         integration_pubkey,
         controller_pubkey,
         controller_authority,
-        mint,
+        &spot_market_state.mint,
         balance,
         new_balance,
     )?;

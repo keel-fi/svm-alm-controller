@@ -133,7 +133,6 @@ pub fn process_pull_drift(
         outer_ctx.integration.key(),
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
-        &reserve.mint,
         spot_market_info,
         inner_ctx.user,
     )?;
