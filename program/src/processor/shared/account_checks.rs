@@ -121,7 +121,34 @@ pub fn verify_owner_mutability(
 /// # Returns
 /// * `true` if the account is empty, otherwise `false`.
 pub fn is_account_empty(account_info: &AccountInfo) -> bool {
-    account_info.lamports() == 0
-        && account_info.data_is_empty()
-        && account_info.is_owned_by(&pinocchio_system::ID)
+    account_info.data_is_empty() && account_info.is_owned_by(&pinocchio_system::ID)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    extern crate alloc;
+    use crate::unit_test_utils::create_mock_account_info;
+    use alloc::vec::Vec;
+    use test_case::test_case;
+
+    #[test_case( 0 ; "empty")]
+    #[test_case( 100 ; "empty_with_lamports")]
+    fn account_empty(lamports: u64) {
+        let (acct_info, _) = create_mock_account_info(
+            Pubkey::default(),
+            Pubkey::default(),
+            lamports,
+            alloc::vec![],
+        );
+
+        assert!(is_account_empty(&acct_info));
+    }
+
+    #[test_case(alloc::vec![0], Pubkey::default() ; "has_data")]
+    #[test_case(alloc::vec![], [1u8; 32] ; "not_system_owned")]
+    fn account_not_empty(data: Vec<u8>, owner: Pubkey) {
+        let (acct_info, _) = create_mock_account_info(Pubkey::default(), owner, 0, data);
+        assert!(!is_account_empty(&acct_info));
+    }
 }
