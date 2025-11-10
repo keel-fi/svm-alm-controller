@@ -38,7 +38,7 @@ pub trait KeelAccount: Discriminator + BorshDeserialize + BorshSerialize {
             .map_err(|_| ProgramError::InvalidAccountData)?;
 
         // Ensure account has enough space
-        if account_info.data_len() < serialized.len() {
+        if account_info.data_len() != serialized.len() {
             return Err(ProgramError::AccountDataTooSmall);
         }
         // Copy serialized data to account

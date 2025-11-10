@@ -177,6 +177,10 @@ impl Reserve {
             // Reset the rate_limit_outflow_amount_available such that the gap from the max remains the same
             self.rate_limit_outflow_amount_available =
                 self.rate_limit_max_outflow.saturating_sub(gap);
+            if gap > self.rate_limit_max_outflow {
+                // Reset remainder during update
+                self.rate_limit_remainder = 0;
+            }
         }
         Ok(())
     }
