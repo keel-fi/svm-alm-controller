@@ -122,11 +122,7 @@ mod tests {
         airdrop_lamports(&mut svm, &controller_authority, 1_000_000_000)?;
 
         let new_permission_authority = Keypair::new();
-        airdrop_lamports(
-            &mut svm,
-            &new_permission_authority.pubkey(),
-            1_000_000_000,
-        )?;
+        airdrop_lamports(&mut svm, &new_permission_authority.pubkey(), 1_000_000_000)?;
 
         let permission_status = if is_permission_active {
             PermissionStatus::Active

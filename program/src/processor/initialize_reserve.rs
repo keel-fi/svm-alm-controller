@@ -42,7 +42,7 @@ pub fn process_initialize_reserve(
     msg!("initialize_reserve");
 
     let ctx = InitializeReserveAccounts::from_accounts(accounts)?;
-    // // Deserialize the args
+    // Deserialize the args
     let args = InitializeReserveArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

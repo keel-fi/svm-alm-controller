@@ -23,7 +23,7 @@ use pinocchio::{
 define_account_struct! {
     pub struct PushAccounts<'info> {
         controller: @owner(crate::ID);
-        // controller_authority must to be mutable since Kamino requires the `owner`
+        // controller_authority must be mutable since Kamino requires the `owner`
         // to be `mut` for depositing
         controller_authority: mut, empty, @owner(pinocchio_system::ID);
         authority: signer;

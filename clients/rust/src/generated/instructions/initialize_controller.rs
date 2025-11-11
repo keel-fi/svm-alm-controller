@@ -64,8 +64,10 @@ impl InitializeController {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&InitializeControllerInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&args).unwrap();
+        let mut data = InitializeControllerInstructionData::new()
+            .try_to_vec()
+            .unwrap();
+        let mut args = args.try_to_vec().unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -86,6 +88,10 @@ impl InitializeControllerInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 1 }
     }
+
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 impl Default for InitializeControllerInstructionData {
@@ -99,6 +105,12 @@ impl Default for InitializeControllerInstructionData {
 pub struct InitializeControllerInstructionArgs {
     pub id: u16,
     pub status: ControllerStatus,
+}
+
+impl InitializeControllerInstructionArgs {
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 /// Instruction builder for `InitializeController`.
@@ -331,8 +343,10 @@ impl<'a, 'b> InitializeControllerCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&InitializeControllerInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&self.__args).unwrap();
+        let mut data = InitializeControllerInstructionData::new()
+            .try_to_vec()
+            .unwrap();
+        let mut args = self.__args.try_to_vec().unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {

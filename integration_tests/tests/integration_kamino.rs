@@ -203,6 +203,7 @@ mod tests {
         }
 
         let push_ix = create_push_kamino_lend_ix(
+            &super_authority.pubkey(),
             controller_pk,
             integration_pk,
             &super_authority.pubkey(),

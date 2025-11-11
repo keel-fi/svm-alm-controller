@@ -2781,7 +2781,7 @@
             "name": "Drift",
             "fields": [
               {
-                "name": "market_index",
+                "name": "spot_market_index",
                 "type": "u16"
               },
               {
@@ -2829,7 +2829,7 @@
             "name": "Drift",
             "fields": [
               {
-                "name": "market_index",
+                "name": "spot_market_index",
                 "type": "u16"
               },
               {

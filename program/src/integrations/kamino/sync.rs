@@ -170,7 +170,6 @@ pub fn process_sync_kamino(
         outer_ctx.controller.key(),
         controller,
     )?;
-    let reserve_vault_balance_before = reserve.last_balance;
 
     // Get the kamino reserve state
     let kamino_reserve_data = inner_ctx.kamino_reserve.try_borrow_data()?;
@@ -243,7 +242,7 @@ pub fn process_sync_kamino(
                 reward_mint: harvest_ctx.rewards_mint,
                 user_reward_ata: harvest_ctx.rewards_ata,
                 rewards_vault: harvest_ctx.rewards_vault,
-                rewards_treasure_vault: harvest_ctx.rewards_treasury_vault,
+                rewards_treasury_vault: harvest_ctx.rewards_treasury_vault,
                 farm_vaults_authority: harvest_ctx.farm_vaults_authority,
                 scope_prices: harvest_ctx.scope_prices,
                 token_program: harvest_ctx.rewards_token_program,
@@ -257,6 +256,7 @@ pub fn process_sync_kamino(
 
             // If there is a match between the reward_mint and the integration mint, emit event
             if harvest_ctx.rewards_mint.key().eq(&reserve.mint) {
+                let reserve_vault_balance_before = reserve.last_balance;
                 // Since the mints match, the reward_ata == reserve_vault
                 let vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
                 let reserve_vault_balance_after = vault.amount();

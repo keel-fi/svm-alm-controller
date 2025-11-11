@@ -33,7 +33,7 @@ pub fn process_manage_integration(
     msg!("manage_integration");
 
     let ctx = ManageIntegrationAccounts::from_accounts(accounts)?;
-    // // Deserialize the args
+    // Deserialize the args
     let args = ManageIntegrationArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

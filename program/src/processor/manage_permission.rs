@@ -129,7 +129,7 @@ pub fn process_manage_permission(
     msg!("manage_permission");
 
     let ctx = ManagePermissionAccounts::from_accounts(accounts)?;
-    // // Deserialize the args
+    // Deserialize the args
     let args = ManagePermissionArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

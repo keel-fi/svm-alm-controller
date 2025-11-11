@@ -33,6 +33,8 @@ use crate::{
 
 define_account_struct! {
     pub struct InitializeObligationAccounts<'info> {
+        // NOTE: this cannot be annotated as a `signer` if the Controller Authority
+        // is used.
         payer: mut;
         user_metadata: @owner(KAMINO_LEND_PROGRAM_ID);
         system_program: @pubkey(pinocchio_system::ID);
@@ -50,7 +52,7 @@ impl<'info> InitializeObligationAccounts<'info> {
         // verify metadata pubkey is valid
         let user_metadata_pda = derive_user_metadata_address(
             controller_authority.key(),
-            inner_ctx.kamino_program.key(),
+            inner_ctx.kamino_lend_program.key(),
         )?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
@@ -108,7 +110,7 @@ pub fn process_push_kamino(
     if inner_ctx
         .obligation
         .owner()
-        .ne(inner_ctx.kamino_program.key())
+        .ne(inner_ctx.kamino_lend_program.key())
         && inner_ctx.obligation.owner().ne(&pinocchio_system::ID)
     {
         msg! {"obligation: invalid owner"};
@@ -194,7 +196,7 @@ pub fn process_push_kamino(
         inner_ctx.obligation,
     )?;
 
-    // This is for calculating the exact amount leaving our vault during reposit
+    // This is for calculating the exact amount leaving our vault during deposit
     let liquidity_amount_before = {
         let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()
@@ -216,7 +218,7 @@ pub fn process_push_kamino(
         reserve_collateral_supply: inner_ctx.kamino_reserve_collateral_supply,
         user_source_liquidity: inner_ctx.reserve_vault,
         // placeholder AccountInfo
-        placeholder_user_destination_collateral: inner_ctx.kamino_program,
+        placeholder_user_destination_collateral: inner_ctx.kamino_lend_program,
         collateral_token_program: inner_ctx.collateral_token_program,
         liquidity_token_program: inner_ctx.liquidity_token_program,
         instruction_sysvar: inner_ctx.instruction_sysvar_account,
@@ -231,7 +233,7 @@ pub fn process_push_kamino(
         Seed::from(&[controller.authority_bump]),
     ])])?;
 
-    // This is for calculating the exact amount leaving our vault during reposit
+    // This is for calculating the exact amount leaving our vault during deposit
     let liquidity_amount_after = {
         let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()

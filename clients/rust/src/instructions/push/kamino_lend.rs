@@ -30,6 +30,7 @@ use crate::{
 ///
 /// # Parameters
 ///
+/// - `payer`: Account that pays for the Obligation IF it needs to be created.
 /// - `controller`: Controller account that owns the integration.
 /// - `integration`: The integration PDA for this Kamino Lend integration.
 /// - `authority`: The authority allowed to perform the push.
@@ -57,6 +58,7 @@ use crate::{
 /// - `amount` uses the **decimals of `kamino_reserve_liquidity_mint`**.
 ///
 pub fn create_push_kamino_lend_ix(
+    payer: &Pubkey,
     controller: &Pubkey,
     integration: &Pubkey,
     authority: &Pubkey,
@@ -180,7 +182,7 @@ pub fn create_push_kamino_lend_ix(
         // Remaining accounts used for re initializing an obligation in case it was closed
         // by a full withdrawal
         AccountMeta {
-            pubkey: *authority, // payer
+            pubkey: *payer,
             is_signer: false,
             is_writable: true,
         },
