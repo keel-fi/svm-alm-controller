@@ -104,7 +104,7 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(false, true, true ; "Controller not active, Permission active, can't reallocate")]
+    #[test_case(false, true, true ; "Controller not active, Permission active, can reallocate")]
     #[test_case(true, true, false ; "Controller active, Permission active, can't reallocate")]
     #[test_case(true, false, true ; "Controller active, Permission suspended, can reallocate")]
     fn test_claim_rent_fails_without_valid_controller_status_and_permission(
@@ -121,10 +121,10 @@ mod tests {
         let controller_authority = derive_controller_authority_pda(&controller_pk);
         airdrop_lamports(&mut svm, &controller_authority, 1_000_000_000)?;
 
-        let invalid_permission_authority = Keypair::new();
+        let new_permission_authority = Keypair::new();
         airdrop_lamports(
             &mut svm,
-            &invalid_permission_authority.pubkey(),
+            &new_permission_authority.pubkey(),
             1_000_000_000,
         )?;
 
@@ -139,8 +139,8 @@ mod tests {
             &controller_pk,
             &super_authority,
             &super_authority,
-            &invalid_permission_authority.pubkey(),
-            permission_status, // Permission needs to be active
+            &new_permission_authority.pubkey(),
+            permission_status,
             true,
             true,
             true,
@@ -170,14 +170,14 @@ mod tests {
 
         let claim_rent_ix = create_claim_rent_instruction(
             &controller_pk,
-            &invalid_permission_authority.pubkey(),
+            &new_permission_authority.pubkey(),
             &Keypair::new().pubkey(),
         );
 
         let txn = Transaction::new_signed_with_payer(
             &[claim_rent_ix],
-            Some(&invalid_permission_authority.pubkey()),
-            &[&invalid_permission_authority],
+            Some(&new_permission_authority.pubkey()),
+            &[&new_permission_authority],
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);
