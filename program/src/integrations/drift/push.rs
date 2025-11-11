@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     instruction::{Seed, Signer},
     msg,
@@ -15,11 +16,13 @@ use crate::{
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::drift::{
+        balance::get_drift_lending_balance,
         constants::DRIFT_PROGRAM_ID,
         cpi::{Deposit, UpdateSpotMarketCumulativeInterest},
         pdas::{
             derive_drift_spot_market_vault_pda, derive_drift_state_pda, derive_drift_user_stats_pda,
         },
+        protocol_state::SpotMarket,
         shared_sync::sync_drift_balance,
         utils::find_spot_market_and_oracle_account_info_by_id,
     },
@@ -141,7 +144,6 @@ pub fn process_push_drift(
         outer_ctx.integration.key(),
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
-        &reserve.mint,
         spot_market_info,
         inner_ctx.user,
     )?;
@@ -233,8 +235,10 @@ pub fn process_push_drift(
     // Update the state
     match &mut integration.state {
         IntegrationState::Drift(state) => {
-            // Add the deposited amount to the Drift balance
-            state.balance = state.balance.checked_add(liquidity_value_delta).unwrap();
+            // Update amount to the Drift balance
+            let spot_market_data = spot_market_info.try_borrow_data()?;
+            let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
+            state.balance = get_drift_lending_balance(spot_market_state, inner_ctx.user)?;
         }
         _ => return Err(ProgramError::InvalidAccountData),
     }

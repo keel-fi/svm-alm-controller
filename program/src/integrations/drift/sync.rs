@@ -12,7 +12,7 @@ use crate::{
         shared_sync::sync_drift_balance,
     },
     processor::SyncIntegrationAccounts,
-    state::{Controller, Integration, Reserve},
+    state::{Controller, Integration},
 };
 use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, ProgramResult};
@@ -74,7 +74,6 @@ impl<'info> SyncDriftAccounts<'info> {
 pub fn process_sync_drift(
     controller: &Controller,
     integration: &mut Integration,
-    reserve: &mut Reserve,
     outer_ctx: &SyncIntegrationAccounts,
 ) -> ProgramResult {
     msg!("process_sync_drift");
@@ -101,7 +100,6 @@ pub fn process_sync_drift(
         outer_ctx.integration.key(),
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
-        &reserve.mint,
         inner_ctx.spot_market,
         inner_ctx.user,
     )?;

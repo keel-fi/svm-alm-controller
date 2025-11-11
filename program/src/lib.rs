@@ -12,6 +12,8 @@ pub mod integrations;
 pub mod macros;
 pub mod processor;
 pub mod state;
+#[cfg(test)]
+pub mod unit_test_utils;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
