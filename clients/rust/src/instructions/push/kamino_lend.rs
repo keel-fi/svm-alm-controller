@@ -180,7 +180,7 @@ pub fn create_push_kamino_lend_ix(
         // Remaining accounts used for re initializing an obligation in case it was closed
         // by a full withdrawal
         AccountMeta {
-            pubkey: controller_authority, // payer
+            pubkey: *authority, // payer
             is_signer: false,
             is_writable: true,
         },

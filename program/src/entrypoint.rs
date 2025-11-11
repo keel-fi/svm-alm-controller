@@ -16,11 +16,11 @@ use crate::{
         },
     },
     processor::{
-        process_emit_event, process_initialize_controller, process_initialize_integration,
-        process_initialize_oracle, process_initialize_reserve, process_manage_controller,
-        process_manage_integration, process_manage_permission, process_manage_reserve,
-        process_pull, process_push, process_refresh_oracle, process_sync_integration,
-        process_sync_reserve, process_update_oracle,
+        process_claim_rent, process_emit_event, process_initialize_controller,
+        process_initialize_integration, process_initialize_oracle, process_initialize_reserve,
+        process_manage_controller, process_manage_integration, process_manage_permission,
+        process_manage_reserve, process_pull, process_push, process_refresh_oracle,
+        process_sync_integration, process_sync_reserve, process_update_oracle,
     },
 };
 
@@ -68,6 +68,7 @@ pub fn process_instruction(
         &RESET_LZ_PUSH_IN_FLIGHT_DISC => {
             process_reset_lz_push_in_flight(program_id, accounts, instruction_data)
         }
+        18 => process_claim_rent(program_id, accounts),
         // Other methods
         _ => Err(ProgramError::InvalidInstructionData),
     }

@@ -15,6 +15,7 @@ import {
 import {
   type ParsedAtomicSwapBorrowInstruction,
   type ParsedAtomicSwapRepayInstruction,
+  type ParsedClaimRentInstruction,
   type ParsedEmitEventInstruction,
   type ParsedInitializeControllerInstruction,
   type ParsedInitializeIntegrationInstruction,
@@ -63,6 +64,7 @@ export enum SvmAlmControllerInstruction {
   AtomicSwapBorrow,
   AtomicSwapRepay,
   ResetLzPushInFlight,
+  ClaimRent,
 }
 
 export function identifySvmAlmControllerInstruction(
@@ -122,6 +124,9 @@ export function identifySvmAlmControllerInstruction(
   }
   if (containsBytes(data, getU8Encoder().encode(17), 0)) {
     return SvmAlmControllerInstruction.ResetLzPushInFlight;
+  }
+  if (containsBytes(data, getU8Encoder().encode(18), 0)) {
+    return SvmAlmControllerInstruction.ClaimRent;
   }
   throw new Error(
     'The provided instruction could not be identified as a svmAlmController instruction.'
@@ -184,4 +189,7 @@ export type ParsedSvmAlmControllerInstruction<
     } & ParsedAtomicSwapRepayInstruction<TProgram>)
   | ({
       instructionType: SvmAlmControllerInstruction.ResetLzPushInFlight;
-    } & ParsedResetLzPushInFlightInstruction<TProgram>);
+    } & ParsedResetLzPushInFlightInstruction<TProgram>)
+  | ({
+      instructionType: SvmAlmControllerInstruction.ClaimRent;
+    } & ParsedClaimRentInstruction<TProgram>);

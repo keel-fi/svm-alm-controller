@@ -1,3 +1,4 @@
+pub mod claim_rent;
 pub mod initialize_integration;
 pub mod initialize_oracle;
 pub mod initialize_reserve;

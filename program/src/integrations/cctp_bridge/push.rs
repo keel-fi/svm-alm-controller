@@ -1,5 +1,8 @@
 use crate::{
-    constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID, CONTROLLER_AUTHORITY_SEED},
+    constants::{
+        CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+        CONTROLLER_AUTHORITY_SEED,
+    },
     define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
