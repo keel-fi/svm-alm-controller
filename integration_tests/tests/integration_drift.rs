@@ -1086,8 +1086,6 @@ mod tests {
         );
         let tx_result = svm.send_transaction(tx.clone()).unwrap();
 
-        println!("LOGS {:?}", tx_result.logs);
-
         let integration_after = fetch_integration_account(&svm, &integration_pubkey)
             .expect("integration should exist")
             .unwrap();
@@ -1552,7 +1550,6 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result_sync = svm.send_transaction(tx.clone()).unwrap();
-        println!("LOGS {:?}", tx_result_sync.logs);
 
         // Verify sync operations updated integration states
         let integration_after_sync_1 = fetch_integration_account(&svm, &integration_pubkey_1)
