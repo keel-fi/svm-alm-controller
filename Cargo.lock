@@ -6815,6 +6815,7 @@ dependencies = [
  "shank",
  "solana-keccak-hasher",
  "switchboard-on-demand",
+ "test-case",
  "uint",
 ]
 
