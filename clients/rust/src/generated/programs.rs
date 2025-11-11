@@ -8,4 +8,4 @@
 use solana_pubkey::{pubkey, Pubkey};
 
 /// `svm_alm_controller` program ID.
-pub const SVM_ALM_CONTROLLER_ID: Pubkey = pubkey!("H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9");
+pub const SVM_ALM_CONTROLLER_ID: Pubkey = pubkey!("ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd");

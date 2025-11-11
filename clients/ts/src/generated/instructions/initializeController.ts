@@ -55,7 +55,7 @@ export type InitializeControllerInstruction<
   TAccountPermission extends string | AccountMeta<string> = string,
   TAccountProgramId extends
     | string
-    | AccountMeta<string> = 'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9',
+    | AccountMeta<string> = 'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd',
   TAccountSystemProgram extends
     | string
     | AccountMeta<string> = '11111111111111111111111111111111',
