@@ -21,7 +21,7 @@ define_account_struct! {
         controller: @owner(crate::ID);
         // controller_authority must be mutable in order to transfer its SOL
         controller_authority: mut, empty, @owner(pinocchio_system::ID);
-        authority: mut, signer;
+        authority: signer;
         permission: @owner(crate::ID);
         // destination must be mutable to receive sol
         destination: mut;
