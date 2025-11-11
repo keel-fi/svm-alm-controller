@@ -56,7 +56,7 @@ pub fn process_claim_rent(_program_id: &Pubkey, accounts: &[AccountInfo]) -> Pro
 
     // If controller_authority balance is 0, throw error
     if lamports == 0 {
-        msg! {"controller_authority balance bust me > 0"}
+        msg! {"controller_authority balance must me > 0"}
         return Err(ProgramError::InsufficientFunds);
     }
 
