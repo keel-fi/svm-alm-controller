@@ -8,6 +8,6 @@ pub mod klend_protocol_state;
 pub mod pdas;
 pub mod pull;
 pub mod push;
+pub mod push_pull_accounts;
 pub mod shared_sync;
 pub mod sync;
-pub mod push_pull_accounts;

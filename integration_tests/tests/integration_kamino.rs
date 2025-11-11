@@ -39,6 +39,7 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
+        claim_rent::create_claim_rent_instruction,
         generated::{
             accounts::Integration,
             types::{
@@ -2365,6 +2366,41 @@ mod tests {
             .get_account(&obligation)
             .expect("Failed to fetch obligation");
         assert_eq!(obligation_acc.owner, system_program::ID);
+
+        // claim the controller_authority rent (from obligation closure)
+        let controller_authority_balance_before = svm
+            .get_balance(&controller_authority)
+            .expect("Failed to get controller_authority balance");
+        let rent_destination = Keypair::new().pubkey();
+
+        let claim_rent_ix = create_claim_rent_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &rent_destination,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[claim_rent_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
+        let controller_authority_balance_after = svm
+            .get_balance(&controller_authority)
+            .expect("Failed to get controller_authority balance");
+        let rent_destination_balance_after = svm
+            .get_balance(&rent_destination)
+            .expect("Failed to get rent_destination balance");
+
+        // assert controller_authority was debited and rent_destination credited
+        assert_eq!(controller_authority_balance_after, 0);
+        assert_eq!(
+            controller_authority_balance_before,
+            rent_destination_balance_after
+        );
 
         // deposit again in same integration
         let reserve_liquidity_destination = derive_reserve_liquidity_supply(

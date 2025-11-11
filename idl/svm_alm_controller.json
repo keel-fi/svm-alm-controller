@@ -922,6 +922,46 @@
         "type": "u8",
         "value": 17
       }
+    },
+    {
+      "name": "ClaimRent",
+      "accounts": [
+        {
+          "name": "controller",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "controllerAuthority",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "permission",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "destination",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 18
+      }
     }
   ],
   "accounts": [

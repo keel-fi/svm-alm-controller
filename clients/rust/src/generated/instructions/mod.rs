@@ -7,6 +7,7 @@
 
 pub(crate) mod r#atomic_swap_borrow;
 pub(crate) mod r#atomic_swap_repay;
+pub(crate) mod r#claim_rent;
 pub(crate) mod r#emit_event;
 pub(crate) mod r#initialize_controller;
 pub(crate) mod r#initialize_integration;
@@ -26,6 +27,7 @@ pub(crate) mod r#update_oracle;
 
 pub use self::r#atomic_swap_borrow::*;
 pub use self::r#atomic_swap_repay::*;
+pub use self::r#claim_rent::*;
 pub use self::r#emit_event::*;
 pub use self::r#initialize_controller::*;
 pub use self::r#initialize_integration::*;
