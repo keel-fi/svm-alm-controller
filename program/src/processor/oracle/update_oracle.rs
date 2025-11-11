@@ -18,7 +18,8 @@ define_account_struct! {
         authority: signer;
         price_feed;
         oracle: mut, @owner(crate::ID);
-        new_authority: opt_signer;
+        // (Optional) updates authority when present.
+        new_authority;
     }
 }
 

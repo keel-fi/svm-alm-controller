@@ -140,7 +140,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, signer, name = "authority")]
     #[account(3, name = "price_feed")]
     #[account(4, writable, name = "oracle")]
-    #[account(5, optional, signer, name = "new_authority")]
+    #[account(5, optional, name = "new_authority")]
     UpdateOracle(UpdateOracleArgs),
 
     /// RefreshOracle
