@@ -3447,9 +3447,4 @@ mod tests {
 
         Ok(())
     }
-
-    #[test]
-    fn test_kamino_claim_rent_success() -> Result<(), Box<dyn std::error::Error>> {
-        Ok(())
-    }
 }
