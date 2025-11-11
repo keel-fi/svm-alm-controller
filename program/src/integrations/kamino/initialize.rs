@@ -91,8 +91,10 @@ impl<'info> InitializeKaminoAccounts<'info> {
         }
 
         // verify metadata pubkey is valid
-        let user_metadata_pda =
-            derive_user_metadata_address(controller_authority.key(), ctx.kamino_lend_program.key())?;
+        let user_metadata_pda = derive_user_metadata_address(
+            controller_authority.key(),
+            ctx.kamino_lend_program.key(),
+        )?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -119,8 +121,13 @@ impl<'info> InitializeKaminoAccounts<'info> {
 
         // referrer_metadata can be either pubkey == KLEND (None variant of Optional)
         // or be owned by KLEND.
-        if ctx.referrer_metadata.key().ne(ctx.kamino_lend_program.key())
-            && !ctx.referrer_metadata.is_owned_by(ctx.kamino_lend_program.key())
+        if ctx
+            .referrer_metadata
+            .key()
+            .ne(ctx.kamino_lend_program.key())
+            && !ctx
+                .referrer_metadata
+                .is_owned_by(ctx.kamino_lend_program.key())
         {
             msg! {"referrer_metadata: Invalid owner"}
             return Err(ProgramError::InvalidAccountOwner);
