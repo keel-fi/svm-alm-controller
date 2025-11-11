@@ -3,7 +3,7 @@ use crate::{
     subs::{edit_token_amount, get_mint},
 };
 use litesvm::LiteSVM;
-use solana_sdk::{account::Account, pubkey::Pubkey};
+use solana_sdk::{account::Account, clock::Clock, pubkey::Pubkey};
 use svm_alm_controller_client::integrations::drift::{
     derive_drift_signer, derive_spot_market_pda, SpotMarket, DRIFT_PROGRAM_ID,
 };
@@ -86,6 +86,8 @@ pub fn set_drift_spot_market_pool_id(svm: &mut LiteSVM, spot_market_pk: &Pubkey,
     let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
     let spot_market = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
     spot_market.pool_id = new_pool_id;
+    // Allow any amount of withdraws
+    spot_market.withdraw_guard_threshold = u64::MAX;
 
     svm.set_account(
         *spot_market_pk,
@@ -129,6 +131,20 @@ pub fn setup_drift_spot_market_vault(
     vault_pubkey
 }
 
+/// Advances the SVM Clock by 1 year, which allows the exact amount of interest
+/// in `spot_market_accrue_cumulative_interest` to accrue.
+/// NOTE: this must be called ONLY ONCE before the next TX
+pub fn advance_clock_1_drift_year_to_accumulate_interest(svm: &mut LiteSVM) {
+    let drift_one_year = 31536000;
+
+    // set clock 1 year in the future to accrue interest.
+    // This makes calculatons easier and shouldn't have impact
+    // on tests.
+    let mut clock = svm.get_sysvar::<Clock>();
+    clock.unix_timestamp += drift_one_year;
+    svm.set_sysvar(&clock);
+}
+
 /// Increments the SpotMarket's cumulative_deposit_interest by the given basis points.
 pub fn spot_market_accrue_cumulative_interest(
     svm: &mut LiteSVM,
@@ -140,20 +156,34 @@ pub fn spot_market_accrue_cumulative_interest(
     let spot_market_data = &mut spot_market_account.data[8..]; // Skip discriminator
     let spot_market = bytemuck::try_from_bytes_mut::<SpotMarket>(spot_market_data).unwrap();
 
-    spot_market.cumulative_deposit_interest = spot_market
-        .cumulative_deposit_interest
-        .saturating_mul(10_000 + deposit_interest_bps as u128)
-        .saturating_div(10_000);
+    // Allow max withdraw at any time
+    spot_market.withdraw_guard_threshold = u64::MAX;
+    // known as `SPOT_UTILIZATION_PRECISION` & `SPOT_RATE_PRECISION`
+    let drift_scale_factor: u128 = 1_000_000;
 
-    let net_tokens_from_interest = spot_market
-        .deposit_balance
-        .saturating_mul(deposit_interest_bps as u128)
-        .saturating_div(10_000)
-        .try_into()
-        .unwrap();
+    // set utilization and rate parameters
+    let scale_u32: u32 = drift_scale_factor.try_into().unwrap();
+    // rate when the market is at optimal utilization; 25%
+    spot_market.optimal_utilization = 25 * scale_u32;
+    // Scaled by 400 to adjust for 25% utilization
+    spot_market.optimal_borrow_rate =
+        (400 * u64::from(deposit_interest_bps) * u64::from(scale_u32) / 10_000)
+            .try_into()
+            .unwrap();
+
+    // scale up deposit such that we can withdraw without problems
+    spot_market.deposit_balance = spot_market.deposit_balance * 2;
+    // Set borrow rate to quarter of deposit to match optimal rate.
+    // This makes calculations easier
+    spot_market.borrow_balance = spot_market.deposit_balance / 4;
 
     // Add more tokens to the SpotMarket vault
-    edit_token_amount(svm, &spot_market.vault, net_tokens_from_interest).unwrap();
+    edit_token_amount(
+        svm,
+        &spot_market.vault,
+        spot_market.deposit_balance.try_into().unwrap(),
+    )
+    .unwrap();
 
     svm.set_account(spot_market_pubkey, spot_market_account)
         .unwrap();

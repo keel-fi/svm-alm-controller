@@ -4,20 +4,25 @@ use crate::{
     error::SvmAlmControllerErrors,
     integrations::drift::{
         constants::DRIFT_PROGRAM_ID,
+        cpi::UpdateSpotMarketCumulativeInterest,
         pdas::{
             derive_drift_spot_market_pda, derive_drift_spot_market_vault_pda, derive_drift_user_pda,
         },
+        protocol_state::SpotMarket,
         shared_sync::sync_drift_balance,
     },
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration},
 };
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, ProgramResult};
 
 define_account_struct! {
     pub struct SyncDriftAccounts<'info> {
+        state: @owner(DRIFT_PROGRAM_ID);
         spot_market_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        spot_market: @owner(DRIFT_PROGRAM_ID);
+        spot_market: mut, @owner(DRIFT_PROGRAM_ID);
+        spot_market_oracle;
         user: @owner(DRIFT_PROGRAM_ID);
         drift_program: @pubkey(DRIFT_PROGRAM_ID);
     }
@@ -54,6 +59,14 @@ impl<'info> SyncDriftAccounts<'info> {
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
+        // Validate the Oracle matches the SpotMarket
+        let spot_market_data = ctx.spot_market.try_borrow_data()?;
+        let spot_market = SpotMarket::try_from_slice(&spot_market_data)?;
+        if spot_market.oracle.ne(ctx.spot_market_oracle.key()) {
+            msg! {"drift spot market: Invalid Oracle"}
+            return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+        }
+
         Ok(ctx)
     }
 }
@@ -70,6 +83,15 @@ pub fn process_sync_drift(
         outer_ctx.controller_authority,
         outer_ctx.remaining_accounts,
     )?;
+
+    // Update Drift SpotMarket interest
+    UpdateSpotMarketCumulativeInterest {
+        state: inner_ctx.state,
+        spot_market: inner_ctx.spot_market,
+        oracle: inner_ctx.spot_market_oracle,
+        spot_market_vault: inner_ctx.spot_market_vault,
+    }
+    .invoke()?;
 
     // Sync liquidity value
     let new_balance = sync_drift_balance(
