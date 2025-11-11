@@ -30,38 +30,33 @@ import {
 } from '@solana/kit';
 import { SVM_ALM_CONTROLLER_PROGRAM_ADDRESS } from '../programs';
 import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
-import {
-  getControllerStatusDecoder,
-  getControllerStatusEncoder,
-  type ControllerStatus,
-  type ControllerStatusArgs,
-} from '../types';
 
-export const MANAGE_CONTROLLER_DISCRIMINATOR = 2;
+export const CLAIM_RENT_DISCRIMINATOR = 18;
 
-export function getManageControllerDiscriminatorBytes() {
-  return getU8Encoder().encode(MANAGE_CONTROLLER_DISCRIMINATOR);
+export function getClaimRentDiscriminatorBytes() {
+  return getU8Encoder().encode(CLAIM_RENT_DISCRIMINATOR);
 }
 
-export type ManageControllerInstruction<
+export type ClaimRentInstruction<
   TProgram extends string = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
   TAccountController extends string | AccountMeta<string> = string,
   TAccountControllerAuthority extends string | AccountMeta<string> = string,
   TAccountAuthority extends string | AccountMeta<string> = string,
   TAccountPermission extends string | AccountMeta<string> = string,
-  TAccountProgramId extends
+  TAccountDestination extends string | AccountMeta<string> = string,
+  TAccountSystemProgram extends
     | string
-    | AccountMeta<string> = 'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd',
+    | AccountMeta<string> = '11111111111111111111111111111111',
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
       TAccountController extends string
-        ? WritableAccount<TAccountController>
+        ? ReadonlyAccount<TAccountController>
         : TAccountController,
       TAccountControllerAuthority extends string
-        ? ReadonlyAccount<TAccountControllerAuthority>
+        ? WritableAccount<TAccountControllerAuthority>
         : TAccountControllerAuthority,
       TAccountAuthority extends string
         ? ReadonlySignerAccount<TAccountAuthority> &
@@ -70,87 +65,83 @@ export type ManageControllerInstruction<
       TAccountPermission extends string
         ? ReadonlyAccount<TAccountPermission>
         : TAccountPermission,
-      TAccountProgramId extends string
-        ? ReadonlyAccount<TAccountProgramId>
-        : TAccountProgramId,
+      TAccountDestination extends string
+        ? WritableAccount<TAccountDestination>
+        : TAccountDestination,
+      TAccountSystemProgram extends string
+        ? ReadonlyAccount<TAccountSystemProgram>
+        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
 
-export type ManageControllerInstructionData = {
-  discriminator: number;
-  status: ControllerStatus;
-};
+export type ClaimRentInstructionData = { discriminator: number };
 
-export type ManageControllerInstructionDataArgs = {
-  status: ControllerStatusArgs;
-};
+export type ClaimRentInstructionDataArgs = {};
 
-export function getManageControllerInstructionDataEncoder(): FixedSizeEncoder<ManageControllerInstructionDataArgs> {
+export function getClaimRentInstructionDataEncoder(): FixedSizeEncoder<ClaimRentInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ['discriminator', getU8Encoder()],
-      ['status', getControllerStatusEncoder()],
-    ]),
-    (value) => ({ ...value, discriminator: MANAGE_CONTROLLER_DISCRIMINATOR })
+    getStructEncoder([['discriminator', getU8Encoder()]]),
+    (value) => ({ ...value, discriminator: CLAIM_RENT_DISCRIMINATOR })
   );
 }
 
-export function getManageControllerInstructionDataDecoder(): FixedSizeDecoder<ManageControllerInstructionData> {
-  return getStructDecoder([
-    ['discriminator', getU8Decoder()],
-    ['status', getControllerStatusDecoder()],
-  ]);
+export function getClaimRentInstructionDataDecoder(): FixedSizeDecoder<ClaimRentInstructionData> {
+  return getStructDecoder([['discriminator', getU8Decoder()]]);
 }
 
-export function getManageControllerInstructionDataCodec(): FixedSizeCodec<
-  ManageControllerInstructionDataArgs,
-  ManageControllerInstructionData
+export function getClaimRentInstructionDataCodec(): FixedSizeCodec<
+  ClaimRentInstructionDataArgs,
+  ClaimRentInstructionData
 > {
   return combineCodec(
-    getManageControllerInstructionDataEncoder(),
-    getManageControllerInstructionDataDecoder()
+    getClaimRentInstructionDataEncoder(),
+    getClaimRentInstructionDataDecoder()
   );
 }
 
-export type ManageControllerInput<
+export type ClaimRentInput<
   TAccountController extends string = string,
   TAccountControllerAuthority extends string = string,
   TAccountAuthority extends string = string,
   TAccountPermission extends string = string,
-  TAccountProgramId extends string = string,
+  TAccountDestination extends string = string,
+  TAccountSystemProgram extends string = string,
 > = {
   controller: Address<TAccountController>;
   controllerAuthority: Address<TAccountControllerAuthority>;
   authority: TransactionSigner<TAccountAuthority>;
   permission: Address<TAccountPermission>;
-  programId?: Address<TAccountProgramId>;
-  status: ManageControllerInstructionDataArgs['status'];
+  destination: Address<TAccountDestination>;
+  systemProgram?: Address<TAccountSystemProgram>;
 };
 
-export function getManageControllerInstruction<
+export function getClaimRentInstruction<
   TAccountController extends string,
   TAccountControllerAuthority extends string,
   TAccountAuthority extends string,
   TAccountPermission extends string,
-  TAccountProgramId extends string,
+  TAccountDestination extends string,
+  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
 >(
-  input: ManageControllerInput<
+  input: ClaimRentInput<
     TAccountController,
     TAccountControllerAuthority,
     TAccountAuthority,
     TAccountPermission,
-    TAccountProgramId
+    TAccountDestination,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress }
-): ManageControllerInstruction<
+): ClaimRentInstruction<
   TProgramAddress,
   TAccountController,
   TAccountControllerAuthority,
   TAccountAuthority,
   TAccountPermission,
-  TAccountProgramId
+  TAccountDestination,
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress =
@@ -158,27 +149,25 @@ export function getManageControllerInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    controller: { value: input.controller ?? null, isWritable: true },
+    controller: { value: input.controller ?? null, isWritable: false },
     controllerAuthority: {
       value: input.controllerAuthority ?? null,
-      isWritable: false,
+      isWritable: true,
     },
     authority: { value: input.authority ?? null, isWritable: false },
     permission: { value: input.permission ?? null, isWritable: false },
-    programId: { value: input.programId ?? null, isWritable: false },
+    destination: { value: input.destination ?? null, isWritable: true },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
-  if (!accounts.programId.value) {
-    accounts.programId.value = programAddress;
-    accounts.programId.isWritable = false;
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
@@ -188,23 +177,23 @@ export function getManageControllerInstruction<
       getAccountMeta(accounts.controllerAuthority),
       getAccountMeta(accounts.authority),
       getAccountMeta(accounts.permission),
-      getAccountMeta(accounts.programId),
+      getAccountMeta(accounts.destination),
+      getAccountMeta(accounts.systemProgram),
     ],
-    data: getManageControllerInstructionDataEncoder().encode(
-      args as ManageControllerInstructionDataArgs
-    ),
+    data: getClaimRentInstructionDataEncoder().encode({}),
     programAddress,
-  } as ManageControllerInstruction<
+  } as ClaimRentInstruction<
     TProgramAddress,
     TAccountController,
     TAccountControllerAuthority,
     TAccountAuthority,
     TAccountPermission,
-    TAccountProgramId
+    TAccountDestination,
+    TAccountSystemProgram
   >);
 }
 
-export type ParsedManageControllerInstruction<
+export type ParsedClaimRentInstruction<
   TProgram extends string = typeof SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
@@ -214,20 +203,21 @@ export type ParsedManageControllerInstruction<
     controllerAuthority: TAccountMetas[1];
     authority: TAccountMetas[2];
     permission: TAccountMetas[3];
-    programId: TAccountMetas[4];
+    destination: TAccountMetas[4];
+    systemProgram: TAccountMetas[5];
   };
-  data: ManageControllerInstructionData;
+  data: ClaimRentInstructionData;
 };
 
-export function parseManageControllerInstruction<
+export function parseClaimRentInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
-): ParsedManageControllerInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+): ParsedClaimRentInstruction<TProgram, TAccountMetas> {
+  if (instruction.accounts.length < 6) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -244,8 +234,9 @@ export function parseManageControllerInstruction<
       controllerAuthority: getNextAccount(),
       authority: getNextAccount(),
       permission: getNextAccount(),
-      programId: getNextAccount(),
+      destination: getNextAccount(),
+      systemProgram: getNextAccount(),
     },
-    data: getManageControllerInstructionDataDecoder().decode(instruction.data),
+    data: getClaimRentInstructionDataDecoder().decode(instruction.data),
   };
 }

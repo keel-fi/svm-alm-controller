@@ -311,7 +311,11 @@ pub fn process_sync_kamino(
                         action: AccountingAction::Withdrawal,
                         delta: reserve_vault_balance_delta,
                     }),
-                )?
+                )?;
+
+                let clock = Clock::get()?;
+                reserve.update_for_inflow(clock, reserve_vault_balance_delta)?;
+                integration.update_rate_limit_for_inflow(clock, reserve_vault_balance_delta)?;
             }
         }
     }

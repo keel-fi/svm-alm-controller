@@ -161,14 +161,14 @@ pub fn update_oracle(
     oracle_pda: &Pubkey,
     price_feed: &Pubkey,
     feed_args: Option<FeedArgs>,
-    new_authority: Option<&Keypair>,
+    new_authority: Option<&Pubkey>,
 ) -> (
     Result<TransactionMetadata, FailedTransactionMetadata>,
     Transaction,
 ) {
     let controller_authority = derive_controller_authority_pda(controller);
 
-    let new_authority_pubkey = new_authority.map(|k| k.pubkey());
+    let new_authority_pubkey = new_authority.map(|k| *k);
     let ixn = if let Some(feed_args) = feed_args {
         UpdateOracleBuilder::new()
             .controller(*controller)
@@ -190,10 +190,7 @@ pub fn update_oracle(
             .instruction()
     };
 
-    let signing_keypairs: Vec<&Keypair> = match new_authority {
-        Some(new_auth) => vec![authority, new_auth],
-        None => vec![authority],
-    };
+    let signing_keypairs: Vec<&Keypair> = vec![authority];
 
     let txn = Transaction::new_signed_with_payer(
         &[ixn],

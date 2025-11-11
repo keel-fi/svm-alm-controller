@@ -140,7 +140,7 @@ pub enum SvmAlmControllerInstruction {
     #[account(2, signer, name = "authority")]
     #[account(3, name = "price_feed")]
     #[account(4, writable, name = "oracle")]
-    #[account(5, optional, signer, name = "new_authority")]
+    #[account(5, optional, name = "new_authority")]
     UpdateOracle(UpdateOracleArgs),
 
     /// RefreshOracle
@@ -190,6 +190,14 @@ pub enum SvmAlmControllerInstruction {
     #[account(1, writable, name = "integration")]
     #[account(2, name = "sysvar_instruction")]
     ResetLzPushInFlight,
+
+    #[account(0, name = "controller")]
+    #[account(1, writable, name = "controller_authority")]
+    #[account(2, signer, name = "authority")]
+    #[account(3, name = "permission")]
+    #[account(4, writable, name = "destination")]
+    #[account(5, name = "system_program")]
+    ClaimRent,
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

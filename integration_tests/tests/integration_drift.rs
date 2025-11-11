@@ -9,7 +9,8 @@ mod tests {
     use crate::helpers::assert::assert_custom_error;
     use crate::helpers::drift::state::spot_market::setup_drift_spot_market_vault;
     use crate::helpers::drift::{
-        set_drift_spot_market_pool_id, spot_market_accrue_cumulative_interest,
+        advance_clock_1_drift_year_to_accumulate_interest, set_drift_spot_market_pool_id,
+        spot_market_accrue_cumulative_interest,
     };
     use crate::helpers::pyth::oracle::setup_mock_oracle_account;
     use crate::subs::{fetch_reserve_account, get_mint, get_token_balance_or_zero};
@@ -865,16 +866,14 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
+            &spot_market.oracle,
             spot_market_index,
             sub_account_id,
         )?;
 
-        // Advance slots to simulate time passage for interest accrual
-        let current_slot = svm.get_sysvar::<Clock>().slot;
-        svm.warp_to_slot(current_slot + 1000); // Advance by 1000 slots
-
         // Accrue 1% of interest for deposits
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 100);
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         // Execute the sync instruction
         let tx = Transaction::new_signed_with_payer(
@@ -1050,6 +1049,7 @@ mod tests {
 
         // Accrue 1% of interest for deposits
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 100);
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         let pull_ix = create_drift_pull_instruction(
             &controller_pk,
@@ -1110,6 +1110,14 @@ mod tests {
             integration_after.rate_limit_outflow_amount_available,
             integration_before.rate_limit_outflow_amount_available + amount
         );
+
+        // Verify that the integration state was updated with interest
+        match &integration_after.state {
+            IntegrationState::Drift(drift_state) => {
+                assert_eq!(drift_state.balance, 0);
+            }
+            _ => panic!("Expected Drift integration state"),
+        }
 
         assert_eq!(
             reserve_after.rate_limit_outflow_amount_available,
@@ -1208,6 +1216,7 @@ mod tests {
         let token_mint_2_kp = Keypair::new();
         let token_mint_2 = token_mint_2_kp.pubkey();
         let mint_authority_2 = Keypair::new();
+        let oracle_price = 100;
 
         // Initialize the first additional token mint
         initialize_mint(
@@ -1240,17 +1249,27 @@ mod tests {
         let spot_market_index_2 = 1;
         let pool_id = 0;
 
-        let spot_market_1 =
-            set_drift_spot_market(&mut svm, spot_market_index_1, &token_mint_1, 100, pool_id);
-        let spot_market_2 =
-            set_drift_spot_market(&mut svm, spot_market_index_2, &token_mint_2, 100, pool_id);
+        let spot_market_1 = set_drift_spot_market(
+            &mut svm,
+            spot_market_index_1,
+            &token_mint_1,
+            oracle_price,
+            pool_id,
+        );
+        let spot_market_2 = set_drift_spot_market(
+            &mut svm,
+            spot_market_index_2,
+            &token_mint_2,
+            oracle_price,
+            pool_id,
+        );
 
         setup_drift_spot_market_vault(&mut svm, spot_market_index_1, &token_mint_1, &spl_token::ID);
         setup_drift_spot_market_vault(&mut svm, spot_market_index_2, &token_mint_2, &spl_token::ID);
 
         // Set up mock oracle accounts for both spot markets
-        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, 100);
-        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, 100);
+        setup_mock_oracle_account(&mut svm, &spot_market_1.oracle, oracle_price);
+        setup_mock_oracle_account(&mut svm, &spot_market_2.oracle, oracle_price);
 
         // Set up User accounts with spot positions for both markets
         let controller_authority = derive_controller_authority_pda(&controller_pk);
@@ -1498,14 +1517,10 @@ mod tests {
             })
         );
 
-        // Test sync operations for both integrations
-        // Advance slots to simulate time passage for interest accrual
-        let current_slot = svm.get_sysvar::<Clock>().slot;
-        svm.warp_to_slot(current_slot + 1000);
-
         // Update spot markets to simulate interest accrual using helper function
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index_1, 100); // 1% interest
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index_2, 200); // 2% interest
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         // Sync both integrations
         let sync_ix_1 = create_drift_sync_integration_instruction(
@@ -1513,6 +1528,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey_1,
             &reserve_keys_1.pubkey,
+            &spot_market_1.oracle,
             spot_market_index_1,
             sub_account_id_1,
         )?;
@@ -1522,6 +1538,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey_2,
             &reserve_keys_2.pubkey,
+            &spot_market_2.oracle,
             spot_market_index_2,
             sub_account_id_2,
         )?;
@@ -2167,12 +2184,9 @@ mod tests {
             "Spot position cumulative_deposits should equal first push amount"
         );
 
-        // Advance slots to simulate time passage for interest accrual
-        let current_slot = svm.get_sysvar::<Clock>().slot;
-        svm.warp_to_slot(current_slot + 1000); // Advance by 1000 slots
-
         // Update the spot market to simulate interest accrual using helper function
         spot_market_accrue_cumulative_interest(&mut svm, spot_market_index, 200); // 2% interest
+        advance_clock_1_drift_year_to_accumulate_interest(&mut svm);
 
         // SECOND PUSH: This should trigger sync_drift_balance to accrue interest
         let second_push_amount = 50_000_000;
@@ -2920,6 +2934,7 @@ mod tests {
             &super_authority.pubkey(),
             &integration_pubkey,
             &reserve_keys.pubkey,
+            &spot_market.oracle,
             spot_market_index,
             sub_account_id,
         )?;
@@ -2933,13 +2948,15 @@ mod tests {
             vec![Box::new(&super_authority)],
             sync_ix,
             {
-                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
-                5 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market vault: Invalid pubkey"),
-                6 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
-                6 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market: Invalid pubkey"),
-                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
-                7 => invalid_pubkey(InstructionError::Custom(1), "Drift user: Invalid pubkey"),
-                8 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift state: Invalid owner"),
+                6 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market vault: Invalid owner"),
+                6 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market vault: Invalid pubkey"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift spot market: Invalid owner"),
+                7 => invalid_pubkey(InstructionError::Custom(1), "Drift spot market: Invalid pubkey"),
+                8 => invalid_pubkey(InstructionError::Custom(2), "Drift oracle: Did not match SpotMarket oracle"),
+                9 => invalid_owner(InstructionError::InvalidAccountOwner, "Drift user: Invalid owner"),
+                9 => invalid_pubkey(InstructionError::Custom(1), "Drift user: Invalid pubkey"),
+                10 => invalid_program_id(InstructionError::IncorrectProgramId, "Drift program: Invalid program id"),
             }
         )?;
 

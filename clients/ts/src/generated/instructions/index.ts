@@ -8,6 +8,7 @@
 
 export * from './atomicSwapBorrow';
 export * from './atomicSwapRepay';
+export * from './claimRent';
 export * from './emitEvent';
 export * from './initializeController';
 export * from './initializeIntegration';

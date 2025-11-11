@@ -73,10 +73,7 @@ pub fn process_sync_integration(
             reserve.save(ctx.reserve)?;
         }
         IntegrationConfig::Drift(_config) => {
-            // Load in the reserve account (drift only handles one reserve)
-            let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
-
-            process_sync_drift(&controller, &mut integration, &mut reserve, &ctx)?;
+            process_sync_drift(&controller, &mut integration, &ctx)?;
         }
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),

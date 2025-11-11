@@ -374,6 +374,7 @@ macro_rules! cpi_instruction {
                 self.invoke_signed(&[])
             }
 
+            #[inline(always)]
             pub fn invoke_signed(&self, signers: &[pinocchio::instruction::Signer]) -> pinocchio::ProgramResult {
                 extern crate alloc;
                 use alloc::vec::Vec;

@@ -15,6 +15,7 @@ import {
 import {
   type ParsedAtomicSwapBorrowInstruction,
   type ParsedAtomicSwapRepayInstruction,
+  type ParsedClaimRentInstruction,
   type ParsedEmitEventInstruction,
   type ParsedInitializeControllerInstruction,
   type ParsedInitializeIntegrationInstruction,
@@ -34,7 +35,7 @@ import {
 } from '../instructions';
 
 export const SVM_ALM_CONTROLLER_PROGRAM_ADDRESS =
-  'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9' as Address<'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9'>;
+  'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd' as Address<'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd'>;
 
 export enum SvmAlmControllerAccount {
   Controller,
@@ -63,6 +64,7 @@ export enum SvmAlmControllerInstruction {
   AtomicSwapBorrow,
   AtomicSwapRepay,
   ResetLzPushInFlight,
+  ClaimRent,
 }
 
 export function identifySvmAlmControllerInstruction(
@@ -123,13 +125,16 @@ export function identifySvmAlmControllerInstruction(
   if (containsBytes(data, getU8Encoder().encode(17), 0)) {
     return SvmAlmControllerInstruction.ResetLzPushInFlight;
   }
+  if (containsBytes(data, getU8Encoder().encode(18), 0)) {
+    return SvmAlmControllerInstruction.ClaimRent;
+  }
   throw new Error(
     'The provided instruction could not be identified as a svmAlmController instruction.'
   );
 }
 
 export type ParsedSvmAlmControllerInstruction<
-  TProgram extends string = 'H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9',
+  TProgram extends string = 'ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd',
 > =
   | ({
       instructionType: SvmAlmControllerInstruction.EmitEvent;
@@ -184,4 +189,7 @@ export type ParsedSvmAlmControllerInstruction<
     } & ParsedAtomicSwapRepayInstruction<TProgram>)
   | ({
       instructionType: SvmAlmControllerInstruction.ResetLzPushInFlight;
-    } & ParsedResetLzPushInFlightInstruction<TProgram>);
+    } & ParsedResetLzPushInFlightInstruction<TProgram>)
+  | ({
+      instructionType: SvmAlmControllerInstruction.ClaimRent;
+    } & ParsedClaimRentInstruction<TProgram>);

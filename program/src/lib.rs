@@ -11,8 +11,10 @@ pub mod integrations;
 pub mod macros;
 pub mod processor;
 pub mod state;
+#[cfg(test)]
+pub mod unit_test_utils;
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
 
-pinocchio_pubkey::declare_id!("H3BpbuheXwBnfxjb2L66mxZ9nFhRmUentYwQDspd6yJ9");
+pinocchio_pubkey::declare_id!("ALM1JSnEhc5PkNecbSZotgprBuJujL5objTbwGtpTgTd");

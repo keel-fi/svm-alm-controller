@@ -107,3 +107,17 @@ cpi_instruction! {
         }
     }
 }
+
+cpi_instruction! {
+    /// Update a SpotMarket to have up to date interest
+    pub struct UpdateSpotMarketCumulativeInterest<'info> {
+        program: DRIFT_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "update_spot_market_cumulative_interest"),
+        accounts: {
+            state: Readonly,
+            spot_market: Writable,
+            oracle: Readonly,
+            spot_market_vault: Readonly,
+        }
+    }
+}

@@ -1,3 +1,4 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
     instruction::{Seed, Signer},
     msg,
@@ -10,18 +11,20 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
-    enums::IntegrationConfig,
+    enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::drift::{
+        balance::get_drift_lending_balance,
         constants::DRIFT_PROGRAM_ID,
-        cpi::Withdraw,
+        cpi::{UpdateSpotMarketCumulativeInterest, Withdraw},
         pdas::{
             derive_drift_spot_market_vault_pda, derive_drift_state_pda, derive_drift_user_stats_pda,
         },
+        protocol_state::SpotMarket,
         shared_sync::sync_drift_balance,
-        utils::find_spot_market_account_info_by_id,
+        utils::find_spot_market_and_oracle_account_info_by_id,
     },
     processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -124,8 +127,19 @@ pub fn process_pull_drift(
         controller,
     )?;
 
-    let spot_market_info =
-        find_spot_market_account_info_by_id(inner_ctx.remaining_accounts, market_index)?;
+    let (spot_market_info, oracle_info) = find_spot_market_and_oracle_account_info_by_id(
+        &inner_ctx.remaining_accounts,
+        market_index,
+    )?;
+
+    // Update Drift SpotMarket interest
+    UpdateSpotMarketCumulativeInterest {
+        state: inner_ctx.state,
+        spot_market: spot_market_info,
+        oracle: oracle_info,
+        spot_market_vault: inner_ctx.spot_market_vault,
+    }
+    .invoke()?;
 
     sync_drift_balance(
         controller,
@@ -133,7 +147,6 @@ pub fn process_pull_drift(
         outer_ctx.integration.key(),
         outer_ctx.controller.key(),
         outer_ctx.controller_authority,
-        &reserve.mint,
         spot_market_info,
         inner_ctx.user,
     )?;
@@ -211,6 +224,17 @@ pub fn process_pull_drift(
             delta: net_inflow,
         }),
     )?;
+
+    // Update the state
+    match &mut integration.state {
+        IntegrationState::Drift(state) => {
+            // Update amount to the Drift balance
+            let spot_market_data = spot_market_info.try_borrow_data()?;
+            let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
+            state.balance = get_drift_lending_balance(spot_market_state, inner_ctx.user)?;
+        }
+        _ => return Err(ProgramError::InvalidAccountData),
+    }
 
     let clock = Clock::get()?;
     // Update integration and reserve rate limits for inflow

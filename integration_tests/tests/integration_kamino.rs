@@ -39,6 +39,7 @@ mod tests {
     use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::{
+        claim_rent::create_claim_rent_instruction,
         generated::{
             accounts::Integration,
             types::{
@@ -1270,7 +1271,7 @@ mod tests {
         );
         svm.send_transaction(tx.clone()).unwrap();
 
-        let rewards_ata = get_associated_token_address_with_program_id(
+        let reserve_vault_and_rewards_ata = get_associated_token_address_with_program_id(
             &controller_authority,
             &reward_mint,
             &liquidity_mint_token_program,
@@ -1280,11 +1281,13 @@ mod tests {
         // trigger the first event in reserve.sync_balance
         let reserve_before = fetch_reserve_account(&svm, &reserve_keys.pubkey)?.unwrap();
 
+        let amount_added = 50_000_000;
+        let reserve_vault_balance_before_sync = reserve_before.last_balance + amount_added;
         edit_ata_amount(
             &mut svm,
             &controller_authority,
             &kamino_config.reserve_liquidity_mint,
-            1_100_000_000_000,
+            reserve_vault_balance_before_sync,
         )?;
 
         // Accrue 1% interest
@@ -1296,7 +1299,8 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let reward_ata_balance_before = get_token_balance_or_zero(&svm, &rewards_ata);
+        let reserve_vault_and_reward_ata_balance_before =
+            get_token_balance_or_zero(&svm, &reserve_vault_and_rewards_ata);
 
         let obligation_collateral_farm =
             derive_obligation_farm_address(&reserve_context.reserve_farm_collateral, &obligation);
@@ -1348,10 +1352,11 @@ mod tests {
             e.err.to_string()
         })?;
 
-        let reward_ata_balance_after = get_token_balance_or_zero(&svm, &rewards_ata);
+        let reserve_vault_and_reward_ata_balance_after =
+            get_token_balance_or_zero(&svm, &reserve_vault_and_rewards_ata);
 
-        let reward_ata_balance_delta =
-            reward_ata_balance_after.saturating_sub(reward_ata_balance_before);
+        let reserve_vault_and_reward_ata_balance_delta = reserve_vault_and_reward_ata_balance_after
+            .saturating_sub(reserve_vault_and_reward_ata_balance_before);
 
         let integration_after = fetch_integration_account(&svm, &integration_pk)
             .unwrap()
@@ -1359,14 +1364,30 @@ mod tests {
 
         let reserve_after = fetch_reserve_account(&svm, &reserve_keys.pubkey)?.unwrap();
 
+        // Assert the Reserve was updated with the harvested rewards
+        assert_eq!(
+            reserve_after.last_balance,
+            reserve_vault_balance_before_sync + rewards_unclaimed
+        );
+        assert_eq!(
+            reserve_after.rate_limit_outflow_amount_available,
+            reserve_before.rate_limit_outflow_amount_available + rewards_unclaimed
+        );
+
+        // Assert Integration handled inflows from harvested rewards
+        assert_eq!(
+            integration_after.rate_limit_outflow_amount_available,
+            integration_before.rate_limit_outflow_amount_available + rewards_unclaimed
+        );
+
         // assert the reward ata delta is equal to the rewards unclaimed in obligation farm
-        assert_eq!(rewards_unclaimed, reward_ata_balance_delta);
+        assert_eq!(
+            rewards_unclaimed,
+            reserve_vault_and_reward_ata_balance_delta
+        );
 
         // Assert emitted events
 
-        let liq_value_delta = reserve_after
-            .last_balance
-            .abs_diff(reserve_before.last_balance);
         // assert reserve sync
         let expected_reserve_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
             controller: controller_pk,
@@ -1374,7 +1395,7 @@ mod tests {
             reserve: Some(reserve_keys.pubkey),
             mint: kamino_config.reserve_liquidity_mint,
             action: AccountingAction::Sync,
-            delta: liq_value_delta,
+            delta: amount_added,
             direction: AccountingDirection::Credit,
         });
         assert_contains_controller_cpi_event!(
@@ -1429,7 +1450,7 @@ mod tests {
                 direction: AccountingDirection::Credit,
                 mint: kamino_config.reserve_liquidity_mint,
                 action: AccountingAction::Withdrawal,
-                delta: reward_ata_balance_delta,
+                delta: rewards_unclaimed,
             });
         assert_contains_controller_cpi_event!(
             tx_result,
@@ -2346,6 +2367,41 @@ mod tests {
             .get_account(&obligation)
             .expect("Failed to fetch obligation");
         assert_eq!(obligation_acc.owner, system_program::ID);
+
+        // claim the controller_authority rent (from obligation closure)
+        let controller_authority_balance_before = svm
+            .get_balance(&controller_authority)
+            .expect("Failed to get controller_authority balance");
+        let rent_destination = Keypair::new().pubkey();
+
+        let claim_rent_ix = create_claim_rent_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &rent_destination,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[claim_rent_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(tx.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
+        let controller_authority_balance_after = svm
+            .get_balance(&controller_authority)
+            .expect("Failed to get controller_authority balance");
+        let rent_destination_balance_after = svm
+            .get_balance(&rent_destination)
+            .expect("Failed to get rent_destination balance");
+
+        // assert controller_authority was debited and rent_destination credited
+        assert_eq!(controller_authority_balance_after, 0);
+        assert_eq!(
+            controller_authority_balance_before,
+            rent_destination_balance_after
+        );
 
         // deposit again in same integration
         let reserve_liquidity_destination = derive_reserve_liquidity_supply(
