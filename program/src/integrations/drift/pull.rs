@@ -10,18 +10,14 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
-    enums::IntegrationConfig,
+    enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PullArgs,
     integrations::drift::{
-        constants::DRIFT_PROGRAM_ID,
-        cpi::Withdraw,
-        pdas::{
+        balance::get_drift_lending_balance, constants::DRIFT_PROGRAM_ID, cpi::Withdraw, pdas::{
             derive_drift_spot_market_vault_pda, derive_drift_state_pda, derive_drift_user_stats_pda,
-        },
-        shared_sync::sync_drift_balance,
-        utils::find_spot_market_account_info_by_id,
+        }, shared_sync::sync_drift_balance, utils::find_spot_market_account_info_by_id
     },
     processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -210,6 +206,15 @@ pub fn process_pull_drift(
             delta: net_inflow,
         }),
     )?;
+
+    // Update the state
+    match &mut integration.state {
+        IntegrationState::Drift(state) => {
+            // Update amount to the Drift balance
+            state.balance = get_drift_lending_balance(spot_market_info, inner_ctx.user)?;
+        }
+        _ => return Err(ProgramError::InvalidAccountData),
+    }
 
     let clock = Clock::get()?;
     // Update integration and reserve rate limits for inflow

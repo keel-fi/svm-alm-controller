@@ -15,13 +15,9 @@ use crate::{
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::drift::{
-        constants::DRIFT_PROGRAM_ID,
-        cpi::Deposit,
-        pdas::{
+        balance::get_drift_lending_balance, constants::DRIFT_PROGRAM_ID, cpi::Deposit, pdas::{
             derive_drift_spot_market_vault_pda, derive_drift_state_pda, derive_drift_user_stats_pda,
-        },
-        shared_sync::sync_drift_balance,
-        utils::find_spot_market_account_info_by_id,
+        }, shared_sync::sync_drift_balance, utils::find_spot_market_account_info_by_id
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -221,8 +217,8 @@ pub fn process_push_drift(
     // Update the state
     match &mut integration.state {
         IntegrationState::Drift(state) => {
-            // Add the deposited amount to the Drift balance
-            state.balance = state.balance.checked_add(liquidity_value_delta).unwrap();
+            // Update amount to the Drift balance
+            state.balance = get_drift_lending_balance(spot_market, inner_ctx.user)?;
         }
         _ => return Err(ProgramError::InvalidAccountData),
     }
