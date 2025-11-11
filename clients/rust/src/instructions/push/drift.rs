@@ -82,7 +82,7 @@ pub fn create_drift_push_instruction(
         .reserve_a(*reserve)
         .program_id(crate::SVM_ALM_CONTROLLER_ID)
         .push_args(PushArgs::Drift {
-            market_index: spot_market_index,
+            spot_market_index,
             amount,
         })
         .add_remaining_accounts(&remaining_accounts)

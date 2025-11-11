@@ -27,14 +27,14 @@ export type PushArgs =
   | { __kind: 'SplTokenExternal'; amount: bigint }
   | { __kind: 'CctpBridge'; amount: bigint }
   | { __kind: 'LzBridge'; amount: bigint }
-  | { __kind: 'Drift'; marketIndex: number; amount: bigint }
+  | { __kind: 'Drift'; spotMarketIndex: number; amount: bigint }
   | { __kind: 'Kamino'; amount: bigint };
 
 export type PushArgsArgs =
   | { __kind: 'SplTokenExternal'; amount: number | bigint }
   | { __kind: 'CctpBridge'; amount: number | bigint }
   | { __kind: 'LzBridge'; amount: number | bigint }
-  | { __kind: 'Drift'; marketIndex: number; amount: number | bigint }
+  | { __kind: 'Drift'; spotMarketIndex: number; amount: number | bigint }
   | { __kind: 'Kamino'; amount: number | bigint };
 
 export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
@@ -45,7 +45,7 @@ export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
     [
       'Drift',
       getStructEncoder([
-        ['marketIndex', getU16Encoder()],
+        ['spotMarketIndex', getU16Encoder()],
         ['amount', getU64Encoder()],
       ]),
     ],
@@ -61,7 +61,7 @@ export function getPushArgsDecoder(): Decoder<PushArgs> {
     [
       'Drift',
       getStructDecoder([
-        ['marketIndex', getU16Decoder()],
+        ['spotMarketIndex', getU16Decoder()],
         ['amount', getU64Decoder()],
       ]),
     ],

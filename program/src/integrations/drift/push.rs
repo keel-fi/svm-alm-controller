@@ -95,11 +95,11 @@ pub fn process_push_drift(
 ) -> ProgramResult {
     msg!("process_push_drift");
 
-    let (market_index, amount) = match outer_args {
+    let (spot_market_index, amount) = match outer_args {
         PushArgs::Drift {
-            market_index,
+            spot_market_index,
             amount,
-        } => (*market_index, *amount),
+        } => (*spot_market_index, *amount),
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -113,8 +113,11 @@ pub fn process_push_drift(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx =
-        PushDriftAccounts::checked_from_accounts(&integration.config, &outer_ctx, market_index)?;
+    let inner_ctx = PushDriftAccounts::checked_from_accounts(
+        &integration.config,
+        &outer_ctx,
+        spot_market_index,
+    )?;
 
     // Sync the reserve balance before doing anything else
     reserve.sync_balance(
@@ -126,7 +129,7 @@ pub fn process_push_drift(
 
     let (spot_market_info, oracle_info) = find_spot_market_and_oracle_account_info_by_id(
         &inner_ctx.remaining_accounts,
-        market_index,
+        spot_market_index,
     )?;
 
     // Update Drift SpotMarket interest
@@ -170,7 +173,7 @@ pub fn process_push_drift(
         // must be included in remaining_accounts.
         // https://github.com/drift-labs/protocol-v2/blob/c3a43e411def66c74d2bc0063bd8268e2037eb7b/programs/drift/src/instructions/user.rs#L789
         remaining_accounts: &inner_ctx.remaining_accounts,
-        market_index: market_index,
+        market_index: spot_market_index,
         amount: amount,
         // Borrows are not supported by this integration, so we can
         // always set reduce_only to false as we'll never be depositing
@@ -245,6 +248,7 @@ pub fn process_push_drift(
 
     let clock = Clock::get()?;
 
+    // Update integration and reserve rate limits for inflow
     integration.update_rate_limit_for_outflow(clock, reserve_vault_balance_delta)?;
     reserve.update_for_outflow(clock, reserve_vault_balance_delta, false)?;
 

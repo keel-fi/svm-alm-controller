@@ -319,7 +319,7 @@ pub enum PushArgs {
     SplTokenExternal { amount: u64 },
     CctpBridge { amount: u64 },
     LzBridge { amount: u64 },
-    Drift { market_index: u16, amount: u64 },
+    Drift { spot_market_index: u16, amount: u64 },
     Kamino { amount: u64 },
 }
 
@@ -329,7 +329,7 @@ pub enum PullArgs {
     CctpBridge,
     LzBridge,
     Kamino { amount: u64 },
-    Drift { market_index: u16, amount: u64 },
+    Drift { spot_market_index: u16, amount: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

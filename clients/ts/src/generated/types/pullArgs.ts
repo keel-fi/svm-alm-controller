@@ -30,14 +30,14 @@ export type PullArgs =
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
   | { __kind: 'Kamino'; amount: bigint }
-  | { __kind: 'Drift'; marketIndex: number; amount: bigint };
+  | { __kind: 'Drift'; spotMarketIndex: number; amount: bigint };
 
 export type PullArgsArgs =
   | { __kind: 'SplTokenExternal' }
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
   | { __kind: 'Kamino'; amount: number | bigint }
-  | { __kind: 'Drift'; marketIndex: number; amount: number | bigint };
+  | { __kind: 'Drift'; spotMarketIndex: number; amount: number | bigint };
 
 export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -48,7 +48,7 @@ export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
     [
       'Drift',
       getStructEncoder([
-        ['marketIndex', getU16Encoder()],
+        ['spotMarketIndex', getU16Encoder()],
         ['amount', getU64Encoder()],
       ]),
     ],
@@ -64,7 +64,7 @@ export function getPullArgsDecoder(): Decoder<PullArgs> {
     [
       'Drift',
       getStructDecoder([
-        ['marketIndex', getU16Decoder()],
+        ['spotMarketIndex', getU16Decoder()],
         ['amount', getU64Decoder()],
       ]),
     ],
