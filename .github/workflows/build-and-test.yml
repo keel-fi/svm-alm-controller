@@ -1,12 +1,9 @@
-name: Devnet Build and Prepare Release
-# Writes the verifiable build to a newly created program buffer.
-# This does NOT upgrade the program, but instead stages the program
-# in buffer ready for upgrade by the ultimate upgrade authority.
+name: Build and Prepare Release
 
 on:
   push:
     tags:
-      - "devnet-v*"
+      - "build-v*"
 
 concurrency:
   group: ${{ github.workflow }}
@@ -65,44 +62,46 @@ jobs:
       - name: Test verifiable build
         run: cargo test
 
+  # This will need to be re-configured to use a separate wallet and separate workflow
+
   # release only runs on tagged commits
   # it should wait for all the other steps to finish, to ensure releases are the highest quality
   # after waiting, it will download the verified build and IDL from the verified_build step and release the artifacts
-  release:
-    name: release
-    runs-on: ubuntu-latest
-    environment: devnet
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-    needs:
-      - test_build
-      - security_audit
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: svm_alm_controller.so
-      - name: Download Solana CLI
-        run: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-      - name: Add Solana CLI to path
-        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-      - name: Create temporary hot wallet keypair
-        run: echo "${{ secrets.HOT_WALLET }}" > hot_wallet.json
-      - name: Attempt to airdrop Devnet Sol to hot wallet
-        run: solana airdrop 5 $(solana-keygen pubkey ./hot_wallet.json) --url devnet
-        continue-on-error: true # ignore errors
-      - name: Create program buffer keypair
-        id: create-program-buffer
-        run: |
-          solana-keygen new --no-passphrase -o buffer.json && \
-          echo "buffer-key=$(solana-keygen pubkey ./buffer.json)" >> "$GITHUB_OUTPUT"
-      - name: Write program to new buffer
-        run: solana program write-buffer ./svm_alm_controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url ${{ vars.RPC_URL || 'devnet' }} --keypair ./hot_wallet.json
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          body: |
-            Program buffer: ${{ steps.create-program-buffer.outputs.buffer-key }}
-          files: |
-            svm_alm_controller.so
+  # release:
+  #   name: release
+  #   runs-on: ubuntu-latest
+  #   environment: devnet
+  #   if: startsWith(github.ref, 'refs/tags/')
+  #   permissions:
+  #     contents: write
+  #   needs:
+  #     - test_build
+  #     - security_audit
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: svm_alm_controller.so
+  #     - name: Download Solana CLI
+  #       run: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+  #     - name: Add Solana CLI to path
+  #       run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+  #     - name: Create temporary hot wallet keypair
+  #       run: echo "${{ secrets.HOT_WALLET }}" > hot_wallet.json
+  #     - name: Attempt to airdrop Devnet Sol to hot wallet
+  #       run: solana airdrop 5 $(solana-keygen pubkey ./hot_wallet.json) --url devnet
+  #       continue-on-error: true # ignore errors
+  #     - name: Create program buffer keypair
+  #       id: create-program-buffer
+  #       run: |
+  #         solana-keygen new --no-passphrase -o buffer.json && \
+  #         echo "buffer-key=$(solana-keygen pubkey ./buffer.json)" >> "$GITHUB_OUTPUT"
+  #     - name: Write program to new buffer
+  #       run: solana program write-buffer ./svm_alm_controller.so --buffer ./buffer.json --buffer-authority ./hot_wallet.json --url ${{ vars.RPC_URL || 'devnet' }} --keypair ./hot_wallet.json
+  #     - name: Release
+  #       uses: softprops/action-gh-release@v1
+  #       if: startsWith(github.ref, 'refs/tags/')
+  #       with:
+  #         body: |
+  #           Program buffer: ${{ steps.create-program-buffer.outputs.buffer-key }}
+  #         files: |
+  #           svm_alm_controller.so
