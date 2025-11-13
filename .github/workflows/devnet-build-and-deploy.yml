@@ -32,14 +32,14 @@ jobs:
       - name: Install solana-verify dependencies
         run: sudo apt-get install libudev-dev
       - name: Pull solana-verifiable-build Docker image
-        run: docker pull --platform linux/amd64 solanafoundation/solana-verifiable-build:2.1.13
+        run: docker pull --platform linux/amd64 solanafoundation/solana-verifiable-build:2.2.20
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Install solana-verify from crates.io
         uses: baptiste0928/cargo-install@v3
         with:
           crate: solana-verify
       - name: Build svm-alm-controller with verifiable build
-        run: solana-verify build --library-name svm-alm-controller --base-image solanafoundation/solana-verifiable-build:2.1.13
+        run: solana-verify build --library-name svm-alm-controller --base-image solanafoundation/solana-verifiable-build:2.2.20
         # step successfully builds, but errors parsing output.
         # We should continue to attempt to upload the artifact.
         continue-on-error: true
