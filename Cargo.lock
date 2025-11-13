@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "account-zerocopy-deserialize"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "bytemuck",
  "pinocchio",
@@ -2890,7 +2890,7 @@ dependencies = [
 
 [[package]]
 name = "pinocchio-token-interface"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
@@ -2900,7 +2900,7 @@ dependencies = [
 
 [[package]]
 name = "pinocchio-token2022"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
@@ -6791,7 +6791,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "svm-alm-controller"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "account-zerocopy-deserialize",
  "bitflags 2.10.0",
@@ -6821,7 +6821,7 @@ dependencies = [
 
 [[package]]
 name = "svm-alm-controller-client"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "borsh 1.5.5",
  "bytemuck",
@@ -6842,7 +6842,7 @@ dependencies = [
 
 [[package]]
 name = "svm-alm-controller-tests"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arrayref",
  "base64 0.22.1",
