@@ -2974,6 +2974,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "psm-client"
+version = "0.1.0"
+source = "git+ssh://git@github.com/keel-fi/psm-ssr-oracle.git?rev=5f21672214c39d4149f8459be20a8ca493e030d1#5f21672214c39d4149f8459be20a8ca493e030d1"
+dependencies = [
+ "borsh 1.5.5",
+ "bytemuck",
+ "num-derive",
+ "num-traits",
+ "solana-account-info",
+ "solana-cpi",
+ "solana-instruction",
+ "solana-program",
+ "solana-program-error",
+ "solana-pubkey",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "ptr_meta"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6811,6 +6829,7 @@ dependencies = [
  "pinocchio-token",
  "pinocchio-token-interface",
  "pinocchio-token2022",
+ "psm-client",
  "sha2-const-stable",
  "shank",
  "solana-keccak-hasher",

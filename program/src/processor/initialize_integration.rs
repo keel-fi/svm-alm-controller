@@ -5,11 +5,7 @@ use crate::{
     events::{IntegrationUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeIntegrationArgs,
     integrations::{
-        atomic_swap::initialize::process_initialize_atomic_swap,
-        cctp_bridge::initialize::process_initialize_cctp_bridge,
-        drift::initialize::process_initialize_drift, kamino::initialize::process_initialize_kamino,
-        lz_bridge::initialize::process_initialize_lz_bridge,
-        spl_token_external::initialize::process_initialize_spl_token_external,
+        atomic_swap::initialize::process_initialize_atomic_swap, cctp_bridge::initialize::process_initialize_cctp_bridge, drift::initialize::process_initialize_drift, kamino::initialize::process_initialize_kamino, lz_bridge::initialize::process_initialize_lz_bridge, psm_swap::initialize::process_initialize_psm_swap, spl_token_external::initialize::process_initialize_spl_token_external
     },
     state::{Controller, Integration, Permission},
 };
@@ -71,7 +67,7 @@ pub fn process_initialize_integration(
         IntegrationType::AtomicSwap => process_initialize_atomic_swap(&ctx, &args)?,
         IntegrationType::Drift => process_initialize_drift(&ctx, &args, &controller)?,
         IntegrationType::Kamino => process_initialize_kamino(&ctx, &args, &controller)?,
-        // More integration types to be supported
+        IntegrationType::PsmSwap => process_initialize_psm_swap(&ctx, &args)?,
     };
 
     // Initialize the integration account

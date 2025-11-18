@@ -36,6 +36,8 @@ export * from './oracleUpdateEvent';
 export * from './peerConfig';
 export * from './permissionStatus';
 export * from './permissionUpdateEvent';
+export * from './psmSwapConfig';
+export * from './psmSwapState';
 export * from './pullArgs';
 export * from './pushArgs';
 export * from './remoteTokenMessenger';
