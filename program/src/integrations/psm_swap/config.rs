@@ -7,5 +7,5 @@ pub struct PsmSwapConfig {
     pub psm_token: Pubkey,
     pub psm_pool: Pubkey,
     pub mint: Pubkey,
-    pub _padding: [u8; 128]
+    pub _padding: [u8; 128],
 }
