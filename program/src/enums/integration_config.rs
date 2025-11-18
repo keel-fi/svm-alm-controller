@@ -1,11 +1,7 @@
 use crate::integrations::{
-    atomic_swap::config::AtomicSwapConfig, 
-    cctp_bridge::config::CctpBridgeConfig, 
-    drift::config::DriftConfig, 
-    kamino::config::KaminoConfig, 
-    lz_bridge::config::LzBridgeConfig, 
-    psm_swap::config::PsmSwapConfig, 
-    spl_token_external::config::SplTokenExternalConfig
+    atomic_swap::config::AtomicSwapConfig, cctp_bridge::config::CctpBridgeConfig,
+    drift::config::DriftConfig, kamino::config::KaminoConfig, lz_bridge::config::LzBridgeConfig,
+    psm_swap::config::PsmSwapConfig, spl_token_external::config::SplTokenExternalConfig,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use shank::ShankType;
@@ -21,7 +17,7 @@ pub enum IntegrationConfig {
     AtomicSwap(AtomicSwapConfig),
     Drift(DriftConfig),
     Kamino(KaminoConfig),
-    PsmSwap(PsmSwapConfig)
+    PsmSwap(PsmSwapConfig),
 }
 
 impl IntegrationConfig {

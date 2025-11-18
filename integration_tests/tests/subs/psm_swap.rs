@@ -1,12 +1,16 @@
 use litesvm::LiteSVM;
-use psm_client::{create_add_token_instruction, create_initialize_pool_instruction, derive_psm_pool_pda, types::TokenStatus};
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction};
+use psm_client::derive_token_pda;
+use psm_client::{
+    create_add_token_instruction, create_initialize_pool_instruction, derive_psm_pool_pda,
+    types::TokenStatus,
+};
+use solana_sdk::{
+    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
+};
 use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+use spl_associated_token_account_client::program::ID as ASSOCIATED_TOKEN_PROGRAM_ID;
 use spl_token::ID as TOKEN_PROGRAM_ID;
 use spl_token_2022::ID as TOKEN_2022_ID;
-use psm_client::derive_token_pda;
-use spl_associated_token_account_client::program::ID as ASSOCIATED_TOKEN_PROGRAM_ID;
-
 
 /// Initialize a PSM pool and add a single active token with default limits
 pub fn setup_pool_with_token(
@@ -15,10 +19,10 @@ pub fn setup_pool_with_token(
     mint_pubkey: &Pubkey,
     token2022: bool,
     invalid_extension: bool,
-    liquidity_owner: &Pubkey
+    liquidity_owner: &Pubkey,
 ) -> (
-    Pubkey,  // pool_pda
-    Pubkey,  // token_pda
+    Pubkey, // pool_pda
+    Pubkey, // token_pda
     Pubkey, // vault
 ) {
     let freeze_authority_keypair = Keypair::new();
@@ -57,8 +61,8 @@ pub fn setup_pool_with_token(
     let (token_program, _transfer_hook_enabled) = if token2022 {
         let transfer_hook_enabled = if invalid_extension {
             Some(true)
-        } else { 
-            Some(false) 
+        } else {
+            Some(false)
         };
         (TOKEN_2022_ID, transfer_hook_enabled)
     } else {
@@ -66,11 +70,8 @@ pub fn setup_pool_with_token(
     };
 
     let (token_pda, _bump) = derive_token_pda(mint_pubkey, &pool_pda);
-    let vault_address = get_associated_token_address_with_program_id(
-        &pool_pda, 
-        mint_pubkey,
-        &token_program
-    );
+    let vault_address =
+        get_associated_token_address_with_program_id(&pool_pda, mint_pubkey, &token_program);
 
     let token_instruction = create_add_token_instruction(
         payer_keypair.pubkey(),
@@ -96,9 +97,5 @@ pub fn setup_pool_with_token(
     );
     svm.send_transaction(transaction).unwrap();
 
-    (
-        pool_pda,
-        token_pda,
-        vault_address,
-    )
+    (pool_pda, token_pda, vault_address)
 }

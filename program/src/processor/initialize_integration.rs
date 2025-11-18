@@ -5,7 +5,12 @@ use crate::{
     events::{IntegrationUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeIntegrationArgs,
     integrations::{
-        atomic_swap::initialize::process_initialize_atomic_swap, cctp_bridge::initialize::process_initialize_cctp_bridge, drift::initialize::process_initialize_drift, kamino::initialize::process_initialize_kamino, lz_bridge::initialize::process_initialize_lz_bridge, psm_swap::initialize::process_initialize_psm_swap, spl_token_external::initialize::process_initialize_spl_token_external
+        atomic_swap::initialize::process_initialize_atomic_swap,
+        cctp_bridge::initialize::process_initialize_cctp_bridge,
+        drift::initialize::process_initialize_drift, kamino::initialize::process_initialize_kamino,
+        lz_bridge::initialize::process_initialize_lz_bridge,
+        psm_swap::initialize::process_initialize_psm_swap,
+        spl_token_external::initialize::process_initialize_spl_token_external,
     },
     state::{Controller, Integration, Permission},
 };

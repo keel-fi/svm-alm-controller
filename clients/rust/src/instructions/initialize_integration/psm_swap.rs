@@ -1,9 +1,15 @@
+use crate::{
+    derive_controller_authority_pda, derive_integration_pda, derive_permission_pda,
+    generated::{
+        instructions::InitializeIntegrationBuilder,
+        types::{
+            InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PsmSwapConfig,
+        },
+    },
+};
 use solana_instruction::{AccountMeta, Instruction};
-use solana_pubkey::Pubkey;
 use solana_program::{keccak::hash, system_program};
-use crate::{derive_controller_authority_pda, derive_integration_pda, derive_permission_pda, generated::{instructions::InitializeIntegrationBuilder, types::{
-    InitializeArgs, IntegrationConfig, IntegrationStatus, IntegrationType, PsmSwapConfig
-}}};
+use solana_pubkey::Pubkey;
 
 pub fn create_psm_swap_initialize_integration_instruction(
     payer: &Pubkey,
