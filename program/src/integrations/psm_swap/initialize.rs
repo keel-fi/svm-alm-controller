@@ -60,13 +60,6 @@ impl<'info> InitializePsmSwapAccounts<'info>{
             return Err(ProgramError::InvalidAccountData);
         }
 
-        // TODO: verify we actually want this
-        // TokenStatus::Active = 0
-        if psm_token.status.ne(&0) {
-            msg!("psm_token: invalid status");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
         Ok(ctx)
     }
 }

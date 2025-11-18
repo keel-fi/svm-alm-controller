@@ -4,15 +4,14 @@ mod subs;
 #[cfg(test)]
 mod tests {
     use crate::{
-        helpers::{TestContext, setup_test_controller}, 
-        subs::{
+        assert_contains_controller_cpi_event, helpers::{TestContext, setup_test_controller}, subs::{
             derive_controller_authority_pda, fetch_integration_account, initialize_mint, setup_pool_with_token
         }
     };
     use solana_sdk::{clock::Clock, signer::Signer, transaction::Transaction};
     use spl_token::ID as TOKEN_PROGRAM_ID;
-    use svm_alm_controller_client::{generated::types::{IntegrationConfig, IntegrationState, IntegrationStatus, PsmSwapConfig}, initialize_integration::create_psm_swap_initialize_integration_instruction};
-
+    use svm_alm_controller_client::{generated::types::{IntegrationConfig, IntegrationState, IntegrationStatus, IntegrationUpdateEvent, PsmSwapConfig, SvmAlmControllerEvent}, initialize_integration::create_psm_swap_initialize_integration_instruction};
+    use borsh::BorshDeserialize;
 
     #[test]
     fn test_psm_swap_init_success()-> Result<(), Box<dyn std::error::Error>> {
@@ -73,12 +72,13 @@ mod tests {
         let transaction = Transaction::new_signed_with_payer(
             &[init_psm_integration_ix],
             Some(&super_authority.pubkey()),
-            &[super_authority],
+            &[super_authority.insecure_clone()],
             svm.latest_blockhash(),
         );
-        let tx_result = svm.send_transaction(transaction);
-
-        assert!(tx_result.is_ok());
+        let tx_result = svm.send_transaction(transaction.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
 
         let integration = fetch_integration_account(&svm, &integration_pda)
             .expect("integration should exist")
@@ -117,6 +117,19 @@ mod tests {
         };
         assert_eq!(psm_state.liquidity_supplied, 0);
 
+        let expected_event = SvmAlmControllerEvent::IntegrationUpdate(IntegrationUpdateEvent {
+            controller: controller_pk,
+            integration: integration_pda,
+            authority: super_authority.pubkey(),
+            old_state: None,
+            new_state: Some(integration),
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            transaction.message.account_keys.as_slice(),
+            expected_event
+        );
+        
         Ok(())
     }
 
