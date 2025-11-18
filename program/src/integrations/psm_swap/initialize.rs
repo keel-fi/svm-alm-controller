@@ -87,8 +87,6 @@ pub fn process_initialize_psm_swap(
 
     // Create the initial integration state
     let state = IntegrationState::PsmSwap(PsmSwapState {
-        // TODO: verify this is how it should be handled
-        // and if we should emit an event in case vault_balance > 0
         liquidity_supplied: vault_balance,
         _padding: [0; 40]
     });
