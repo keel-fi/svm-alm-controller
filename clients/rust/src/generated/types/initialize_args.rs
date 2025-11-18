@@ -42,4 +42,5 @@ pub enum InitializeArgs {
     KaminoIntegration {
         obligation_id: u8,
     },
+    PsmSwap,
 }

@@ -36,7 +36,6 @@ bytemuck = { workspace = true }
 fixed = { workspace = true }
 uint = { workspace = true }
 bitflags = { workspace = true }
-psm-client = { workspace = true }
 
 [dev-dependencies]
 test-case = { workspace = true }

@@ -1,6 +1,6 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError};
 use pinocchio_token_interface::TokenAccount;
-use psm_client::accounts::{PsmPool, Token as PsmToken};
 
 use crate::{
     define_account_struct, 
@@ -9,6 +9,7 @@ use crate::{
     integrations::psm_swap::{
         config::PsmSwapConfig, 
         constants::PSM_SWAP_PROGRAM, 
+        psm_swap_state::{Token, PsmPool}, 
         state::PsmSwapState
     }, 
     processor::InitializeIntegrationAccounts
@@ -31,33 +32,30 @@ impl<'info> InitializePsmSwapAccounts<'info>{
         let ctx = InitializePsmSwapAccounts::from_accounts(account_infos)?;
 
         let psm_token_data = ctx.psm_token.try_borrow_data()?;
-        let psm_token = PsmToken::from_bytes(&psm_token_data)
+        let psm_token = Token::try_from_slice(&psm_token_data)
             .map_err(|_| ProgramError::InvalidAccountData)?;
 
         let psm_pool_data = ctx.psm_pool.try_borrow_data()?;
-        let psm_pool = PsmPool::from_bytes(&psm_pool_data)
+        let psm_pool = PsmPool::try_from_slice(&psm_pool_data)
             .map_err(|_| ProgramError::InvalidAccountData)?;
 
         // Validate the controller_authority is pool.liquidity_owner
-        if psm_pool.liquidity_owner.as_array().ne(controller_authority.key().as_slice()) {
+        if psm_pool.liquidity_owner.as_ref() != controller_authority.key().as_ref() {
             msg!("psm_pool: liquidity owner does not match controller_authority");
             return Err(ProgramError::InvalidAccountData);
         }
 
-        // Validate psm_token corresponds to this pool
-        if psm_token.pool.as_array().ne(ctx.psm_pool.key().as_slice()) {
+        if psm_token.pool.ne(ctx.psm_pool.key()) {
             msg!("psm_token: psm_token does not belong to the pool provided");
             return Err(ProgramError::InvalidAccountData);
         }
-        
-        // validate mint matches psm_token mint
-        if ctx.mint.key().as_slice().ne(psm_token.mint.as_array()) {
+
+        if psm_token.mint.ne(ctx.mint.key()) {
             msg!("psm_token: does not match the provided mint");
             return Err(ProgramError::InvalidAccountData);
         }
 
-        // validate psm_token_vault matches the psm_token.vault
-        if ctx.psm_token_vault.key().as_slice().ne(psm_token.vault.as_array()) {
+        if psm_token.vault.ne(ctx.psm_token_vault.key()) {
             msg!("psm_token_vault: does not match the provided psm_token");
             return Err(ProgramError::InvalidAccountData);
         }
