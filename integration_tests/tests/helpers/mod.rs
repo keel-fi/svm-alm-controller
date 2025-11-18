@@ -9,6 +9,7 @@ pub mod assert;
 pub mod cctp;
 pub mod constants;
 pub mod drift;
+use psm_client::PSM_PROGRAM_ID;
 pub use pyth::*;
 pub mod invalid_account_testing;
 pub mod kamino;
@@ -118,6 +119,10 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(KAMINO_LEND_PROGRAM_ID, kamino_lend_program);
     let kamino_farms_program = include_bytes!("../../fixtures/kamino_farms.so");
     svm.add_program(KAMINO_FARMS_PROGRAM_ID, kamino_farms_program);
+
+    // Psm Swap
+    let psm_swap_program = include_bytes!("../../fixtures/psm_program.so");
+    svm.add_program(PSM_PROGRAM_ID, psm_swap_program);
 
     svm
 }

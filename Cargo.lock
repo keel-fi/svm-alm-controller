@@ -547,7 +547,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115e54d64eb62cdebad391c19efc9dce4981c690c85a33a12199d99bb9546fee"
 dependencies = [
  "borsh-derive 0.10.4",
- "hashbrown 0.13.2",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -2971,6 +2971,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "psm-client"
+version = "0.1.0"
+source = "git+ssh://git@github.com/keel-fi/psm-ssr-oracle.git?rev=5f21672214c39d4149f8459be20a8ca493e030d1#5f21672214c39d4149f8459be20a8ca493e030d1"
+dependencies = [
+ "borsh 1.5.5",
+ "bytemuck",
+ "num-derive",
+ "num-traits",
+ "solana-account-info",
+ "solana-cpi",
+ "solana-instruction",
+ "solana-program",
+ "solana-program-error",
+ "solana-pubkey",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -6855,6 +6873,7 @@ dependencies = [
  "oft-client",
  "pinocchio-associated-token-account",
  "pinocchio-token",
+ "psm-client",
  "safe-transmute",
  "serde",
  "serde_json",

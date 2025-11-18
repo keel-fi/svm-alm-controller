@@ -11,4 +11,5 @@ pub enum IntegrationType {
     AtomicSwap,
     Drift,
     Kamino,
+    PsmSwap,
 }

@@ -67,8 +67,8 @@ impl InitializeOracle {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = InitializeOracleInstructionData::new().try_to_vec().unwrap();
-        let mut args = args.try_to_vec().unwrap();
+        let mut data = borsh::to_vec(&InitializeOracleInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -89,10 +89,6 @@ impl InitializeOracleInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 12 }
     }
-
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
 }
 
 impl Default for InitializeOracleInstructionData {
@@ -108,12 +104,6 @@ pub struct InitializeOracleInstructionArgs {
     pub nonce: Pubkey,
     pub base_mint: Pubkey,
     pub quote_mint: Pubkey,
-}
-
-impl InitializeOracleInstructionArgs {
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
 }
 
 /// Instruction builder for `InitializeOracle`.
@@ -360,8 +350,8 @@ impl<'a, 'b> InitializeOracleCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = InitializeOracleInstructionData::new().try_to_vec().unwrap();
-        let mut args = self.__args.try_to_vec().unwrap();
+        let mut data = borsh::to_vec(&InitializeOracleInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {
