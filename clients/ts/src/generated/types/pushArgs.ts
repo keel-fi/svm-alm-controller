@@ -28,14 +28,16 @@ export type PushArgs =
   | { __kind: 'CctpBridge'; amount: bigint }
   | { __kind: 'LzBridge'; amount: bigint }
   | { __kind: 'Drift'; spotMarketIndex: number; amount: bigint }
-  | { __kind: 'Kamino'; amount: bigint };
+  | { __kind: 'Kamino'; amount: bigint }
+  | { __kind: 'PsmSwap'; amount: bigint };
 
 export type PushArgsArgs =
   | { __kind: 'SplTokenExternal'; amount: number | bigint }
   | { __kind: 'CctpBridge'; amount: number | bigint }
   | { __kind: 'LzBridge'; amount: number | bigint }
   | { __kind: 'Drift'; spotMarketIndex: number; amount: number | bigint }
-  | { __kind: 'Kamino'; amount: number | bigint };
+  | { __kind: 'Kamino'; amount: number | bigint }
+  | { __kind: 'PsmSwap'; amount: number | bigint };
 
 export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -50,6 +52,7 @@ export function getPushArgsEncoder(): Encoder<PushArgsArgs> {
       ]),
     ],
     ['Kamino', getStructEncoder([['amount', getU64Encoder()]])],
+    ['PsmSwap', getStructEncoder([['amount', getU64Encoder()]])],
   ]);
 }
 
@@ -66,6 +69,7 @@ export function getPushArgsDecoder(): Decoder<PushArgs> {
       ]),
     ],
     ['Kamino', getStructDecoder([['amount', getU64Decoder()]])],
+    ['PsmSwap', getStructDecoder([['amount', getU64Decoder()]])],
   ]);
 }
 
@@ -102,6 +106,10 @@ export function pushArgs(
   kind: 'Kamino',
   data: GetDiscriminatedUnionVariantContent<PushArgsArgs, '__kind', 'Kamino'>
 ): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'Kamino'>;
+export function pushArgs(
+  kind: 'PsmSwap',
+  data: GetDiscriminatedUnionVariantContent<PushArgsArgs, '__kind', 'PsmSwap'>
+): GetDiscriminatedUnionVariant<PushArgsArgs, '__kind', 'PsmSwap'>;
 export function pushArgs<K extends PushArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data
