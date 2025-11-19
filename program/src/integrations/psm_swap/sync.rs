@@ -98,10 +98,6 @@ pub fn process_sync_psm_swap(
         _reserve,
     )?;
 
-    // For PSM swap, we sync the integration state from the PSM token vault
-    // The reserve has its own vault, but we track the PSM token vault balance for the integration
-    // Note: We don't sync the reserve balance here because the reserve vault and PSM token vault are different
-
     // Get the current vault balance
     let vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
     let current_vault_balance = vault.amount();
