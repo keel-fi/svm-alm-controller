@@ -640,7 +640,7 @@ mod tests {
             reserve: None,
             direction: AccountingDirection::Credit,
             action: AccountingAction::Deposit,
-            delta: push_amount,
+            delta: psm_token_vault_balance_after - psm_token_vault_balance_before,
         });
         assert_contains_controller_cpi_event!(
             tx_result,
@@ -656,7 +656,7 @@ mod tests {
             reserve: Some(reserve_pda),
             direction: AccountingDirection::Debit,
             action: AccountingAction::Deposit,
-            delta: push_amount,
+            delta: reserve_balance_before - reserve_balance_after,
         });
         assert_contains_controller_cpi_event!(
             tx_result,

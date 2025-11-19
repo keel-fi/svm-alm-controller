@@ -205,13 +205,10 @@ pub fn process_push_psm_swap(
         }),
     )?;
 
-    let total_liquidity_supplied =
-        TokenAccount::from_account_info(inner_ctx.psm_token_vault)?.amount();
-
     // Update the state
     match &mut integration.state {
         IntegrationState::PsmSwap(state) => {
-            state.liquidity_supplied = total_liquidity_supplied;
+            state.liquidity_supplied = psm_vault_balance_after;
         }
         _ => return Err(ProgramError::InvalidAccountData),
     }

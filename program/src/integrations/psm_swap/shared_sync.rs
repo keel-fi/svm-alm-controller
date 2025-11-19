@@ -25,15 +25,15 @@ pub fn sync_psm_liquidity_supplied(
 
     let liquidity_delta = new_vault_liquidity.abs_diff(prev_liquidity_supplied);
 
-    let direction = if new_vault_liquidity > prev_liquidity_supplied {
-        // liquidity increased
-        AccountingDirection::Credit
-    } else {
-        // liquidity decreased
-        AccountingDirection::Debit
-    };
-
     if liquidity_delta > 0 {
+        let direction = if new_vault_liquidity > prev_liquidity_supplied {
+            // liquidity increased
+            AccountingDirection::Credit
+        } else {
+            // liquidity decreased
+            AccountingDirection::Debit
+        };
+
         controller.emit_event(
             controller_authority,
             controller_pubkey,
