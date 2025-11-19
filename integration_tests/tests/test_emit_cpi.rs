@@ -17,7 +17,7 @@ mod tests {
 
     use super::*;
 
-    #[test_log::test]
+    #[test]
     fn test_malicious_emit_cpi_via_keypair() -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
