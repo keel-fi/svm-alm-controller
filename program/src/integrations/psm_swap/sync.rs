@@ -10,7 +10,7 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    integrations::psm_swap::{constants::PSM_SWAP_PROGRAM, psm_swap_state::Token},
+    integrations::psm_swap::{constants::PSM_SWAP_PROGRAM_ID, psm_swap_state::Token},
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
 };
@@ -18,8 +18,8 @@ use crate::{
 define_account_struct! {
     pub struct SyncPsmSwapAccounts<'info> {
         psm_token_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-        psm_token: @owner(PSM_SWAP_PROGRAM);
-        psm_pool: @owner(PSM_SWAP_PROGRAM);
+        psm_token: @owner(PSM_SWAP_PROGRAM_ID);
+        psm_pool: @owner(PSM_SWAP_PROGRAM_ID);
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
     }
 }
@@ -37,7 +37,7 @@ impl<'info> SyncPsmSwapAccounts<'info> {
         };
 
         // Call config.check_accounts to verify accounts match config
-        config.check_accounts(ctx.psm_token.key(), ctx.psm_pool.key(), ctx.mint.key())?;
+        config.check_accounts(&ctx.psm_token, &ctx.psm_pool, &ctx.mint)?;
 
         // Check for incorrect mint/reserve - verify reserve.mint matches config.mint
         if ctx.mint.key().ne(&reserve.mint) {

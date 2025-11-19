@@ -13,24 +13,24 @@ pub struct PsmSwapConfig {
 impl PsmSwapConfig {
     /// Validate the Integration instruction matches the config.
     /// This is to prevent an Integration instance from being used
-    /// for unintended tokens/markets.
+    /// Validates config matches the provided AccountInfos pubkeys
     pub fn check_accounts(
         &self,
-        psm_token: &Pubkey,
-        psm_pool: &Pubkey,
-        mint: &Pubkey,
+        psm_token: &AccountInfo,
+        psm_pool: &AccountInfo,
+        mint: &AccountInfo,
     ) -> Result<(), ProgramError> {
-        if psm_token.ne(&self.psm_token) {
-            msg!("psm_token: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        if psm_pool.ne(&self.psm_pool) {
+        if self.psm_pool.ne(psm_pool.key()) {
             msg!("psm_pool: does not match config");
             return Err(ProgramError::InvalidAccountData);
         }
 
-        if self.mint.ne(mint) {
+        if self.psm_token.ne(psm_token.key()) {
+            msg!("psm_token: does not match config");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        if self.mint.ne(mint.key()) {
             msg!("mint: does not match config");
             return Err(ProgramError::InvalidAccountData);
         }
