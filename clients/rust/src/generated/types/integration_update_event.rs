@@ -5,7 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use crate::generated::accounts::Integration;
+use crate::generated::types::Integration;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
 use solana_pubkey::Pubkey;

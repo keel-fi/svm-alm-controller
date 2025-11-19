@@ -2976,7 +2976,7 @@ dependencies = [
 [[package]]
 name = "psm-client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/keel-fi/psm-ssr-oracle.git?rev=5f21672214c39d4149f8459be20a8ca493e030d1#5f21672214c39d4149f8459be20a8ca493e030d1"
+source = "git+https://github.com/keel-fi/psm-ssr-oracle.git?rev=5f21672214c39d4149f8459be20a8ca493e030d1#5f21672214c39d4149f8459be20a8ca493e030d1"
 dependencies = [
  "borsh 1.5.5",
  "bytemuck",

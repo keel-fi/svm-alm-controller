@@ -2,7 +2,11 @@ use crate::{
     define_account_struct,
     enums::IntegrationConfig,
     error::SvmAlmControllerErrors,
-    integrations::{drift::sync::process_sync_drift, kamino::sync::process_sync_kamino},
+    integrations::{
+        drift::sync::process_sync_drift,
+        kamino::sync::process_sync_kamino,
+        psm_swap::sync::process_sync_psm_swap,
+    },
     state::{keel_account::KeelAccount, Controller, Integration, Reserve},
 };
 use pinocchio::{
@@ -74,6 +78,14 @@ pub fn process_sync_integration(
         }
         IntegrationConfig::Drift(_config) => {
             process_sync_drift(&controller, &mut integration, &ctx)?;
+        }
+        IntegrationConfig::PsmSwap(_config) => {
+            // Load in the reserve account (psm_swap requires a reserve)
+            let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
+
+            process_sync_psm_swap(&controller, &mut integration, &mut reserve, &ctx)?;
+
+            reserve.save(ctx.reserve)?;
         }
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
