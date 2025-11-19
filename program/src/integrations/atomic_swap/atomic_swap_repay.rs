@@ -14,6 +14,7 @@ use crate::{
     enums::{IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
+    math::CheckedCeilDiv,
     state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
@@ -311,7 +312,7 @@ fn check_swap_slippage(
     let min_swap_price = oracle_price
         .checked_mul(BPS_DENOMINATOR.saturating_sub(max_slippage_bps).into())
         .unwrap()
-        .checked_div(BPS_DENOMINATOR.into())
+        .checked_ceil_div(BPS_DENOMINATOR.into())
         .unwrap();
 
     if swap_price < min_swap_price {
