@@ -10,17 +10,14 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    integrations::psm_swap::{
-        constants::PSM_SWAP_PROGRAM,
-        psm_swap_state::Token,
-    },
+    integrations::psm_swap::{constants::PSM_SWAP_PROGRAM, psm_swap_state::Token},
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
 };
 
 define_account_struct! {
     pub struct SyncPsmSwapAccounts<'info> {
-        reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        psm_token_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         psm_token: @owner(PSM_SWAP_PROGRAM);
         psm_pool: @owner(PSM_SWAP_PROGRAM);
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
@@ -40,11 +37,7 @@ impl<'info> SyncPsmSwapAccounts<'info> {
         };
 
         // Call config.check_accounts to verify accounts match config
-        config.check_accounts(
-            ctx.psm_token.key(),
-            ctx.psm_pool.key(),
-            ctx.mint.key(),
-        )?;
+        config.check_accounts(ctx.psm_token.key(), ctx.psm_pool.key(), ctx.mint.key())?;
 
         // Check for incorrect mint/reserve - verify reserve.mint matches config.mint
         if ctx.mint.key().ne(&reserve.mint) {
@@ -54,12 +47,12 @@ impl<'info> SyncPsmSwapAccounts<'info> {
 
         // Get the psm_token state to verify vault matches
         let psm_token_data = ctx.psm_token.try_borrow_data()?;
-        let psm_token = Token::try_from_slice(&psm_token_data)
-            .map_err(|_| ProgramError::InvalidAccountData)?;
+        let psm_token =
+            Token::try_from_slice(&psm_token_data).map_err(|_| ProgramError::InvalidAccountData)?;
 
         // Verify that the reserve_vault passed in is the PSM token vault
         // The PSM token vault is where the actual liquidity is held
-        if psm_token.vault.ne(ctx.reserve_vault.key()) {
+        if psm_token.vault.ne(ctx.psm_token_vault.key()) {
             msg!("psm_token.vault: does not match reserve_vault");
             return Err(ProgramError::InvalidAccountData);
         }
@@ -99,22 +92,23 @@ pub fn process_sync_psm_swap(
     )?;
 
     // Get the current vault balance
-    let vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
-    let current_vault_balance = vault.amount();
-    drop(vault);
+    let current_psm_token_vault_balance =
+        TokenAccount::from_account_info(&inner_ctx.psm_token_vault)?.amount();
 
     // Calculate the new liquidity_supplied based on current vault balance
-    let new_liquidity_supplied = current_vault_balance;
+    let new_liquidity_supplied = current_psm_token_vault_balance;
 
     // Check if there was an inflow by comparing current balance with previous integration state
     let previous_liquidity_supplied = match integration.state {
         IntegrationState::PsmSwap(state) => state.liquidity_supplied,
-        _ => 0,
+        _ => {
+            return Err(ProgramError::InvalidAccountData);
+        }
     };
-    
-    if current_vault_balance > previous_liquidity_supplied {
-        let inflow_delta = current_vault_balance.saturating_sub(previous_liquidity_supplied);
-        
+
+    if current_psm_token_vault_balance > previous_liquidity_supplied {
+        let inflow_delta = current_psm_token_vault_balance.saturating_sub(previous_liquidity_supplied);
+
         // Update integration rate limits for inflow
         // This ensures that if tokens were transferred (rewards harvested), the integration
         // is updated for inflow.
@@ -132,4 +126,3 @@ pub fn process_sync_psm_swap(
 
     Ok(())
 }
-
