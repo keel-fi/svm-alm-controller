@@ -57,15 +57,10 @@ impl<'info> SyncPsmSwapAccounts<'info> {
         let psm_token = Token::try_from_slice(&psm_token_data)
             .map_err(|_| ProgramError::InvalidAccountData)?;
 
-        // Check for incorrect vault - verify psm_token.vault matches reserve.vault
+        // Verify that the reserve_vault passed in is the PSM token vault
+        // The PSM token vault is where the actual liquidity is held
         if psm_token.vault.ne(ctx.reserve_vault.key()) {
             msg!("psm_token.vault: does not match reserve_vault");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        // Check for incorrect vault - verify reserve.vault matches reserve_vault
-        if ctx.reserve_vault.key().ne(&reserve.vault) {
-            msg!("vault: does not match reserve vault");
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -96,26 +91,21 @@ impl<'info> SyncPsmSwapAccounts<'info> {
 /// - Checks for stale values and reverts if inconsistent
 /// - If tokens were transferred (inflow detected), updates both reserve and integration for inflow
 pub fn process_sync_psm_swap(
-    controller: &Controller,
+    _controller: &Controller,
     integration: &mut Integration,
-    reserve: &mut Reserve,
+    _reserve: &mut Reserve,
     outer_ctx: &SyncIntegrationAccounts,
 ) -> Result<(), ProgramError> {
     msg!("process_sync_psm_swap");
     let inner_ctx = SyncPsmSwapAccounts::checked_from_accounts(
         &integration.config,
         outer_ctx.remaining_accounts,
-        reserve,
+        _reserve,
     )?;
 
-    // Sync the reserve before main logic
-    let reserve_balance_before = reserve.last_balance;
-    reserve.sync_balance(
-        inner_ctx.reserve_vault,
-        outer_ctx.controller_authority,
-        outer_ctx.controller.key(),
-        controller,
-    )?;
+    // For PSM swap, we sync the integration state from the PSM token vault
+    // The reserve has its own vault, but we track the PSM token vault balance for the integration
+    // Note: We don't sync the reserve balance here because the reserve vault and PSM token vault are different
 
     // Get the current vault balance
     let vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
@@ -125,16 +115,18 @@ pub fn process_sync_psm_swap(
     // Calculate the new liquidity_supplied based on current vault balance
     let new_liquidity_supplied = current_vault_balance;
 
-    // Check if there was an inflow (tokens transferred, e.g. rewards harvested)
-    // The reserve.sync_balance() already updated the reserve for inflow if there was an increase.
-    // Now we need to update the integration for inflow as well.
-    let reserve_balance_after = reserve.last_balance;
-    if reserve_balance_after > reserve_balance_before {
-        let inflow_delta = reserve_balance_after.saturating_sub(reserve_balance_before);
+    // Check if there was an inflow by comparing current balance with previous integration state
+    let previous_liquidity_supplied = match integration.state {
+        IntegrationState::PsmSwap(state) => state.liquidity_supplied,
+        _ => 0,
+    };
+    
+    if current_vault_balance > previous_liquidity_supplied {
+        let inflow_delta = current_vault_balance.saturating_sub(previous_liquidity_supplied);
         
         // Update integration rate limits for inflow
         // This ensures that if tokens were transferred (rewards harvested), the integration
-        // is updated for inflow, matching the reserve update.
+        // is updated for inflow.
         let clock = Clock::get()?;
         integration.update_rate_limit_for_inflow(clock, inflow_delta)?;
     }
