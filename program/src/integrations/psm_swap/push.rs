@@ -19,6 +19,7 @@ use crate::{
         constants::PSM_SWAP_PROGRAM_ID,
         cpi::AddLiquidityToPsmToken,
         psm_swap_state::{PsmPool, Token},
+        shared_sync::sync_psm_liquidity_supplied,
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -50,33 +51,11 @@ impl<'info> PushPsmSwapAccounts<'info> {
             _ => return Err(ProgramError::InvalidAccountData),
         };
 
-        // validate psm_pool matches config
-        if config.psm_pool.ne(ctx.psm_pool.key()) {
-            msg!("psm_pool: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        // validate psm_token matches config
-        if config.psm_token.ne(ctx.psm_token.key()) {
-            msg!("psm_token: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        // validate mint matches config
-        if config.mint.ne(ctx.mint.key()) {
-            msg!("mint: does not match config");
-            return Err(ProgramError::InvalidAccountData);
-        }
+        config.check_accounts(ctx.psm_token, ctx.psm_pool, ctx.mint)?;
 
         // validate reserve matches mint
         if reserve.mint.ne(ctx.mint.key()) {
             msg!("mint: does not match reserve");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
-        // validate reserve vault
-        if ctx.reserve_vault.key().ne(&reserve.vault) {
-            msg! {"reserve_vault: mismatch with reserve"};
             return Err(ProgramError::InvalidAccountData);
         }
 
@@ -151,48 +130,20 @@ pub fn process_push_psm_swap(
         controller,
     )?;
 
-    let (liquidity_delta, direction) = {
-        let prev_balance = match &integration.state {
-            IntegrationState::PsmSwap(state) => state.liquidity_supplied,
-            _ => return Err(ProgramError::InvalidAccountData),
-        };
+    let psm_vault_balance_before = sync_psm_liquidity_supplied(
+        controller,
+        integration,
+        outer_ctx.controller.key(),
+        outer_ctx.integration.key(),
+        inner_ctx.mint.key(),
+        outer_ctx.controller_authority,
+        inner_ctx.psm_token_vault,
+    )?;
 
-        let new_balance = TokenAccount::from_account_info(inner_ctx.psm_token_vault)?.amount();
-
-        let abs_delta = new_balance.abs_diff(prev_balance);
-
-        let direction = if new_balance > prev_balance {
-            // liquidity increased
-            AccountingDirection::Credit
-        } else {
-            // liquidity decreased
-            AccountingDirection::Debit
-        };
-
-        (abs_delta, direction)
-    };
-
-    // sync integration before CPI if there was a change in liquidity provided
-    if liquidity_delta > 0 {
-        controller.emit_event(
-            outer_ctx.controller_authority,
-            outer_ctx.controller.key(),
-            SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
-                controller: *outer_ctx.controller.key(),
-                integration: Some(*outer_ctx.integration.key()),
-                reserve: None,
-                mint: *inner_ctx.mint.key(),
-                action: AccountingAction::Sync,
-                delta: liquidity_delta,
-                direction,
-            }),
-        )?;
-    }
+    let reserve_vault_balance_before =
+        TokenAccount::from_account_info(inner_ctx.reserve_vault)?.amount();
 
     // CPI into PSM to add liquidity
-    // NOTE: No need to manually calculate amount transferred
-    // since PSM transfer the amount passed in args
-    // and mint extensions with TransferFeeBps > 0 are disabled.
     AddLiquidityToPsmToken {
         payer: outer_ctx.controller_authority,
         psm_pool: inner_ctx.psm_pool,
@@ -210,6 +161,20 @@ pub fn process_push_psm_swap(
         Seed::from(&[controller.authority_bump]),
     ])])?;
 
+    let psm_vault_balance_after =
+        TokenAccount::from_account_info(inner_ctx.psm_token_vault)?.amount();
+
+    let reserve_vault_balance_after =
+        TokenAccount::from_account_info(inner_ctx.reserve_vault)?.amount();
+
+    let psm_vault_delta = psm_vault_balance_after
+        .checked_sub(psm_vault_balance_before)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    let reserve_vault_delta = reserve_vault_balance_before
+        .checked_sub(reserve_vault_balance_after)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
     // Emit accounting event for credit Integration
     controller.emit_event(
         outer_ctx.controller_authority,
@@ -221,7 +186,7 @@ pub fn process_push_psm_swap(
             reserve: None,
             direction: AccountingDirection::Credit,
             action: AccountingAction::Deposit,
-            delta: amount,
+            delta: psm_vault_delta,
         }),
     )?;
 
@@ -236,7 +201,7 @@ pub fn process_push_psm_swap(
             reserve: Some(*outer_ctx.reserve_a.key()),
             direction: AccountingDirection::Debit,
             action: AccountingAction::Deposit,
-            delta: amount,
+            delta: reserve_vault_delta,
         }),
     )?;
 
@@ -252,10 +217,10 @@ pub fn process_push_psm_swap(
     }
 
     // update the integration rate limit for outflow
-    integration.update_rate_limit_for_outflow(clock, amount)?;
+    integration.update_rate_limit_for_outflow(clock, reserve_vault_delta)?;
 
     // update the reserves for the flows
-    reserve.update_for_outflow(clock, amount, false)?;
+    reserve.update_for_outflow(clock, reserve_vault_delta, false)?;
 
     Ok(())
 }
