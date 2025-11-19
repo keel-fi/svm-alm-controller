@@ -76,11 +76,6 @@ impl<'info> SyncPsmSwapAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        // Could values be stale? Since PSM Token doesn't have a staleness field like Kamino,
-        // we verify consistency by checking that the psm_token accounts match expected values.
-        // If the accounts are inconsistent, we revert.
-        // Note: This check ensures that the psm_token state is consistent with the config.
-
         Ok(ctx)
     }
 }
