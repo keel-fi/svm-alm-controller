@@ -6,6 +6,7 @@ use crate::{
     integrations::{
         cctp_bridge::push::process_push_cctp_bridge, drift::push::process_push_drift,
         kamino::push::process_push_kamino, lz_bridge::push::process_push_lz_bridge,
+        psm_swap::push::process_push_psm_swap,
         spl_token_external::push::process_push_spl_token_external,
     },
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
@@ -126,6 +127,16 @@ pub fn process_push(
         }
         PushArgs::Kamino { .. } => {
             process_push_kamino(
+                &controller,
+                &permission,
+                &mut integration,
+                &mut reserve_a,
+                &ctx,
+                &args,
+            )?;
+        }
+        PushArgs::PsmSwap { .. } => {
+            process_push_psm_swap(
                 &controller,
                 &permission,
                 &mut integration,
