@@ -54,6 +54,8 @@ pub fn verify_repay_ix_in_tx(
     integration: &Pubkey,
     recipient_token_account_a: &Pubkey,
     recipient_token_account_b: &Pubkey,
+    vault_a: &Pubkey,
+    vault_b: &Pubkey,
 ) -> ProgramResult {
     // Get number of instructions in current transaction.
     let data = sysvar_instruction.try_borrow_data()?;
@@ -123,10 +125,17 @@ pub fn verify_repay_ix_in_tx(
     let payer_account_b =
         last_ix.get_account_meta_at(ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX as usize)?;
 
+    // Check that payer accounts during repay match recipient accounts from borrow.
     if payer_account_a.key.ne(recipient_token_account_a) {
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
     if payer_account_b.key.ne(recipient_token_account_b) {
+        return Err(SvmAlmControllerErrors::InvalidAccountData.into());
+    }
+
+    // Additional check to ensure payer accounts are not vaults.
+    if payer_account_a.key.eq(vault_a) || payer_account_b.key.eq(vault_b) {
+        msg!("Recipient/payer: account cannot be vault");
         return Err(SvmAlmControllerErrors::InvalidAccountData.into());
     }
 
@@ -262,6 +271,8 @@ pub fn process_atomic_swap_borrow(
         ctx.integration.key(),
         ctx.recipient_token_account_a.key(),
         ctx.recipient_token_account_b.key(),
+        ctx.vault_a.key(),
+        ctx.vault_b.key(),
     )?;
 
     // NOTE: ok to use the amount from arguments as there's no possible
