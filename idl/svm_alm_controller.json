@@ -2870,6 +2870,15 @@
                 "type": "u64"
               }
             ]
+          },
+          {
+            "name": "PsmSwap",
+            "fields": [
+              {
+                "name": "amount",
+                "type": "u64"
+              }
+            ]
           }
         ]
       }

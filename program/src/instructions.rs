@@ -322,6 +322,7 @@ pub enum PushArgs {
     LzBridge { amount: u64 },
     Drift { spot_market_index: u16, amount: u64 },
     Kamino { amount: u64 },
+    PsmSwap { amount: u64 },
 }
 
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]

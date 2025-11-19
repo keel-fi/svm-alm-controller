@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use pinocchio::{msg, program_error::ProgramError, pubkey::Pubkey};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 use shank::ShankType;
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, PartialEq, ShankType)]
@@ -30,7 +30,7 @@ impl PsmSwapConfig {
             return Err(ProgramError::InvalidAccountData);
         }
 
-        if mint.ne(&self.mint) {
+        if self.mint.ne(mint) {
             msg!("mint: does not match config");
             return Err(ProgramError::InvalidAccountData);
         }
