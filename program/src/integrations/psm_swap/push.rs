@@ -4,6 +4,7 @@ use pinocchio::{
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
+    pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token_interface::TokenAccount;
@@ -15,7 +16,9 @@ use crate::{
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::psm_swap::{
-        constants::PSM_SWAP_PROGRAM_ID, cpi::AddLiquidityToPsmToken, psm_swap_state::Token,
+        constants::PSM_SWAP_PROGRAM_ID,
+        cpi::AddLiquidityToPsmToken,
+        psm_swap_state::{PsmPool, Token},
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
@@ -36,6 +39,7 @@ define_account_struct! {
 
 impl<'info> PushPsmSwapAccounts<'info> {
     pub fn checked_from_accounts(
+        controller_authority: &Pubkey,
         config: &IntegrationConfig,
         account_infos: &'info [AccountInfo],
         reserve: &Reserve,
@@ -82,6 +86,15 @@ impl<'info> PushPsmSwapAccounts<'info> {
             return Err(ProgramError::InvalidAccountData);
         }
 
+        // validate psm_pool.liquidity_owner is controller authority
+        let psm_pool_data = ctx.psm_pool.try_borrow_data()?;
+        let psm_pool = PsmPool::try_from_slice(&psm_pool_data)?;
+
+        if psm_pool.liquidity_owner.ne(controller_authority) {
+            msg! {"psm_pool: mismatch with controller_authority"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+
         // validate psm_token_vault matches the psm_token
         let psm_token_data = ctx.psm_token.try_borrow_data()?;
         let psm_token = Token::try_from_slice(&psm_token_data)?;
@@ -124,6 +137,7 @@ pub fn process_push_psm_swap(
     }
 
     let inner_ctx = PushPsmSwapAccounts::checked_from_accounts(
+        outer_ctx.controller_authority.key(),
         &integration.config,
         outer_ctx.remaining_accounts,
         reserve,
