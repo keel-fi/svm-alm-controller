@@ -11,17 +11,17 @@ use pinocchio_token_interface::{instructions::TransferChecked, Mint, TokenAccoun
 use crate::{
     constants::BPS_DENOMINATOR,
     define_account_struct,
-    enums::{IntegrationConfig, IntegrationState},
+    enums::{ControllerStatus, IntegrationConfig, IntegrationState},
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     math::CheckedCeilDiv,
-    state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
+    state::{Controller, Integration, Oracle, Permission, Reserve, keel_account::KeelAccount},
 };
 
 define_account_struct! {
     pub struct AtomicSwapRepay<'info> {
         payer: signer;
-        controller: @owner(crate::ID);
+        controller: mut, @owner(crate::ID);
         controller_authority: empty, @owner(pinocchio_system::ID);
         authority: signer;
         permission: @owner(crate::ID);
@@ -58,7 +58,16 @@ pub fn process_atomic_swap_repay(
     }
 
     // Load Controller for event emission.
-    let controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    let mut controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+
+    // Controller status has to be AtomicSwapLock (from previous Borrow ixn)
+    // in order to continue.
+    if !controller.is_atomic_swap_locked() {
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+    // Set controller back to active status.
+    controller.update_and_save(ctx.controller, ControllerStatus::Active)?;
+
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;
