@@ -23,11 +23,11 @@ mod tests {
     use switchboard_on_demand::PRECISION;
 
     use crate::{
-        helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
-        subs::{airdrop_lamports, initialize_contoller, manage_controller, manage_permission},
+        helpers::{TestContext, assert::assert_custom_error, setup_test_controller},
+        subs::{airdrop_lamports, freeze_or_atomic_swap_lock_controller, initialize_contoller, manage_permission},
     };
     use borsh::BorshDeserialize;
-
+    use test_case::test_case;
     use super::*;
 
     #[test]
@@ -209,8 +209,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_initialize_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_initialize_oracle_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -246,14 +247,13 @@ mod tests {
             false, // can_liquidate
         )?;
 
-        // Freeze the controller
-        manage_controller(
-            &mut svm,
-            &controller_pk,
-            &authority, // payer
-            &authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+        let expected_error = freeze_or_atomic_swap_lock_controller(
+            &mut svm, 
+            &controller_pk, 
+            is_atomic_swap_locked, 
+            &authority, 
+            &authority
+        );
 
         // Try to initialize oracle when frozen - should fail
         let nonce = Pubkey::new_unique();
@@ -280,13 +280,14 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }
 
-    #[test]
-    fn test_update_oracle_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_update_oracle_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -349,16 +350,14 @@ mod tests {
             &quote_mint,
         );
 
-        // Freeze the controller
-        manage_controller(
-            &mut svm,
-            &controller_pk,
-            &authority, // payer
-            &authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+        let expected_error = freeze_or_atomic_swap_lock_controller(
+            &mut svm, 
+            &controller_pk, 
+            is_atomic_swap_locked, 
+            &authority, 
+            &authority
+        );
 
-        // Try to update oracle when frozen - should fail
         let ixn = create_update_oracle_instruction(
             &controller_pk,
             &authority.pubkey(),
@@ -376,7 +375,7 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }

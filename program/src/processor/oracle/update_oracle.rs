@@ -41,6 +41,11 @@ pub fn process_update_oracle(
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
+    // Error when Controller is atomic swap locked
+    if controller.is_atomic_swap_locked() {
+        return Err(SvmAlmControllerErrors::ControllerAtomicSwapLocked.into());
+    }
+
     let mut oracle = Oracle::load_and_check(
         ctx.oracle,
         Some(ctx.controller.key()),

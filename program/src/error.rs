@@ -63,6 +63,8 @@ pub enum SvmAlmControllerErrors {
     InvalidOracleForMints,
     // 29
     SerializationFailed,
+    // 30
+    ControllerAtomicSwapLocked,
 }
 
 impl From<SvmAlmControllerErrors> for ProgramError {

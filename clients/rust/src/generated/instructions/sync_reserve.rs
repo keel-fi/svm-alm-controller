@@ -46,7 +46,7 @@ impl SyncReserve {
             self.vault, false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let data = SyncReserveInstructionData::new().try_to_vec().unwrap();
+        let data = borsh::to_vec(&SyncReserveInstructionData::new()).unwrap();
 
         solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -65,10 +65,6 @@ pub struct SyncReserveInstructionData {
 impl SyncReserveInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 8 }
-    }
-
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
     }
 }
 
@@ -237,7 +233,7 @@ impl<'a, 'b> SyncReserveCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = SyncReserveInstructionData::new().try_to_vec().unwrap();
+        let data = borsh::to_vec(&SyncReserveInstructionData::new()).unwrap();
 
         let instruction = solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,

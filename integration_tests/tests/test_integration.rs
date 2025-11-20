@@ -24,10 +24,9 @@ mod tests {
     use test_case::test_case;
 
     use crate::{
-        helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
+        helpers::{TestContext, assert::assert_custom_error, setup_test_controller},
         subs::{
-            airdrop_lamports, fetch_integration_account, initialize_mint, initialize_reserve,
-            manage_controller, manage_integration, manage_permission,
+            airdrop_lamports, fetch_integration_account, freeze_or_atomic_swap_lock_controller, initialize_mint, initialize_reserve, manage_integration, manage_permission, set_controller_status
         },
         test_invalid_accounts,
     };
@@ -153,6 +152,74 @@ mod tests {
     }
 
     #[test]
+    fn test_init_integration_fails_with_atomic_swap_locked_controller(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let TestContext {
+            mut svm,
+            super_authority,
+            controller_pk,
+        } = setup_test_controller().unwrap();
+
+        let permit_liquidation = true;
+        // Initialize a mint
+        let mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &spl_token::ID,
+            None,
+            None,
+        )
+        .unwrap();
+        let external = Pubkey::new_unique();
+        let description = "DAO Treasury".to_string();
+        let external_ata = spl_associated_token_account_client::address::get_associated_token_address_with_program_id(
+            &external,
+            &mint,
+            &spl_token::ID,
+        );
+        let init_ix = create_spl_token_external_initialize_integration_instruction(
+            &super_authority.pubkey(),
+            &controller_pk,
+            &super_authority.pubkey(),
+            &description,
+            IntegrationStatus::Active,
+            DEFAULT_RATE_LIMIT_SLOPE,
+            DEFAULT_RATE_LIMIT_MAX_OUTFLOW,
+            permit_liquidation,
+            &spl_token::ID,
+            &mint,
+            &external,
+            &external_ata,
+        );
+
+        set_controller_status(
+            &mut svm, 
+            &controller_pk, 
+            ControllerStatus::AtomicSwapLock
+        );
+
+        let txn = Transaction::new_signed_with_payer(
+            &[init_ix],
+            Some(&super_authority.pubkey()),
+            &[&super_authority, &super_authority],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(txn);
+
+        assert_custom_error(
+            &tx_result,
+            0,
+            SvmAlmControllerErrors::ControllerAtomicSwapLocked,
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_manage_integration_success() -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
@@ -194,8 +261,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_manage_integration_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_manage_integration_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -205,14 +273,13 @@ mod tests {
         let (integration_pubkey, _, _) =
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
-        // Freeze the controller
-        manage_controller(
-            &mut svm,
-            &controller_pk,
-            &super_authority, // payer
-            &super_authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+        let expected_error = freeze_or_atomic_swap_lock_controller(
+            &mut svm, 
+            &controller_pk, 
+            is_atomic_swap_locked, 
+            &super_authority, 
+            &super_authority
+        );
 
         let instruction = create_manage_integration_instruction(
             &controller_pk,
@@ -231,7 +298,7 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }
@@ -277,8 +344,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_sync_integration_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_sync_integration_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -301,14 +369,13 @@ mod tests {
             &spl_token::ID,
         )?;
 
-        // Freeze the controller
-        manage_controller(
-            &mut svm,
-            &controller_pk,
-            &super_authority, // payer
-            &super_authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+        let expected_error = freeze_or_atomic_swap_lock_controller(
+            &mut svm, 
+            &controller_pk, 
+            is_atomic_swap_locked, 
+            &super_authority, 
+            &super_authority
+        );
 
         // Try to sync integration when frozen - should fail
         let instruction = create_sync_integration_instruction(
@@ -326,7 +393,7 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }

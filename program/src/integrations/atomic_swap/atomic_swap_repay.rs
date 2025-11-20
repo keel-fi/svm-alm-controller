@@ -60,7 +60,7 @@ pub fn process_atomic_swap_repay(
     // Load Controller for event emission.
     let mut controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
-    // Controller status has to be AtomicSwapLock (from previous Borrow ixn)
+    // Controller status has to be atomic swap locked (from previous Borrow ixn)
     // in order to continue.
     if !controller.is_atomic_swap_locked() {
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());

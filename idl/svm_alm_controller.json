@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "1.0.0",
   "name": "svm_alm_controller",
   "instructions": [
     {
@@ -716,7 +716,7 @@
       "accounts": [
         {
           "name": "controller",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -813,7 +813,7 @@
         },
         {
           "name": "controller",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -2357,6 +2357,9 @@
           },
           {
             "name": "PushPullFrozen"
+          },
+          {
+            "name": "AtomicSwapLock"
           }
         ]
       }
