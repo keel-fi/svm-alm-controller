@@ -953,12 +953,12 @@ mod tests {
     }
 
     #[test]
-    fn test_psm_swap_sync_invalid_mint_fails() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_psm_swap_sync_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
         let (
-            mut svm,
+            svm,
             controller_pk,
             super_authority,
-            _liquidity_mint,
+            liquidity_mint,
             _pool_pda,
             _token_pda,
             _token_vault,
@@ -967,45 +967,33 @@ mod tests {
             psm_config,
         ) = setup_sync_test()?;
 
-        let wrong_mint = initialize_mint(
-            &mut svm,
-            &super_authority,
-            &super_authority.pubkey(),
-            None,
-            6,
-            None,
-            &TOKEN_PROGRAM_ID,
-            None,
-            None,
-        )?;
-
-        // Create sync instruction with wrong mint but correct vault
-        // This should fail with InvalidAccountData because the mint doesn't match
+        // Create valid sync instruction
         let sync_ix = create_psm_swap_sync_integration_instruction(
             &controller_pk,
             &super_authority.pubkey(),
             &integration_pda,
             &psm_config,
-            &wrong_mint, // Wrong mint
-            &psm_token_vault, // Correct vault
+            &liquidity_mint,
+            &psm_token_vault,
         )?;
 
-        // Execute sync - should fail
-        let transaction = Transaction::new_signed_with_payer(
-            &[sync_ix],
-            Some(&super_authority.pubkey()),
-            &[super_authority.insecure_clone()],
-            svm.latest_blockhash(),
-        );
-        let tx_result = svm.send_transaction(transaction);
-
-        // When passing wrong mint, the account validation fails with InvalidAccountOwner
-        // because the reserve vault derivation doesn't match, or with InvalidAccountData
-        // if the account owner check passes but data validation fails
-        let error = tx_result.err().unwrap().err;
-        assert!(
-            matches!(error, TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner) | TransactionError::InstructionError(0, InstructionError::InvalidAccountData)),
-            "Expected InvalidAccountOwner or InvalidAccountData, got: {:?}", error
+        // Test invalid accounts for the inner context accounts (remaining accounts)
+        // Account indices: 5=vault, 6=psm_token, 7=psm_pool, 8=mint
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            vec![Box::new(&super_authority)],
+            sync_ix,
+            {
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault: invalid owner"),
+                5 => invalid_pubkey(InstructionError::InvalidAccountData, "Vault: does not match config"),
+                6 => invalid_owner(InstructionError::InvalidAccountOwner, "PSM Token: invalid owner"),
+                6 => invalid_pubkey(InstructionError::InvalidAccountData, "PSM Token: does not match config"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "PSM Pool: invalid owner"),
+                7 => invalid_pubkey(InstructionError::InvalidAccountData, "PSM Pool: does not match config"),
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                8 => invalid_pubkey(InstructionError::InvalidAccountData, "Mint: does not match config"),
+            }
         );
 
         Ok(())
