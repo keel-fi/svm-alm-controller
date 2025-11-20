@@ -8,3 +8,4 @@ pub mod push;
 pub mod push_pull_accounts;
 pub mod shared_sync;
 pub mod state;
+pub mod sync;
