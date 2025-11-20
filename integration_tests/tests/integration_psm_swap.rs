@@ -36,6 +36,7 @@ mod tests {
         },
         initialize_integration::create_psm_swap_initialize_integration_instruction,
         push::create_psm_swap_push_instruction,
+        sync_integration::create_psm_swap_sync_integration_instruction,
     };
     use test_case::test_case;
 
@@ -43,6 +44,117 @@ mod tests {
         let mut buf = Vec::new();
         data.serialize(&mut buf)?;
         Ok(buf)
+    }
+
+    fn setup_sync_test() -> Result<
+        (
+            LiteSVM,
+            Pubkey,  // controller_pk
+            Keypair, // super_authority
+            Pubkey,  // liquidity_mint
+            Pubkey,  // pool_pda
+            Pubkey,  // token_pda
+            Pubkey,  // token_vault
+            Pubkey,  // psm_token_vault
+            Pubkey,  // integration_pda
+            PsmSwapConfig,
+        ),
+        Box<dyn std::error::Error>,
+    > {
+        let TestContext {
+            mut svm,
+            controller_pk,
+            super_authority,
+        } = setup_test_controller()?;
+
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+
+        let liquidity_mint = initialize_mint(
+            &mut svm,
+            &super_authority,
+            &super_authority.pubkey(),
+            None,
+            6,
+            None,
+            &TOKEN_PROGRAM_ID,
+            None,
+            None,
+        )?;
+
+        // Initialize reserve first (with its own vault)
+        let _reserve_keys = crate::subs::reserve::initialize_reserve(
+            &mut svm,
+            &controller_pk,
+            &liquidity_mint,
+            &super_authority,
+            &super_authority,
+            ReserveStatus::Active,
+            10_000_000_000,
+            10_000_000_000,
+            &TOKEN_PROGRAM_ID,
+        )?;
+
+        // initialize a PSM Pool
+        let (pool_pda, token_pda, token_vault) = setup_pool_with_token(
+            &mut svm,
+            &super_authority,
+            &liquidity_mint,
+            false,
+            false,
+            &controller_authority,
+        );
+
+        // Read the PSM token account to get the vault
+        let psm_token_acc = svm.get_account(&token_pda).unwrap();
+        let psm_token = Token::from_bytes(&psm_token_acc.data[1..])?;
+        let psm_token_vault = psm_token.vault;
+
+        let (init_psm_integration_ix, integration_pda) =
+            create_psm_swap_initialize_integration_instruction(
+                &super_authority.pubkey(),
+                &controller_pk,
+                &super_authority.pubkey(),
+                &liquidity_mint,
+                "psm swap",
+                IntegrationStatus::Active,
+                10_000_000_000,
+                10_000_000_000,
+                true,
+                &pool_pda,
+                &token_pda,
+                &token_vault,
+            );
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[init_psm_integration_ix],
+            Some(&super_authority.pubkey()),
+            &[super_authority.insecure_clone()],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(transaction).unwrap();
+
+        // Fetch integration to get config
+        let integration = fetch_integration_account(&svm, &integration_pda)
+            .expect("integration should exist")
+            .unwrap();
+
+        let psm_config = match integration.config {
+            IntegrationConfig::PsmSwap(config) => config,
+            _ => panic!("invalid config"),
+        };
+
+        Ok((
+            svm,
+            controller_pk,
+            super_authority,
+            liquidity_mint,
+            pool_pda,
+            token_pda,
+            token_vault,
+            psm_token_vault,
+            integration_pda,
+            psm_config,
+        ))
     }
 
     fn initialize_psm_swap_integration(
@@ -511,6 +623,99 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_psm_swap_sync_success() -> Result<(), Box<dyn std::error::Error>> {
+        let (
+            mut svm,
+            controller_pk,
+            super_authority,
+            liquidity_mint,
+            _pool_pda,
+            _token_pda,
+            token_vault,
+            psm_token_vault,
+            integration_pda,
+            psm_config,
+        ) = setup_sync_test()?;
+
+        // Fetch integration before sync
+        let integration_before = fetch_integration_account(&svm, &integration_pda)
+            .expect("integration should exist")
+            .unwrap();
+
+        let psm_state_before = match integration_before.state {
+            IntegrationState::PsmSwap(state) => state,
+            _ => panic!("invalid state"),
+        };
+
+        // Transfer tokens to the vault (simulating a non-zero balance)
+        let vault_balance = 5_000_000;
+        edit_token_amount(&mut svm, &token_vault, vault_balance)?;
+
+        // Create sync instruction with the PSM token vault
+        let sync_ix = create_psm_swap_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pda,
+            &psm_config,
+            &liquidity_mint,
+            &psm_token_vault,
+        )?;
+
+        // Execute sync
+        let transaction = Transaction::new_signed_with_payer(
+            &[sync_ix],
+            Some(&super_authority.pubkey()),
+            &[super_authority.insecure_clone()],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(transaction.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
+
+        // Fetch integration after sync
+        let integration_after = fetch_integration_account(&svm, &integration_pda)
+            .expect("integration should exist")
+            .unwrap();
+
+        // Verify liquidity_supplied was updated
+        let psm_state_after = match integration_after.state {
+            IntegrationState::PsmSwap(state) => state,
+            _ => panic!("invalid state"),
+        };
+
+        // Verify state was synced (should match vault balance)
+        assert_eq!(psm_state_after.liquidity_supplied, vault_balance);
+
+        // Calculate delta - final should be greater than initial (0), so delta should be non-zero
+        let liquidity_delta = psm_state_after
+            .liquidity_supplied
+            .abs_diff(psm_state_before.liquidity_supplied);
+
+        // Construct expected accounting event directly from known values
+        // Initial state = 0, final state = vault_balance, so delta = vault_balance
+        // Direction: Credit since final > initial
+        let expected_event = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: Some(integration_pda),
+            reserve: None,
+            mint: liquidity_mint,
+            action: AccountingAction::Sync,
+            delta: liquidity_delta,
+            direction: AccountingDirection::Credit, // Credit since final > initial
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            transaction.message.account_keys.as_slice(),
+            expected_event
+        );
+        // Verify delta is non-zero (success case with actual balance change)
+        assert_eq!(liquidity_delta, vault_balance);
+
+        Ok(())
+    }
+
     #[test_case(SPL_TOKEN_PROGRAM_ID; "SPL Token program")]
     #[test_case(spl_token_2022::ID; " Token2022 program")]
     fn test_psm_swap_push_success(token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
@@ -662,6 +867,104 @@ mod tests {
             tx_result,
             transaction.message.account_keys.as_slice(),
             reserve_event_after_cpi
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_psm_swap_sync_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let (
+            svm,
+            controller_pk,
+            super_authority,
+            liquidity_mint,
+            _pool_pda,
+            _token_pda,
+            _token_vault,
+            psm_token_vault,
+            integration_pda,
+            psm_config,
+        ) = setup_sync_test()?;
+
+        // Create valid sync instruction
+        let sync_ix = create_psm_swap_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pda,
+            &psm_config,
+            &liquidity_mint,
+            &psm_token_vault,
+        )?;
+
+        // Test invalid accounts for the inner context accounts (remaining accounts)
+        // Account indices: 5=vault, 6=psm_token, 7=psm_pool, 8=mint
+        test_invalid_accounts!(
+            svm.clone(),
+            super_authority.pubkey(),
+            vec![Box::new(&super_authority)],
+            sync_ix,
+            {
+                5 => invalid_owner(InstructionError::InvalidAccountOwner, "Vault: invalid owner"),
+                5 => invalid_pubkey(InstructionError::InvalidAccountData, "Vault: does not match config"),
+                6 => invalid_owner(InstructionError::InvalidAccountOwner, "PSM Token: invalid owner"),
+                6 => invalid_pubkey(InstructionError::InvalidAccountData, "PSM Token: does not match config"),
+                7 => invalid_owner(InstructionError::InvalidAccountOwner, "PSM Pool: invalid owner"),
+                7 => invalid_pubkey(InstructionError::InvalidAccountData, "PSM Pool: does not match config"),
+                8 => invalid_owner(InstructionError::InvalidAccountOwner, "Mint: invalid owner"),
+                8 => invalid_pubkey(InstructionError::InvalidAccountData, "Mint: does not match config"),
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_psm_swap_sync_invalid_config_fails() -> Result<(), Box<dyn std::error::Error>> {
+        let (
+            mut svm,
+            controller_pk,
+            super_authority,
+            liquidity_mint,
+            _pool_pda,
+            _token_pda,
+            _token_vault,
+            psm_token_vault,
+            integration_pda,
+            psm_config,
+        ) = setup_sync_test()?;
+
+        // Create a config with wrong psm_token
+        // Use the mint as the wrong psm_token - it exists but has wrong data
+        let mut wrong_config = psm_config;
+        wrong_config.psm_token = liquidity_mint; // Wrong psm_token (using mint, which exists but has wrong data)
+
+        // Create sync instruction with wrong config
+        let sync_ix = create_psm_swap_sync_integration_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &integration_pda,
+            &wrong_config,
+            &liquidity_mint,
+            &psm_token_vault,
+        )?;
+
+        // Execute sync - should fail
+        let transaction = Transaction::new_signed_with_payer(
+            &[sync_ix],
+            Some(&super_authority.pubkey()),
+            &[super_authority.insecure_clone()],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(transaction);
+
+        // When passing wrong mint, the account validation fails with InvalidAccountOwner
+        // because the reserve vault derivation doesn't match, or with InvalidAccountData
+        // if the account owner check passes but data validation fails
+        let error = tx_result.err().unwrap().err;
+        assert!(
+            matches!(error, TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner) | TransactionError::InstructionError(0, InstructionError::InvalidAccountData)),
+            "Expected InvalidAccountOwner or InvalidAccountData, got: {:?}", error
         );
 
         Ok(())

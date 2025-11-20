@@ -50,7 +50,7 @@ impl Sync {
         ));
         accounts.push(solana_instruction::AccountMeta::new(self.reserve, false));
         accounts.extend_from_slice(remaining_accounts);
-        let data = borsh::to_vec(&SyncInstructionData::new()).unwrap();
+        let data = SyncInstructionData::new().try_to_vec().unwrap();
 
         solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -69,6 +69,10 @@ pub struct SyncInstructionData {
 impl SyncInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 9 }
+    }
+
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
     }
 }
 
@@ -251,7 +255,7 @@ impl<'a, 'b> SyncCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = borsh::to_vec(&SyncInstructionData::new()).unwrap();
+        let data = SyncInstructionData::new().try_to_vec().unwrap();
 
         let instruction = solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,

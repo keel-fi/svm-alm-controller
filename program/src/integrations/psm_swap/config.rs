@@ -11,6 +11,8 @@ pub struct PsmSwapConfig {
 }
 
 impl PsmSwapConfig {
+    /// Validate the Integration instruction matches the config.
+    /// This is to prevent an Integration instance from being used
     /// Validates config matches the provided AccountInfos pubkeys
     pub fn check_accounts(
         &self,
