@@ -3,8 +3,7 @@ use crate::{
     enums::IntegrationConfig,
     error::SvmAlmControllerErrors,
     integrations::{
-        drift::sync::process_sync_drift,
-        kamino::sync::process_sync_kamino,
+        drift::sync::process_sync_drift, kamino::sync::process_sync_kamino,
         psm_swap::sync::process_sync_psm_swap,
     },
     state::{keel_account::KeelAccount, Controller, Integration, Reserve},

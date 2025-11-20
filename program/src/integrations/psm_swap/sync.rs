@@ -1,14 +1,13 @@
 use account_zerocopy_deserialize::AccountZerocopyDeserialize;
-use pinocchio::{
-    account_info::AccountInfo,
-    msg,
-    program_error::ProgramError,
-};
+use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError};
 
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    integrations::psm_swap::{constants::PSM_SWAP_PROGRAM_ID, psm_swap_state::Token, shared_sync::sync_psm_liquidity_supplied},
+    integrations::psm_swap::{
+        constants::PSM_SWAP_PROGRAM_ID, psm_swap_state::Token,
+        shared_sync::sync_psm_liquidity_supplied,
+    },
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration},
 };
@@ -78,7 +77,6 @@ pub fn process_sync_psm_swap(
         outer_ctx.remaining_accounts,
     )?;
 
-    
     let new_liquidity_supplied = sync_psm_liquidity_supplied(
         controller,
         integration,

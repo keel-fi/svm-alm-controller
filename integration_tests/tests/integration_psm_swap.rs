@@ -964,13 +964,18 @@ mod tests {
         // if the account owner check passes but data validation fails
         let error = tx_result.err().unwrap().err;
         assert!(
-            matches!(error, TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner) | TransactionError::InstructionError(0, InstructionError::InvalidAccountData)),
-            "Expected InvalidAccountOwner or InvalidAccountData, got: {:?}", error
+            matches!(
+                error,
+                TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+                    | TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+            ),
+            "Expected InvalidAccountOwner or InvalidAccountData, got: {:?}",
+            error
         );
 
         Ok(())
     }
-    
+
     enum PsmIx {
         Push,
         Pull,
@@ -981,7 +986,6 @@ mod tests {
     fn test_psm_swap_push_pull_invalid_accounts_fails(
         ix: PsmIx,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        
         let token_program = TOKEN_PROGRAM_ID;
         // initialize environment
         let (
