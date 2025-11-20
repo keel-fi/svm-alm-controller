@@ -10,7 +10,7 @@ use pinocchio_token_interface::TokenAccount;
 use crate::{
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
-    integrations::psm_swap::{constants::PSM_SWAP_PROGRAM_ID, psm_swap_state::Token},
+    integrations::psm_swap::{constants::PSM_SWAP_PROGRAM_ID, psm_swap_state::Token, shared_sync::sync_psm_liquidity_supplied},
     processor::SyncIntegrationAccounts,
     state::{Controller, Integration, Reserve},
 };
@@ -28,7 +28,6 @@ impl<'info> SyncPsmSwapAccounts<'info> {
     pub fn checked_from_accounts(
         config: &IntegrationConfig,
         accounts_infos: &'info [AccountInfo],
-        reserve: &Reserve,
     ) -> Result<Self, ProgramError> {
         let ctx = Self::from_accounts(accounts_infos)?;
         let config = match config {
@@ -38,12 +37,6 @@ impl<'info> SyncPsmSwapAccounts<'info> {
 
         // Call config.check_accounts to verify accounts match config
         config.check_accounts(&ctx.psm_token, &ctx.psm_pool, &ctx.mint)?;
-
-        // Check for incorrect mint/reserve - verify reserve.mint matches config.mint
-        if ctx.mint.key().ne(&reserve.mint) {
-            msg!("mint: does not match reserve mint");
-            return Err(ProgramError::InvalidAccountData);
-        }
 
         // Get the psm_token state to verify vault matches
         let psm_token_data = ctx.psm_token.try_borrow_data()?;
@@ -79,42 +72,26 @@ impl<'info> SyncPsmSwapAccounts<'info> {
 /// - Checks for stale values and reverts if inconsistent
 /// - If tokens were transferred (inflow detected), updates both reserve and integration for inflow
 pub fn process_sync_psm_swap(
-    _controller: &Controller,
+    controller: &Controller,
     integration: &mut Integration,
-    _reserve: &mut Reserve,
     outer_ctx: &SyncIntegrationAccounts,
 ) -> Result<(), ProgramError> {
     msg!("process_sync_psm_swap");
     let inner_ctx = SyncPsmSwapAccounts::checked_from_accounts(
         &integration.config,
         outer_ctx.remaining_accounts,
-        _reserve,
     )?;
 
-    // Get the current vault balance
-    let current_psm_token_vault_balance =
-        TokenAccount::from_account_info(&inner_ctx.psm_token_vault)?.amount();
-
-    // Calculate the new liquidity_supplied based on current vault balance
-    let new_liquidity_supplied = current_psm_token_vault_balance;
-
-    // Check if there was an inflow by comparing current balance with previous integration state
-    let previous_liquidity_supplied = match integration.state {
-        IntegrationState::PsmSwap(state) => state.liquidity_supplied,
-        _ => {
-            return Err(ProgramError::InvalidAccountData);
-        }
-    };
-
-    if current_psm_token_vault_balance > previous_liquidity_supplied {
-        let inflow_delta = current_psm_token_vault_balance.saturating_sub(previous_liquidity_supplied);
-
-        // Update integration rate limits for inflow
-        // This ensures that if tokens were transferred (rewards harvested), the integration
-        // is updated for inflow.
-        let clock = Clock::get()?;
-        integration.update_rate_limit_for_inflow(clock, inflow_delta)?;
-    }
+    
+    let new_liquidity_supplied = sync_psm_liquidity_supplied(
+        controller,
+        integration,
+        outer_ctx.controller.key(),
+        outer_ctx.integration.key(),
+        inner_ctx.mint.key(),
+        outer_ctx.controller_authority,
+        inner_ctx.psm_token_vault,
+    )?;
 
     // Update the integration state with new liquidity_supplied
     match &mut integration.state {

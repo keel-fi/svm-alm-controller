@@ -80,12 +80,7 @@ pub fn process_sync_integration(
             process_sync_drift(&controller, &mut integration, &ctx)?;
         }
         IntegrationConfig::PsmSwap(_config) => {
-            // Load in the reserve account (psm_swap requires a reserve)
-            let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
-
-            process_sync_psm_swap(&controller, &mut integration, &mut reserve, &ctx)?;
-
-            reserve.save(ctx.reserve)?;
+            process_sync_psm_swap(&controller, &mut integration, &ctx)?;
         }
         // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
