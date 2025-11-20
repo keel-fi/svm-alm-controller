@@ -42,8 +42,8 @@ pub fn process_pull_psm_swap(
         return Err(ProgramError::InvalidArgument);
     }
 
-    if !permission.can_reallocate() {
-        msg! {"permission: can_reallocate required"};
+    if !permission.can_reallocate() && !permission.can_liquidate(&integration) {
+        msg! {"permission: can_reallocate or can_liquidate required"};
         return Err(ProgramError::IncorrectAuthority);
     }
 
