@@ -15,7 +15,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     math::CheckedCeilDiv,
-    state::{Controller, Integration, Oracle, Permission, Reserve, keel_account::KeelAccount},
+    state::{keel_account::KeelAccount, Controller, Integration, Oracle, Permission, Reserve},
 };
 
 define_account_struct! {
@@ -58,7 +58,8 @@ pub fn process_atomic_swap_repay(
     }
 
     // Load Controller for event emission.
-    let mut controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    let mut controller =
+        Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
 
     // Controller status has to be atomic swap locked (from previous Borrow ixn)
     // in order to continue.
@@ -67,7 +68,6 @@ pub fn process_atomic_swap_repay(
     }
     // Set controller back to active status.
     controller.update_and_save(ctx.controller, ControllerStatus::Active)?;
-
 
     // Check that mint and vault account matches known keys in controller-associated Reserve.
     let mut reserve_a = Reserve::load_and_check(ctx.reserve_a, ctx.controller.key())?;

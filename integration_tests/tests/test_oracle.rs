@@ -22,13 +22,16 @@ mod tests {
     };
     use switchboard_on_demand::PRECISION;
 
+    use super::*;
     use crate::{
-        helpers::{TestContext, assert::assert_custom_error, setup_test_controller},
-        subs::{airdrop_lamports, freeze_or_atomic_swap_lock_controller, initialize_contoller, manage_permission},
+        helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
+        subs::{
+            airdrop_lamports, freeze_or_atomic_swap_lock_controller, initialize_contoller,
+            manage_permission,
+        },
     };
     use borsh::BorshDeserialize;
     use test_case::test_case;
-    use super::*;
 
     #[test]
     fn test_oracle_init_refresh_and_update_success() -> Result<(), Box<dyn std::error::Error>> {
@@ -211,7 +214,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_initialize_oracle_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_initialize_oracle_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -248,11 +253,11 @@ mod tests {
         )?;
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &authority, 
-            &authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &authority,
+            &authority,
         );
 
         // Try to initialize oracle when frozen - should fail
@@ -287,7 +292,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_update_oracle_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_update_oracle_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut svm = lite_svm_with_programs();
 
         let authority = Keypair::new();
@@ -351,11 +358,11 @@ mod tests {
         );
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &authority, 
-            &authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &authority,
+            &authority,
         );
 
         let ixn = create_update_oracle_instruction(

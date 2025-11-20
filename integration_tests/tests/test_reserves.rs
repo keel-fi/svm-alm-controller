@@ -26,7 +26,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_initialize_reserve_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_initialize_reserve_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -34,11 +36,11 @@ mod tests {
         } = setup_test_controller()?;
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &super_authority, 
-            &super_authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
         );
 
         let instruction = create_initialize_reserve_instruction(
@@ -109,7 +111,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_manage_reserve_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_reserve_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -130,11 +134,11 @@ mod tests {
         )?;
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &super_authority, 
-            &super_authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
         );
 
         let instruction = create_manage_reserve_instruction(
@@ -212,7 +216,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_sync_reserve_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_sync_reserve_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -233,11 +239,11 @@ mod tests {
         )?;
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &super_authority, 
-            &super_authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
         );
 
         let instruction = create_sync_reserve_instruction(

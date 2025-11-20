@@ -12,7 +12,11 @@ mod tests {
             lite_svm_with_programs,
         },
         subs::{
-            ReserveKeys, atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs, derive_controller_authority_pda, derive_permission_pda, fetch_integration_account, fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint, initialize_reserve, manage_controller, mint_tokens, set_controller_status, sync_reserve, transfer_tokens
+            atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
+            derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
+            fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
+            initialize_reserve, manage_controller, mint_tokens, set_controller_status,
+            sync_reserve, transfer_tokens, ReserveKeys,
         },
         test_invalid_accounts,
     };
@@ -1190,12 +1194,12 @@ mod tests {
         );
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
-        
+
         // change controller status so that the check is reached
         set_controller_status(
-            &mut svm, 
-            &swap_env.controller_pk, 
-            ControllerStatus::AtomicSwapLock
+            &mut svm,
+            &swap_env.controller_pk,
+            ControllerStatus::AtomicSwapLock,
         );
 
         // Expect failure when repay w/o borrowing first.
@@ -1209,11 +1213,7 @@ mod tests {
         assert_custom_error(&res, 0, SvmAlmControllerErrors::SwapNotStarted);
 
         // revert status back to active
-        set_controller_status(
-            &mut svm, 
-            &swap_env.controller_pk, 
-            ControllerStatus::Active
-        );
+        set_controller_status(&mut svm, &swap_env.controller_pk, ControllerStatus::Active);
 
         // // Expect failure when borrowing multiple times
         let txn = Transaction::new_signed_with_payer(
@@ -2361,9 +2361,9 @@ mod tests {
 
         // set controllet status to locked so these checks are reached
         set_controller_status(
-            &mut svm, 
-            &swap_env.controller_pk, 
-            ControllerStatus::AtomicSwapLock
+            &mut svm,
+            &swap_env.controller_pk,
+            ControllerStatus::AtomicSwapLock,
         );
 
         // Test invalid accounts using the helper macro

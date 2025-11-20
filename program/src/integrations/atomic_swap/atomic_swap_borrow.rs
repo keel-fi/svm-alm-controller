@@ -19,10 +19,12 @@ use crate::{
         ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX, ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX,
     },
     define_account_struct,
-    enums::{ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus},
+    enums::{
+        ControllerStatus, IntegrationConfig, IntegrationState, IntegrationStatus, ReserveStatus,
+    },
     error::SvmAlmControllerErrors,
     instructions::AtomicSwapBorrowArgs,
-    state::{Controller, Integration, Permission, Reserve, keel_account::KeelAccount},
+    state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 
 define_account_struct! {
@@ -153,7 +155,8 @@ pub fn process_atomic_swap_borrow(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Load in controller state
-    let mut controller = Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
+    let mut controller =
+        Controller::load_and_check(ctx.controller, ctx.controller_authority.key())?;
     if !controller.is_active() {
         return Err(SvmAlmControllerErrors::ControllerStatusDoesNotPermitAction.into());
     }
@@ -284,7 +287,6 @@ pub fn process_atomic_swap_borrow(
     // Update rate limit to track outflow of input_tokens for integration.
     integration.update_rate_limit_for_outflow(clock, args.amount)?;
     integration.save(ctx.integration)?;
-
 
     // Set the controller status to AtomicSwapLock
     // in order to prevent compromised relayers from placing

@@ -24,9 +24,11 @@ mod tests {
     use test_case::test_case;
 
     use crate::{
-        helpers::{TestContext, assert::assert_custom_error, setup_test_controller},
+        helpers::{assert::assert_custom_error, setup_test_controller, TestContext},
         subs::{
-            airdrop_lamports, fetch_integration_account, freeze_or_atomic_swap_lock_controller, initialize_mint, initialize_reserve, manage_integration, manage_permission, set_controller_status
+            airdrop_lamports, fetch_integration_account, freeze_or_atomic_swap_lock_controller,
+            initialize_mint, initialize_reserve, manage_integration, manage_permission,
+            set_controller_status,
         },
         test_invalid_accounts,
     };
@@ -196,11 +198,7 @@ mod tests {
             &external_ata,
         );
 
-        set_controller_status(
-            &mut svm, 
-            &controller_pk, 
-            ControllerStatus::AtomicSwapLock
-        );
+        set_controller_status(&mut svm, &controller_pk, ControllerStatus::AtomicSwapLock);
 
         let txn = Transaction::new_signed_with_payer(
             &[init_ix],
@@ -263,7 +261,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_manage_integration_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_manage_integration_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -274,11 +274,11 @@ mod tests {
             create_test_integration(&mut svm, &controller_pk, &super_authority);
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &super_authority, 
-            &super_authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
         );
 
         let instruction = create_manage_integration_instruction(
@@ -346,7 +346,9 @@ mod tests {
 
     #[test_case(false; "frozen")]
     #[test_case(true; "atomic_swap_locked")]
-    fn test_sync_integration_fails_when_frozen_or_atomic_swap_locked(is_atomic_swap_locked: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_sync_integration_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             super_authority,
@@ -370,11 +372,11 @@ mod tests {
         )?;
 
         let expected_error = freeze_or_atomic_swap_lock_controller(
-            &mut svm, 
-            &controller_pk, 
-            is_atomic_swap_locked, 
-            &super_authority, 
-            &super_authority
+            &mut svm,
+            &controller_pk,
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
         );
 
         // Try to sync integration when frozen - should fail
