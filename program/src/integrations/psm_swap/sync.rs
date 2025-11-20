@@ -69,8 +69,6 @@ impl<'info> SyncPsmSwapAccounts<'info> {
 /// This function syncs a `PsmSwapIntegration`. It:
 /// - Verifies that the correct mint/reserve are supplied
 /// - Calls config.check_accounts to validate accounts
-/// - Checks for stale values and reverts if inconsistent
-/// - If tokens were transferred (inflow detected), updates both reserve and integration for inflow
 pub fn process_sync_psm_swap(
     controller: &Controller,
     integration: &mut Integration,
