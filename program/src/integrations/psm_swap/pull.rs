@@ -10,30 +10,30 @@ use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
     enums::IntegrationState,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
-    instructions::PushArgs,
+    instructions::PullArgs,
     integrations::psm_swap::{
-        cpi::AddLiquidityToPsmToken, push_pull_accounts::PushPullPsmSwapAccounts,
+        cpi::RemoveLiquidityFromPsmToken, push_pull_accounts::PushPullPsmSwapAccounts,
         shared_sync::sync_psm_liquidity_supplied,
     },
-    processor::PushAccounts,
+    processor::PullAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
 
-pub fn process_push_psm_swap(
+pub fn process_pull_psm_swap(
     controller: &Controller,
     permission: &Permission,
     integration: &mut Integration,
     reserve: &mut Reserve,
-    outer_ctx: &PushAccounts,
-    outer_args: &PushArgs,
+    outer_ctx: &PullAccounts,
+    outer_args: &PullArgs,
 ) -> Result<(), ProgramError> {
-    msg!("process_push_psm_swap");
+    msg!("process_pull_psm_swap");
 
     // Get the current slot and time
     let clock = Clock::get()?;
 
     let amount = match outer_args {
-        PushArgs::PsmSwap { amount } => *amount,
+        PullArgs::PsmSwap { amount } => *amount,
         _ => return Err(ProgramError::InvalidArgument),
     };
 
@@ -75,14 +75,14 @@ pub fn process_push_psm_swap(
     let reserve_vault_balance_before =
         TokenAccount::from_account_info(inner_ctx.reserve_vault)?.amount();
 
-    // CPI into PSM to add liquidity
-    AddLiquidityToPsmToken {
-        payer: outer_ctx.controller_authority,
+    // CPI into PSM to remove liquidity
+    RemoveLiquidityFromPsmToken {
+        liquidity_owner: outer_ctx.controller_authority,
         psm_pool: inner_ctx.psm_pool,
         psm_token: inner_ctx.psm_token,
         mint: inner_ctx.mint,
         token_vault: inner_ctx.psm_token_vault,
-        user_token_account: inner_ctx.reserve_vault,
+        owner_token_account: inner_ctx.reserve_vault,
         token_program: inner_ctx.token_program,
         associated_token_program: inner_ctx.associated_token_program,
         amount,
@@ -99,15 +99,15 @@ pub fn process_push_psm_swap(
     let reserve_vault_balance_after =
         TokenAccount::from_account_info(inner_ctx.reserve_vault)?.amount();
 
-    let psm_vault_delta = psm_vault_balance_after
-        .checked_sub(psm_vault_balance_before)
+    let psm_vault_delta = psm_vault_balance_before
+        .checked_sub(psm_vault_balance_after)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    let reserve_vault_delta = reserve_vault_balance_before
-        .checked_sub(reserve_vault_balance_after)
+    let reserve_vault_delta = reserve_vault_balance_after
+        .checked_sub(reserve_vault_balance_before)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    // Emit accounting event for credit Integration
+    // Emit accounting event for debit Integration
     controller.emit_event(
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
@@ -116,13 +116,13 @@ pub fn process_push_psm_swap(
             integration: Some(*outer_ctx.integration.key()),
             mint: *inner_ctx.mint.key(),
             reserve: None,
-            direction: AccountingDirection::Credit,
-            action: AccountingAction::Deposit,
+            direction: AccountingDirection::Debit,
+            action: AccountingAction::Withdrawal,
             delta: psm_vault_delta,
         }),
     )?;
 
-    // Emit accounting event for debit Reserve
+    // Emit accounting event for credit Reserve
     controller.emit_event(
         outer_ctx.controller_authority,
         outer_ctx.controller.key(),
@@ -131,8 +131,8 @@ pub fn process_push_psm_swap(
             integration: None,
             mint: *inner_ctx.mint.key(),
             reserve: Some(*outer_ctx.reserve_a.key()),
-            direction: AccountingDirection::Debit,
-            action: AccountingAction::Deposit,
+            direction: AccountingDirection::Credit,
+            action: AccountingAction::Withdrawal,
             delta: reserve_vault_delta,
         }),
     )?;
@@ -145,11 +145,11 @@ pub fn process_push_psm_swap(
         _ => return Err(ProgramError::InvalidAccountData),
     }
 
-    // update the integration rate limit for outflow
-    integration.update_rate_limit_for_outflow(clock, reserve_vault_delta)?;
+    // update the integration rate limit for inflow
+    integration.update_rate_limit_for_inflow(clock, reserve_vault_delta)?;
 
     // update the reserves for the flows
-    reserve.update_for_outflow(clock, reserve_vault_delta, false)?;
+    reserve.update_for_inflow(clock, reserve_vault_delta)?;
 
     Ok(())
 }
