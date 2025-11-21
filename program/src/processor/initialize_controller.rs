@@ -1,7 +1,7 @@
 use crate::{
     define_account_struct,
     enums::PermissionStatus,
-    events::{ControllerUpdateEvent, SvmAlmControllerEvent},
+    events::{ControllerUpdateEvent, PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeControllerArgs,
     state::{Controller, Permission},
 };
@@ -48,7 +48,7 @@ pub fn process_initialize_controller(
     )?;
 
     // Initialize the Controller's super Permission account.
-    Permission::init_account(
+    let permission = Permission::init_account(
         ctx.permission,
         ctx.payer,
         *ctx.controller.key(),
@@ -65,7 +65,7 @@ pub fn process_initialize_controller(
         false, // can_liquidate
     )?;
 
-    // Emit the event
+    // Emit the event for controller
     controller.emit_event(
         ctx.controller_authority,
         ctx.controller.key(),
@@ -74,6 +74,19 @@ pub fn process_initialize_controller(
             authority: *ctx.authority.key(),
             old_state: None,
             new_state: Some(controller),
+        }),
+    )?;
+
+    // Emit the event for permission
+    controller.emit_event(
+        ctx.controller_authority,
+        ctx.controller.key(),
+        SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
+            controller: *ctx.controller.key(),
+            permission: *ctx.permission.key(),
+            authority: *ctx.authority.key(),
+            old_state: None,
+            new_state: Some(permission),
         }),
     )?;
 
