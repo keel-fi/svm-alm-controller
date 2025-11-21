@@ -209,7 +209,7 @@ pub fn process_sync_kamino(
         }
 
         // Find the reward index in the FarmState of this kamino_reserve
-        let (reward_index, rewards_available) = {
+        let (reward_index, _) = {
             let reserve_farm_data = harvest_ctx.kamino_reserve_farm.try_borrow_data()?;
             let reserve_farm_state = FarmState::try_from_slice(&reserve_farm_data)?;
             reserve_farm_state

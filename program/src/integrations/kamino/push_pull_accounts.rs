@@ -4,11 +4,7 @@ use crate::{
     error::SvmAlmControllerErrors,
     integrations::kamino::{
         constants::{KAMINO_FARMS_PROGRAM_ID, KAMINO_LEND_PROGRAM_ID},
-        pdas::{
-            derive_market_authority_address, derive_obligation_farm_address,
-            derive_reserve_collateral_mint, derive_reserve_collateral_supply,
-            derive_reserve_liquidity_supply,
-        },
+        pdas::{derive_market_authority_address, derive_obligation_farm_address},
     },
     state::Reserve,
 };
@@ -80,48 +76,6 @@ impl<'info> PushPullKaminoAccounts<'info> {
             ctx.kamino_reserve_liquidity_mint.key(),
             Some(ctx.market.key()),
         )?;
-
-        let reserve_collateral_mint_pda = derive_reserve_collateral_mint(
-            &ctx.market.key(),
-            &ctx.kamino_reserve_liquidity_mint.key(),
-            ctx.kamino_lend_program.key(),
-        )?;
-        if ctx
-            .kamino_reserve_collateral_mint
-            .key()
-            .ne(&reserve_collateral_mint_pda)
-        {
-            msg! {"reserve_collateral_mint: does not match PDA"};
-            return Err(SvmAlmControllerErrors::InvalidPda.into());
-        }
-
-        let reserve_collateral_supply_pda = derive_reserve_collateral_supply(
-            &ctx.market.key(),
-            &ctx.kamino_reserve_liquidity_mint.key(),
-            ctx.kamino_lend_program.key(),
-        )?;
-        if ctx
-            .kamino_reserve_collateral_supply
-            .key()
-            .ne(&reserve_collateral_supply_pda)
-        {
-            msg! {"reserve_collateral_supply: does not match PDA"};
-            return Err(SvmAlmControllerErrors::InvalidPda.into());
-        }
-
-        let reserve_liquidity_supply_pda = derive_reserve_liquidity_supply(
-            &ctx.market.key(),
-            &ctx.kamino_reserve_liquidity_mint.key(),
-            ctx.kamino_lend_program.key(),
-        )?;
-        if ctx
-            .kamino_reserve_liquidity_supply
-            .key()
-            .ne(&reserve_liquidity_supply_pda)
-        {
-            msg! {"reserve_liquidity_supply: does not match PDA"};
-            return Err(SvmAlmControllerErrors::InvalidPda.into());
-        }
 
         let market_authority_pda =
             derive_market_authority_address(ctx.market.key(), ctx.kamino_lend_program.key())?;

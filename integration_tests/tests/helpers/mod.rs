@@ -114,7 +114,7 @@ pub fn lite_svm_with_programs() -> LiteSVM {
     svm.add_program(DRIFT_PROGRAM_ID, drift_program);
 
     // Kamino Lend
-    let kamino_lend_program = include_bytes!("../../fixtures/kamino_lend.so");
+    let kamino_lend_program = include_bytes!("../../fixtures/kamino_lend_2025_11_21.so");
     svm.add_program(KAMINO_LEND_PROGRAM_ID, kamino_lend_program);
     let kamino_farms_program = include_bytes!("../../fixtures/kamino_farms.so");
     svm.add_program(KAMINO_FARMS_PROGRAM_ID, kamino_farms_program);

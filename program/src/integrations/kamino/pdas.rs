@@ -67,60 +67,6 @@ pub fn derive_market_authority_address(
     Ok(address)
 }
 
-pub fn derive_reserve_collateral_mint(
-    market: &Pubkey,
-    reserve_liquidity_mint: &Pubkey,
-    kamino_program: &Pubkey,
-) -> Result<Pubkey, ProgramError> {
-    let (address, _) = try_find_program_address(
-        &[
-            b"reserve_coll_mint",
-            market.as_ref(),
-            reserve_liquidity_mint.as_ref(),
-        ],
-        kamino_program,
-    )
-    .ok_or(ProgramError::InvalidSeeds)?;
-
-    Ok(address)
-}
-
-pub fn derive_reserve_collateral_supply(
-    market: &Pubkey,
-    reserve_liquidity_mint: &Pubkey,
-    kamino_program: &Pubkey,
-) -> Result<Pubkey, ProgramError> {
-    let (address, _) = try_find_program_address(
-        &[
-            b"reserve_coll_supply",
-            market.as_ref(),
-            reserve_liquidity_mint.as_ref(),
-        ],
-        kamino_program,
-    )
-    .ok_or(ProgramError::InvalidSeeds)?;
-
-    Ok(address)
-}
-
-pub fn derive_reserve_liquidity_supply(
-    market: &Pubkey,
-    reserve_liquidity_mint: &Pubkey,
-    kamino_program: &Pubkey,
-) -> Result<Pubkey, ProgramError> {
-    let (address, _) = try_find_program_address(
-        &[
-            b"reserve_liq_supply",
-            market.as_ref(),
-            reserve_liquidity_mint.as_ref(),
-        ],
-        kamino_program,
-    )
-    .ok_or(ProgramError::InvalidSeeds)?;
-
-    Ok(address)
-}
-
 pub fn derive_rewards_vault(
     farm_state: &Pubkey,
     rewards_vault_mint: &Pubkey,
