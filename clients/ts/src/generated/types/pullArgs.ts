@@ -30,14 +30,16 @@ export type PullArgs =
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
   | { __kind: 'Kamino'; amount: bigint }
-  | { __kind: 'Drift'; spotMarketIndex: number; amount: bigint };
+  | { __kind: 'Drift'; spotMarketIndex: number; amount: bigint }
+  | { __kind: 'PsmSwap'; amount: bigint };
 
 export type PullArgsArgs =
   | { __kind: 'SplTokenExternal' }
   | { __kind: 'CctpBridge' }
   | { __kind: 'LzBridge' }
   | { __kind: 'Kamino'; amount: number | bigint }
-  | { __kind: 'Drift'; spotMarketIndex: number; amount: number | bigint };
+  | { __kind: 'Drift'; spotMarketIndex: number; amount: number | bigint }
+  | { __kind: 'PsmSwap'; amount: number | bigint };
 
 export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -52,6 +54,7 @@ export function getPullArgsEncoder(): Encoder<PullArgsArgs> {
         ['amount', getU64Encoder()],
       ]),
     ],
+    ['PsmSwap', getStructEncoder([['amount', getU64Encoder()]])],
   ]);
 }
 
@@ -68,6 +71,7 @@ export function getPullArgsDecoder(): Decoder<PullArgs> {
         ['amount', getU64Decoder()],
       ]),
     ],
+    ['PsmSwap', getStructDecoder([['amount', getU64Decoder()]])],
   ]);
 }
 
@@ -93,6 +97,10 @@ export function pullArgs(
   kind: 'Drift',
   data: GetDiscriminatedUnionVariantContent<PullArgsArgs, '__kind', 'Drift'>
 ): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'Drift'>;
+export function pullArgs(
+  kind: 'PsmSwap',
+  data: GetDiscriminatedUnionVariantContent<PullArgsArgs, '__kind', 'PsmSwap'>
+): GetDiscriminatedUnionVariant<PullArgsArgs, '__kind', 'PsmSwap'>;
 export function pullArgs<K extends PullArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data

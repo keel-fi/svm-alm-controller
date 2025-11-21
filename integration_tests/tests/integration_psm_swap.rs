@@ -35,6 +35,7 @@ mod tests {
             ReserveStatus, SvmAlmControllerEvent,
         },
         initialize_integration::create_psm_swap_initialize_integration_instruction,
+        pull::psm_swap::create_psm_swap_pull_instruction,
         push::create_psm_swap_push_instruction,
         sync_integration::create_psm_swap_sync_integration_instruction,
     };
@@ -963,19 +964,32 @@ mod tests {
         // if the account owner check passes but data validation fails
         let error = tx_result.err().unwrap().err;
         assert!(
-            matches!(error, TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner) | TransactionError::InstructionError(0, InstructionError::InvalidAccountData)),
-            "Expected InvalidAccountOwner or InvalidAccountData, got: {:?}", error
+            matches!(
+                error,
+                TransactionError::InstructionError(0, InstructionError::InvalidAccountOwner)
+                    | TransactionError::InstructionError(0, InstructionError::InvalidAccountData)
+            ),
+            "Expected InvalidAccountOwner or InvalidAccountData, got: {:?}",
+            error
         );
 
         Ok(())
     }
 
-    #[test]
-    fn test_psm_swap_push_invalid_accounts_fails() -> Result<(), Box<dyn std::error::Error>> {
+    enum PsmIx {
+        Push,
+        Pull,
+    }
+
+    #[test_case(PsmIx::Push; "Push Instruction")]
+    #[test_case(PsmIx::Pull; "Pull Instruction")]
+    fn test_psm_swap_push_pull_invalid_accounts_fails(
+        ix: PsmIx,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let token_program = TOKEN_PROGRAM_ID;
         // initialize environment
         let (
-            svm,
+            mut svm,
             controller_pk,
             super_authority,
             liquidity_mint,
@@ -985,7 +999,7 @@ mod tests {
             integration_pda,
         ) = initialize_psm_swap_integration(&token_program)?;
 
-        let push_amount = 1_000_000;
+        let amount = 1_000_000;
         let push_ix = create_psm_swap_push_instruction(
             &controller_pk,
             &super_authority.pubkey(),
@@ -995,15 +1009,41 @@ mod tests {
             &pool_pda,
             &token_pda,
             &token_vault,
-            push_amount,
+            amount,
         );
+
+        let ix = match ix {
+            PsmIx::Push => push_ix,
+            PsmIx::Pull => {
+                // first process push
+                let transaction = Transaction::new_signed_with_payer(
+                    &[push_ix],
+                    Some(&super_authority.pubkey()),
+                    &[super_authority.insecure_clone()],
+                    svm.latest_blockhash(),
+                );
+                svm.send_transaction(transaction).unwrap();
+
+                create_psm_swap_pull_instruction(
+                    &controller_pk,
+                    &super_authority.pubkey(),
+                    &liquidity_mint,
+                    &integration_pda,
+                    &token_program,
+                    &pool_pda,
+                    &token_pda,
+                    &token_vault,
+                    amount,
+                )
+            }
+        };
 
         // Test invalid accounts for the inner context accounts (remaining accounts)
         test_invalid_accounts!(
             svm.clone(),
             super_authority.pubkey(),
             vec![Box::new(&super_authority)],
-            push_ix,
+            ix,
             {
                 7 => invalid_owner(InstructionError::InvalidAccountOwner, "PSM Pool: invalid owner"),
                 7 => invalid_pubkey(InstructionError::InvalidAccountData, "PSM Pool: does not match config"),
@@ -1017,6 +1057,163 @@ mod tests {
                 13 => invalid_program_id(InstructionError::IncorrectProgramId, "Associated token program: invalid pubkey"),
                 14 => invalid_program_id(InstructionError::IncorrectProgramId, "PSM program: invalid pubkey"),
             }
+        );
+
+        Ok(())
+    }
+
+    #[test_case(SPL_TOKEN_PROGRAM_ID; "SPL Token program")]
+    #[test_case(spl_token_2022::ID; " Token2022 program")]
+    fn test_psm_swap_pull_success(token_program: Pubkey) -> Result<(), Box<dyn std::error::Error>> {
+        // initialize environment
+        let (
+            mut svm,
+            controller_pk,
+            super_authority,
+            liquidity_mint,
+            pool_pda,
+            token_pda,
+            token_vault,
+            integration_pda,
+        ) = initialize_psm_swap_integration(&token_program)?;
+        let controller_authority = derive_controller_authority_pda(&controller_pk);
+        let reserve_pda = derive_reserve_pda(&controller_pk, &liquidity_mint);
+        let reserve_vault = get_associated_token_address_with_program_id(
+            &controller_authority,
+            &liquidity_mint,
+            &token_program,
+        );
+
+        let push_ix = create_psm_swap_push_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &liquidity_mint,
+            &integration_pda,
+            &token_program,
+            &pool_pda,
+            &token_pda,
+            &token_vault,
+            1_000_000,
+        );
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[push_ix],
+            Some(&super_authority.pubkey()),
+            &[super_authority.insecure_clone()],
+            svm.latest_blockhash(),
+        );
+        svm.send_transaction(transaction).unwrap();
+
+        let integration_before = fetch_integration_account(&svm, &integration_pda)
+            .unwrap()
+            .unwrap();
+
+        let reserve_before = fetch_reserve_account(&svm, &reserve_pda).unwrap().unwrap();
+        let reserve_balance_before = get_token_balance_or_zero(&svm, &reserve_vault);
+        let psm_token_vault_balance_before = get_token_balance_or_zero(&svm, &token_vault);
+
+        let pull_amount = 1_000_000;
+        let pull_ix = create_psm_swap_pull_instruction(
+            &controller_pk,
+            &super_authority.pubkey(),
+            &liquidity_mint,
+            &integration_pda,
+            &token_program,
+            &pool_pda,
+            &token_pda,
+            &token_vault,
+            pull_amount,
+        );
+
+        let transaction = Transaction::new_signed_with_payer(
+            &[pull_ix],
+            Some(&super_authority.pubkey()),
+            &[super_authority.insecure_clone()],
+            svm.latest_blockhash(),
+        );
+        let tx_result = svm.send_transaction(transaction.clone()).map_err(|e| {
+            println!("logs: {}", e.meta.pretty_logs());
+            e.err.to_string()
+        })?;
+
+        let reserve_after = fetch_reserve_account(&svm, &reserve_pda).unwrap().unwrap();
+
+        let integration_after = fetch_integration_account(&svm, &integration_pda)
+            .unwrap()
+            .unwrap();
+
+        let reserve_balance_after = get_token_balance_or_zero(&svm, &reserve_vault);
+        let psm_token_vault_balance_after = get_token_balance_or_zero(&svm, &token_vault);
+
+        // Assert integration state changed
+        let state_before = match integration_before.clone().state {
+            IntegrationState::PsmSwap(state) => state,
+            _ => panic!("invalid state"),
+        };
+        let state_after = match integration_after.clone().state {
+            IntegrationState::PsmSwap(state) => state,
+            _ => panic!("invalid state"),
+        };
+        assert_eq!(
+            state_after.liquidity_supplied,
+            psm_token_vault_balance_after
+        );
+        assert_eq!(
+            state_after.liquidity_supplied,
+            state_before.liquidity_supplied - pull_amount
+        );
+
+        // Assert Integration rate limits adjusted
+        assert_eq!(
+            integration_after.rate_limit_outflow_amount_available,
+            integration_before.rate_limit_outflow_amount_available + pull_amount
+        );
+
+        // Assert Reserve rate limits adjusted
+        assert_eq!(
+            reserve_after.rate_limit_outflow_amount_available,
+            reserve_before.rate_limit_outflow_amount_available + pull_amount
+        );
+
+        // Assert Reserve vault was credited exact amount
+        assert_eq!(reserve_balance_after, reserve_balance_before + pull_amount);
+
+        // Assert PSM Token's token account transferred the tokens
+        assert_eq!(
+            psm_token_vault_balance_after,
+            psm_token_vault_balance_before - pull_amount
+        );
+
+        // assert debit event after CPI
+        let integration_event_after_cpi = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: Some(integration_pda),
+            mint: liquidity_mint,
+            reserve: None,
+            direction: AccountingDirection::Debit,
+            action: AccountingAction::Withdrawal,
+            delta: pull_amount,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            transaction.message.account_keys.as_slice(),
+            integration_event_after_cpi
+        );
+
+        // assert credit event after CPI
+        let reserve_event_after_cpi = SvmAlmControllerEvent::AccountingEvent(AccountingEvent {
+            controller: controller_pk,
+            integration: None,
+            mint: liquidity_mint,
+            reserve: Some(reserve_pda),
+            direction: AccountingDirection::Credit,
+            action: AccountingAction::Withdrawal,
+            delta: pull_amount,
+        });
+        assert_contains_controller_cpi_event!(
+            tx_result,
+            transaction.message.account_keys.as_slice(),
+            reserve_event_after_cpi
         );
 
         Ok(())
