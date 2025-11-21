@@ -23,8 +23,11 @@ define_account_struct! {
         obligation: mut;
         kamino_reserve: mut @owner(KAMINO_LEND_PROGRAM_ID);
         kamino_reserve_liquidity_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // kamino_reserve_liquidity_supply is checked in klend_program during CPI, in order to support different pda derivation in 1.12.6 release
         kamino_reserve_liquidity_supply: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        // kamino_reserve_collateral_mint is checked in klend_program during CPI, in order to support different pda derivation in 1.12.6 release
         kamino_reserve_collateral_mint: mut @owner(pinocchio_token::ID);
+        // kamino_reserve_collateral_supply is checked in klend_program during CPI, in order to support different pda derivation in 1.12.6 release
         kamino_reserve_collateral_supply: mut @owner(pinocchio_token::ID);
         market_authority;
         market: @owner(KAMINO_LEND_PROGRAM_ID);
@@ -48,7 +51,7 @@ define_account_struct! {
 impl<'info> PushPullKaminoAccounts<'info> {
     /// Builds `PushPullKaminoAccounts` and validates identities:
     /// - Config (Kamino): market, kamino_reserve, kamino_reserve_liquidity_mint, obligation
-    /// - KLend PDAs: kamino_reserve_{collateral_mint, collateral_supply, liquidity_supply}, market_authority
+    /// - KLend PDAs: market_authority
     /// - reserve_vault: mint == reserve_liquidity_mint, owner == controller_authority, key == reserve.vault
     /// - reserve.mint == reserve_liquidity_mint
     /// - obligation_farm_collateral: matches PDA derived from reserve_farm_collateral and obligation
