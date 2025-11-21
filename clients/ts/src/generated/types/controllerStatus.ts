@@ -19,6 +19,7 @@ export enum ControllerStatus {
   Frozen,
   Active,
   PushPullFrozen,
+  AtomicSwapLock,
 }
 
 export type ControllerStatusArgs = ControllerStatus;

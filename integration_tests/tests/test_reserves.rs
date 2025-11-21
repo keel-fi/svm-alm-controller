@@ -1,11 +1,11 @@
 mod helpers;
 mod subs;
 use crate::helpers::constants::USDC_TOKEN_MINT_PUBKEY;
-use crate::subs::{controller::manage_controller, initialize_reserve};
+use crate::subs::initialize_reserve;
 use helpers::{assert::assert_custom_error, setup_test_controller, TestContext};
 use solana_sdk::signer::Signer;
 use svm_alm_controller::error::SvmAlmControllerErrors;
-use svm_alm_controller_client::generated::types::{ControllerStatus, ReserveStatus};
+use svm_alm_controller_client::generated::types::ReserveStatus;
 
 #[cfg(test)]
 mod tests {
@@ -20,26 +20,28 @@ mod tests {
 
     use test_case::test_case;
 
-    use crate::subs::{airdrop_lamports, manage_permission};
+    use crate::subs::{airdrop_lamports, freeze_or_atomic_swap_lock_controller, manage_permission};
 
     use super::*;
 
-    #[test]
-    fn test_initialize_reserve_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_initialize_reserve_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
             super_authority,
         } = setup_test_controller()?;
 
-        // Freeze the controller
-        manage_controller(
+        let expected_error = freeze_or_atomic_swap_lock_controller(
             &mut svm,
             &controller_pk,
-            &super_authority, // payer
-            &super_authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
+        );
 
         let instruction = create_initialize_reserve_instruction(
             &super_authority.pubkey(),
@@ -61,7 +63,7 @@ mod tests {
 
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }
@@ -107,8 +109,11 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_manage_reserve_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_manage_reserve_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -128,14 +133,13 @@ mod tests {
             &spl_token::ID,
         )?;
 
-        // Freeze the controller
-        manage_controller(
+        let expected_error = freeze_or_atomic_swap_lock_controller(
             &mut svm,
             &controller_pk,
-            &super_authority, // payer
-            &super_authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
+        );
 
         let instruction = create_manage_reserve_instruction(
             &controller_pk,
@@ -154,7 +158,7 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }
@@ -210,8 +214,11 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_sync_reserve_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_sync_reserve_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -231,14 +238,13 @@ mod tests {
             &spl_token::ID,
         )?;
 
-        // Freeze the controller
-        manage_controller(
+        let expected_error = freeze_or_atomic_swap_lock_controller(
             &mut svm,
             &controller_pk,
-            &super_authority, // payer
-            &super_authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
+        );
 
         let instruction = create_sync_reserve_instruction(
             &controller_pk,
@@ -253,7 +259,7 @@ mod tests {
         );
         let tx_result = svm.send_transaction(txn);
 
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }

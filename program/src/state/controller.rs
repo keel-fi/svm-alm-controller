@@ -171,6 +171,12 @@ impl Controller {
         self.status == ControllerStatus::Frozen
     }
 
+    /// Atomic swap repay can only be called if controller status == AtomicSwapLock.
+    /// This is automatically set in Borrow ix.
+    pub fn is_atomic_swap_locked(&self) -> bool {
+        self.status == ControllerStatus::AtomicSwapLock
+    }
+
     pub fn emit_event(
         &self,
         authority_info: &AccountInfo,

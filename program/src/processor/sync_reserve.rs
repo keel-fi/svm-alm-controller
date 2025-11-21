@@ -32,6 +32,11 @@ pub fn process_sync_reserve(
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
+    // Error when Controller is atomic swap locked
+    if controller.is_atomic_swap_locked() {
+        return Err(SvmAlmControllerErrors::ControllerAtomicSwapLocked.into());
+    }
+
     // Load in the permission account
     let mut reserve = Reserve::load_and_check(ctx.reserve, ctx.controller.key())?;
 

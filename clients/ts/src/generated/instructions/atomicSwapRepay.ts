@@ -66,7 +66,7 @@ export type AtomicSwapRepayInstruction<
             AccountSignerMeta<TAccountPayer>
         : TAccountPayer,
       TAccountController extends string
-        ? ReadonlyAccount<TAccountController>
+        ? WritableAccount<TAccountController>
         : TAccountController,
       TAccountControllerAuthority extends string
         ? ReadonlyAccount<TAccountControllerAuthority>
@@ -248,7 +248,7 @@ export function getAtomicSwapRepayInstruction<
   // Original accounts.
   const originalAccounts = {
     payer: { value: input.payer ?? null, isWritable: false },
-    controller: { value: input.controller ?? null, isWritable: false },
+    controller: { value: input.controller ?? null, isWritable: true },
     controllerAuthority: {
       value: input.controllerAuthority ?? null,
       isWritable: false,
