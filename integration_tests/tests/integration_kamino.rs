@@ -3048,11 +3048,11 @@ mod tests {
                 10 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve liquidity mint: invalid owner"),
                 10 => invalid_pubkey(InstructionError::InvalidAccountData, "Kamino reserve liquidity mint: invalid pubkey"),
                 11 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve liquidity supply: invalid owner"),
-                11 => invalid_pubkey(InstructionError::Custom(1), "Kamino reserve liquidity supply: invalid pubkey"),
+                11 => invalid_pubkey(InstructionError::Custom(2012), "Kamino reserve liquidity supply: invalid pubkey"), // Error comes from KLEND program
                 12 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve collateral mint: invalid owner"),
-                12 => invalid_pubkey(InstructionError::Custom(1), "Kamino reserve collateral mint: invalid pubkey"),
+                12 => invalid_pubkey(InstructionError::Custom(2012), "Kamino reserve collateral mint: invalid pubkey"), // Error comes from KLEND program
                 13 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino reserve collateral supply: invalid owner"),
-                13 => invalid_pubkey(InstructionError::Custom(1), "Kamino reserve collateral supply: invalid pubkey"),
+                13 => invalid_pubkey(InstructionError::Custom(2012), "Kamino reserve collateral supply: invalid pubkey"),// Error comes from KLEND program
                 14 => invalid_pubkey(InstructionError::Custom(1), "Kamino market authority: invalid pubkey"),
                 15 => invalid_owner(InstructionError::InvalidAccountOwner, "Kamino market: invalid owner"),
                 15 => invalid_pubkey(InstructionError::InvalidAccountData, "Kamino market: invalid pubkey"),
