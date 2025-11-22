@@ -83,7 +83,6 @@ impl<'info> InitializeKaminoAccounts<'info> {
             obligation_id,
             controller_authority.key(),
             ctx.market.key(),
-            ctx.kamino_lend_program.key(),
         )?;
         if obligation_pda.ne(ctx.obligation.key()) {
             msg! {"kamino obligation: Invalid address"}
@@ -91,10 +90,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
         }
 
         // verify metadata pubkey is valid
-        let user_metadata_pda = derive_user_metadata_address(
-            controller_authority.key(),
-            ctx.kamino_lend_program.key(),
-        )?;
+        let user_metadata_pda = derive_user_metadata_address(controller_authority.key())?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -104,7 +100,6 @@ impl<'info> InitializeKaminoAccounts<'info> {
         let obligation_farm_collateral_pda = derive_obligation_farm_address(
             ctx.reserve_farm_collateral.key(),
             ctx.obligation.key(),
-            ctx.kamino_farms_program.key(),
         )?;
         if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
             msg! {"Obligation farm collateral: Invalid address"}
@@ -112,8 +107,7 @@ impl<'info> InitializeKaminoAccounts<'info> {
         }
 
         // verify market authority is valid
-        let market_authority_pda =
-            derive_market_authority_address(ctx.market.key(), ctx.kamino_lend_program.key())?;
+        let market_authority_pda = derive_market_authority_address(ctx.market.key())?;
         if market_authority_pda.ne(ctx.market_authority.key()) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());

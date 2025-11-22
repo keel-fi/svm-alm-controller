@@ -80,8 +80,7 @@ impl<'info> PushPullKaminoAccounts<'info> {
             Some(ctx.market.key()),
         )?;
 
-        let market_authority_pda =
-            derive_market_authority_address(ctx.market.key(), ctx.kamino_lend_program.key())?;
+        let market_authority_pda = derive_market_authority_address(ctx.market.key())?;
         if ctx.market_authority.key().ne(&market_authority_pda) {
             msg! {"market authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
@@ -141,7 +140,6 @@ impl<'info> PushPullKaminoAccounts<'info> {
             let obligation_farm_collateral_pda = derive_obligation_farm_address(
                 ctx.reserve_farm_collateral.key(),
                 ctx.obligation.key(),
-                ctx.kamino_farms_program.key(),
             )?;
             if obligation_farm_collateral_pda.ne(ctx.obligation_farm_collateral.key()) {
                 msg! {"obligation_farm_collateral: Invalid address"}
