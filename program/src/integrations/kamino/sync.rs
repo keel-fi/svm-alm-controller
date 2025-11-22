@@ -96,43 +96,32 @@ impl<'info> HarvestKaminoAccounts<'info> {
         let ctx = Self::from_accounts(accounts_infos)?;
 
         // validate obligation_farm
-        let obligation_farm_pda = derive_obligation_farm_address(
-            ctx.kamino_reserve_farm.key(),
-            obligation,
-            ctx.kamino_farms_program.key(),
-        )?;
+        let obligation_farm_pda =
+            derive_obligation_farm_address(ctx.kamino_reserve_farm.key(), obligation)?;
         if obligation_farm_pda.ne(ctx.obligation_farm.key()) {
             msg! {"obligation_farm: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Validate rewards vault
-        let rewards_vault_pda = derive_rewards_vault(
-            ctx.kamino_reserve_farm.key(),
-            ctx.rewards_mint.key(),
-            ctx.kamino_farms_program.key(),
-        )?;
+        let rewards_vault_pda =
+            derive_rewards_vault(ctx.kamino_reserve_farm.key(), ctx.rewards_mint.key())?;
         if rewards_vault_pda.ne(ctx.rewards_vault.key()) {
             msg! {"rewards_vault: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Validate rewards treasury vault
-        let rewards_treasury_vault_pda = derive_rewards_treasury_vault(
-            ctx.farms_global_config.key(),
-            ctx.rewards_mint.key(),
-            ctx.kamino_farms_program.key(),
-        )?;
+        let rewards_treasury_vault_pda =
+            derive_rewards_treasury_vault(ctx.farms_global_config.key(), ctx.rewards_mint.key())?;
         if rewards_treasury_vault_pda.ne(ctx.rewards_treasury_vault.key()) {
             msg! {"rewards_treasury_vault: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());
         }
 
         // Validate farm vaults authority
-        let farm_vaults_authority_pda = derive_farm_vaults_authority(
-            ctx.kamino_reserve_farm.key(),
-            ctx.kamino_farms_program.key(),
-        )?;
+        let farm_vaults_authority_pda =
+            derive_farm_vaults_authority(ctx.kamino_reserve_farm.key())?;
         if farm_vaults_authority_pda.ne(ctx.farm_vaults_authority.key()) {
             msg! {"farm_vaults_authority: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());

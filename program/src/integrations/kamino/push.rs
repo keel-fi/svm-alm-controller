@@ -50,10 +50,7 @@ impl<'info> InitializeObligationAccounts<'info> {
         let ctx = Self::from_accounts(inner_ctx.remaining_accounts)?;
 
         // verify metadata pubkey is valid
-        let user_metadata_pda = derive_user_metadata_address(
-            controller_authority.key(),
-            inner_ctx.kamino_lend_program.key(),
-        )?;
+        let user_metadata_pda = derive_user_metadata_address(controller_authority.key())?;
         if user_metadata_pda.ne(ctx.user_metadata.key()) {
             msg! {"user metadata: Invalid address"}
             return Err(SvmAlmControllerErrors::InvalidPda.into());

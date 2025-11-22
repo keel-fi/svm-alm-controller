@@ -1,5 +1,3 @@
-use pinocchio::pubkey::Pubkey;
-use pinocchio_pubkey::pubkey;
 use sha2_const_stable::Sha256;
 
 pub const CONTROLLER_SEED: &[u8] = b"controller";
@@ -17,12 +15,6 @@ pub const ATOMIC_SWAP_REPAY_IX_DISC: u8 = 16;
 pub const ATOMIC_SWAP_REPAY_INTEGRATION_IDX: u8 = 5;
 pub const ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_A_IDX: u8 = 13;
 pub const ATOMIC_SWAP_REPAY_PAYER_ACCOUNT_B_IDX: u8 = 14;
-
-// CCTP
-pub const CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID: Pubkey =
-    pubkey!("CCTPmbSD7gX1bxKPAmg77w8oFzNFpaQiQUWD43TKaecd");
-pub const CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID: Pubkey =
-    pubkey!("CCTPiPYPc6AsJuwueEnWgSgucamXDZwBd53dQ11YiKX3");
 
 /// compute the first 8 bytes of SHA256(namespace:name) in a `const fn`.
 pub const fn anchor_discriminator(namespace: &str, name: &str) -> [u8; 8] {

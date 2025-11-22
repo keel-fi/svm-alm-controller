@@ -1127,9 +1127,9 @@ mod tests {
                 // Change vault pubkey:
                 8 => invalid_program_id(InstructionError::InvalidAccountData, "Vault: invalid pubkey"),
                 // Change remote_token_messenger owner
-                12 => invalid_owner(InstructionError::IllegalOwner, "Remote Token Messenger: Illegal owner"),
+                12 => invalid_owner(InstructionError::InvalidAccountOwner, "Remote Token Messenger: invalid owner"),
                 // Change local_token owner
-                14 => invalid_owner(InstructionError::IllegalOwner, "Local Token: Illegal owner"),
+                14 => invalid_owner(InstructionError::InvalidAccountOwner, "Local Token: invalid owner"),
                 // Change cctp_message_transmitter pubkey
                 16 => invalid_program_id(InstructionError::IncorrectProgramId, "CCTP Message Transmitter: invalid program id"),
                 // Change cctp_token_messenger_minter pubkey
