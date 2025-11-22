@@ -36,10 +36,10 @@ define_account_struct! {
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         // May or may not be owned by Drift program. Check performed
         // in processor.
-        drift_user: mut;
+        drift_user: mut, @owner(DRIFT_PROGRAM_ID, pinocchio_system::ID);
         // May or may not be owned by Drift program. Check performed
         // in processor.
-        drift_user_stats: mut;
+        drift_user_stats: mut, @owner(DRIFT_PROGRAM_ID, pinocchio_system::ID);
         drift_state: mut, @owner(DRIFT_PROGRAM_ID);
         drift_spot_market: @owner(DRIFT_PROGRAM_ID);
         rent: @pubkey(RENT_ID);

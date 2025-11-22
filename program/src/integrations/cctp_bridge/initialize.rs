@@ -15,8 +15,8 @@ use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError, pub
 define_account_struct! {
   pub struct InitializeCctpBridgeAccounts<'info> {
       mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
-      local_token;
-      remote_token_messenger;
+      local_token: @owner(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
+      remote_token_messenger: @owner(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
       cctp_message_transmitter @pubkey(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID);
       cctp_token_messenger_minter @pubkey(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
   }
@@ -30,21 +30,6 @@ impl<'info> InitializeCctpBridgeAccounts<'info> {
 
         // Ensure the mint has valid T22 extensions.
         validate_mint_extensions(ctx.mint, &[])?;
-
-        if !ctx
-            .local_token
-            .is_owned_by(ctx.cctp_token_messenger_minter.key())
-        {
-            msg! {"local_mint: not owned by cctp_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
-        if !ctx
-            .remote_token_messenger
-            .is_owned_by(ctx.cctp_token_messenger_minter.key())
-        {
-            msg! {"remote_token_messenger: not owned by cctp_program"};
-            return Err(ProgramError::InvalidAccountOwner);
-        }
 
         Ok(ctx)
     }

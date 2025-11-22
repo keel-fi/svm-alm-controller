@@ -1,5 +1,3 @@
-use pinocchio::pubkey::Pubkey;
-use pinocchio_pubkey::pubkey;
 use sha2_const_stable::Sha256;
 
 pub const CONTROLLER_SEED: &[u8] = b"controller";
