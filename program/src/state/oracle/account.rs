@@ -1,6 +1,6 @@
 use crate::{
-    constants::ORACLE_SEED, error::SvmAlmControllerErrors, processor::shared::create_pda_account,
-    state::keel_account::KeelAccount,
+    constants::ORACLE_SEED, error::SvmAlmControllerErrors, math::CheckedCeilDiv,
+    processor::shared::create_pda_account, state::keel_account::KeelAccount,
 };
 
 use super::super::discriminator::{AccountDiscriminators, Discriminator};
@@ -215,7 +215,7 @@ impl Oracle {
             10_i128
                 .checked_pow(self.precision * 2)
                 .unwrap()
-                .checked_div(self.value)
+                .checked_ceil_div(self.value)
                 .unwrap()
         } else {
             self.value
