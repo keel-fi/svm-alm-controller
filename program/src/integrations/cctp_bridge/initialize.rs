@@ -1,11 +1,11 @@
 use crate::{
-    constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
     define_account_struct,
     enums::{IntegrationConfig, IntegrationState},
     instructions::{InitializeArgs, InitializeIntegrationArgs},
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger},
         config::CctpBridgeConfig,
+        constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
         state::CctpBridgeState,
     },
     processor::{shared::validate_mint_extensions, InitializeIntegrationAccounts},

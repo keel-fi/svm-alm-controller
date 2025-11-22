@@ -1,14 +1,12 @@
 use crate::{
-    constants::{
-        CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-        CONTROLLER_AUTHORITY_SEED,
-    },
+    constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger},
+        constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
         cpi::DepositForBurn,
     },
     processor::PushAccounts,
