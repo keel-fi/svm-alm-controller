@@ -222,15 +222,12 @@ impl Reserve {
             return Err(ProgramError::InvalidArgument);
         }
         // Cap the rate_limit_outflow_amount_available at the rate_limit_max_outflow
-        let v = self
+        let outflow_available = self
             .rate_limit_outflow_amount_available
             .saturating_add(inflow);
-        if v > self.rate_limit_max_outflow {
-            // Cannot daily max outflow
-            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow;
-        } else {
-            self.rate_limit_outflow_amount_available = v;
-        }
+        self.rate_limit_outflow_amount_available =
+            self.rate_limit_max_outflow.min(outflow_available);
+
         self.last_balance = self.last_balance.checked_add(inflow).unwrap();
         Ok(())
     }
