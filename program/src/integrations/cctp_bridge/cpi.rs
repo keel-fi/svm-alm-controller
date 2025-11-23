@@ -1,4 +1,7 @@
-use crate::{constants::anchor_discriminator, cpi_instruction, integrations::cctp_bridge::constants::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID};
+use crate::{
+    constants::anchor_discriminator, cpi_instruction,
+    integrations::cctp_bridge::constants::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+};
 
 cpi_instruction! {
     /// Deposit tokens for burn via CCTP (Cross-Chain Transfer Protocol).

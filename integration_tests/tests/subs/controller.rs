@@ -10,7 +10,10 @@ use svm_alm_controller_client::generated::{
     accounts::Controller,
     instructions::{InitializeControllerBuilder, ManageControllerBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
-    types::{ControllerStatus, ControllerUpdateEvent, PermissionStatus, PermissionUpdateEvent, SvmAlmControllerEvent},
+    types::{
+        ControllerStatus, ControllerUpdateEvent, PermissionStatus, PermissionUpdateEvent,
+        SvmAlmControllerEvent,
+    },
 };
 
 use crate::{
@@ -142,12 +145,13 @@ pub fn initialize_contoller(
     let controller = controller.unwrap();
 
     // assert expected controller event
-    let expected_controller_event = SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
-        controller: controller_pda,
-        authority: authority.pubkey(),
-        old_state: None,
-        new_state: Some(controller.clone()),
-    });
+    let expected_controller_event =
+        SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
+            controller: controller_pda,
+            authority: authority.pubkey(),
+            old_state: None,
+            new_state: Some(controller.clone()),
+        });
     assert_contains_controller_cpi_event!(
         tx_result.clone().unwrap(),
         txn.message.account_keys.as_slice(),
@@ -167,19 +171,19 @@ pub fn initialize_contoller(
     let permission = permission.unwrap();
 
     // assert expected permission event
-    let expected_permission_event = SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
-        controller: controller_pda,
-        permission: permission_pda,
-        authority: authority.pubkey(),
-        old_state: None,
-        new_state: Some(permission.clone()),
-    });
+    let expected_permission_event =
+        SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
+            controller: controller_pda,
+            permission: permission_pda,
+            authority: authority.pubkey(),
+            old_state: None,
+            new_state: Some(permission.clone()),
+        });
     assert_contains_controller_cpi_event!(
         tx_result.unwrap(),
         txn.message.account_keys.as_slice(),
         expected_permission_event
     );
-
 
     assert_eq!(
         permission.authority,
