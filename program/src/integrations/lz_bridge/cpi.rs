@@ -1,6 +1,8 @@
 use borsh::BorshDeserialize;
 use pinocchio::program_error::ProgramError;
 
+use crate::constants::anchor_discriminator;
+
 #[derive(Debug, Default, PartialEq, BorshDeserialize)]
 pub struct OftSendParams {
     pub dst_eid: u32,
@@ -14,7 +16,7 @@ pub struct OftSendParams {
 }
 
 impl OftSendParams {
-    const DISCRIMINATOR: [u8; 8] = [102, 251, 20, 187, 65, 75, 12, 69];
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("global", "send");
 
     const TRUNCATED_LEN: usize = 4 + 32 + 8;
 

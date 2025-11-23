@@ -1,11 +1,11 @@
-use crate::cpi_instruction;
+use crate::{constants::anchor_discriminator, cpi_instruction, integrations::cctp_bridge::constants::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID};
 
 cpi_instruction! {
     /// Deposit tokens for burn via CCTP (Cross-Chain Transfer Protocol).
     /// This instruction burns tokens on Solana and initiates a cross-chain transfer.
     pub struct DepositForBurn<'info> {
-        program: crate::constants::CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-        discriminator: [215, 60, 61, 46, 114, 55, 128, 176],
+        program: CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
+        discriminator: anchor_discriminator("global", "deposit_for_burn"),
         accounts: {
             /// Controller authority that signs the transaction
             controller_authority: Signer,

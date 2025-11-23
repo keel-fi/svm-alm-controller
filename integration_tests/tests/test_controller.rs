@@ -15,7 +15,6 @@ use svm_alm_controller_client::{
 #[cfg(test)]
 mod tests {
 
-    use solana_program::hash;
     use solana_sdk::{instruction::InstructionError, pubkey::Pubkey};
     use svm_alm_controller_client::generated::instructions::ManageControllerBuilder;
     use test_case::test_case;

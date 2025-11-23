@@ -20,7 +20,7 @@ define_account_struct! {
       mint @owner(pinocchio_token::ID, pinocchio_token2022::ID);
       vault: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
       recipient;
-      recipient_token_account: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+      recipient_token_account: mut, @owner(pinocchio_token::ID, pinocchio_token2022::ID, pinocchio_system::ID);
       token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
       associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
       system_program: @pubkey(pinocchio_system::ID);

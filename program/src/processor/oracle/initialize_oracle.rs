@@ -40,6 +40,11 @@ pub fn process_initialize_oracle(
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
+    // Error when Controller is atomic swap locked
+    if controller.is_atomic_swap_locked() {
+        return Err(SvmAlmControllerErrors::ControllerAtomicSwapLocked.into());
+    }
+
     // Validate that oracle_type matches price feed.
     Oracle::verify_oracle_type(args.oracle_type, ctx.price_feed)?;
 

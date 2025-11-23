@@ -16,8 +16,8 @@ use pinocchio_token_interface::Mint;
 
 define_account_struct! {
     pub struct InitializeAtomicSwapAccounts<'info> {
-        input_mint;
-        output_mint;
+        input_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        output_mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         oracle: @owner(crate::ID);
     }
 }

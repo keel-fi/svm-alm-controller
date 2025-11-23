@@ -2,8 +2,7 @@ use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
-use crate::constants::anchor_discriminator;
-use crate::integrations::drift::math::CheckedCeilDiv;
+use crate::{constants::anchor_discriminator, math::CheckedCeilDiv};
 
 #[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 #[repr(C)]

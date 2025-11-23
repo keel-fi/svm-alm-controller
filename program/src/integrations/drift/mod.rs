@@ -3,7 +3,6 @@ pub mod config;
 pub mod constants;
 pub mod cpi;
 pub mod initialize;
-pub mod math;
 pub mod pdas;
 pub mod protocol_state;
 pub mod pull;

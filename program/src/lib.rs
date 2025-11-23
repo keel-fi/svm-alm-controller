@@ -9,6 +9,7 @@ pub mod instructions;
 pub mod instructions;
 pub mod integrations;
 pub mod macros;
+pub mod math;
 pub mod processor;
 pub mod state;
 #[cfg(test)]

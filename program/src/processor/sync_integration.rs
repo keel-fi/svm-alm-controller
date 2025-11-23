@@ -53,6 +53,11 @@ pub fn process_sync_integration(
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
+    // Error when Controller is atomic swap locked
+    if controller.is_atomic_swap_locked() {
+        return Err(SvmAlmControllerErrors::ControllerAtomicSwapLocked.into());
+    }
+
     // Load in integration state
     let mut integration = Integration::load_and_check(ctx.integration, ctx.controller.key())?;
 

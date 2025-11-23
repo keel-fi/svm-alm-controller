@@ -11,4 +11,6 @@ pub enum ControllerStatus {
     Active,
     /// Push or Pull instructions revert, but all other operations are valid
     PushPullFrozen,
+    /// All instructions revert during an AtomicSwap transactions
+    AtomicSwapLock,
 }

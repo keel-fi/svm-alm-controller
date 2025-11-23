@@ -1,6 +1,6 @@
 use litesvm::LiteSVM;
 use solana_sdk::{
-    instruction::Instruction, pubkey::Pubkey, signer::Signer, transaction::Transaction,
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey, signer::Signer, transaction::Transaction
 };
 use std::collections::HashMap;
 
@@ -316,9 +316,11 @@ impl<'a> InvalidAccountTestBuilder<'a> {
             .map(|s| s.as_ref() as &dyn solana_sdk::signer::Signer)
             .collect();
 
+        // prepend CU budget increase to prevent compute budget exceeded errors
+        let cu_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
         self.svm
             .send_transaction(Transaction::new_signed_with_payer(
-                &[self.valid_instruction.clone()],
+                &[cu_ix, self.valid_instruction.clone()],
                 Some(&self.payer),
                 &signers_refs,
                 blockhash,
@@ -343,7 +345,7 @@ impl<'a> InvalidAccountTestBuilder<'a> {
                 Err(litesvm::types::FailedTransactionMetadata {
                     err: solana_sdk::transaction::TransactionError::InstructionError(idx, err),
                     ..
-                }) if *idx == 0 && err == expected_error
+                }) if *idx == 1 && err == expected_error
             ),
             "Test '{}' failed: Expected {:?}, but got {:?}\n\nLogs {:?}\n",
             config.description,

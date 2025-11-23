@@ -35,7 +35,7 @@ impl RefreshOracle {
         ));
         accounts.push(solana_instruction::AccountMeta::new(self.oracle, false));
         accounts.extend_from_slice(remaining_accounts);
-        let data = RefreshOracleInstructionData::new().try_to_vec().unwrap();
+        let data = borsh::to_vec(&RefreshOracleInstructionData::new()).unwrap();
 
         solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -54,10 +54,6 @@ pub struct RefreshOracleInstructionData {
 impl RefreshOracleInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 14 }
-    }
-
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
     }
 }
 
@@ -187,7 +183,7 @@ impl<'a, 'b> RefreshOracleCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = RefreshOracleInstructionData::new().try_to_vec().unwrap();
+        let data = borsh::to_vec(&RefreshOracleInstructionData::new()).unwrap();
 
         let instruction = solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,

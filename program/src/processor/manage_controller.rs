@@ -65,6 +65,10 @@ pub fn process_manage_controller(
                 return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
             }
         }
+        ControllerStatus::AtomicSwapLock => {
+            // AtomicSwapLock is only set during atomic swap borrow, and reverted in repay
+            return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+        }
     }
 
     // Update the controller with the new status
