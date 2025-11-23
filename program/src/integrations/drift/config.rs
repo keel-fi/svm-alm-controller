@@ -35,7 +35,7 @@ impl DriftConfig {
 
         if spot_market_index.ne(&self.spot_market_index) {
             msg!("spot_market_index: does not match config");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::InvalidInstructionData);
         }
         Ok(())
     }

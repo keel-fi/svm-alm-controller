@@ -36,5 +36,4 @@ psm-client = { workspace = true }
 
 [dev-dependencies]
 test-case = { workspace = true }
-test-log = "0.2.17"
 tokio = "1.38"

@@ -1,6 +1,8 @@
 use borsh::BorshDeserialize;
 use pinocchio::{program_error::ProgramError, pubkey::Pubkey};
 
+use crate::constants::anchor_discriminator;
+
 pub const OFT_PEER_CONFIG_SEED: &[u8] = b"Peer";
 
 #[derive(BorshDeserialize)]
@@ -26,7 +28,7 @@ pub struct OFTStore {
 // }
 
 impl OFTStore {
-    const DISCRIMINATOR: [u8; 8] = [195, 215, 104, 134, 185, 195, 240, 114]; //c3 d7 68 86 b9 c3 f0 72
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "OFTStore");
     const TRUNCATED_LEN: usize = 149;
 
     pub fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {
@@ -49,7 +51,7 @@ pub struct PeerConfig {
 }
 
 impl PeerConfig {
-    const DISCRIMINATOR: [u8; 8] = [181, 157, 86, 198, 33, 193, 94, 203]; //b5 9d 56 c6 21 c1 5e cb
+    const DISCRIMINATOR: [u8; 8] = anchor_discriminator("account", "PeerConfig");
     const TRUNCATED_LEN: usize = 32;
 
     pub fn deserialize(data: &[u8]) -> Result<Self, ProgramError> {

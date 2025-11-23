@@ -57,6 +57,11 @@ pub fn process_initialize_integration(
         return Err(SvmAlmControllerErrors::ControllerFrozen.into());
     }
 
+    // Error when Controller is atomic swap locked
+    if controller.is_atomic_swap_locked() {
+        return Err(SvmAlmControllerErrors::ControllerAtomicSwapLocked.into());
+    }
+
     // Load in the permission account
     let permission =
         Permission::load_and_check(ctx.permission, ctx.controller.key(), ctx.authority.key())?;

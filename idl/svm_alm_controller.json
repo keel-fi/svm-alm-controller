@@ -716,7 +716,7 @@
       "accounts": [
         {
           "name": "controller",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -813,7 +813,7 @@
         },
         {
           "name": "controller",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -2407,6 +2407,9 @@
           },
           {
             "name": "PushPullFrozen"
+          },
+          {
+            "name": "AtomicSwapLock"
           }
         ]
       }

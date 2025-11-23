@@ -26,4 +26,5 @@ pub enum ControllerStatus {
     Frozen,
     Active,
     PushPullFrozen,
+    AtomicSwapLock,
 }

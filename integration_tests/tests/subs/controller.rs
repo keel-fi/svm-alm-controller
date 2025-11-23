@@ -1,14 +1,16 @@
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use litesvm::LiteSVM;
 use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, system_program, transaction::Transaction,
+    account::Account, pubkey::Pubkey, signature::Keypair, signer::Signer, system_program,
+    transaction::Transaction,
 };
 use std::error::Error;
+use svm_alm_controller::error::SvmAlmControllerErrors;
 use svm_alm_controller_client::generated::{
     accounts::Controller,
     instructions::{InitializeControllerBuilder, ManageControllerBuilder},
     programs::SVM_ALM_CONTROLLER_ID,
-    types::{ControllerStatus, ControllerUpdateEvent, PermissionStatus, SvmAlmControllerEvent},
+    types::{ControllerStatus, ControllerUpdateEvent, PermissionStatus, PermissionUpdateEvent, SvmAlmControllerEvent},
 };
 
 use crate::{
@@ -51,6 +53,54 @@ pub fn fetch_controller_account(
     }
 }
 
+pub fn freeze_or_atomic_swap_lock_controller(
+    svm: &mut LiteSVM,
+    controller_pda: &Pubkey,
+    atomic_swap_locked: bool,
+    payer: &Keypair,
+    authority: &Keypair,
+) -> SvmAlmControllerErrors {
+    if atomic_swap_locked {
+        // set controller status to atomic swap locked
+        set_controller_status(svm, &controller_pda, ControllerStatus::AtomicSwapLock);
+        return SvmAlmControllerErrors::ControllerAtomicSwapLocked;
+    } else {
+        // Freeze the controller
+        manage_controller(
+            svm,
+            &controller_pda,
+            payer,     // payer
+            authority, // calling authority
+            ControllerStatus::Frozen,
+        )
+        .unwrap();
+        return SvmAlmControllerErrors::ControllerFrozen;
+    }
+}
+
+/// Modifies a controller status.
+/// The controller must exist or this will panic
+pub fn set_controller_status(svm: &mut LiteSVM, controller_pda: &Pubkey, status: ControllerStatus) {
+    let controller_acc = svm.get_account(controller_pda).unwrap();
+
+    let mut controller = Controller::try_from_slice(&controller_acc.data[1..]).unwrap();
+
+    controller.status = status;
+    let mut buf = Vec::new();
+    controller.serialize(&mut buf).unwrap();
+
+    svm.set_account(
+        *controller_pda,
+        Account {
+            data: vec![vec![controller_acc.data[0]], buf].concat(),
+            ..controller_acc
+        },
+    )
+    .unwrap();
+
+    controller.status = status;
+}
+
 pub fn initialize_contoller(
     svm: &mut LiteSVM,
     payer: &Keypair,
@@ -91,17 +141,17 @@ pub fn initialize_contoller(
 
     let controller = controller.unwrap();
 
-    // assert expected event
-    let expected_event = SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
+    // assert expected controller event
+    let expected_controller_event = SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
         controller: controller_pda,
         authority: authority.pubkey(),
         old_state: None,
         new_state: Some(controller.clone()),
     });
     assert_contains_controller_cpi_event!(
-        tx_result.unwrap(),
+        tx_result.clone().unwrap(),
         txn.message.account_keys.as_slice(),
-        expected_event
+        expected_controller_event
     );
 
     assert_eq!(
@@ -115,6 +165,22 @@ pub fn initialize_contoller(
 
     assert!(permission.is_some(), "Permission account is not found");
     let permission = permission.unwrap();
+
+    // assert expected permission event
+    let expected_permission_event = SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
+        controller: controller_pda,
+        permission: permission_pda,
+        authority: authority.pubkey(),
+        old_state: None,
+        new_state: Some(permission.clone()),
+    });
+    assert_contains_controller_cpi_event!(
+        tx_result.unwrap(),
+        txn.message.account_keys.as_slice(),
+        expected_permission_event
+    );
+
+
     assert_eq!(
         permission.authority,
         authority.pubkey(),

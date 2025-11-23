@@ -203,6 +203,10 @@ impl Integration {
             // Reset the rate_limit_outflow_amount_available such that the gap from the max remains the same
             self.rate_limit_outflow_amount_available =
                 self.rate_limit_max_outflow.saturating_sub(gap);
+            if gap > self.rate_limit_max_outflow {
+                // Reset remainder during update
+                self.rate_limit_remainder = 0;
+            }
         }
 
         // Commit the account on-chain
@@ -249,15 +253,11 @@ impl Integration {
             return Err(ProgramError::InvalidArgument);
         }
         // Cap the rate_limit_outflow_amount_available at the rate_limit_max_outflow
-        let v = self
+        let outflow_available = self
             .rate_limit_outflow_amount_available
             .saturating_add(inflow);
-        if v > self.rate_limit_max_outflow {
-            // Cannot daily max outflow
-            self.rate_limit_outflow_amount_available = self.rate_limit_max_outflow;
-        } else {
-            self.rate_limit_outflow_amount_available = v;
-        }
+        self.rate_limit_outflow_amount_available =
+            self.rate_limit_max_outflow.min(outflow_available);
         Ok(())
     }
 

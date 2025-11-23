@@ -1,14 +1,12 @@
 use crate::{
-    constants::{
-        CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID,
-        CONTROLLER_AUTHORITY_SEED,
-    },
+    constants::CONTROLLER_AUTHORITY_SEED,
     define_account_struct,
     enums::IntegrationConfig,
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::cctp_bridge::{
         cctp_state::{LocalToken, RemoteTokenMessenger},
+        constants::{CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID, CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID},
         cpi::DepositForBurn,
     },
     processor::PushAccounts,
@@ -30,9 +28,9 @@ define_account_struct! {
         sender_authority_pda;
         message_transmitter;
         token_messenger;
-        remote_token_messenger;
+        remote_token_messenger: @owner(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
         token_minter;
-        local_token;
+        local_token: @owner(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
         message_sent_event_data: signer;
         cctp_message_transmitter: @pubkey(CCTP_MESSAGE_TRANSMITTER_PROGRAM_ID);
         cctp_token_messenger_minter: @pubkey(CCTP_TOKEN_MESSENGER_MINTER_PROGRAM_ID);
@@ -71,20 +69,6 @@ impl<'info> PushCctpBridgeAccounts<'info> {
         {
             msg! {"cctp_message_transmitter: does not match config"};
             return Err(ProgramError::IncorrectProgramId);
-        }
-        if !ctx
-            .remote_token_messenger
-            .is_owned_by(&config.cctp_token_messenger_minter)
-        {
-            msg! {"remote_token_messenger: invalid owner"};
-            return Err(ProgramError::IllegalOwner);
-        }
-        if !ctx
-            .local_token
-            .is_owned_by(&config.cctp_token_messenger_minter)
-        {
-            msg! {"local_token: invalid owner"};
-            return Err(ProgramError::IllegalOwner);
         }
 
         Ok(ctx)

@@ -15,8 +15,8 @@ mod tests {
             atomic_swap_borrow_repay, atomic_swap_borrow_repay_ixs,
             derive_controller_authority_pda, derive_permission_pda, fetch_integration_account,
             fetch_reserve_account, fetch_token_account, get_mint, initialize_ata, initialize_mint,
-            initialize_reserve, manage_controller, mint_tokens, sync_reserve, transfer_tokens,
-            ReserveKeys,
+            initialize_reserve, manage_controller, mint_tokens, set_controller_status,
+            sync_reserve, transfer_tokens, ReserveKeys,
         },
         test_invalid_accounts,
     };
@@ -1195,6 +1195,13 @@ mod tests {
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::InvalidInstructions);
 
+        // change controller status so that the check is reached
+        set_controller_status(
+            &mut svm,
+            &swap_env.controller_pk,
+            ControllerStatus::AtomicSwapLock,
+        );
+
         // Expect failure when repay w/o borrowing first.
         let txn = Transaction::new_signed_with_payer(
             &[repay_ix.clone(), borrow_ix.clone(), refresh_ix.clone()],
@@ -1205,7 +1212,10 @@ mod tests {
         let res = svm.send_transaction(txn);
         assert_custom_error(&res, 0, SvmAlmControllerErrors::SwapNotStarted);
 
-        // Expect failure when borrowing multiple times
+        // revert status back to active
+        set_controller_status(&mut svm, &swap_env.controller_pk, ControllerStatus::Active);
+
+        // // Expect failure when borrowing multiple times
         let txn = Transaction::new_signed_with_payer(
             &[
                 borrow_ix.clone(),
@@ -2348,6 +2358,13 @@ mod tests {
         // overwrite AtomicSwap Config oracle to incorrect pubkey
         let mut invalid_integration_oracle = integration_account.clone();
         invalid_integration_oracle.data[211..243].copy_from_slice(Pubkey::new_unique().as_ref());
+
+        // set controllet status to locked so these checks are reached
+        set_controller_status(
+            &mut svm,
+            &swap_env.controller_pk,
+            ControllerStatus::AtomicSwapLock,
+        );
 
         // Test invalid accounts using the helper macro
         let signers: Vec<Box<&dyn solana_sdk::signer::Signer>> =

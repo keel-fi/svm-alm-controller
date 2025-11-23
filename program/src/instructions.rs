@@ -149,7 +149,7 @@ pub enum SvmAlmControllerInstruction {
     RefreshOracle(),
 
     /// Atomic swap borrow
-    #[account(0, name = "controller")]
+    #[account(0, writable, name = "controller")]
     #[account(1, name = "controller_authority")]
     #[account(2, signer, name = "authority")]
     #[account(3, name = "permission")]
@@ -168,7 +168,7 @@ pub enum SvmAlmControllerInstruction {
 
     /// Atomic swap repay
     #[account(0, signer, name = "payer")]
-    #[account(1, name = "controller")]
+    #[account(1, writable, name = "controller")]
     #[account(2, name = "controller_authority")]
     #[account(3, signer, name = "authority")]
     #[account(4, name = "permission")]

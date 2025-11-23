@@ -19,7 +19,9 @@ mod tests {
     use svm_alm_controller::error::SvmAlmControllerErrors;
     use svm_alm_controller_client::create_manage_permissions_instruction;
 
-    use crate::helpers::assert::assert_custom_error;
+    use crate::{
+        helpers::assert::assert_custom_error, subs::freeze_or_atomic_swap_lock_controller,
+    };
 
     use test_case::test_case;
 
@@ -293,8 +295,11 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_manage_permission_fails_when_frozen() -> Result<(), Box<dyn std::error::Error>> {
+    #[test_case(false; "frozen")]
+    #[test_case(true; "atomic_swap_locked")]
+    fn test_manage_permission_fails_when_frozen_or_atomic_swap_locked(
+        is_atomic_swap_locked: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let TestContext {
             mut svm,
             controller_pk,
@@ -336,13 +341,13 @@ mod tests {
         )?;
 
         // Freeze the controller
-        manage_controller(
+        let expected_error = freeze_or_atomic_swap_lock_controller(
             &mut svm,
             &controller_pk,
-            &super_authority, // payer
-            &super_authority, // calling authority
-            ControllerStatus::Frozen,
-        )?;
+            is_atomic_swap_locked,
+            &super_authority,
+            &super_authority,
+        );
 
         // Try to manage permission when frozen - should fail
         let instruction = create_manage_permissions_instruction(
@@ -369,7 +374,7 @@ mod tests {
             svm.latest_blockhash(),
         );
         let tx_result = svm.send_transaction(txn);
-        assert_custom_error(&tx_result, 0, SvmAlmControllerErrors::ControllerFrozen);
+        assert_custom_error(&tx_result, 0, expected_error);
 
         Ok(())
     }

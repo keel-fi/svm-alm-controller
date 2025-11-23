@@ -59,10 +59,7 @@ impl AtomicSwapBorrow {
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
         let mut accounts = Vec::with_capacity(15 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.controller,
-            false,
-        ));
+        accounts.push(solana_instruction::AccountMeta::new(self.controller, false));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.controller_authority,
             false,
@@ -111,8 +108,8 @@ impl AtomicSwapBorrow {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = AtomicSwapBorrowInstructionData::new().try_to_vec().unwrap();
-        let mut args = args.try_to_vec().unwrap();
+        let mut data = borsh::to_vec(&AtomicSwapBorrowInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -133,10 +130,6 @@ impl AtomicSwapBorrowInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 15 }
     }
-
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
 }
 
 impl Default for AtomicSwapBorrowInstructionData {
@@ -151,17 +144,11 @@ pub struct AtomicSwapBorrowInstructionArgs {
     pub amount: u64,
 }
 
-impl AtomicSwapBorrowInstructionArgs {
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
-}
-
 /// Instruction builder for `AtomicSwapBorrow`.
 ///
 /// ### Accounts:
 ///
-///   0. `[]` controller
+///   0. `[writable]` controller
 ///   1. `[]` controller_authority
 ///   2. `[signer]` authority
 ///   3. `[]` permission
@@ -462,7 +449,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
         let mut accounts = Vec::with_capacity(15 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+        accounts.push(solana_instruction::AccountMeta::new(
             *self.controller.key,
             false,
         ));
@@ -529,8 +516,8 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = AtomicSwapBorrowInstructionData::new().try_to_vec().unwrap();
-        let mut args = self.__args.try_to_vec().unwrap();
+        let mut data = borsh::to_vec(&AtomicSwapBorrowInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {
@@ -571,7 +558,7 @@ impl<'a, 'b> AtomicSwapBorrowCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[]` controller
+///   0. `[writable]` controller
 ///   1. `[]` controller_authority
 ///   2. `[signer]` authority
 ///   3. `[]` permission

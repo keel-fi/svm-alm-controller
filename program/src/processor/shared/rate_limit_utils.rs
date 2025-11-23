@@ -7,7 +7,10 @@ pub fn calculate_rate_limit_increment(
     rate_limit_slope: u64,
     rate_limit_remainder: u64,
 ) -> (u64, u64) {
-    let time_passed = unix_timestamp.checked_sub(last_refresh_timestamp).unwrap();
+    let time_passed = unix_timestamp
+        .abs()
+        .checked_sub(last_refresh_timestamp.abs())
+        .unwrap();
     // Calculate the amount of units that accrued via lapsed time.
     // Carries the remainder over from the last time this ran to
     // prevent precision errors that could lead to DOS.

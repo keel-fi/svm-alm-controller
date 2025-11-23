@@ -78,7 +78,7 @@ pub fn process_pull_kamino(
     )?;
 
     // Accounting event for changes in liquidity value BEFORE withdraw
-    sync_kamino_liquidity_value(
+    let liquidity_value_before = sync_kamino_liquidity_value(
         controller,
         integration,
         outer_ctx.integration.key(),
@@ -102,9 +102,6 @@ pub fn process_pull_kamino(
         let vault = TokenAccount::from_account_info(inner_ctx.reserve_vault)?;
         vault.amount()
     };
-
-    let liquidity_value_before =
-        get_kamino_lending_balance(inner_ctx.kamino_reserve, inner_ctx.obligation)?;
 
     WithdrawObligationCollateralAndRedeemReserveCollateralV2 {
         owner: outer_ctx.controller_authority,
@@ -180,7 +177,7 @@ pub fn process_pull_kamino(
         IntegrationState::Kamino(state) => {
             state.balance = liquidity_value_after;
         }
-        _ => return Err(ProgramError::InvalidAccountData.into()),
+        _ => return Err(ProgramError::InvalidAccountData),
     }
 
     // Update the integration rate limit for inflow
