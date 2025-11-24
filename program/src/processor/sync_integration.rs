@@ -76,8 +76,6 @@ pub fn process_sync_integration(
 
             process_sync_kamino(&controller, &mut integration, &mut reserve, &ctx)?;
 
-            // TODO: reserve will be moved into sync_kamino inner_ctx
-            // since it's the only integration that needs it for now.
             reserve.save(ctx.reserve)?;
         }
         IntegrationConfig::Drift(_config) => {
@@ -86,7 +84,6 @@ pub fn process_sync_integration(
         IntegrationConfig::PsmSwap(_config) => {
             process_sync_psm_swap(&controller, &mut integration, &ctx)?;
         }
-        // TODO: More integration types to be supported
         _ => return Err(ProgramError::InvalidArgument),
     };
 
