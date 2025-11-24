@@ -40,7 +40,7 @@ pub fn process_initialize_controller(
 
     // AtomicSwapLock is not a valid controller status at initialization.
     if args.status == ControllerStatus::AtomicSwapLock {
-        return Err(ProgramError::InvalidArgument)
+        return Err(ProgramError::InvalidArgument);
     }
 
     // Initialize the controller data
