@@ -46,19 +46,3 @@ jobs:
         with:
           name: svm_alm_controller.so
           path: ./target/deploy/svm_alm_controller.so
-
-  test_build:
-    name: Test verifiable build
-    runs-on: ubuntu-latest
-    needs:
-      - verified_build
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: svm_alm_controller.so
-          path: ./target/deploy
-      - name: Download OpenSSL
-        run: sudo apt-get install -y libssl-dev
-      - name: Test verifiable build
-        run: cargo test

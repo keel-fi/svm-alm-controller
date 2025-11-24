@@ -164,7 +164,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             svm,
             &authority,
-            &authority,
+            Some(&authority),
             ControllerStatus::Active,
             321u16, // Id
         )?;

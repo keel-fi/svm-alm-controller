@@ -176,7 +176,7 @@ mod tests {
         let (controller_pk, permission_pda) = initialize_contoller(
             &mut svm,
             &payer_and_authority,
-            &payer_and_authority,
+            Some(&payer_and_authority),
             ControllerStatus::Active,
             0,
         )?;
@@ -237,7 +237,7 @@ mod tests {
         let (controller_pk, permission_pda) = initialize_contoller(
             &mut svm,
             &payer_and_authority,
-            &payer_and_authority,
+            Some(&payer_and_authority),
             ControllerStatus::Active,
             0,
         )?;

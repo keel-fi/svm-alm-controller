@@ -166,10 +166,14 @@ yarn generate-clients
 
 ## Running Tests
 
-Integration tests are written using [LiteSvm](https://github.com/LiteSVM/litesvm). To run integration tests, from project root build and then run
+Integration tests are written using [LiteSvm](https://github.com/LiteSVM/litesvm). To run integration tests, from project root build with "test" feature and then run
 
 ```
 cargo test
+```
+
+```
+cargo build-sbf --features test && cargo test
 ```
 
 ### If running into issues with openssl
