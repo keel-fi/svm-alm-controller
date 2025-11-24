@@ -123,7 +123,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             svm,
             &relayer_authority_kp,
-            &relayer_authority_kp,
+            Some(&relayer_authority_kp),
             ControllerStatus::Active,
             321u16, // Id
         )?;
@@ -1800,7 +1800,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &relayer_authority_kp,
-            &relayer_authority_kp,
+            Some(&relayer_authority_kp),
             ControllerStatus::Active,
             321u16, // Id
         )?;

@@ -1,6 +1,8 @@
 use crate::{
+    constants::KEEL_DEPLOYER_MSIG,
     define_account_struct,
     enums::{ControllerStatus, PermissionStatus},
+    error::SvmAlmControllerErrors,
     events::{ControllerUpdateEvent, PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeControllerArgs,
     state::{Controller, Permission},
@@ -34,13 +36,19 @@ pub fn process_initialize_controller(
 
     let ctx = InitializeControllerAccounts::from_accounts(accounts)?;
 
+    // Instruction is permissioned by the Keel multisig
+    if ctx.authority.key().ne(&KEEL_DEPLOYER_MSIG) {
+        msg!("authority: Invalid authority for initializing pool");
+        return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
+    }
+
     // Deserialize the args
     let args = InitializeControllerArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // AtomicSwapLock is not a valid controller status at initialization.
     if args.status == ControllerStatus::AtomicSwapLock {
-        return Err(ProgramError::InvalidArgument)
+        return Err(ProgramError::InvalidArgument);
     }
 
     // Initialize the controller data

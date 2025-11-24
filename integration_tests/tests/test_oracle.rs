@@ -48,7 +48,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
-            &authority,
+            Some(&authority),
             ControllerStatus::Active,
             321u16, // Id
         )?;
@@ -228,7 +228,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
-            &authority,
+            Some(&authority),
             ControllerStatus::Active,
             322u16, // Id
         )?;
@@ -308,7 +308,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
-            &authority,
+            Some(&authority),
             ControllerStatus::Active,
             323u16, // Id
         )?;
@@ -562,7 +562,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
-            &authority,
+            Some(&authority),
             ControllerStatus::Active,
             321u16, // Id
         )?;
@@ -647,7 +647,7 @@ mod tests {
         let (controller_pk, _authority_permission_pk) = initialize_contoller(
             &mut svm,
             &authority,
-            &authority,
+            Some(&authority),
             ControllerStatus::Active,
             321u16, // Id
         )?;

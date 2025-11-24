@@ -67,7 +67,7 @@ jobs:
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           cd program
-          cargo build-sbf
+          cargo build-sbf --features test
 
       - name: Run unit tests
         run: cargo test --workspace --lib
