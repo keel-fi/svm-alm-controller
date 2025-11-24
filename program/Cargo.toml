@@ -11,6 +11,7 @@ devnet = ["switchboard-on-demand/devnet"]
 no-entrypoint = []
 idl = []
 verbose = []
+test = []
 
 [dependencies]
 account-zerocopy-deserialize = { workspace = true }

@@ -35,6 +35,17 @@ use crate::helpers::constants::{
 use crate::helpers::lite_svm::get_account_data_from_json;
 use crate::subs::{airdrop_lamports, initialize_contoller, manage_permission};
 
+/// Test authority for Keel
+pub fn get_keel_deployer_kp() -> Keypair {
+    Keypair::from_bytes(&[
+        117, 109, 36, 72, 10, 157, 197, 87, 111, 253, 120, 75, 215, 59, 17, 29, 11, 199, 208, 22,
+        186, 64, 41, 229, 102, 236, 98, 239, 113, 96, 82, 66, 115, 116, 67, 136, 6, 145, 251, 176,
+        18, 91, 35, 233, 247, 157, 124, 119, 78, 54, 229, 30, 95, 68, 170, 176, 216, 68, 101, 16,
+        21, 39, 185, 165,
+    ])
+    .unwrap()
+}
+
 /// Get LiteSvm with myproject loaded.
 pub fn lite_svm_with_programs() -> LiteSVM {
     let mut svm = LiteSVM::new();
@@ -146,7 +157,7 @@ pub fn setup_test_controller() -> Result<TestContext, Box<dyn std::error::Error>
     let (controller_pk, _) = initialize_contoller(
         &mut svm,
         &super_authority,
-        &super_authority,
+        Some(&super_authority),
         ControllerStatus::Active,
         321u16, // Id
     )?;

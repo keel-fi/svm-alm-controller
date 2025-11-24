@@ -18,7 +18,8 @@ use svm_alm_controller_client::generated::{
 
 use crate::{
     assert_contains_controller_cpi_event,
-    subs::{derive_permission_pda, fetch_permission_account},
+    helpers::get_keel_deployer_kp,
+    subs::{derive_permission_pda, fetch_permission_account, manage_permission},
 };
 
 pub fn derive_controller_pda(id: &u16) -> Pubkey {
@@ -107,19 +108,20 @@ pub fn set_controller_status(svm: &mut LiteSVM, controller_pda: &Pubkey, status:
 pub fn initialize_contoller(
     svm: &mut LiteSVM,
     payer: &Keypair,
-    authority: &Keypair,
+    authority: Option<&Keypair>,
     status: ControllerStatus,
     id: u16,
 ) -> Result<(Pubkey, Pubkey), Box<dyn Error>> {
     let controller_pda = derive_controller_pda(&id);
     let controller_authority = derive_controller_authority_pda(&controller_pda);
-    let permission_pda = derive_permission_pda(&controller_pda, &authority.pubkey());
+    let keel_deployer_msig = get_keel_deployer_kp();
+    let permission_pda = derive_permission_pda(&controller_pda, &keel_deployer_msig.pubkey());
 
     let ixn = InitializeControllerBuilder::new()
         .id(id)
         .status(status)
         .payer(payer.pubkey())
-        .authority(authority.pubkey())
+        .authority(keel_deployer_msig.pubkey())
         .controller(controller_pda)
         .controller_authority(controller_authority)
         .permission(permission_pda)
@@ -130,7 +132,7 @@ pub fn initialize_contoller(
     let txn = Transaction::new_signed_with_payer(
         &[ixn.clone()],
         Some(&payer.pubkey()),
-        &[&authority, &payer],
+        &[&keel_deployer_msig, &payer],
         svm.latest_blockhash(),
     );
 
@@ -148,7 +150,7 @@ pub fn initialize_contoller(
     let expected_controller_event =
         SvmAlmControllerEvent::ControllerUpdate(ControllerUpdateEvent {
             controller: controller_pda,
-            authority: authority.pubkey(),
+            authority: keel_deployer_msig.pubkey(),
             old_state: None,
             new_state: Some(controller.clone()),
         });
@@ -175,7 +177,7 @@ pub fn initialize_contoller(
         SvmAlmControllerEvent::PermissionUpdate(PermissionUpdateEvent {
             controller: controller_pda,
             permission: permission_pda,
-            authority: authority.pubkey(),
+            authority: keel_deployer_msig.pubkey(),
             old_state: None,
             new_state: Some(permission.clone()),
         });
@@ -187,7 +189,7 @@ pub fn initialize_contoller(
 
     assert_eq!(
         permission.authority,
-        authority.pubkey(),
+        keel_deployer_msig.pubkey(),
         "Permission authority does not match the expected authority"
     );
     assert_eq!(
@@ -227,6 +229,30 @@ pub fn initialize_contoller(
         PermissionStatus::Active,
         "Permission status is not set to Active"
     );
+
+    if authority.is_some() {
+        // Create Super Permission for passed authority. This is optional
+        // and only needed for legacy tests that create an authority Keypair
+        let authority = authority.unwrap();
+        manage_permission(
+            svm,
+            &controller_pda,
+            payer,
+            &keel_deployer_msig,
+            &authority.pubkey(),
+            PermissionStatus::Active,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        )
+        .unwrap();
+    }
 
     Ok((controller_pda, permission_pda))
 }

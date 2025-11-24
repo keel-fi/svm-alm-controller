@@ -1,4 +1,12 @@
+use pinocchio::pubkey::Pubkey;
+use pinocchio_pubkey::pubkey;
 use sha2_const_stable::Sha256;
+
+/// Multisig held by Keel for permissioned initialization.
+#[cfg(not(feature = "test"))]
+pub const KEEL_DEPLOYER_MSIG: Pubkey = pubkey!("CU6ak9UHjwpL38o4hnBWJ1YBPUp9koBHpfZ8PiTg2BSv");
+#[cfg(feature = "test")]
+pub const KEEL_DEPLOYER_MSIG: Pubkey = pubkey!("8mgi9s8yLAvm7bP3sPUUufCwpNvvr8pwaR3CyVPPmTcG");
 
 pub const CONTROLLER_SEED: &[u8] = b"controller";
 pub const CONTROLLER_AUTHORITY_SEED: &[u8] = b"controller_authority";
