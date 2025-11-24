@@ -56,6 +56,7 @@ mod tests {
     extern crate alloc;
     use crate::unit_test_utils::create_mock_account_info;
     use alloc::vec::Vec;
+    use pinocchio::pubkey::Pubkey;
     use test_case::test_case;
 
     #[test_case( 0 ; "empty")]
