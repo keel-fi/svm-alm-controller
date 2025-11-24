@@ -144,7 +144,7 @@ pub fn process_pull_drift(
     }
     .invoke()?;
 
-    sync_drift_balance(
+    let market_balance_before = sync_drift_balance(
         controller,
         integration,
         outer_ctx.integration.key(),
@@ -155,10 +155,6 @@ pub fn process_pull_drift(
     )?;
 
     let reserve_balance_before = reserve.last_balance;
-
-    let spot_market_vault = TokenAccount::from_account_info(inner_ctx.spot_market_vault)?;
-    let spot_market_vault_balance_before = spot_market_vault.amount();
-    drop(spot_market_vault);
 
     Withdraw {
         state: &inner_ctx.state,
@@ -192,10 +188,12 @@ pub fn process_pull_drift(
     let reserve_mint = reserve_vault.mint();
     let net_inflow = reserve_balance_after.saturating_sub(reserve_balance_before);
 
-    let spot_market_vault = TokenAccount::from_account_info(inner_ctx.spot_market_vault)?;
-    let spot_market_vault_balance_after = spot_market_vault.amount();
-    let spot_market_vault_delta =
-        spot_market_vault_balance_before.saturating_sub(spot_market_vault_balance_after);
+    let spot_market_data = spot_market_info.try_borrow_data()?;
+    let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
+    let market_balance_after = get_drift_lending_balance(spot_market_state, inner_ctx.user)?;
+    let liquidity_value_delta = market_balance_before
+        .checked_sub(market_balance_after)
+        .unwrap();
 
     // Emit accounting event for debit integration
     controller.emit_event(
@@ -208,7 +206,7 @@ pub fn process_pull_drift(
             reserve: None,
             direction: AccountingDirection::Debit,
             action: AccountingAction::Withdrawal,
-            delta: spot_market_vault_delta,
+            delta: liquidity_value_delta,
         }),
     )?;
 
@@ -232,9 +230,7 @@ pub fn process_pull_drift(
     match &mut integration.state {
         IntegrationState::Drift(state) => {
             // Update amount to the Drift balance
-            let spot_market_data = spot_market_info.try_borrow_data()?;
-            let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
-            state.balance = get_drift_lending_balance(spot_market_state, inner_ctx.user)?;
+            state.balance = market_balance_after;
         }
         _ => return Err(ProgramError::InvalidAccountData),
     }

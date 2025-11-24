@@ -141,7 +141,7 @@ pub fn process_push_drift(
     }
     .invoke()?;
 
-    sync_drift_balance(
+    let market_balance_before = sync_drift_balance(
         controller,
         integration,
         outer_ctx.integration.key(),
@@ -155,10 +155,6 @@ pub fn process_push_drift(
     let reserve_vault = TokenAccount::from_account_info(&inner_ctx.reserve_vault)?;
     let reserve_vault_balance_before = reserve_vault.amount();
     drop(reserve_vault);
-
-    let spot_market_vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let spot_market_vault_balance_before = spot_market_vault.amount();
-    drop(spot_market_vault);
 
     Deposit {
         state: &inner_ctx.state,
@@ -198,10 +194,11 @@ pub fn process_push_drift(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let spot_market_vault = TokenAccount::from_account_info(&inner_ctx.spot_market_vault)?;
-    let spot_market_vault_balance_after = spot_market_vault.amount();
-    let liquidity_value_delta = spot_market_vault_balance_after
-        .checked_sub(spot_market_vault_balance_before)
+    let spot_market_data = spot_market_info.try_borrow_data()?;
+    let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
+    let market_balance_after = get_drift_lending_balance(spot_market_state, inner_ctx.user)?;
+    let liquidity_value_delta = market_balance_after
+        .checked_sub(market_balance_before)
         .unwrap();
 
     // Emit accounting event for credit Integration
@@ -239,9 +236,7 @@ pub fn process_push_drift(
     match &mut integration.state {
         IntegrationState::Drift(state) => {
             // Update amount to the Drift balance
-            let spot_market_data = spot_market_info.try_borrow_data()?;
-            let spot_market_state = SpotMarket::try_from_slice(&spot_market_data)?;
-            state.balance = get_drift_lending_balance(spot_market_state, inner_ctx.user)?;
+            state.balance = market_balance_after;
         }
         _ => return Err(ProgramError::InvalidAccountData),
     }
