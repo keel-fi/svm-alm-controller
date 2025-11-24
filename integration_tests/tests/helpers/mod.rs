@@ -133,7 +133,6 @@ pub fn lite_svm_with_programs() -> LiteSVM {
 
     // Psm Swap
     let psm_swap_program = include_bytes!("../../fixtures/psm_program.so");
-    println!("PSM_PROGRAM_ID: {:?}", PSM_PROGRAM_ID);
     svm.add_program(PSM_PROGRAM_ID, psm_swap_program);
 
     svm
