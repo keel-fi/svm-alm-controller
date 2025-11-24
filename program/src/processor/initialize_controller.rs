@@ -1,6 +1,6 @@
 use crate::{
     define_account_struct,
-    enums::PermissionStatus,
+    enums::{ControllerStatus, PermissionStatus},
     events::{ControllerUpdateEvent, PermissionUpdateEvent, SvmAlmControllerEvent},
     instructions::InitializeControllerArgs,
     state::{Controller, Permission},
@@ -37,6 +37,11 @@ pub fn process_initialize_controller(
     // Deserialize the args
     let args = InitializeControllerArgs::try_from_slice(instruction_data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    // AtomicSwapLock is not a valid controller status at initialization.
+    if args.status == ControllerStatus::AtomicSwapLock {
+        return Err(ProgramError::InvalidArgument)
+    }
 
     // Initialize the controller data
     let controller = Controller::init_account(
