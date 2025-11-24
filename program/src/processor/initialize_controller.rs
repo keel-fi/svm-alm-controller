@@ -38,7 +38,7 @@ pub fn process_initialize_controller(
 
     // Instruction is permissioned by the Keel multisig
     if ctx.authority.key().ne(&KEEL_DEPLOYER_MSIG) {
-        msg!("authority: Invalid authority for initializing pool");
+        msg!("authority: Invalid authority for initializing controller");
         return Err(SvmAlmControllerErrors::UnauthorizedAction.into());
     }
 
