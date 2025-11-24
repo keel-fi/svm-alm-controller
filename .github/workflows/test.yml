@@ -75,8 +75,8 @@ jobs:
           cargo build-sbf
 
       - name: Run unit tests
-        run: cargo test --workspace --lib
+        run: RUSTFLAGS=-Awarnings cargo test --workspace --lib
 
       - name: Run integration tests
         run: |
-          cargo test
+          RUSTFLAGS=-Awarnings cargo test
