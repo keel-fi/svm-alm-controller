@@ -72,7 +72,7 @@ jobs:
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           cd program
-          RUSTFLAGS="-Awarnings" cargo build-sbf
+          cargo build-sbf
 
       - name: Run unit tests
         run: cargo test --workspace --lib
