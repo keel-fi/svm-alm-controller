@@ -67,8 +67,10 @@ impl ManageIntegration {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&ManageIntegrationInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&args).unwrap();
+        let mut data = ManageIntegrationInstructionData::new()
+            .try_to_vec()
+            .unwrap();
+        let mut args = args.try_to_vec().unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -89,6 +91,10 @@ impl ManageIntegrationInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 7 }
     }
+
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 impl Default for ManageIntegrationInstructionData {
@@ -104,6 +110,12 @@ pub struct ManageIntegrationInstructionArgs {
     pub description: Option<[u8; 32]>,
     pub rate_limit_slope: Option<u64>,
     pub rate_limit_max_outflow: Option<u64>,
+}
+
+impl ManageIntegrationInstructionArgs {
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 /// Instruction builder for `ManageIntegration`.
@@ -337,8 +349,10 @@ impl<'a, 'b> ManageIntegrationCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&ManageIntegrationInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&self.__args).unwrap();
+        let mut data = ManageIntegrationInstructionData::new()
+            .try_to_vec()
+            .unwrap();
+        let mut args = self.__args.try_to_vec().unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {
