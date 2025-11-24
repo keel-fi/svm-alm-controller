@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ fix-ci, main, develop ]
 
 concurrency:
   group: ${{ github.ref }}
@@ -25,6 +25,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config libudev-dev libssl-dev libc6-dev libcairo2-dev libgdk-pixbuf2.0-dev libffi-dev shared-mime-info
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PSM_READONLY_SSH_KEY }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
