@@ -38,7 +38,7 @@ impl<'info> InitializePsmSwapAccounts<'info> {
         let psm_pool = PsmPool::try_from_slice(&psm_pool_data)?;
 
         // Validate the controller_authority is pool.liquidity_owner
-        if psm_pool.liquidity_owner.as_ref() != controller_authority.key().as_ref() {
+        if psm_pool.liquidity_owner.ne(controller_authority.key()) {
             msg!("psm_pool: liquidity owner does not match controller_authority");
             return Err(ProgramError::InvalidAccountData);
         }
