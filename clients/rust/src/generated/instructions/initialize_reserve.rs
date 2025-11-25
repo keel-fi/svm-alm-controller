@@ -93,8 +93,10 @@ impl InitializeReserve {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = borsh::to_vec(&InitializeReserveInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&args).unwrap();
+        let mut data = InitializeReserveInstructionData::new()
+            .try_to_vec()
+            .unwrap();
+        let mut args = args.try_to_vec().unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -115,6 +117,10 @@ impl InitializeReserveInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 4 }
     }
+
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 impl Default for InitializeReserveInstructionData {
@@ -129,6 +135,12 @@ pub struct InitializeReserveInstructionArgs {
     pub status: ReserveStatus,
     pub rate_limit_slope: u64,
     pub rate_limit_max_outflow: u64,
+}
+
+impl InitializeReserveInstructionArgs {
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
+    }
 }
 
 /// Instruction builder for `InitializeReserve`.
@@ -464,8 +476,10 @@ impl<'a, 'b> InitializeReserveCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = borsh::to_vec(&InitializeReserveInstructionData::new()).unwrap();
-        let mut args = borsh::to_vec(&self.__args).unwrap();
+        let mut data = InitializeReserveInstructionData::new()
+            .try_to_vec()
+            .unwrap();
+        let mut args = self.__args.try_to_vec().unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {
