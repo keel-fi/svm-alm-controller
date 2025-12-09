@@ -10,7 +10,6 @@ use crate::generated::types::CctpBridgeConfig;
 use crate::generated::types::DriftConfig;
 use crate::generated::types::KaminoConfig;
 use crate::generated::types::LzBridgeConfig;
-use crate::generated::types::PsmSwapConfig;
 use crate::generated::types::SplTokenExternalConfig;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
@@ -28,5 +27,4 @@ pub enum IntegrationConfig {
     AtomicSwap(AtomicSwapConfig),
     Drift(DriftConfig),
     Kamino(KaminoConfig),
-    PsmSwap(PsmSwapConfig),
 }

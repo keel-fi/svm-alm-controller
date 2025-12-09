@@ -36,8 +36,6 @@ import {
   getKaminoConfigEncoder,
   getLzBridgeConfigDecoder,
   getLzBridgeConfigEncoder,
-  getPsmSwapConfigDecoder,
-  getPsmSwapConfigEncoder,
   getSplTokenExternalConfigDecoder,
   getSplTokenExternalConfigEncoder,
   type AtomicSwapConfig,
@@ -50,8 +48,6 @@ import {
   type KaminoConfigArgs,
   type LzBridgeConfig,
   type LzBridgeConfigArgs,
-  type PsmSwapConfig,
-  type PsmSwapConfigArgs,
   type SplTokenExternalConfig,
   type SplTokenExternalConfigArgs,
 } from '.';
@@ -63,8 +59,7 @@ export type IntegrationConfig =
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeConfig] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfig] }
   | { __kind: 'Drift'; fields: readonly [DriftConfig] }
-  | { __kind: 'Kamino'; fields: readonly [KaminoConfig] }
-  | { __kind: 'PsmSwap'; fields: readonly [PsmSwapConfig] };
+  | { __kind: 'Kamino'; fields: readonly [KaminoConfig] };
 
 export type IntegrationConfigArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
@@ -76,8 +71,7 @@ export type IntegrationConfigArgs =
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeConfigArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapConfigArgs] }
   | { __kind: 'Drift'; fields: readonly [DriftConfigArgs] }
-  | { __kind: 'Kamino'; fields: readonly [KaminoConfigArgs] }
-  | { __kind: 'PsmSwap'; fields: readonly [PsmSwapConfigArgs] };
+  | { __kind: 'Kamino'; fields: readonly [KaminoConfigArgs] };
 
 export function getIntegrationConfigEncoder(): FixedSizeEncoder<IntegrationConfigArgs> {
   return getDiscriminatedUnionEncoder([
@@ -119,12 +113,6 @@ export function getIntegrationConfigEncoder(): FixedSizeEncoder<IntegrationConfi
       'Kamino',
       getStructEncoder([
         ['fields', getTupleEncoder([getKaminoConfigEncoder()])],
-      ]),
-    ],
-    [
-      'PsmSwap',
-      getStructEncoder([
-        ['fields', getTupleEncoder([getPsmSwapConfigEncoder()])],
       ]),
     ],
   ]) as FixedSizeEncoder<IntegrationConfigArgs>;
@@ -170,12 +158,6 @@ export function getIntegrationConfigDecoder(): FixedSizeDecoder<IntegrationConfi
       'Kamino',
       getStructDecoder([
         ['fields', getTupleDecoder([getKaminoConfigDecoder()])],
-      ]),
-    ],
-    [
-      'PsmSwap',
-      getStructDecoder([
-        ['fields', getTupleDecoder([getPsmSwapConfigDecoder()])],
       ]),
     ],
   ]) as FixedSizeDecoder<IntegrationConfig>;
@@ -252,14 +234,6 @@ export function integrationConfig(
     'Kamino'
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationConfigArgs, '__kind', 'Kamino'>;
-export function integrationConfig(
-  kind: 'PsmSwap',
-  data: GetDiscriminatedUnionVariantContent<
-    IntegrationConfigArgs,
-    '__kind',
-    'PsmSwap'
-  >['fields']
-): GetDiscriminatedUnionVariant<IntegrationConfigArgs, '__kind', 'PsmSwap'>;
 export function integrationConfig<
   K extends IntegrationConfigArgs['__kind'],
   Data,

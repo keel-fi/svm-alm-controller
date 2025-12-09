@@ -7,7 +7,6 @@ pub mod oracle;
 pub mod permission;
 pub mod reserve;
 pub mod spl_token;
-pub mod psm_swap;
 
 pub use airdrop_lamports::*;
 pub use atomic_swap::*;
@@ -17,4 +16,3 @@ pub use kamino::*;
 pub use permission::*;
 pub use reserve::*;
 pub use spl_token::*;
-pub use psm_swap::*;
