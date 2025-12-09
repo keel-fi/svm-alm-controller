@@ -6713,7 +6713,6 @@ dependencies = [
  "bytemuck",
  "num-derive",
  "num-traits",
- "psm-client",
  "sha2-const-stable",
  "solana-account-info",
  "solana-cpi",

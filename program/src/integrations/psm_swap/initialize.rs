@@ -8,7 +8,7 @@ use crate::{
     instructions::InitializeIntegrationArgs,
     integrations::psm_swap::{
         config::PsmSwapConfig,
-        constants::PSM_SWAP_PROGRAM_ID,
+        constants::PSM_SWAP_PROGRAM,
         psm_swap_state::{PsmPool, Token},
         state::PsmSwapState,
     },
@@ -17,8 +17,8 @@ use crate::{
 
 define_account_struct! {
     pub struct InitializePsmSwapAccounts<'info> {
-        psm_pool: @owner(PSM_SWAP_PROGRAM_ID);
-        psm_token: @owner(PSM_SWAP_PROGRAM_ID);
+        psm_pool: @owner(PSM_SWAP_PROGRAM);
+        psm_token: @owner(PSM_SWAP_PROGRAM);
         psm_token_vault: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
         mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
     }
@@ -32,10 +32,12 @@ impl<'info> InitializePsmSwapAccounts<'info> {
         let ctx = InitializePsmSwapAccounts::from_accounts(account_infos)?;
 
         let psm_token_data = ctx.psm_token.try_borrow_data()?;
-        let psm_token = Token::try_from_slice(&psm_token_data)?;
+        let psm_token =
+            Token::try_from_slice(&psm_token_data).map_err(|_| ProgramError::InvalidAccountData)?;
 
         let psm_pool_data = ctx.psm_pool.try_borrow_data()?;
-        let psm_pool = PsmPool::try_from_slice(&psm_pool_data)?;
+        let psm_pool = PsmPool::try_from_slice(&psm_pool_data)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
 
         // Validate the controller_authority is pool.liquidity_owner
         if psm_pool.liquidity_owner.ne(controller_authority.key()) {
