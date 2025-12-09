@@ -5,9 +5,9 @@ pub mod integration;
 pub mod kamino;
 pub mod oracle;
 pub mod permission;
-pub mod psm_swap;
 pub mod reserve;
 pub mod spl_token;
+pub mod psm_swap;
 
 pub use airdrop_lamports::*;
 pub use atomic_swap::*;
@@ -15,6 +15,6 @@ pub use controller::*;
 pub use integration::*;
 pub use kamino::*;
 pub use permission::*;
-pub use psm_swap::*;
 pub use reserve::*;
 pub use spl_token::*;
+pub use psm_swap::*;

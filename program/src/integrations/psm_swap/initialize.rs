@@ -3,16 +3,16 @@ use pinocchio::{account_info::AccountInfo, msg, program_error::ProgramError};
 use pinocchio_token_interface::TokenAccount;
 
 use crate::{
-    define_account_struct,
-    enums::{IntegrationConfig, IntegrationState},
-    instructions::InitializeIntegrationArgs,
+    define_account_struct, 
+    enums::{IntegrationConfig, IntegrationState}, 
+    instructions::InitializeIntegrationArgs, 
     integrations::psm_swap::{
-        config::PsmSwapConfig,
-        constants::PSM_SWAP_PROGRAM,
-        psm_swap_state::{PsmPool, Token},
-        state::PsmSwapState,
-    },
-    processor::InitializeIntegrationAccounts,
+        config::PsmSwapConfig, 
+        constants::PSM_SWAP_PROGRAM, 
+        psm_swap_state::{Token, PsmPool}, 
+        state::PsmSwapState
+    }, 
+    processor::InitializeIntegrationAccounts
 };
 
 define_account_struct! {
@@ -24,7 +24,7 @@ define_account_struct! {
     }
 }
 
-impl<'info> InitializePsmSwapAccounts<'info> {
+impl<'info> InitializePsmSwapAccounts<'info>{
     pub fn checked_from_accounts(
         account_infos: &'info [AccountInfo],
         controller_authority: &'info AccountInfo,
@@ -32,8 +32,8 @@ impl<'info> InitializePsmSwapAccounts<'info> {
         let ctx = InitializePsmSwapAccounts::from_accounts(account_infos)?;
 
         let psm_token_data = ctx.psm_token.try_borrow_data()?;
-        let psm_token =
-            Token::try_from_slice(&psm_token_data).map_err(|_| ProgramError::InvalidAccountData)?;
+        let psm_token = Token::try_from_slice(&psm_token_data)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
 
         let psm_pool_data = ctx.psm_pool.try_borrow_data()?;
         let psm_pool = PsmPool::try_from_slice(&psm_pool_data)
@@ -66,14 +66,12 @@ impl<'info> InitializePsmSwapAccounts<'info> {
 
 pub fn process_initialize_psm_swap(
     outer_ctx: &InitializeIntegrationAccounts,
-    _outer_args: &InitializeIntegrationArgs,
+    _outer_args: &InitializeIntegrationArgs
 ) -> Result<(IntegrationConfig, IntegrationState), ProgramError> {
     msg!("process_initialize_psm_swap");
 
-    let inner_ctx = InitializePsmSwapAccounts::checked_from_accounts(
-        outer_ctx.remaining_accounts,
-        outer_ctx.controller_authority,
-    )?;
+    let inner_ctx 
+        = InitializePsmSwapAccounts::checked_from_accounts(outer_ctx.remaining_accounts, outer_ctx.controller_authority)?;
 
     // load the psm_token Vault, since it could have an opening balance
     let liquidity_vault = TokenAccount::from_account_info(inner_ctx.psm_token_vault)?;
@@ -84,13 +82,13 @@ pub fn process_initialize_psm_swap(
         psm_token: *inner_ctx.psm_token.key(),
         psm_pool: *inner_ctx.psm_pool.key(),
         mint: *inner_ctx.mint.key(),
-        _padding: [0; 128],
+        _padding: [0; 128]
     });
 
     // Create the initial integration state
     let state = IntegrationState::PsmSwap(PsmSwapState {
         liquidity_supplied: vault_balance,
-        _padding: [0; 40],
+        _padding: [0; 40]
     });
 
     Ok((config, state))
