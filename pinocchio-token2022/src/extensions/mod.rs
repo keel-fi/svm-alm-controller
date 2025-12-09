@@ -3,7 +3,6 @@ use crate::{
     state::{Mint, TokenAccount},
 };
 
-pub mod default_account_state;
 pub mod pausable;
 pub mod transfer_fee;
 pub mod transfer_hook;
