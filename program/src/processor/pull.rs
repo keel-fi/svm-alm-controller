@@ -6,10 +6,7 @@ use crate::{
     enums::{IntegrationStatus, PermissionStatus, ReserveStatus},
     error::SvmAlmControllerErrors,
     instructions::PullArgs,
-    integrations::{
-        drift::pull::process_pull_drift, kamino::pull::process_pull_kamino,
-        psm_swap::pull::process_pull_psm_swap,
-    },
+    integrations::{drift::pull::process_pull_drift, kamino::pull::process_pull_kamino},
     state::{keel_account::KeelAccount, Controller, Integration, Permission, Reserve},
 };
 use borsh::BorshDeserialize;
@@ -96,16 +93,6 @@ pub fn process_pull(
         }
         PullArgs::Drift { .. } => {
             process_pull_drift(
-                &controller,
-                &permission,
-                &mut integration,
-                &mut reserve_a,
-                &ctx,
-                &args,
-            )?;
-        }
-        PullArgs::PsmSwap { .. } => {
-            process_pull_psm_swap(
                 &controller,
                 &permission,
                 &mut integration,

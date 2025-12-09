@@ -1,23 +1,91 @@
+use account_zerocopy_deserialize::AccountZerocopyDeserialize;
 use pinocchio::{
+    account_info::AccountInfo,
     instruction::{Seed, Signer},
     msg,
     program_error::ProgramError,
+    pubkey::Pubkey,
     sysvars::{clock::Clock, Sysvar},
 };
 use pinocchio_token_interface::TokenAccount;
 
 use crate::{
     constants::CONTROLLER_AUTHORITY_SEED,
-    enums::IntegrationState,
+    define_account_struct,
+    enums::{IntegrationConfig, IntegrationState},
     events::{AccountingAction, AccountingDirection, AccountingEvent, SvmAlmControllerEvent},
     instructions::PushArgs,
     integrations::psm_swap::{
-        cpi::AddLiquidityToPsmToken, push_pull_accounts::PushPullPsmSwapAccounts,
+        constants::PSM_SWAP_PROGRAM_ID,
+        cpi::AddLiquidityToPsmToken,
+        psm_swap_state::{PsmPool, Token},
         shared_sync::sync_psm_liquidity_supplied,
     },
     processor::PushAccounts,
     state::{Controller, Integration, Permission, Reserve},
 };
+
+define_account_struct! {
+    pub struct PushPsmSwapAccounts<'info> {
+        psm_pool: @owner(PSM_SWAP_PROGRAM_ID);
+        psm_token: @owner(PSM_SWAP_PROGRAM_ID);
+        psm_token_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        mint: @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        reserve_vault: mut @owner(pinocchio_token::ID, pinocchio_token2022::ID);
+        token_program: @pubkey(pinocchio_token::ID, pinocchio_token2022::ID);
+        associated_token_program: @pubkey(pinocchio_associated_token_account::ID);
+        psm_swap_program: @pubkey(PSM_SWAP_PROGRAM_ID);
+    }
+}
+
+impl<'info> PushPsmSwapAccounts<'info> {
+    pub fn checked_from_accounts(
+        controller_authority: &Pubkey,
+        config: &IntegrationConfig,
+        account_infos: &'info [AccountInfo],
+        reserve: &Reserve,
+    ) -> Result<Self, ProgramError> {
+        let ctx = PushPsmSwapAccounts::from_accounts(account_infos)?;
+        let config = match config {
+            IntegrationConfig::PsmSwap(psm_config) => psm_config,
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
+
+        config.check_accounts(ctx.psm_token, ctx.psm_pool, ctx.mint)?;
+
+        // validate reserve matches mint
+        if reserve.mint.ne(ctx.mint.key()) {
+            msg!("mint: does not match reserve");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        // validate token_program is correct
+        if ctx.token_program.key().ne(ctx.mint.owner()) {
+            msg! {"token_program: mismatch with mint"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        // validate psm_pool.liquidity_owner is controller authority
+        let psm_pool_data = ctx.psm_pool.try_borrow_data()?;
+        let psm_pool = PsmPool::try_from_slice(&psm_pool_data)?;
+
+        if psm_pool.liquidity_owner.ne(controller_authority) {
+            msg! {"psm_pool: mismatch with controller_authority"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        // validate psm_token_vault matches the psm_token
+        let psm_token_data = ctx.psm_token.try_borrow_data()?;
+        let psm_token = Token::try_from_slice(&psm_token_data)?;
+
+        if psm_token.vault.ne(ctx.psm_token_vault.key()) {
+            msg! {"psm_token_vault: mismatch with psm_token"};
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        Ok(ctx)
+    }
+}
 
 pub fn process_push_psm_swap(
     controller: &Controller,
@@ -47,7 +115,7 @@ pub fn process_push_psm_swap(
         return Err(ProgramError::IncorrectAuthority);
     }
 
-    let inner_ctx = PushPullPsmSwapAccounts::checked_from_accounts(
+    let inner_ctx = PushPsmSwapAccounts::checked_from_accounts(
         outer_ctx.controller_authority.key(),
         &integration.config,
         outer_ctx.remaining_accounts,
