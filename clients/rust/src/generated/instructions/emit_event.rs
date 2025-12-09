@@ -33,8 +33,8 @@ impl EmitEvent {
             true,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let mut data = EmitEventInstructionData::new().try_to_vec().unwrap();
-        let mut args = args.try_to_vec().unwrap();
+        let mut data = borsh::to_vec(&EmitEventInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&args).unwrap();
         data.append(&mut args);
 
         solana_instruction::Instruction {
@@ -55,10 +55,6 @@ impl EmitEventInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 0 }
     }
-
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
 }
 
 impl Default for EmitEventInstructionData {
@@ -72,12 +68,6 @@ impl Default for EmitEventInstructionData {
 pub struct EmitEventInstructionArgs {
     pub controller_id: [u8; 2],
     pub data: Vec<u8>,
-}
-
-impl EmitEventInstructionArgs {
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
 }
 
 /// Instruction builder for `EmitEvent`.
@@ -206,8 +196,8 @@ impl<'a, 'b> EmitEventCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let mut data = EmitEventInstructionData::new().try_to_vec().unwrap();
-        let mut args = self.__args.try_to_vec().unwrap();
+        let mut data = borsh::to_vec(&EmitEventInstructionData::new()).unwrap();
+        let mut args = borsh::to_vec(&self.__args).unwrap();
         data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {

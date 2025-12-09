@@ -62,7 +62,7 @@ impl ClaimRent {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let data = ClaimRentInstructionData::new().try_to_vec().unwrap();
+        let data = borsh::to_vec(&ClaimRentInstructionData::new()).unwrap();
 
         solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,
@@ -81,10 +81,6 @@ pub struct ClaimRentInstructionData {
 impl ClaimRentInstructionData {
     pub fn new() -> Self {
         Self { discriminator: 18 }
-    }
-
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
     }
 }
 
@@ -290,7 +286,7 @@ impl<'a, 'b> ClaimRentCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = ClaimRentInstructionData::new().try_to_vec().unwrap();
+        let data = borsh::to_vec(&ClaimRentInstructionData::new()).unwrap();
 
         let instruction = solana_instruction::Instruction {
             program_id: crate::SVM_ALM_CONTROLLER_ID,

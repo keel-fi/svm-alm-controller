@@ -12,8 +12,6 @@ use spl_associated_token_account_client::program::ID as ASSOCIATED_TOKEN_PROGRAM
 use spl_token::ID as TOKEN_PROGRAM_ID;
 use spl_token_2022::ID as TOKEN_2022_ID;
 
-use crate::helpers::get_keel_deployer_kp;
-
 /// Initialize a PSM pool and add a single active token with default limits
 pub fn setup_pool_with_token(
     svm: &mut LiteSVM,
@@ -31,18 +29,16 @@ pub fn setup_pool_with_token(
     let pricing_authority1_keypair = Keypair::new();
     let pricing_authority2_keypair = Keypair::new();
     let pricing_authority3_keypair = Keypair::new();
-    let config_authority_keypair = get_keel_deployer_kp();
 
-    svm.airdrop(&config_authority_keypair.pubkey(), 10_000_000_000)
+    svm.airdrop(&payer_keypair.pubkey(), 10_000_000_000)
         .unwrap();
 
     let salt = 0u16;
     let (pool_pda, _bump) = derive_psm_pool_pda(salt);
 
     let instruction = create_initialize_pool_instruction(
-        config_authority_keypair.pubkey(),
-        config_authority_keypair.pubkey(),
-        config_authority_keypair.pubkey(),
+        payer_keypair.pubkey(),
+        payer_keypair.pubkey(),
         freeze_authority_keypair.pubkey(),
         pricing_authority1_keypair.pubkey(),
         pricing_authority2_keypair.pubkey(),
@@ -55,8 +51,8 @@ pub fn setup_pool_with_token(
     let blockhash = svm.latest_blockhash();
     let transaction = Transaction::new_signed_with_payer(
         &[instruction],
-        Some(&config_authority_keypair.insecure_clone().pubkey()),
-        &[config_authority_keypair.insecure_clone()],
+        Some(&payer_keypair.insecure_clone().pubkey()),
+        &[payer_keypair.insecure_clone()],
         blockhash,
     );
     svm.send_transaction(transaction).unwrap();
@@ -78,8 +74,8 @@ pub fn setup_pool_with_token(
         get_associated_token_address_with_program_id(&pool_pda, mint_pubkey, &token_program);
 
     let token_instruction = create_add_token_instruction(
-        config_authority_keypair.pubkey(),
-        config_authority_keypair.pubkey(),
+        payer_keypair.pubkey(),
+        payer_keypair.pubkey(),
         pool_pda,
         token_pda,
         *mint_pubkey,
@@ -95,8 +91,8 @@ pub fn setup_pool_with_token(
     let blockhash = svm.latest_blockhash();
     let transaction = Transaction::new_signed_with_payer(
         &[token_instruction],
-        Some(&config_authority_keypair.insecure_clone().pubkey()),
-        &[config_authority_keypair.insecure_clone()],
+        Some(&payer_keypair.insecure_clone().pubkey()),
+        &[payer_keypair.insecure_clone()],
         blockhash,
     );
     svm.send_transaction(transaction).unwrap();

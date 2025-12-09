@@ -63,7 +63,7 @@ syn = "2.0.108"
 quote = "1.0.41"
 hex = "0.4"
 switchboard-on-demand = "0.3.8"
-psm-client = { git = "ssh://git@github.com/keel-fi/psm-ssr-oracle.git", package = "psm-client", rev = "0dfdf64a3bcf57af8ee9b1ccbbc79a3fda085672" }
+psm-client = { git = "ssh://git@github.com/keel-fi/psm-ssr-oracle.git", package = "psm-client", rev = "5f21672214c39d4149f8459be20a8ca493e030d1" }
 oft-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "oft-client" }
 endpoint-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "endpoint-client" }
 uln-client = { git = "https://github.com/keel-fi/lz-rust-client", branch = "mods", package = "uln-client" }
