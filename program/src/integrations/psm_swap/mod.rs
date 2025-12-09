@@ -6,4 +6,3 @@ pub mod psm_swap_state;
 pub mod push;
 pub mod shared_sync;
 pub mod state;
-pub mod sync;
