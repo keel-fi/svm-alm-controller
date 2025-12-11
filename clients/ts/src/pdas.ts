@@ -1,5 +1,4 @@
 import {
-  address,
   Address,
   getAddressEncoder,
   getProgramDerivedAddress,
@@ -15,7 +14,7 @@ export const deriveIntegrationPda = async (
 
   // Derive the integration PDA using the integration hash
   const [integrationPda] = await getProgramDerivedAddress({
-    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
+    programAddress: SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
     seeds: ["integration", addressEncoder.encode(controller), integrationHash],
   });
 
@@ -24,7 +23,7 @@ export const deriveIntegrationPda = async (
 
 export const deriveControllerPda = async (id: number) => {
   const [controllerPda] = await getProgramDerivedAddress({
-    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
+    programAddress: SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
     seeds: ["controller", Buffer.from(new Uint16Array([id]).buffer)],
   });
 
@@ -35,8 +34,8 @@ export const deriveControllerAuthorityPda = async (controller: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [controllerAuthorityPda] = await getProgramDerivedAddress({
-    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
-    seeds: ["controller_authority", addressEncoder.encode(address(controller))],
+    programAddress: SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
+    seeds: ["controller_authority", addressEncoder.encode(controller)],
   });
 
   return controllerAuthorityPda;
@@ -49,11 +48,11 @@ export const derivePermissionPda = async (
   const addressEncoder = getAddressEncoder();
 
   const [permissionPda] = await getProgramDerivedAddress({
-    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
+    programAddress: SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
     seeds: [
       "permission",
-      addressEncoder.encode(address(controller)),
-      addressEncoder.encode(address(authority)),
+      addressEncoder.encode(controller),
+      addressEncoder.encode(authority),
     ],
   });
 
@@ -64,11 +63,11 @@ export const deriveReservePda = async (controller: Address, mint: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [reservePda] = await getProgramDerivedAddress({
-    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
+    programAddress: SVM_ALM_CONTROLLER_PROGRAM_ADDRESS,
     seeds: [
       "reserve",
-      addressEncoder.encode(address(controller)),
-      addressEncoder.encode(address(mint)),
+      addressEncoder.encode(controller),
+      addressEncoder.encode(mint),
     ],
   });
 
