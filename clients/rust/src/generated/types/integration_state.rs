@@ -9,7 +9,6 @@ use crate::generated::types::AtomicSwapState;
 use crate::generated::types::CctpBridgeState;
 use crate::generated::types::LendingState;
 use crate::generated::types::LzBridgeState;
-use crate::generated::types::PsmSwapState;
 use crate::generated::types::SplTokenExternalState;
 use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
@@ -27,5 +26,4 @@ pub enum IntegrationState {
     AtomicSwap(AtomicSwapState),
     Drift(LendingState),
     Kamino(LendingState),
-    PsmSwap(PsmSwapState),
 }

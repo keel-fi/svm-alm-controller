@@ -61,40 +61,14 @@ pub fn initialize_reserve(
     rate_limit_max_outflow: u64,
     token_program: &Pubkey,
 ) -> Result<ReserveKeys, Box<dyn Error>> {
-    let controller_authority = derive_controller_authority_pda(controller);
-    let vault =
-        get_associated_token_address_with_program_id(&controller_authority, mint, token_program);
-    initialize_reserve_with_vault(
-        svm,
-        controller,
-        mint,
-        payer,
-        authority,
-        status,
-        rate_limit_slope,
-        rate_limit_max_outflow,
-        token_program,
-        &vault,
-    )
-}
-
-pub fn initialize_reserve_with_vault(
-    svm: &mut LiteSVM,
-    controller: &Pubkey,
-    mint: &Pubkey,
-    payer: &Keypair,
-    authority: &Keypair,
-    status: ReserveStatus,
-    rate_limit_slope: u64,
-    rate_limit_max_outflow: u64,
-    token_program: &Pubkey,
-    vault: &Pubkey,
-) -> Result<ReserveKeys, Box<dyn Error>> {
     let calling_permission_pda: Pubkey = derive_permission_pda(controller, &authority.pubkey());
 
     let reserve_pda = derive_reserve_pda(controller, mint);
 
     let controller_authority = derive_controller_authority_pda(controller);
+
+    let vault =
+        get_associated_token_address_with_program_id(&controller_authority, mint, token_program);
 
     let reserve_before =
         fetch_reserve_account(svm, &reserve_pda).expect("Failed to fetch reserve account");
@@ -110,7 +84,7 @@ pub fn initialize_reserve_with_vault(
         .permission(calling_permission_pda)
         .reserve(reserve_pda)
         .mint(*mint)
-        .vault(*vault)
+        .vault(vault)
         .token_program(*token_program)
         .associated_token_program(pinocchio_associated_token_account::ID.into())
         .program_id(svm_alm_controller_client::SVM_ALM_CONTROLLER_ID)
@@ -157,7 +131,7 @@ pub fn initialize_reserve_with_vault(
         "Controller does not match expected value"
     );
     assert_eq!(reserve.mint, *mint, "Mint does not match expected value");
-    assert_eq!(reserve.vault, *vault, "Vault does not match expected value");
+    assert_eq!(reserve.vault, vault, "Vault does not match expected value");
 
     // assert expected event was emited
     let expected_event = SvmAlmControllerEvent::ReserveUpdate(ReserveUpdateEvent {
@@ -175,7 +149,7 @@ pub fn initialize_reserve_with_vault(
 
     Ok(ReserveKeys {
         pubkey: reserve_pda,
-        vault: *vault,
+        vault,
     })
 }
 

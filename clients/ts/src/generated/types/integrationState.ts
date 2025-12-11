@@ -34,8 +34,6 @@ import {
   getLendingStateEncoder,
   getLzBridgeStateDecoder,
   getLzBridgeStateEncoder,
-  getPsmSwapStateDecoder,
-  getPsmSwapStateEncoder,
   getSplTokenExternalStateDecoder,
   getSplTokenExternalStateEncoder,
   type AtomicSwapState,
@@ -46,8 +44,6 @@ import {
   type LendingStateArgs,
   type LzBridgeState,
   type LzBridgeStateArgs,
-  type PsmSwapState,
-  type PsmSwapStateArgs,
   type SplTokenExternalState,
   type SplTokenExternalStateArgs,
 } from '.';
@@ -59,8 +55,7 @@ export type IntegrationState =
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeState] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapState] }
   | { __kind: 'Drift'; fields: readonly [LendingState] }
-  | { __kind: 'Kamino'; fields: readonly [LendingState] }
-  | { __kind: 'PsmSwap'; fields: readonly [PsmSwapState] };
+  | { __kind: 'Kamino'; fields: readonly [LendingState] };
 
 export type IntegrationStateArgs =
   | { __kind: 'Undefined'; padding: ReadonlyUint8Array }
@@ -69,8 +64,7 @@ export type IntegrationStateArgs =
   | { __kind: 'LzBridge'; fields: readonly [LzBridgeStateArgs] }
   | { __kind: 'AtomicSwap'; fields: readonly [AtomicSwapStateArgs] }
   | { __kind: 'Drift'; fields: readonly [LendingStateArgs] }
-  | { __kind: 'Kamino'; fields: readonly [LendingStateArgs] }
-  | { __kind: 'PsmSwap'; fields: readonly [PsmSwapStateArgs] };
+  | { __kind: 'Kamino'; fields: readonly [LendingStateArgs] };
 
 export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateArgs> {
   return getDiscriminatedUnionEncoder([
@@ -112,12 +106,6 @@ export function getIntegrationStateEncoder(): FixedSizeEncoder<IntegrationStateA
       'Kamino',
       getStructEncoder([
         ['fields', getTupleEncoder([getLendingStateEncoder()])],
-      ]),
-    ],
-    [
-      'PsmSwap',
-      getStructEncoder([
-        ['fields', getTupleEncoder([getPsmSwapStateEncoder()])],
       ]),
     ],
   ]) as FixedSizeEncoder<IntegrationStateArgs>;
@@ -163,12 +151,6 @@ export function getIntegrationStateDecoder(): FixedSizeDecoder<IntegrationState>
       'Kamino',
       getStructDecoder([
         ['fields', getTupleDecoder([getLendingStateDecoder()])],
-      ]),
-    ],
-    [
-      'PsmSwap',
-      getStructDecoder([
-        ['fields', getTupleDecoder([getPsmSwapStateDecoder()])],
       ]),
     ],
   ]) as FixedSizeDecoder<IntegrationState>;
@@ -245,14 +227,6 @@ export function integrationState(
     'Kamino'
   >['fields']
 ): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'Kamino'>;
-export function integrationState(
-  kind: 'PsmSwap',
-  data: GetDiscriminatedUnionVariantContent<
-    IntegrationStateArgs,
-    '__kind',
-    'PsmSwap'
-  >['fields']
-): GetDiscriminatedUnionVariant<IntegrationStateArgs, '__kind', 'PsmSwap'>;
 export function integrationState<
   K extends IntegrationStateArgs['__kind'],
   Data,

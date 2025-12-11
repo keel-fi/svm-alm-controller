@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "0.1.0",
   "name": "svm_alm_controller",
   "instructions": [
     {
@@ -2249,56 +2249,6 @@
       }
     },
     {
-      "name": "PsmSwapConfig",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "psmToken",
-            "type": "publicKey"
-          },
-          {
-            "name": "psmPool",
-            "type": "publicKey"
-          },
-          {
-            "name": "mint",
-            "type": "publicKey"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                128
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "PsmSwapState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "liquiditySupplied",
-            "type": "u64"
-          },
-          {
-            "name": "padding",
-            "type": {
-              "array": [
-                "u8",
-                40
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "LendingState",
       "type": {
         "kind": "struct",
@@ -2480,14 +2430,6 @@
                 "defined": "KaminoConfig"
               }
             ]
-          },
-          {
-            "name": "PsmSwap",
-            "fields": [
-              {
-                "defined": "PsmSwapConfig"
-              }
-            ]
           }
         ]
       }
@@ -2558,14 +2500,6 @@
                 "defined": "LendingState"
               }
             ]
-          },
-          {
-            "name": "PsmSwap",
-            "fields": [
-              {
-                "defined": "PsmSwapState"
-              }
-            ]
           }
         ]
       }
@@ -2606,9 +2540,6 @@
           },
           {
             "name": "Kamino"
-          },
-          {
-            "name": "PsmSwap"
           }
         ]
       }
@@ -2813,9 +2744,6 @@
                 "type": "u8"
               }
             ]
-          },
-          {
-            "name": "PsmSwap"
           }
         ]
       }
@@ -2873,15 +2801,6 @@
                 "type": "u64"
               }
             ]
-          },
-          {
-            "name": "PsmSwap",
-            "fields": [
-              {
-                "name": "amount",
-                "type": "u64"
-              }
-            ]
           }
         ]
       }
@@ -2916,15 +2835,6 @@
                 "name": "spot_market_index",
                 "type": "u16"
               },
-              {
-                "name": "amount",
-                "type": "u64"
-              }
-            ]
-          },
-          {
-            "name": "PsmSwap",
-            "fields": [
               {
                 "name": "amount",
                 "type": "u64"

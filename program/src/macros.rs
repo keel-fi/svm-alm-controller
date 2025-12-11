@@ -367,7 +367,7 @@ macro_rules! cpi_instruction {
         // IMPL BLOCK GENERATION
         // ====================================================================
         impl<$lifetime> $name<$lifetime> {
-            pub const DISCRIMINATOR: &'static [u8] = &$discriminator;
+            pub const DISCRIMINATOR: [u8; 8] = $discriminator;
 
             #[inline(always)]
             pub fn invoke(&self) -> pinocchio::ProgramResult {
@@ -403,7 +403,7 @@ macro_rules! cpi_instruction {
                     account_infos.extend(self.$remaining_accounts_name.iter());
                 )?
 
-                let data = cpi_instruction!(@data self, Self::DISCRIMINATOR $(, $($arg_name),*)?);
+                let data = cpi_instruction!(@data self, $discriminator $(, $($arg_name),*)?);
 
                 let ix = pinocchio::instruction::Instruction {
                     program_id: &$program_id,

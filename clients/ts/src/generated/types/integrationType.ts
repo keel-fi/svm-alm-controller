@@ -22,7 +22,6 @@ export enum IntegrationType {
   AtomicSwap,
   Drift,
   Kamino,
-  PsmSwap,
 }
 
 export type IntegrationTypeArgs = IntegrationType;

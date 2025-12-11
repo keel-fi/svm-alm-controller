@@ -52,8 +52,7 @@ export type InitializeArgs =
       oraclePriceInverted: boolean;
     }
   | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number }
-  | { __kind: 'KaminoIntegration'; obligationId: number }
-  | { __kind: 'PsmSwap' };
+  | { __kind: 'KaminoIntegration'; obligationId: number };
 
 export type InitializeArgsArgs =
   | { __kind: 'SplTokenExternal' }
@@ -71,8 +70,7 @@ export type InitializeArgsArgs =
       oraclePriceInverted: boolean;
     }
   | { __kind: 'Drift'; subAccountId: number; spotMarketIndex: number }
-  | { __kind: 'KaminoIntegration'; obligationId: number }
-  | { __kind: 'PsmSwap' };
+  | { __kind: 'KaminoIntegration'; obligationId: number };
 
 export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
   return getDiscriminatedUnionEncoder([
@@ -108,7 +106,6 @@ export function getInitializeArgsEncoder(): Encoder<InitializeArgsArgs> {
       ]),
     ],
     ['KaminoIntegration', getStructEncoder([['obligationId', getU8Encoder()]])],
-    ['PsmSwap', getUnitEncoder()],
   ]);
 }
 
@@ -146,7 +143,6 @@ export function getInitializeArgsDecoder(): Decoder<InitializeArgs> {
       ]),
     ],
     ['KaminoIntegration', getStructDecoder([['obligationId', getU8Decoder()]])],
-    ['PsmSwap', getUnitDecoder()],
   ]);
 }
 
@@ -209,9 +205,6 @@ export function initializeArgs(
   '__kind',
   'KaminoIntegration'
 >;
-export function initializeArgs(
-  kind: 'PsmSwap'
-): GetDiscriminatedUnionVariant<InitializeArgsArgs, '__kind', 'PsmSwap'>;
 export function initializeArgs<K extends InitializeArgsArgs['__kind'], Data>(
   kind: K,
   data?: Data
