@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, fix-ci-med-runner ]
 
 concurrency:
   group: ${{ github.ref }}
@@ -16,7 +16,7 @@ jobs:
 
   test-and-format:
     name: Run Tests and check formatting
-    runs-on: ubuntu-latest
+    runs-on: med-more-disc
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
