@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop, fix-ci-med-runner ]
+    branches: [ main, develop ]
 
 concurrency:
   group: ${{ github.ref }}
