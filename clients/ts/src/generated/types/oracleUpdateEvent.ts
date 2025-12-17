@@ -26,7 +26,7 @@ import {
   getOracleEncoder,
   type Oracle,
   type OracleArgs,
-} from '.';
+} from '../accounts/oracle';
 
 export type OracleUpdateEvent = {
   authority: Address;

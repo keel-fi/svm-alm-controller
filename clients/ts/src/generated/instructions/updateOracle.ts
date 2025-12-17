@@ -35,10 +35,10 @@ import {
 import { SVM_ALM_CONTROLLER_PROGRAM_ADDRESS } from '../programs';
 import { getAccountMetaFactory, type ResolvedAccount } from '../shared';
 import {
-  getFeedArgsDecoder,
-  getFeedArgsEncoder,
+  getFeedDecoder,
+  getFeedEncoder,
+  type Feed,
   type FeedArgs,
-  type FeedArgsArgs,
 } from '../types';
 
 export const UPDATE_ORACLE_DISCRIMINATOR = 13;
@@ -85,18 +85,18 @@ export type UpdateOracleInstruction<
 
 export type UpdateOracleInstructionData = {
   discriminator: number;
-  feedArgs: Option<FeedArgs>;
+  feedArgs: Option<Feed>;
 };
 
 export type UpdateOracleInstructionDataArgs = {
-  feedArgs: OptionOrNullable<FeedArgsArgs>;
+  feedArgs: OptionOrNullable<FeedArgs>;
 };
 
 export function getUpdateOracleInstructionDataEncoder(): Encoder<UpdateOracleInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ['discriminator', getU8Encoder()],
-      ['feedArgs', getOptionEncoder(getFeedArgsEncoder())],
+      ['feedArgs', getOptionEncoder(getFeedEncoder())],
     ]),
     (value) => ({ ...value, discriminator: UPDATE_ORACLE_DISCRIMINATOR })
   );
@@ -105,7 +105,7 @@ export function getUpdateOracleInstructionDataEncoder(): Encoder<UpdateOracleIns
 export function getUpdateOracleInstructionDataDecoder(): Decoder<UpdateOracleInstructionData> {
   return getStructDecoder([
     ['discriminator', getU8Decoder()],
-    ['feedArgs', getOptionDecoder(getFeedArgsDecoder())],
+    ['feedArgs', getOptionDecoder(getFeedDecoder())],
   ]);
 }
 

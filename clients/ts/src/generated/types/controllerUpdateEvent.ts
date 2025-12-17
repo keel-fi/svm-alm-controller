@@ -26,7 +26,7 @@ import {
   getControllerEncoder,
   type Controller,
   type ControllerArgs,
-} from '.';
+} from '../accounts/controller';
 
 export type ControllerUpdateEvent = {
   authority: Address;
