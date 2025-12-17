@@ -26,7 +26,7 @@ import {
   getIntegrationEncoder,
   type Integration,
   type IntegrationArgs,
-} from '.';
+} from '../accounts/integration';
 
 export type IntegrationUpdateEvent = {
   authority: Address;

@@ -26,7 +26,7 @@ import {
   getPermissionEncoder,
   type Permission,
   type PermissionArgs,
-} from '.';
+} from '../accounts/permission';
 
 export type PermissionUpdateEvent = {
   authority: Address;

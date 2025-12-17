@@ -18,7 +18,12 @@ export * from './controllerStatus';
 export * from './controllerUpdateEvent';
 export * from './driftConfig';
 export * from './feed';
-export * from './feedArgs';
+export {
+  getFeedArgsEncoder,
+  getFeedArgsDecoder,
+  getFeedArgsCodec,
+  type FeedArgsArgs,
+} from './feedArgs';
 export * from './initializeArgs';
 export * from './integrationConfig';
 export * from './integrationState';
