@@ -34,6 +34,7 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     ExtensionType::PermanentDelegate,
     ExtensionType::DefaultAccountState,
     ExtensionType::ConfidentialTransferMint,
+    ExtensionType::ConfidentialTransferFeeConfig,
     ExtensionType::ConfidentialMintBurn,
     ExtensionType::MetadataPointer,
     ExtensionType::TokenMetadata,
