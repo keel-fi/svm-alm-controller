@@ -11,7 +11,7 @@ export const DRIFT_PROGRAM_ID =
 /// Derives Drift CPI signer
 export const deriveDriftSigner = async () => {
   const [driftSignerPda] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: ["drift_signer"],
   });
 
@@ -21,7 +21,7 @@ export const deriveDriftSigner = async () => {
 /// Derives Drift CPI signer nonce
 export const deriveDriftSignerNonce = async (): Promise<number> => {
   const [, nonce] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: ["drift_signer"],
   });
 
@@ -31,7 +31,7 @@ export const deriveDriftSignerNonce = async (): Promise<number> => {
 /// Derives State PDA
 export const deriveStatePda = async () => {
   const [statePda] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: ["drift_state"],
   });
 
@@ -43,7 +43,7 @@ export const deriveUserStatsPda = async (authority: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [userStatsPda] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: ["user_stats", addressEncoder.encode(authority)],
   });
 
@@ -58,7 +58,7 @@ export const deriveUserPda = async (
   const addressEncoder = getAddressEncoder();
 
   const [userPda] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: [
       "user",
       addressEncoder.encode(authority),
@@ -72,7 +72,7 @@ export const deriveUserPda = async (
 /// Derives SpotMarket PDA
 export const deriveSpotMarketPda = async (marketIndex: number) => {
   const [spotMarketPda] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: [
       "spot_market",
       Buffer.from(new Uint16Array([marketIndex]).buffer),
@@ -85,7 +85,7 @@ export const deriveSpotMarketPda = async (marketIndex: number) => {
 /// Derives SpotMarket Vault PDA
 export const deriveSpotMarketVaultPda = async (marketIndex: number) => {
   const [spotMarketVaultPda] = await getProgramDerivedAddress({
-    programAddress: address(DRIFT_PROGRAM_ID),
+    programAddress: DRIFT_PROGRAM_ID,
     seeds: [
       "spot_market_vault",
       Buffer.from(new Uint16Array([marketIndex]).buffer),

@@ -11,6 +11,8 @@ export const KAMINO_LEND_PROGRAM_ID =
 export const KAMINO_FARMS_PROGRAM_ID =
   "FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr" as Address;
 
+const DEFAULT_PUBLIC_KEY = address("11111111111111111111111111111111");
+
 /// Derives vanilla obligation address
 export const deriveVanillaObligationAddress = async (
   obligationId: number,
@@ -20,7 +22,7 @@ export const deriveVanillaObligationAddress = async (
   const addressEncoder = getAddressEncoder();
 
   const [obligationPda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_LEND_PROGRAM_ID),
+    programAddress: KAMINO_LEND_PROGRAM_ID,
     seeds: [
       // tag 0 for vanilla obligation
       Buffer.from([0]),
@@ -31,9 +33,9 @@ export const deriveVanillaObligationAddress = async (
       // kamino market
       addressEncoder.encode(market),
       // seed 1, for lending obligation is the token
-      addressEncoder.encode(address("11111111111111111111111111111111")),
+      addressEncoder.encode(DEFAULT_PUBLIC_KEY),
       // seed 2, for lending obligation is the token
-      addressEncoder.encode(address("11111111111111111111111111111111")),
+      addressEncoder.encode(DEFAULT_PUBLIC_KEY),
     ],
   });
 
@@ -48,7 +50,7 @@ export const deriveReserveLiquiditySupply = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_LEND_PROGRAM_ID),
+    programAddress: KAMINO_LEND_PROGRAM_ID,
     seeds: [
       "reserve_liq_supply",
       addressEncoder.encode(market),
@@ -67,7 +69,7 @@ export const deriveReserveCollateralMint = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_LEND_PROGRAM_ID),
+    programAddress: KAMINO_LEND_PROGRAM_ID,
     seeds: [
       "reserve_coll_mint",
       addressEncoder.encode(market),
@@ -86,7 +88,7 @@ export const deriveReserveCollateralSupply = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_LEND_PROGRAM_ID),
+    programAddress: KAMINO_LEND_PROGRAM_ID,
     seeds: [
       "reserve_coll_supply",
       addressEncoder.encode(market),
@@ -117,7 +119,7 @@ export const deriveObligationFarmAddress = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_FARMS_PROGRAM_ID),
+    programAddress: KAMINO_FARMS_PROGRAM_ID,
     seeds: [
       "user",
       addressEncoder.encode(reserveFarm),
@@ -133,7 +135,7 @@ export const deriveUserMetadataAddress = async (user: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [pda, bump] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_LEND_PROGRAM_ID),
+    programAddress: KAMINO_LEND_PROGRAM_ID,
     seeds: ["user_meta", addressEncoder.encode(user)],
   });
 
@@ -148,7 +150,7 @@ export const deriveRewardsVault = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_FARMS_PROGRAM_ID),
+    programAddress: KAMINO_FARMS_PROGRAM_ID,
     seeds: [
       "rvault",
       addressEncoder.encode(farmState),
@@ -167,7 +169,7 @@ export const deriveRewardsTreasuryVault = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_FARMS_PROGRAM_ID),
+    programAddress: KAMINO_FARMS_PROGRAM_ID,
     seeds: [
       "tvault",
       addressEncoder.encode(globalConfig),
@@ -183,7 +185,7 @@ export const deriveFarmVaultsAuthority = async (farmState: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [pda, bump] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_FARMS_PROGRAM_ID),
+    programAddress: KAMINO_FARMS_PROGRAM_ID,
     seeds: ["authority", addressEncoder.encode(farmState)],
   });
 
@@ -197,7 +199,7 @@ export const deriveKFarmsTreasuryVaultAuthority = async (
   const addressEncoder = getAddressEncoder();
 
   const [pda, bump] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_FARMS_PROGRAM_ID),
+    programAddress: KAMINO_FARMS_PROGRAM_ID,
     seeds: ["authority", addressEncoder.encode(globalConfig)],
   });
 
