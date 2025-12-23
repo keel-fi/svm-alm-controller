@@ -1,5 +1,4 @@
 import {
-  address,
   Address,
   getAddressEncoder,
   getProgramDerivedAddress,
@@ -11,7 +10,7 @@ export const KAMINO_LEND_PROGRAM_ID =
 export const KAMINO_FARMS_PROGRAM_ID =
   "FarmsPZpWu9i7Kky8tPN37rs2TpmMrAZrC7S7vJa91Hr" as Address;
 
-const DEFAULT_PUBLIC_KEY = address("11111111111111111111111111111111");
+const DEFAULT_PUBLIC_KEY = "11111111111111111111111111111111" as Address;
 
 /// Derives vanilla obligation address
 export const deriveVanillaObligationAddress = async (
@@ -104,7 +103,7 @@ export const deriveMarketAuthorityAddress = async (market: Address) => {
   const addressEncoder = getAddressEncoder();
 
   const [pda, bump] = await getProgramDerivedAddress({
-    programAddress: address(KAMINO_LEND_PROGRAM_ID),
+    programAddress: KAMINO_LEND_PROGRAM_ID,
     seeds: ["lma", addressEncoder.encode(market)],
   });
 
