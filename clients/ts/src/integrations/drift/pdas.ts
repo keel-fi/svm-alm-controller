@@ -2,7 +2,6 @@ import {
   address,
   Address,
   getAddressEncoder,
-  getU16Encoder,
   getProgramDerivedAddress,
 } from "@solana/addresses";
 
@@ -63,8 +62,7 @@ export const deriveUserPda = async (
     seeds: [
       "user",
       addressEncoder.encode(authority),
-      getU16Encoder
-      .encode(subAccountId),
+      Buffer.from(new Uint16Array([subAccountId]).buffer),
     ],
   });
 
@@ -77,7 +75,7 @@ export const deriveSpotMarketPda = async (marketIndex: number) => {
     programAddress: DRIFT_PROGRAM_ID,
     seeds: [
       "spot_market",
-      getU16Encoder.encode(marketIndex),
+      Buffer.from(new Uint16Array([marketIndex]).buffer),
     ],
   });
 
@@ -90,7 +88,7 @@ export const deriveSpotMarketVaultPda = async (marketIndex: number) => {
     programAddress: DRIFT_PROGRAM_ID,
     seeds: [
       "spot_market_vault",
-      getU16Encoder.encode(marketIndex),
+      Buffer.from(new Uint16Array([marketIndex]).buffer),
     ],
   });
 
