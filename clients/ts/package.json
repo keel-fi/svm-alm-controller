@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@solana/kit": "^3.0.3",
+    "keccak": "^3.0.4",
     "ws": "^8.18.3"
   },
   "devDependencies": {
