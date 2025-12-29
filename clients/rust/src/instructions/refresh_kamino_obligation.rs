@@ -3,9 +3,6 @@ use solana_pubkey::Pubkey;
 
 use crate::{integrations::utils::anchor_discriminator, KAMINO_LEND_PROGRAM_ID};
 
-/// If obligation has reserves, they need to be added as remaining accounts.
-/// for the sake of simplicity, this method only support obligations with 1 reserve.
-/// TODO: add support for more
 pub fn create_refresh_kamino_obligation_instruction(
     market: &Pubkey,
     obligation: &Pubkey,
