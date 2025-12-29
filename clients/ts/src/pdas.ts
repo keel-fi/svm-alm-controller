@@ -74,3 +74,14 @@ export const deriveReservePda = async (controller: Address, mint: Address) => {
 
   return reservePda;
 };
+
+export const deriveOraclePda = async (nonce: Address) => {
+  const addressEncoder = getAddressEncoder();
+
+  const [oraclePda] = await getProgramDerivedAddress({
+    programAddress: address(SVM_ALM_CONTROLLER_PROGRAM_ADDRESS),
+    seeds: ["oracle", addressEncoder.encode(nonce)],
+  });
+
+  return oraclePda;
+};
