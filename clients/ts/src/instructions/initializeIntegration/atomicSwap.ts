@@ -76,6 +76,9 @@ export async function createAtomicSwapInitializeIntegrationInstruction(
 
   // Encode description to 32 bytes
   const descriptionBytes = new TextEncoder().encode(description);
+  if (descriptionBytes.length > 32) {
+    console.warn(`Description exceeds 32 bytes (${descriptionBytes.length}), truncating`);
+  }
   const descriptionEncoding = new Uint8Array(32);
   descriptionEncoding.set(descriptionBytes.slice(0, 32));
 

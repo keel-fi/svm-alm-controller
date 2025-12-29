@@ -1,8 +1,5 @@
 import { Address, AccountMeta, Instruction, AccountRole } from "@solana/kit";
-import { anchorDiscriminator } from "../integrations";
-
-const KAMINO_LEND_PROGRAM_ID =
-  "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD" as Address;
+import { anchorDiscriminator, kamino } from "../integrations";
 
 export function createRefreshKaminoObligationInstruction(
   market: Address,
@@ -27,7 +24,7 @@ export function createRefreshKaminoObligationInstruction(
   ];
 
   return {
-    programAddress: KAMINO_LEND_PROGRAM_ID,
+    programAddress: kamino.KAMINO_LEND_PROGRAM_ID,
     accounts,
     data,
   };
