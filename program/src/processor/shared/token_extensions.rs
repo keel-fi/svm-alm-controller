@@ -21,7 +21,6 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     ExtensionType::InterestBearingConfig,
     /* Purely UI, so no negative impact on Controller */
     ExtensionType::ScaledUiAmount,
-    /* Tested for integrations */
     ExtensionType::TransferFeeConfig,
     ExtensionType::MintCloseAuthority,
     /*
