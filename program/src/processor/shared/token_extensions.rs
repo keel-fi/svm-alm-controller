@@ -21,7 +21,12 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     ExtensionType::InterestBearingConfig,
     /* Purely UI, so no negative impact on Controller */
     ExtensionType::ScaledUiAmount,
-    /* Tested for integrations */
+    /* 
+    Allowed for certain integrations (SPL External, AtomicSwap),
+    but intentionally blocked by some integrations (LZ OFT Bridge).
+    Some integrations will also fail in their downstream protocols
+    if TransferFeeConfig is setup to be greater than 0 (i.e. Drift/Kamino).
+    */
     ExtensionType::TransferFeeConfig,
     ExtensionType::MintCloseAuthority,
     /*
@@ -34,6 +39,7 @@ pub const VALID_MINT_EXTENSIONS: &[ExtensionType] = &[
     ExtensionType::PermanentDelegate,
     ExtensionType::DefaultAccountState,
     ExtensionType::ConfidentialTransferMint,
+    ExtensionType::ConfidentialTransferFeeConfig,
     ExtensionType::ConfidentialMintBurn,
     ExtensionType::MetadataPointer,
     ExtensionType::TokenMetadata,
